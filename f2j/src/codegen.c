@@ -7049,14 +7049,42 @@ code_one_op_w(enum _opcode op, u2 index)
   u1 this_opcode = op;
   u2 u2BigEndian(u2);
   u2 this_operand = u2BigEndian(index);
-  BOOLEAN is_inv;
+  char *this_desc;
+  CPNODE *c;
+  int numArguments(char *);
 
-  is_inv = (op == jvm_invokeinterface) ||
-           (op == jvm_invokespecial) ||
-           (op == jvm_invokestatic) ||
-           (op == jvm_invokevirtual);
+  /* now we need to determine how many parameters are sitting on the stack */
+  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)) {
+    /* if the opcode is invokespecial or invokevirtual, then there is an
+     * object reference plus parameters on the stack.
+     */
 
-  dec_stack(jvm_opcode[op].stack_pre);
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    dec_stack(numArguments(this_desc) + 1);
+  }
+  else if(op == jvm_invokestatic) {
+    /* else if the opcode is invokestatic, then there is no object reference
+     * on the stack, but there are some parameters sitting on the stack.
+     */
+
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    dec_stack(numArguments(this_desc));
+  }
+  else {
+    /* else we can determine the stack decrement from a table.  */
+    dec_stack(jvm_opcode[op].stack_pre);
+  }
+
   check_code_size(jvm_opcode[op].width);
   memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));

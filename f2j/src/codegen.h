@@ -50,7 +50,7 @@
  * enumeration of all the java opcodes.                                      *
  *****************************************************************************/
 
-enum _opcode {       
+enum _opcode {
   jvm_nop = 0x0,
   jvm_aconst_null,
   jvm_iconst_m1,

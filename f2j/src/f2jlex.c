@@ -756,7 +756,7 @@ open_included_file(char *filename)
   dl_traverse(tmp, include_paths) {
     prefix = (char *)dl_val(tmp);
     full_file = (char *)f2jrealloc(full_file, 
-       strlen(prefix) + strlen(filename) + 1);
+       strlen(prefix) + strlen(filename) + 2);
 
     strcpy(full_file, prefix);
     strcat(full_file, FILE_DELIM);

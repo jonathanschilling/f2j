@@ -773,6 +773,7 @@ read_optimize (AST * root, AST *rptr)
 void
 read_implied_loop_optimize(AST *node, AST *rptr)
 {
+  AST *temp;
 
   /* NOTE: we need to set the passByRef field of the array somewhere in here */
 
@@ -781,13 +782,16 @@ read_implied_loop_optimize(AST *node, AST *rptr)
   if(node->astnode.forloop.incr != NULL)
     expr_optimize(node->astnode.forloop.incr, rptr);
 
-  if(node->astnode.forloop.Label->nodetype != Identifier) {
-    fprintf(stderr,"Cant handle this nodetype (%s) ",
-      print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (read stmt)\n");
-  }
-  else {
-    name_optimize(node->astnode.forloop.Label, rptr);
+  for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
+  {
+    if(temp->nodetype != Identifier) {
+      fprintf(stderr,"Cant handle this nodetype (%s) ",
+        print_nodetype(temp));
+      fprintf(stderr," in implied loop (read stmt)\n");
+    }
+    else {
+      name_optimize(temp, rptr);
+    }
   }
 }
 

@@ -2145,43 +2145,50 @@ IoExp: Exp
        {
          $$ = $1;
        }
-     | OP Exp CM Name EQ Exp CM Exp CP /* implied do loop */
+     | OP Explist CM Name EQ Exp CM Exp CP /* implied do loop */
        {
+         AST *temp;
+
          $$ = addnode();
          $$->nodetype = IoImpliedLoop;
          $$->astnode.forloop.start = $6;
          $$->astnode.forloop.stop = $8;
          $$->astnode.forloop.incr = NULL;
          $$->astnode.forloop.counter = $4;
-         $$->astnode.forloop.Label = $2;
+         $$->astnode.forloop.Label = switchem($2);
          $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,NULL);
          $$->astnode.forloop.incr_expr = gen_incr_expr($4,NULL);
 
          $2->parent = $$;
+         for(temp = $2; temp != NULL; temp = temp->nextstmt)
+           temp->parent = $$;
          $4->parent = $$;
          $6->parent = $$;
          $8->parent = $$;
        }
-     | OP Exp CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
+     | OP Explist CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
        {
+         AST *temp;
+
          $$ = addnode();
          $$->nodetype = IoImpliedLoop;
          $$->astnode.forloop.start = $6;
          $$->astnode.forloop.stop = $8;
          $$->astnode.forloop.incr = $10;
          $$->astnode.forloop.counter = $4;
-         $$->astnode.forloop.Label = $2;
+         $$->astnode.forloop.Label = switchem($2);
          $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,$10);
          $$->astnode.forloop.incr_expr = gen_incr_expr($4,$10);
 
          $2->parent = $$;
+         for(temp = $2; temp != NULL; temp = temp->nextstmt)
+           temp->parent = $$;
          $4->parent = $$;
          $6->parent = $$;
          $8->parent = $$;
          $10->parent = $$;
        }
 ;
-
 
 EndSpec: END EQ Integer
          {

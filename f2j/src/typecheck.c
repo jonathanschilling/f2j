@@ -1306,7 +1306,10 @@ read_write_check (AST * root)
 void 
 check_implied_loop(AST *node)
 {
-  expr_check(node->astnode.forloop.Label);
+  AST *temp;
+  
+  for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
+    expr_check(temp);
   expr_check(node->astnode.forloop.iter_expr);
   assign_check(node->astnode.forloop.incr_expr);
 }

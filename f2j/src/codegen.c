@@ -7297,41 +7297,45 @@ read_emit (AST * root)
 void
 read_implied_loop_bytecode_emit(AST *node)
 {
-  AST *assign_temp, *temp;
+  AST *assign_temp, *temp, *iot;
   CPNODE *c;
-
-  if(node->astnode.forloop.Label->nodetype != Identifier) {
-    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
-      unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (read stmt)\n");
-  }
-  else {
-    fprintf(curfp," = _f2j_stdin.%s();\n",
-       funcname[node->astnode.forloop.Label->vartype]);
-    assign_temp = addnode();
-    assign_temp->nodetype = Assignment;
-
-    temp = node->astnode.forloop.Label;
-    temp->parent = assign_temp;
-    assign_temp->astnode.assignment.lhs = temp;
-
-    name_emit(assign_temp->astnode.assignment.lhs);
-
-    gen_load_op(stdin_lvar, Object);
-
-    if( (temp->vartype == Character) || (temp->vartype == String) ) {
-      if(temp->astnode.ident.len < 0)
-        pushIntConst(1);
-      else
-        pushIntConst(temp->astnode.ident.len);
+  
+  for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
+  {
+    if(iot->nodetype != Identifier) {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(iot));
+      fprintf(stderr," in implied loop (read stmt)\n");
     }
+    else {
+      fprintf(curfp," = _f2j_stdin.%s();\n",
+         funcname[iot->vartype]);
+      assign_temp = addnode();
+      assign_temp->nodetype = Assignment;
 
-    c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
-          input_descriptors[temp->vartype]);
-    bytecode1(jvm_invokevirtual, c->index);
+      temp = iot;
+      temp->parent = assign_temp;
+      assign_temp->astnode.assignment.lhs = temp;
 
-    LHS_bytecode_emit(assign_temp);
+      name_emit(assign_temp->astnode.assignment.lhs);
+
+      gen_load_op(stdin_lvar, Object);
+
+      if( (temp->vartype == Character) || (temp->vartype == String) ) {
+        if(temp->astnode.ident.len < 0)
+          pushIntConst(1);
+        else
+          pushIntConst(temp->astnode.ident.len);
+      }
+
+      c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
+            input_descriptors[temp->vartype]);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      LHS_bytecode_emit(assign_temp);
+    }
   }
+
 }
 
 /*****************************************************************************
@@ -7346,16 +7350,23 @@ read_implied_loop_bytecode_emit(AST *node)
 void
 read_implied_loop_sourcecode_emit(AST *node)
 {
-  if(node->astnode.forloop.Label->nodetype != Identifier) {
-    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
-      unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (read stmt)\n");
+  AST *iot;
+
+  fprintf(curfp,"{\n");
+  for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
+  {
+    if(iot->nodetype != Identifier) {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(iot));
+      fprintf(stderr," in implied loop (read stmt)\n");
+    }
+    else {
+      name_emit(iot);
+      fprintf(curfp," = _f2j_stdin.%s();\n",
+         funcname[iot->vartype]);
+    }
   }
-  else {
-    name_emit(node->astnode.forloop.Label);
-    fprintf(curfp," = _f2j_stdin.%s();\n",
-       funcname[node->astnode.forloop.Label->vartype]);
-  }
+  fprintf(curfp,"}\n");
 }
 
 /*****************************************************************************
@@ -7821,21 +7832,28 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
 void
 write_implied_loop_sourcecode_emit(AST *node)
 {
-  if(node->astnode.forloop.Label->nodetype == Identifier) {
-    fprintf(curfp,"  System.out.print(");
-    name_emit(node->astnode.forloop.Label);
-    fprintf(curfp," + \" \");\n");
+  AST *temp;
+
+  fprintf(curfp,"{\n");
+  for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
+  {
+    if(temp->nodetype == Identifier) {
+      fprintf(curfp,"  System.out.print(");
+      name_emit(temp);
+      fprintf(curfp," + \" \");\n");
+    }
+    else if(temp->nodetype == Constant) {
+      fprintf(curfp,"  System.out.print(\"%s \");\n", 
+        temp->astnode.constant.number);
+    }
+    else {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(temp));
+      fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
+      exit(-1);
+    }
   }
-  else if(node->astnode.forloop.Label->nodetype == Constant) {
-    fprintf(curfp,"  System.out.print(\"%s \");\n", 
-      node->astnode.forloop.Label->astnode.constant.number);
-  }
-  else {
-    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
-      unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
-    exit(-1);
-  }
+  fprintf(curfp,"}\n");
 }
 
 /*****************************************************************************
@@ -7850,53 +7868,57 @@ write_implied_loop_sourcecode_emit(AST *node)
 void
 write_implied_loop_bytecode_emit(AST *node)
 {
+  AST *temp;
   CPNODE *c;
 
-  /* emit loop body */
-  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-  bytecode1(jvm_getstatic, c->index);
-
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
-
-  if(node->astnode.forloop.Label->nodetype == Identifier) {
-    name_emit(node->astnode.forloop.Label);
-  }
-  else if(node->astnode.forloop.Label->nodetype == Constant) {
-    pushConst(node->astnode.forloop.Label);
-  }
-  else {
-    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
-      unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
-    exit(-1);
-  }
-
-  if((node->astnode.forloop.Label->vartype != String) && 
-     (node->astnode.forloop.Label->vartype != Character))
+  for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
-    /* call String.valueOf() to convert this numeric type to string */
-    c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
-           string_valueOf_descriptor[node->astnode.forloop.Label->vartype]);
-    bytecode1(jvm_invokestatic, c->index);
+    /* emit loop body */
+    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+    bytecode1(jvm_new,c->index);
+    bytecode0(jvm_dup);
+
+    if(temp->nodetype == Identifier) {
+      name_emit(temp);
+    }
+    else if(temp->nodetype == Constant) {
+      pushConst(temp);
+    }
+    else {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(temp));
+      fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
+      exit(-1);
+    }
+
+    if((temp->vartype != String) && 
+       (temp->vartype != Character))
+    {
+      /* call String.valueOf() to convert this numeric type to string */
+      c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+             string_valueOf_descriptor[temp->vartype]);
+      bytecode1(jvm_invokestatic, c->index);
+    }
+
+    c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+    bytecode1(jvm_invokespecial, c->index);
+
+    pushStringConst(" ");
+    c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+          append_descriptor[String]);
+    bytecode1(jvm_invokevirtual, c->index);
+
+    c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+          TOSTRING_DESC);
+    bytecode1(jvm_invokevirtual, c->index);
+
+    c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
+          println_descriptor[String]);
+    bytecode1(jvm_invokevirtual, c->index);
   }
-
-  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-  bytecode1(jvm_invokespecial, c->index);
-
-  pushStringConst(" ");
-  c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
-        append_descriptor[String]);
-  bytecode1(jvm_invokevirtual, c->index);
-
-  c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
-        TOSTRING_DESC);
-  bytecode1(jvm_invokevirtual, c->index);
-
-  c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
-        println_descriptor[String]);
-  bytecode1(jvm_invokevirtual, c->index);
 }
 
 /*****************************************************************************

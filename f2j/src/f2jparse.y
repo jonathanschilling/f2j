@@ -541,22 +541,20 @@ Function:  Type FUNCTION Name Functionargs NL
              else 
                $$->astnode.source.args = switchem($4);
 
-             if(omitWrappers) {
+             /* since the function name is the implicit return value
+              * and it can be treated as a variable, we insert it into
+              * the hash table for lookup later.
+              */
 
-               /* since the function name is the implicit return value
-                * and it can be treated as a variable, we insert it into
-                * the hash table for lookup later.
-                */
+             hash_entry = type_lookup(type_table,$3->astnode.ident.name);
 
-               hash_entry = type_lookup(type_table,$3->astnode.ident.name);
+             if(hash_entry == NULL)
+               $3->vartype = $1;
+             else
+               $3->vartype = hash_entry->variable->vartype;
 
-               if(hash_entry == NULL)
-                 $3->vartype = $1;
-               else
-                 $3->vartype = hash_entry->variable->vartype;
+             type_insert(type_table, $3, $3->vartype, $3->astnode.ident.name);
 
-               type_insert(type_table, $3, $3->vartype, $3->astnode.ident.name);
-             }
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
 ; 

@@ -197,7 +197,10 @@ emit (AST * root)
 
           classname = strdup(tmpname);
           lowercase(classname);
-          methodname = strdup(classname);
+          if(root->astnode.source.progtype->nodetype == Program)
+            methodname = "main";
+          else
+            methodname = strdup(classname);
           classname[0] = toupper(classname[0]);
 
           /* First set up the local hash tables. */
@@ -283,7 +286,7 @@ emit (AST * root)
             dl_insert_b(cur_class_file->methods, clinit_method);
           }
 
-          main_method = beginNewMethod(ACC_PUBLIC);
+          main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
 
           /* The 'catch' corresponding to the following try is generated
            * in case End. 
@@ -2586,7 +2589,6 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf(curfp,")");
 
   if(!is_ext) {
-    code_zero_op(array_load_opcodes[root->vartype]);
     fprintf(curfp, "]");
   }
 }
@@ -2817,14 +2819,18 @@ array_emit(AST *root, HASHNODE *hashtemp)
        && strcmp(root->parent->astnode.ident.name,"lsame") 
        && strcmp(root->parent->astnode.ident.name,"lsamen"))
        && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
+      {
         func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
-      else 
+      }
+      else {
         func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg,FALSE);
-    } 
+        code_zero_op(array_load_opcodes[root->vartype]);
+      }
+    }
     else if((root->parent->nodetype == Assignment) &&
             (root->parent->astnode.assignment.lhs == root))
     {
-      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
+      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
     }
     else if((root->parent->nodetype == Typedec)) 
     {
@@ -2832,8 +2838,10 @@ array_emit(AST *root, HASHNODE *hashtemp)
       if(gendebug)
         printf("I guess this is just an array declaration\n");
     }
-    else 
+    else {
       func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
+      code_zero_op(array_load_opcodes[root->vartype]);
+    }
   }
 }
 
@@ -3091,17 +3099,15 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   char *com_prefix, *desc, *name, *scalar_class;
   HASHNODE *ht, *isArg, *typenode;
 
-  /* if we can't find the identifier name in the hash table, then initialize
-   * descriptor to some junk value.  it should get caught by the
-   * jvm verifier if the real descriptor can't be found below.  note: we
-   * dont always need to be able to find a valid descriptor when this function
-   * gets called (e.g. to emit the name of a function).
-   */
 
+  /* determine descriptor */
   if((typenode = type_lookup(cur_type_table, root->astnode.ident.name)) != NULL)
     desc = getVarDescriptor(typenode->variable);
-  else
-    desc = "asdf";  
+  else {
+    fprintf(stderr,"ERROR: can't find '%s' in hash table\n", 
+       root->astnode.ident.name);
+    exit(-1);
+  }
 
   printf("in scalar_emit, name = %s, desc = %s\n",root->astnode.ident.name, desc);
 
@@ -6627,9 +6633,13 @@ spec_emit (AST * root)
 void
 assign_emit (AST * root)
 {
+  char *name, *class, *desc, *com_prefix;
+  HASHNODE *isArg, *typenode, *ht;
   enum returntype ltype, rtype;
-  void name_emit (AST *);
+  CPNODE *c;
+
   void substring_assign_emit(AST *);
+  void name_emit (AST *);
 
   /* this used to be a pretty simple procedure:
    *    emit LHS
@@ -6704,9 +6714,42 @@ assign_emit (AST * root)
   else   /* lhs and rhs have same types, everything is cool */
     expr_emit (root->astnode.assignment.rhs);
 
-  printf("blah1\n");
+  name = root->astnode.assignment.lhs->astnode.ident.name;
+
+  if((typenode = type_lookup(cur_type_table, name)) != NULL)
+    desc = getVarDescriptor(typenode->variable);
+  else
+    desc = "asdf";
+
+  /* get the name of the common block class file, if applicable */
+
+  com_prefix = get_common_prefix(name);
+
+  class = cur_filename;
+
+  isArg = type_lookup(cur_args_table,name);
+
+  if(com_prefix[0] != '\0')
+  {
+    /* if this is a COMMON variable, find out the merged
+     * name, if any, that we should use instead.  Names are
+     * merged when different declarations of a common
+     * block use different variable names.
+     */
+
+    ht = type_lookup(cur_type_table,name);
+    if (ht == NULL)
+      fprintf(stderr,"assign_emit:Cant find %s in type_table\n", name);
+    else if(ht->variable->astnode.ident.merged_name != NULL)
+      name = ht->variable->astnode.ident.merged_name;
+
+    class = strdup(com_prefix);
+    class[strlen(class)-1] = '\0';
+  }
+
+  printf("in assign_emit, class = %s, name = %s, desc = %s\n",class, name, desc);
+  
   if(root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) {
-    printf("blah2\n");
     /* LHS is not an array reference (note that the variable may be
      * an array, but it isn't being indexed here).  for bytecode,
      * we now generate a store or putfield instruction, depending
@@ -6715,47 +6758,35 @@ assign_emit (AST * root)
     if(omitWrappers && 
        !isPassByRef(root->astnode.assignment.lhs->astnode.ident.name)) 
     {
-      char *desc;
-      HASHNODE * isArg;
-
-      desc = getVarDescriptor(root->astnode.assignment.lhs);
-      isArg = type_lookup(cur_args_table,root->astnode.assignment.lhs->astnode.ident.name);
-
-      /* generate a store/putstatic instruction */
+      /* we know that this cannot be a local variable because otherwise it
+       * would be pass by reference, given that it is the LHS of an
+       * assignment.  thus, we generate a putstatic instruction.
+       */
       printf("generating LHS...\n");
       printf("lhs descriptor = %s\n",desc);
       printf("isArg = %s\n",isArg?"Yes":"No");
       printf("local var #%d\n",root->astnode.assignment.lhs->astnode.ident.localvnum);
 
-      /*
-      if(isArg) {
-        if((desc[0] == 'L') || (desc[0] == '[')) {
-          if(lv > 3)
-            code_one_op(jvm_aload, lv);
-          else
-            code_zero_op(short_load_opcodes[0][lv]);
-        } else {
-          if(lv > 3)
-            code_one_op(load_opcodes[vt], lv);
-          else
-            code_zero_op(short_load_opcodes[vt][lv]);
-        }
-      }
-      else {
-        c = newFieldref(cur_const_table, class, name, desc);
-        code_one_op_w(jvm_getstatic, c->index);
-      }
-
-      if(deref) {
-        c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
-               val_descriptor[vt]);
-        code_one_op_w(jvm_getfield, c->index);
-      }
-      */
+      c = newFieldref(cur_const_table, class, name, desc);
+      code_one_op_w(jvm_putstatic, c->index);
     }
     else {
-        /* generate a putfield instruction */
+      int vt = root->astnode.assignment.lhs->vartype;
+      /* this is a wrapped primitive.  the objectref and value should
+       * already be sitting on the stack, so now we generate a putfield
+       * instruction.
+       */
+      c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+             val_descriptor[vt]);
+      code_one_op_w(jvm_putfield, c->index);
     }
+  }
+  else {
+    /* the LHS is an array access.  currently the stack holds a reference
+     * to the array, the array index, and the RHS expression.  all we need
+     * to do now is generate an array store instruction (e.g. iastore).
+     */
+    code_zero_op(array_store_opcodes[root->astnode.assignment.lhs->vartype]);
   }
 }
 
@@ -7539,7 +7570,9 @@ code_one_op_w(enum _opcode op, u2 index)
 
     stack_increment = stackinf->ret_len;
   }
-  else if((op == jvm_putstatic) || (op == jvm_getstatic)) {
+  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
+          (op == jvm_putfield)  || (op == jvm_getfield))
+  {
     int tmpsize;
 
     c = cp_entry_by_index(cur_const_table, index);
@@ -7554,13 +7587,26 @@ code_one_op_w(enum _opcode op, u2 index)
     else 
       tmpsize = 1;
 
-    if(op == jvm_getstatic) {
-      stack_increment = tmpsize;
-      stack_decrement = 0;
-    }
-    else {
-      stack_increment = 0;
-      stack_decrement = tmpsize;
+    switch(op) {
+      case jvm_getstatic:
+        stack_increment = tmpsize;
+        stack_decrement = 0;
+        break;
+      case jvm_putstatic:
+        stack_increment = 0;
+        stack_decrement = tmpsize;
+        break;
+      case jvm_getfield:
+        stack_increment = tmpsize;
+        stack_decrement = 1;
+        break;
+      case jvm_putfield:
+        stack_increment = 0;
+        stack_decrement = tmpsize + 1;
+        break;
+      default:
+        fprintf(stderr,"code_one_op_w(): unexpected op type\n");
+        break;  /* ansi compliance */
     }
   }
   else {

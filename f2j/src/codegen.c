@@ -3465,7 +3465,8 @@ char *
 get_common_prefix(char *varname)
 {
   HASHNODE *ht;
-  char * prefix = strtok(strdup(inputfilename),".");
+  char * inf = strdup(inputfilename);
+  char * prefix = strtok(inf,".");
   static char * cprefix;
 
   /* Look up this variable name in the table of COMMON variables */
@@ -3483,6 +3484,7 @@ get_common_prefix(char *varname)
       ht->variable->astnode.ident.commonBlockName);
   }
 
+  f2jfree(inf);
   return(cprefix);
 }
 
@@ -11549,6 +11551,7 @@ getStackIncrement(enum _opcode op, u4 index)
      */
 
     stack_increment = stackinf->ret_len;
+    f2jfree(this_desc);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
           (op == jvm_putfield)  || (op == jvm_getfield))
@@ -11584,6 +11587,7 @@ getStackIncrement(enum _opcode op, u4 index)
         fprintf(stderr,"getSTackIncrement(): unexpected op type\n");
         break; /* ansi compliance */
     }
+    f2jfree(this_desc);
   }
   else {
     /* else we can determine the stack increment from a table.  */
@@ -11632,6 +11636,7 @@ getStackDecrement(enum _opcode op, u4 index)
       stack_decrement = stackinf->arg_len;
     else
       stack_decrement = stackinf->arg_len + 1;
+    f2jfree(this_desc);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
           (op == jvm_putfield)  || (op == jvm_getfield))
@@ -11667,6 +11672,7 @@ getStackDecrement(enum _opcode op, u4 index)
         fprintf(stderr,"getSTackDecrement(): unexpected op type\n");
         break; /* ansi compliance */
     }
+    f2jfree(this_desc);
   }
   else {
     /* else we can determine the stack decrement from a table.  */
@@ -11691,7 +11697,7 @@ calcStack(char *d)
 {
   struct stack_info *tmp;
   int len = strlen(d);
-  char *ptr;
+  char *ptr, *tstr;
 
   tmp = (struct stack_info *)f2jalloc(sizeof(struct stack_info));
   tmp->arg_len = 1;
@@ -11728,7 +11734,8 @@ calcStack(char *d)
       tmp->arg_len++;
   }
 
-  ptr = strtok(strdup(d),")");
+  tstr = strdup(d);
+  ptr = strtok(tstr,")");
   ptr = strtok(NULL,")");
   if( (*ptr ==  'D') || (*ptr == 'J') )
     tmp->ret_len = 2;
@@ -11737,6 +11744,7 @@ calcStack(char *d)
   else
     tmp->ret_len = 1;
 
+  f2jfree(tstr);
   return tmp;
 }
 

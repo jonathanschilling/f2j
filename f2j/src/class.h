@@ -44,6 +44,8 @@
 #define JVM_MINOR_VER 3
 #define JVM_MAJOR_VER 45
 
+FILE * fopen_fullpath(char *, char *);
+
 /*
  * Structures representing the JVM class file.
  */

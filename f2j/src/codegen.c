@@ -35,7 +35,9 @@ char
   * print_nodetype ( AST * ),
   * lowercase ( char * ),
   * get_common_prefix(char *),
-  * getVarDescriptor(AST *);
+  * getVarDescriptor(AST *),
+  * char_substitution(char *, int, int),
+  * get_full_classname(char *);
 
 METHODTAB
   * methodscan (METHODTAB * , char * );
@@ -726,6 +728,33 @@ emit (AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * get_full_classname                                                        *
+ *                                                                           *
+ * returns the fully-qualified class name for the given class.               *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_full_classname(char *thisclass)
+{
+  char * pname;
+
+  if(package_name != NULL) {
+    pname = (char *)f2jalloc(strlen(thisclass) + strlen(package_name) + 2);
+    if(!isalnum(package_name[strlen(package_name)-1]))
+      fprintf(stderr,"WARNING: last char of package name not alphanumeric.\n");
+    strcpy(pname, char_substitution(package_name, '.', '/'));
+    strcat(pname, "/");
+    strcat(pname, thisclass);
+
+    return pname;
+  }
+  else
+    return strdup(thisclass);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * set_bytecode_status                                                       *
  *                                                                           *
  * allow temporarily suspending generation of bytecode for situations where  *
@@ -1363,16 +1392,24 @@ common_emit(AST *root)
          strlen(prefix) + strlen(Ctemp->astnode.common.name) + 2);
       sprintf(common_classname,"%s_%s",prefix,Ctemp->astnode.common.name);
 
-      filename = (char *)f2jrealloc(filename,
-                                    strlen(common_classname) + 6);
-      sprintf(filename,"%s.java", common_classname);
+      if(gendebug)
+        printf("emitting common block '%s'\n",common_classname);
 
-      cur_filename = common_classname;
+
+      cur_filename = get_full_classname(common_classname);
+
+      filename = (char *)f2jrealloc(filename,
+                                    strlen(cur_filename) + 6);
+      sprintf(filename,"%s.java", cur_filename);
+
       cur_const_table = make_dl();
       cur_class_file = newClassFile(common_classname,inputfilename);
       clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
 
-      if((commonfp = fopen(filename,"w"))==NULL) 
+      if(gendebug)
+        printf("## going to open file: '%s'\n", filename);
+
+      if((commonfp = fopen_fullpath(filename,"w"))==NULL) 
       {
         fprintf(stderr,"Cannot open output file '%s'.\n",filename);
         perror("Reason");
@@ -3298,7 +3335,8 @@ array_emit(AST *root, HASHNODE *hashtemp)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    tmpclass = strdup(com_prefix);
+    /* tmpclass = strdup(com_prefix); */
+    tmpclass = get_full_classname(com_prefix);
     tmpclass[strlen(tmpclass)-1] = '\0';
   }
 
@@ -3673,8 +3711,13 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    scalar_class = com_prefix;
+    /* scalar_class = strdup(com_prefix); */
+    scalar_class = get_full_classname(com_prefix);
+    scalar_class[strlen(scalar_class)-1] = '\0';
   }
+
+  if(gendebug)
+    printf("scalar_emit: scalar_class is '%s'\n",scalar_class);
 
   /* if this is an equivalenced variable, find out the merged
    * name that we should use instead.  Equivalenced names are
@@ -3714,7 +3757,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         char *tempname;
 
         if(gendebug)
-          printf("in CALL, '%s' <- '%s'\n", 
+          printf("in scalar_emit CALL, '%s' <- '%s'\n", 
             root->parent->astnode.ident.name,
             name);
 
@@ -3885,13 +3928,13 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       if(root->parent->nodetype == Call)
       {
         if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL ) {
-          fprintf (curfp, "%s,_%s_offset", name, name);
+          fprintf (curfp, "%s%s,_%s_offset", com_prefix, name, name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
           gen_load_op(typenode->variable->astnode.ident.localvnum + 1, Integer);
         }
         else {
-          fprintf (curfp, "%s,0", name);
+          fprintf (curfp, "%s%s,0", com_prefix, name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
           bytecode0(jvm_iconst_0);
@@ -3900,10 +3943,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       else if((root->parent->nodetype == Assignment) &&
               (root->parent->astnode.assignment.lhs == root)) {
         /* LHS of assignment.  do not generate any bytecode. */
-        fprintf (curfp, "%s", name);
+        fprintf (curfp, "%s%s", com_prefix, name);
       }
       else {
-        fprintf (curfp, "%s", name);
+        fprintf (curfp, "%s%s", com_prefix, name);
         pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
            typenode->variable->astnode.ident.localvnum, FALSE);
       }
@@ -5457,19 +5500,25 @@ open_output_file(AST *root)
   
   /* allocate some space for the filename */
 
-  filename = (char *)
+  classname = (char *)
      f2jalloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
 
-  strcpy(filename,lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
-  *filename = toupper (*filename);
-  classname = strdup(filename);
-  cur_filename = classname;
+  strcpy(classname,lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
+  *classname = toupper (*classname);
+
+  cur_filename = get_full_classname(classname);
+
+  filename = (char *) f2jalloc(strlen(cur_filename) + 6);
+  strcpy(filename, cur_filename);
   strcat(filename,".java");
 
   if(gendebug)
     printf("filename is %s\n",filename);
 
-  if((javafp = fopen(filename,"w"))==NULL) {
+  if(gendebug)
+    printf("## going to open file: '%s'\n", filename);
+
+  if((javafp = fopen_fullpath(filename,"w"))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);
     perror("Reason");
     exit(1);
@@ -5837,7 +5886,8 @@ emit_interface(AST *root)
   strcpy(intfilename,classname);
   strcat(intfilename,".java");
 
-  intfp = fopen(intfilename,"w");
+  /* need to get full path name here.. unfinished */
+  intfp = fopen_fullpath(intfilename,"w");
   if(!intfp) {
     perror("Unable to open file");
     exit(-1);
@@ -8891,7 +8941,8 @@ LHS_bytecode_emit(AST *root)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    class = strdup(com_prefix);
+    /* class = strdup(com_prefix); */
+    class = get_full_classname(com_prefix);
     class[strlen(class)-1] = '\0';
   }
 
@@ -9650,6 +9701,7 @@ newClassFile(char *name, char *srcFile)
   struct method_info * meth_tmp;
   struct cp_info *newnode;
   struct ClassFile * tmp;
+  char * fullclassname;
   u4 u4BigEndian(u4);
   u2 u2BigEndian(u2);
   CPNODE *c;
@@ -9678,13 +9730,15 @@ newClassFile(char *name, char *srcFile)
    * this class.  so, first we create the Utf8 entry, then the Class entry.
    */
 
-printf("creating new entry, this -> %s\n",name);
+  fullclassname = get_full_classname(name);
+printf("##creating new entry, this -> %s\n",fullclassname);
 
   newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Utf8;
-  newnode->cpnode.Utf8.length = strlen(name);
+  newnode->cpnode.Utf8.length = strlen(fullclassname);
   newnode->cpnode.Utf8.bytes = (u1 *)f2jalloc(newnode->cpnode.Utf8.length);
-  strncpy((char *)newnode->cpnode.Utf8.bytes, name, newnode->cpnode.Utf8.length);
+  strncpy((char *)newnode->cpnode.Utf8.bytes, fullclassname, 
+    newnode->cpnode.Utf8.length);
 
   c = cp_insert(cur_const_table,newnode,1);
 
@@ -9744,6 +9798,29 @@ printf("creating new entry, this -> %s\n",name);
   dl_insert_b(tmp->methods, meth_tmp);
 
   return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * char_substitution                                                         *
+ *                                                                           *
+ * this function substitutes every occurrence of 'from_char' with 'to_char'  *
+ * typically this is used to convert package names:                          *
+ *                                                                           *
+ *   e.g.     "java.lang.whatever" -> "java/lang/whatever"                   *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+char_substitution(char *str, int from_char, int to_char)
+{
+  char *newstr = strdup(str);
+  char *idx;
+
+  while( (idx = strchr(newstr, from_char)) != NULL )
+    *idx = to_char;                                                                 
+
+  return newstr;
 }
 
 /*****************************************************************************

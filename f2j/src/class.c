@@ -10,6 +10,9 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
+#include<unistd.h>
+#include<sys/stat.h>
+#include<errno.h>
 #include"class.h"
 #include"codegen.h"
 #include"constant_pool.h"
@@ -362,7 +365,7 @@ open_output_classfile(struct ClassFile *class)
   c = cp_entry_by_index(class->constant_pool, c->val->cpnode.Class.name_index);
 
   if(c==NULL) {
-    fprintf(stderr,"Error opening class file.\n");
+    fprintf(stderr,"Error opening class file: cant find this_class entry\n");
     exit(1);
   }
 
@@ -377,13 +380,111 @@ open_output_classfile(struct ClassFile *class)
   filename[c->val->cpnode.Utf8.length] = '\0';
   strcat(filename,".class");
 
-  if( (newfp = fopen(filename,"wb")) == NULL ) {
+printf("going to write class file: '%s'\n", filename);
+
+  if( (newfp = fopen_fullpath(filename,"wb")) == NULL ) {
     fprintf(stderr,"Cannot open output file '%s'\n",filename);
     perror("Reason");
     exit(1);
   }
 
   return newfp;
+}
+
+/*****************************************************************************
+ * fopen_fullpath                                                            *
+ *                                                                           *
+ * given a file path, open and create directories along the way, if needed.  *
+ * returns a file pointer to the created file.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+FILE *
+fopen_fullpath(char *file, char *mode)
+{
+  char *pwd, *prev, *segment, *full_file;
+  struct stat *buf;
+  int cur_size;
+  FILE *f;
+
+  extern char *output_dir;
+
+  cur_size = 2; 
+  pwd = (char *)f2jalloc(cur_size);
+  
+  while(getcwd(pwd, cur_size) == NULL) {
+    cur_size *= 2;
+    pwd = (char *)realloc(pwd,cur_size);
+  }
+
+  if(!file) return NULL;
+  if(!mode) mode = "wb";
+
+  buf = (struct stat *)f2jalloc(sizeof(struct stat));
+
+  if(output_dir != NULL) {
+    full_file = (char *)f2jalloc(strlen(output_dir) + strlen(file) + 3);
+    strcpy(full_file, output_dir);
+    if(output_dir[strlen(output_dir)-1] != '/')
+      strcat(full_file, "/");
+    strcat(full_file, file);
+  }
+  else
+    full_file = file;
+
+  printf("full_file = '%s'\n", full_file);
+
+  if( stat(full_file, buf) == 0)
+    if(! S_ISREG(buf->st_mode) )
+      return NULL;
+
+  if( (f = fopen(full_file, mode)) )
+    return f;
+
+  prev = strtok(full_file, "/");
+  
+  while( (segment = strtok(NULL,"/")) != NULL ) {
+
+    if( stat(prev, buf) == -1) {
+      if(errno == ENOENT) {
+        if(mkdir(prev, 0755) == -1) {
+          chdir(pwd);
+          free(pwd);
+          return NULL;
+        }
+      }
+      else {
+        chdir(pwd);
+        free(pwd);
+        return NULL;
+      }
+    }
+    else {
+      if(! S_ISDIR(buf->st_mode)) {
+        chdir(pwd);
+        free(pwd);
+        return NULL;
+      }
+    }
+
+    if(chdir(prev) == -1) {
+      chdir(pwd);
+      free(pwd);
+      return NULL;
+    }
+
+    prev = segment;
+  }
+
+  if( (f = fopen(prev, mode)) ) {
+    chdir(pwd);
+    free(pwd);
+    return f;
+  }
+
+  chdir(pwd);
+  free(pwd);
+  return NULL;
 }
 
 /*****************************************************************************

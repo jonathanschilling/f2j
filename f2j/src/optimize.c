@@ -1062,6 +1062,9 @@ args_optimize(AST *root, AST *rptr)
       printf("call_optimize(): %s not found in global function table.\n",
         root->astnode.ident.name);
 
+    printf("call_optimize(): %s not found in global function table.\n",
+      root->astnode.ident.name);
+
     temp = root->astnode.ident.arraylist;
 
     for( ; temp != NULL; temp = temp->nextstmt)
@@ -1093,9 +1096,7 @@ assign_optimize (AST * root, AST *rptr)
 
   /* handle lhs substring operations elsewhere */
   if(root->astnode.assignment.lhs->nodetype == Substring)
-  {
     return;
-  }
 
   name_optimize (root->astnode.assignment.lhs, rptr);
   

@@ -70,6 +70,8 @@ To compile a program into Java source code:\n\
 The -p option may also be used to specify the name\n\
 of the package.  For example:\n\n\
     f2java -java -p org.netlib.blas filename\n\n\
+The -o option specifies the destination directory\n\
+to which the code should be written.\n\n\
 The -w option forces all scalars to be generated as\n\
 wrapped objects.  The default behavior is to only\n\
 wrap those scalars that must be passed by reference.\n\n\
@@ -95,12 +97,13 @@ will most likely not work for other code.\n";
   genJavadoc    = FALSE;
   noOffset      = FALSE;
   package_name  = NULL;
-  bigEndian = isBigEndian();
+  bigEndian     = isBigEndian();
+  output_dir    = NULL; 
 
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"p:wisdh")) != EOF)
+  while((c = getopt(argc,argv,"p:wisdho:")) != EOF)
     switch(c) {
       case 'p':
         package_name = optarg;
@@ -121,6 +124,9 @@ will most likely not work for other code.\n";
       case 's':
         noOffset = TRUE;
         break;
+      case 'o':
+        output_dir = optarg;
+        break;
       case '?':
         errflg++;
         break;
@@ -131,8 +137,8 @@ will most likely not work for other code.\n";
 
   if(errflg || (argc < 2))
   {
-    fprintf(stderr,
-     "Usage: f2java [-p package name] [-w] [-i] [-s] [-d] <filename>\n");
+    fprintf(stderr, "Usage: f2java [-p package name] [-o output dir]");
+    fprintf(stderr, " [-w] [-i] [-s] [-d] <filename>\n");
     fprintf(stderr,
      "For help: f2java -h\n");
     exit(2);

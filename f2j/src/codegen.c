@@ -3677,8 +3677,11 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         printf("The parent node is : %s\n",print_nodetype(root->parent));
       }
 
-      if((root->parent->nodetype == Call) && 
-         (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
+      /*
+       * if((root->parent->nodetype == Call) && 
+       *   (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
+       */
+      if(root->parent->nodetype == Call)
       {
         if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL ) {
           fprintf (curfp, "%s,_%s_offset", name, name);

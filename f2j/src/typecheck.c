@@ -745,7 +745,7 @@ name_check (AST * root)
   else
   {
     if (checkdebug)
-      printf("NOt intrinsic or external\n");
+      printf("NOt intrinsic or external (%s)\n", root->astnode.ident.name);
 
     switch (root->token)
     {

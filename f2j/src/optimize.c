@@ -53,7 +53,9 @@ char
   * lowercase ( char * ),
   * methodscan (METHODTAB * , char * );
 
-void expr_optimize (AST *, AST *);
+void 
+  expr_optimize (AST *, AST *),
+  args_optimize(AST *, AST *);
 
 /*****************************************************************************
  *                                                                           *
@@ -503,10 +505,11 @@ name_optimize (AST * root, AST *rptr)
  *                                                                           *
  * subcall_optimize                                                          *
  *                                                                           *
- *  This function optimize a function call.  I think this function           *
+ * This function optimizes a function call.  I think this function           *
  * is only called in cases where the function or subroutine is               *
  * not declared external or intrinsic and we dont know what                  *
- * else to do with it.                                                       *
+ * else to do with it.  in that case, we may not have visited the            *
+ * function yet, so we do that if necessary.                                 *
  *                                                                           *
  *****************************************************************************/
 
@@ -522,11 +525,14 @@ subcall_optimize(AST *root, AST *rptr)
   temp = root->astnode.ident.arraylist;
 
   if(temp->nodetype != EmptyArgList)
+    args_optimize(root,rptr);
+    /*
     for (; temp != NULL; temp = temp->nextstmt)
     {
       if (*temp->astnode.ident.name != '*')
         expr_optimize (temp, rptr);
     }
+    */
 }
 
 /*****************************************************************************
@@ -899,14 +905,9 @@ else_optimize (AST * root, AST *rptr)
 void
 call_optimize (AST * root, AST *rptr)
 {
-  AST *temp, *temp2;
-  char *tempname;
-  HASHNODE *hashtemp;
-  HASHNODE *ht, *ht2, *ht3;
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
-  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
-  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
-  int cnt;
+  char *tempname;
+  AST *temp;
 
   if(optdebug)
     printf("enter call_optimize\n");
@@ -953,9 +954,39 @@ call_optimize (AST * root, AST *rptr)
   if(optdebug)
     printf("looking up %s in the global func table\n",root->astnode.ident.name);
 
+  args_optimize(root, rptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * args_optimize                                                             *
+ *                                                                           *
+ * this function handles the args to a function/subroutine call.  If the     *
+ * arguments to the function we're calling are passed by reference, then     *
+ * we must wrap the corresponding variable in this function.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+args_optimize(AST *root, AST *rptr)
+{
+  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  HASHNODE *ht, *ht2, *ht3;
+  HASHNODE *hashtemp;
+  AST *temp, *temp2;
+  int cnt;
+
   if((hashtemp=type_lookup(global_func_table, root->astnode.ident.name)) != NULL)
   {
     AST *t2;
+
+    if(optdebug)
+      printf("call_optimize(): found %s in global function table.\n",
+        root->astnode.ident.name);
+
+    if(hashtemp->variable->astnode.source.scalarOptStatus == NOT_VISITED)
+      optScalar(hashtemp->variable);
 
     temp = root->astnode.ident.arraylist;
     t2=hashtemp->variable->astnode.source.progtype->astnode.source.args;
@@ -971,6 +1002,10 @@ call_optimize (AST * root, AST *rptr)
           */
 
          if(t2->astnode.ident.passByRef) {
+           if(optdebug)
+             printf("call_optimize(): '%s' is pass by ref.\n",
+                    temp->astnode.ident.name);
+
            ht = type_lookup(opt_type_table,temp->astnode.ident.name);
            if(ht) {
              ht->variable->astnode.ident.passByRef = TRUE;
@@ -1008,6 +1043,11 @@ call_optimize (AST * root, AST *rptr)
                }
              }
            }
+         }
+         else {
+           if(optdebug)
+             printf("call_optimize(): '%s' is NOT pass by ref.\n",
+                    temp->astnode.ident.name);
          }
        }
 

@@ -6071,11 +6071,16 @@ open_output_file(AST *root, char *classname)
   strcpy(filename, cur_filename);
   strcat(filename,".java");
 
+#ifdef _WIN32
+  filename = char_substitution(filename, '/', '\\');
+#endif
+
   if(gendebug)
     printf("filename is %s\n",filename);
 
   if(gendebug)
     printf("## going to open file: '%s'\n", filename);
+printf("## going to open file: '%s'\n", filename);
 
   if((javafp = fopen_fullpath(filename,"w"))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);
@@ -11711,9 +11716,9 @@ char_substitution(char *str, int from_char, int to_char)
 {
   char *newstr = strdup(str);
   char *idx;
-
+    
   while( (idx = strchr(newstr, from_char)) != NULL )
-    *idx = to_char;                                                                 
+    *idx = to_char; 
 
   return newstr;
 }

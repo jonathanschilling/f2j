@@ -111,7 +111,7 @@ To compile a program into Java source code:\n\
  used to specify the search\n\
 path for \".f2j\" files.  It is a semicolon-separated\n\
 list of paths, like a Java CLASSPATH).  For example:\n\n\
-    f2java -c .;..\objects filename\n\n";
+    f2java -c .;..\\objects filename\n\n";
 #else
   char f2java_help_c_option[] = "The -c option may also be\
  used to specify the search\n\

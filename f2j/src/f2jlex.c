@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = TRUE;
+int lexdebug = FALSE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 

@@ -503,6 +503,8 @@ build_method_table(char *path)
     closedir(cur_dir);
   }
 
+  dl_delete_list(paths);
+
   return new_table;
 }
 

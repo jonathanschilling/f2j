@@ -849,10 +849,15 @@ CPNODE *
 newMethodref(Dlist list, char *cname, char *mname, char *dname)
 {
   METHODREF *methodref;
+  CPNODE *retval;
 
   methodref = newMethodNode(cname,mname,dname);
 
-  return cp_find_or_insert(list, CONSTANT_Methodref, methodref);
+  retval =  cp_find_or_insert(list, CONSTANT_Methodref, methodref);
+
+  free_fieldref(methodref);
+
+  return retval;
 }
 
 /*****************************************************************************

@@ -252,6 +252,8 @@ void
   arrayref_arg_emit(AST *, char *, char *),
   scalar_arg_emit(AST *, char *, char *),
   wrapped_arg_emit(AST *, char *),
+  initialize_lists(),
+  free_lists(),
   inc_stack(int);
 
 int

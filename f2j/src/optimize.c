@@ -815,13 +815,13 @@ blockif_optimize (AST * root, AST *rptr)
 {
   AST *prev = root->prevstmt;
   AST *temp;
-  int *tmp_int;
+/*  int *tmp_int; */
 
   /* This function could probably be simplified by getting rid of all the
    * while detection code.  It isn't really necessary here.
    */
 
-  tmp_int = (int*)f2jalloc(sizeof(int));
+/*   tmp_int = (int*)f2jalloc(sizeof(int)); */
 
   /* if the previous node was a label, this could be a simulated
    * while loop.
@@ -829,7 +829,7 @@ blockif_optimize (AST * root, AST *rptr)
   if(prev != NULL)
     if(prev->nodetype == Label)
     {
-      *tmp_int = root->prevstmt->astnode.label.number;
+/*      *tmp_int = root->prevstmt->astnode.label.number; */
 
       if(prev->astnode.label.stmt == NULL)
         if((root->astnode.blockif.elseifstmts == NULL) &&

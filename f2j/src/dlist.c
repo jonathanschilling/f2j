@@ -88,6 +88,9 @@ dl_delete_list(l)
 Dlist l;
 {
   Dlist d, next_node;
+ 
+  if(l == NULL)
+    return;
 
   d = l->flink;
   while(d != l) {
@@ -110,6 +113,7 @@ dl_pop(li)
 Dlist li;
 {
   Dlist item = dl_last(li);
+  void *tmp;
 
   if(item == NULL)
     return NULL;
@@ -117,5 +121,8 @@ Dlist li;
   item->flink->blink = item->blink;
   item->blink->flink = item->flink;
 
-  return(dl_val(item));
+  tmp = dl_val(item);
+  f2jfree(item, sizeof(Dlist));
+
+  return tmp;
 }

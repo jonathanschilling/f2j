@@ -178,13 +178,7 @@ emit (AST * root)
           if(gendebug)
             print_equivalences(cur_equivList);
 
-          /* Initialize the lists. */
-
-          while_list = make_dl();
-          doloop = make_dl();
-          adapter_list = make_dl();
-          methcall_list = make_dl();
-          label_list = make_dl();
+          initialize_lists();
 
           assign_local_vars(
              root->astnode.source.progtype->astnode.source.args); 
@@ -329,6 +323,8 @@ emit (AST * root)
           free_class(cur_class_file);
           cur_class_file = NULL;
           cur_const_table = NULL;
+
+          free_lists();
 
           break;
         }
@@ -613,6 +609,60 @@ emit (AST * root)
           emit (root->nextstmt);
         break;
     }				/* switch on nodetype.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * initialize_lists                                                          *
+ *                                                                           *
+ * initializes new list instances for the current program unit.              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+initialize_lists()
+{
+
+  /* Initialize the lists. */
+
+  while_list = make_dl();
+  doloop = make_dl();
+  adapter_list = make_dl();
+  methcall_list = make_dl();
+  label_list = make_dl();
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * free_lists                                                                *
+ *                                                                           *
+ * frees memory associated with the global lists.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+free_lists()
+{
+  Dlist tmp;
+
+  /* free memory from previous program units. */
+
+  if(while_list) {
+    dl_traverse(tmp, while_list)
+      f2jfree(dl_val(tmp), sizeof(int));
+    dl_delete_list(while_list);
+  }
+
+  dl_delete_list(doloop);
+  dl_delete_list(adapter_list);
+
+  if(methcall_list) {
+    dl_traverse(tmp, methcall_list)
+      dl_delete_list((Dlist)dl_val(tmp));
+    dl_delete_list(methcall_list);
+  }
+
+  dl_delete_list(label_list);
 }
 
 /*****************************************************************************
@@ -4718,6 +4768,8 @@ intrinsic_emit(AST *root)
       break; /* ansi c */
   }
 
+  f2jfree(tempname, strlen(tempname)+1);
+
   if(gendebug)
     printf("leaving intrinsic_emit\n");
 }
@@ -6757,7 +6809,6 @@ label_emit (AST * root)
   if((loop != NULL) &&
      (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
   {
-
     /*
      * finally pop this loop's label number off the stack and
      * emit the label (for experimental goto resolution)
@@ -7979,7 +8030,8 @@ blockif_emit (AST * root)
           }
   
         /* pop this while loop's label number off the stack */
-        dl_pop(while_list);
+        tmp_int = (int *)dl_pop(while_list);
+        f2jfree(tmp_int, sizeof(int));
       }
     }
   }
@@ -8021,6 +8073,8 @@ blockif_emit (AST * root)
     goto_node = (CodeGraphNode *) lptr->val;
     goto_node->branch_target = next_node;
   }
+
+  dl_delete_list(gotos);
 }
 
 /*****************************************************************************

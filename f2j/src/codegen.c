@@ -42,7 +42,8 @@ void
   pushConst(AST *),
   pushIntConst(int),
   pushDoubleConst(double),
-  pushStringConst(char *);
+  pushStringConst(char *),
+  pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int);
 
 int
   isPassByRef(char *);
@@ -2369,27 +2370,45 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit(root);
-    if(d0 != ht->variable->astnode.ident.D[0])
+    if(d0 != ht->variable->astnode.ident.D[0]) {
       fprintf (curfp, "+1");
+      code_zero_op(jvm_iconst_1);
+      code_zero_op(jvm_iadd);
+    }
     fprintf (curfp, ")");
     
     fprintf (curfp, "+((");
 
     fprintf (curfp, "(");
     expr_emit(root->nextstmt);
-    if(d1 != ht->variable->astnode.ident.D[1])
+    if(d1 != ht->variable->astnode.ident.D[1]) {
       fprintf (curfp, "+1");
+      code_zero_op(jvm_iconst_1);
+      code_zero_op(jvm_iadd);
+    }
     fprintf (curfp, ")");
     
     fprintf (curfp, "+(");
 
     fprintf (curfp, "(");
     expr_emit(root->nextstmt->nextstmt);
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt))
+    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt)) {
       fprintf (curfp, "+1");
+      code_zero_op(jvm_iconst_1);
+      code_zero_op(jvm_iadd);
+    }
     fprintf (curfp, ")");
     
     fprintf (curfp, " * %d)) *%d) - %d", d1, d0,offset);
+
+    pushIntConst(d1);
+    code_zero_op(jvm_imul);
+    pushIntConst(d0);
+    code_zero_op(jvm_imul);
+    code_zero_op(jvm_iadd);
+    code_zero_op(jvm_iadd);
+    pushIntConst(offset);
+    code_zero_op(jvm_isub);
   }
   else 
   {
@@ -2400,8 +2419,11 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf (curfp, "(");
     expr_emit (root);
 
-    if(decrementIndex)
+    if(decrementIndex) {
       fprintf (curfp, ")- 1");
+      code_zero_op(jvm_iconst_1);
+      code_zero_op(jvm_isub);
+    }
     else
       fprintf (curfp, ")");
 
@@ -2421,8 +2443,11 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
-      if(decrementIndex)
+      if(decrementIndex) {
         fprintf (curfp, "- 1)");
+        code_zero_op(jvm_iconst_1);
+        code_zero_op(jvm_isub);
+      }
       else
         fprintf (curfp, ")");
 
@@ -2435,11 +2460,17 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         expr_emit(
           hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs);
         fprintf (curfp, " + 1 ");
+        code_zero_op(jvm_isub);
+        code_zero_op(jvm_iconst_1);
+        code_zero_op(jvm_iadd);
       }
       else
         expr_emit(hashtemp->variable->astnode.ident.lead_expr);
 
       fprintf (curfp, ")");
+
+      code_zero_op(jvm_imul);
+      code_zero_op(jvm_iadd);
     }
     else if((hashtemp->variable->astnode.ident.leaddim != NULL)
          && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
@@ -2458,8 +2489,11 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
-      if(decrementIndex)
+      if(decrementIndex) {
         fprintf (curfp, "- 1)");
+        code_zero_op(jvm_iconst_1);
+        code_zero_op(jvm_isub);
+      }
       else
         fprintf (curfp, ")");
 
@@ -2468,19 +2502,48 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       if(gendebug)
         printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
 
-      if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
-        if(omitWrappers && !isPassByRef(hashtemp->variable->astnode.ident.leaddim))
-          fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-        else
-          fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+      ht = type_lookup(cur_type_table, hashtemp->variable->astnode.ident.leaddim);
+      if(!ht) {
+        fprintf(stderr,"func_array_emit(): Type table is screwed!\n");
+        fprintf(stderr,"   looked up %s\n",hashtemp->variable->astnode.ident.leaddim);
+        exit(-1);
       }
-      else
+
+      if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
+        if(omitWrappers && !isPassByRef(hashtemp->variable->astnode.ident.leaddim)) {
+          fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+          pushVar(ht->variable->vartype,is_arg,cur_filename,
+                  hashtemp->variable->astnode.ident.leaddim,
+                  field_descriptor[ht->variable->vartype][0],
+                  ht->variable->astnode.ident.localvnum, FALSE);
+        }
+        else {
+          fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+          pushVar(ht->variable->vartype,is_arg,cur_filename,
+                  hashtemp->variable->astnode.ident.leaddim,
+                  field_descriptor[ht->variable->vartype][0],
+                  ht->variable->astnode.ident.localvnum, TRUE);
+        }
+      }
+      else {
         fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+        pushVar(ht->variable->vartype,is_arg,cur_filename,
+                hashtemp->variable->astnode.ident.leaddim,
+                field_descriptor[ht->variable->vartype][0],
+                ht->variable->astnode.ident.localvnum, FALSE);
+      }
+      code_zero_op(jvm_imul);
+      code_zero_op(jvm_iadd);
     }  /* Multi dimension.  */
   }
 
-  if(is_arg)
+  if(is_arg) {
     fprintf(curfp,  "+ _%s_offset",arrayname);
+    pushVar(Integer,is_arg,cur_filename,
+            "dummy string...is this significant?",
+            "I", root->astnode.ident.localvnum + 1 , FALSE);
+    code_zero_op(jvm_iadd);
+  }
 
   if(needs_cast)
     fprintf(curfp,")");
@@ -2888,17 +2951,17 @@ pushStringConst(char *str)
  *****************************************************************************/
 
 void
-pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc, 
+pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc, 
    int lv, int deref)
 {
   CPNODE *c;
 
   if(gendebug) {
-    printf("in pushvar, vartype is %s\n", returnstring[root->vartype]);
+    printf("in pushvar, vartype is %s\n", returnstring[vt]);
     printf("               desc is %s\n", desc);
     printf("       local varnum is %d\n", lv);
   }
-  printf("in pushvar, vartype is %s\n", returnstring[root->vartype]);
+  printf("in pushvar, vartype is %s\n", returnstring[vt]);
   printf("               desc is %s\n", desc);
   printf("       local varnum is %d\n", lv);
 
@@ -2911,9 +2974,9 @@ pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc,
         code_zero_op(short_load_opcodes[0][lv]);
     } else {
       if(lv > 3)
-        code_one_op(load_opcodes[root->vartype], lv);
+        code_one_op(load_opcodes[vt], lv);
       else
-        code_zero_op(short_load_opcodes[root->vartype][lv]);
+        code_zero_op(short_load_opcodes[vt][lv]);
     }
   }
   else {
@@ -2922,8 +2985,8 @@ pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc,
   }
 
   if(deref) {
-    c = newFieldref(cur_const_table, full_wrappername[root->vartype], "val", 
-           val_descriptor[root->vartype]);
+    c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+           val_descriptor[vt]);
     code_one_op_w(jvm_getfield, c->index);
   }
 }
@@ -3079,7 +3142,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
           fprintf (curfp, "%s%s", com_prefix, name);
 
-          pushVar(root, isArg, scalar_class, name, desc,
+          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
         }
         else
@@ -3090,12 +3153,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
           if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix,name);
-            pushVar(root, isArg, scalar_class, name, desc,
+            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
           }
           else {
             fprintf (curfp, "%s%s.val", com_prefix,name);
-            pushVar(root, isArg, scalar_class, name, desc,
+            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, TRUE);
           }
         }
@@ -3175,12 +3238,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         else {
           if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix, name);
-            pushVar(root, isArg, scalar_class, name, desc,
+            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
           }
           else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
-            pushVar(root, isArg, scalar_class, name, desc,
+            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, TRUE);
           }
         }
@@ -3214,13 +3277,13 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       {
         if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL ) {
           fprintf (curfp, "%s,_%s_offset", name, name);
-          pushVar(root, isArg, scalar_class, name, desc,
+          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
           pushOffsetArg(typenode->variable->astnode.ident.localvnum + 1);
         }
         else {
           fprintf (curfp, "%s,0", name);
-          pushVar(root, isArg, scalar_class, name, desc,
+          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
           code_zero_op(jvm_iconst_0);
         }
@@ -3232,7 +3295,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       }
       else {
         fprintf (curfp, "%s", name);
-        pushVar(root, isArg, scalar_class, name, desc,
+        pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
            typenode->variable->astnode.ident.localvnum, FALSE);
       }
     }

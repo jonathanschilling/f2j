@@ -17,6 +17,7 @@
    reallaoc when buffer overflows instead.  */
 #define BIGBUFF 1000
 
+#define FUNKYCOMMENTS 1
 
 
 /* Some of these variable may not be used anymore.
@@ -170,10 +171,11 @@ yylex ()
 	    token = keyscan (tab_type, &buffer);
             if (token)
 	      {
-		printf("Here...\n");
+		/* printf("Here...\n"); */
 		firsttoken = token;
 		tokennumber++;
-		printf("Token number: %d,First token %d\n", tokennumber, firsttoken);
+		/* printf("Token number: %d,First token %d\n", 
+                        tokennumber, firsttoken); */
                 return token;
 	      }
 
@@ -504,6 +506,13 @@ check_continued_lines (FILE * ifp, char *current_line)
 	   */
 	  if (items == 0)
 	      return;		/* End of file. */
+#if FUNKYCOMMENTS
+	  if (next_line[0] == '*')
+	    {
+	      fseek (ifp, -6, 1);
+		return;
+	    }
+#endif
 	  /*  Accept either "$" or "*"  in column 6 to
 	      indicate that the statement continues on
 	      the next line.  */

@@ -11251,6 +11251,30 @@ cfg_emit(Dlist cgraph, char *mname)
 #endif
 
 /*****************************************************************************
+ * checkDistance                                                             *
+ *                                                                           *
+ * checks whether a branch is too far.  currently the branch target offset   *
+ * is a signed 16-bit integer, so the maximum branch is -2^15..2^15-1.       *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOLEAN
+checkDistance(int dest, int src)
+{
+  int distance;
+
+  distance = dest - src;
+  if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
+     (distance < ((int)-mypow( 2.0, 15.0 )))) 
+  {
+    fprintf(stderr,"Warning: branch target too far away.\n");
+    return FALSE;
+  }
+  else
+    return TRUE;
+}
+
+/*****************************************************************************
  *                                                                           *
  * calcOffsets                                                               *
  *                                                                           *
@@ -11265,8 +11289,6 @@ cfg_emit(Dlist cgraph, char *mname)
 void
 calcOffsets(CodeGraphNode *val)
 {
-  int distance;
-
   /* if we already visited this node, then do not visit again. */
   printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
          jvm_opcode[val->op].op,val->stack_depth);
@@ -11314,10 +11336,7 @@ calcOffsets(CodeGraphNode *val)
                     label_node->pc, cur_filename);
           }
 
-          distance = label_node->pc - val->pc;
-          if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
-             (distance < ((int)-mypow( 2.0, 15.0 ))))
-            fprintf(stderr,"Warning: branch target too far away.\n");
+          checkDistance(label_node->pc, val->pc);
 
           val->operand = label_node->pc - val->pc;
           val->branch_target = label_node;
@@ -11342,10 +11361,7 @@ calcOffsets(CodeGraphNode *val)
                 val->branch_target->pc, cur_filename);
       }
 
-      distance = val->branch_target->pc - val->pc;
-      if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
-         (distance < (-mypow( 2.0, 15.0 ))))
-          fprintf(stderr,"Warning: branch target too far away.\n");
+      checkDistance(val->branch_target->pc, val->pc);
 
       val->operand = val->branch_target->pc - val->pc;
       calcOffsets(val->branch_target);
@@ -11360,10 +11376,7 @@ calcOffsets(CodeGraphNode *val)
     if(val->next != NULL)
       val->next->stack_depth = stacksize;
 
-    distance = val->branch_target->pc - val->pc;
-    if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
-       (distance < (-mypow( 2.0, 15.0 ))))
-        fprintf(stderr,"Warning: branch target too far away.\n");
+    checkDistance(val->branch_target->pc, val->pc);
 
     val->branch_target->stack_depth = stacksize;
     val->operand = val->branch_target->pc - val->pc;

@@ -3877,31 +3877,6 @@ intrinsic_emit(AST *root)
 
   javaname = (char *)methodscan (intrinsic_toks, tempname);
 
-  /* 
-   * This goes into an infinite loop. I don't
-   * know why.  Might be a result from parsing.
-   * It will replace the entire lower block
-   * when I get it to work.  
-   */
-
-#ifdef  KJGKJKJKKJH
-  temp = root->astnode.ident.arraylist;
-  assert(temp != NULL);
-  fprintf (curfp, "%s(", javaname);
-
-  for (temp; temp != NULL; temp->nextstmt)
-  {
-    if(gendebug)
-      printf("Yoikes\n");
-    expr_emit (temp);
-    if(temp->nextstmt)
-      fprintf (curfp, ", ");
-  }
-  fprintf (curfp, ")");
-  return;
-  /*put end brace here when KJGKJKJKKJH defined*/ 
-#endif	  
-
   if( !strcmp(tempname, "DMAX1") || !strcmp (tempname, "MAX") || !strcmp (tempname, "MIN"))
   {
     int ii,arg_count = 0;

@@ -6336,12 +6336,13 @@ emit_interface(AST *root)
   rest = make_dl();
 
   classname = strdup(root->astnode.source.name->astnode.ident.name);
-  intfilename = f2jalloc( strlen(classname) + 6 );
   uppercase(classname);
-  strcpy(intfilename,classname);
+
+  tempstring = get_full_classname(classname);
+  intfilename = f2jalloc( strlen(tempstring) + 6 );
+  strcpy(intfilename, tempstring);
   strcat(intfilename,".java");
 
-  /* need to get full path name here.. unfinished */
   intfp = fopen_fullpath(intfilename,"w");
   if(!intfp) {
     perror("Unable to open file");

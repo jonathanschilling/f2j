@@ -24,9 +24,9 @@
 package org.netlib.util;
 
 public class Second {
-  public static double second()
+  public static float second()
   {
-    double [] dummy = new double[2];
+    float [] dummy = new float[2];
     return Etime.etime(dummy,0);
   }
 }

@@ -29,21 +29,21 @@ public class Etime {
 
   public static void etime()
   {
-    double [] dummy = new double[2];
+    float [] dummy = new float[2];
     etime(dummy,0);
   }
 
-  public static double etime(double [] t, int t_offset)
+  public static float etime(float [] t, int t_offset)
   {
     if(call_num++ == 0)
     {
       start_time = System.currentTimeMillis();
-      t[0 + t_offset] = 0.0;
-      t[1 + t_offset] = 0.0;
-      return 0.0;
+      t[0 + t_offset] = 0.0f;
+      t[1 + t_offset] = 0.0f;
+      return 0.0f;
     }
 
-    t[0 + t_offset]=(double)(System.currentTimeMillis() - start_time) / 1000.0;
+    t[0 + t_offset]=(float)(System.currentTimeMillis() - start_time) / 1000.0f;
     t[1 + t_offset] = t[0 + t_offset];
     return t[0 + t_offset];
   }

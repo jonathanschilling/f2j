@@ -990,10 +990,10 @@ external_check(AST *root)
 
     if( !strcmp(tempname, "ETIME") ) {
       expr_check (root->astnode.ident.arraylist);
-      root->vartype = Double;
+      root->vartype = Float;
     }
     else if( !strcmp(tempname, "SECOND") ) {
-      root->vartype = Double;
+      root->vartype = Float;
     }
   }
 

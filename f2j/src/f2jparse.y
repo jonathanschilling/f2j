@@ -124,7 +124,7 @@ ITAB_ENTRY implicit_table[26];
 %token PLUS MINUS OP CP STAR POW DIV CAT CM EQ COLON NL
 %token NOT AND OR
 %token  RELOP EQV NEQV
-%token <lexeme>  NAME DOUBLE INTEGER EXPONENTIAL 
+%token <lexeme>  NAME DOUBLE INTEGER E_EXPONENTIAL D_EXPONENTIAL
 %token CONST_EXP TrUE FaLSE ICON RCON LCON CCON
 %token FLOAT CHARACTER LOGICAL COMPLEX NONE
 
@@ -162,7 +162,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Data DataList DataConstantExpr DataConstant DataItem 
 %type <ptnode> /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
-%type <ptnode> Do_vals Double
+%type <ptnode> Do_vals Double Float
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -3080,6 +3080,10 @@ Constant:
          {
            $$ = $1; 
          }
+       | Float
+         { 
+           $$ = $1; 
+         }
        | Double
          { 
            $$ = $1; 
@@ -3118,6 +3122,18 @@ Double:       DOUBLE
                $$->vartype = Double;
              }
 ;
+
+Float:       FLOAT
+             {
+               $$ = addnode();
+               $$->token = FLOAT;
+               $$->nodetype = Constant;
+               strcpy($$->astnode.constant.number, yylval.lexeme);
+               strcat($$->astnode.constant.number, "f");
+               $$->vartype = Float;
+             }
+;
+
                
 /*  Since jasmin doesn't have an EXPONENTIAL data type,
  *  the function exp_to_double rewrite numbers in the
@@ -3135,10 +3151,20 @@ Double:       DOUBLE
  *  3/11/98  -- Keith 
  */
 
-Exponential:   EXPONENTIAL
+Exponential:   E_EXPONENTIAL
              {
                $$ = addnode();
-	       $$->token = EXPONENTIAL;
+	       $$->token = E_EXPONENTIAL;
+               $$->nodetype = Constant;
+	       exp_to_double(yylval.lexeme, tempname);
+               strcpy($$->astnode.constant.number, tempname);
+               strcat($$->astnode.constant.number, "f");
+               $$->vartype = Float;
+             }
+           |   D_EXPONENTIAL
+             {
+               $$ = addnode();
+	       $$->token = D_EXPONENTIAL;
                $$->nodetype = Constant;
 	       exp_to_double(yylval.lexeme, tempname);
                strcpy($$->astnode.constant.number, tempname);
@@ -3288,6 +3314,12 @@ Pdec:     Assignment
                        temp->token == TrUE ? "true" : "false");
                 break;
               case Float:
+                temp->token = FLOAT;
+
+                sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
+                add_decimal_point(temp->astnode.constant.number);
+                
+                break;
               case Double:
                 temp->token = DOUBLE;
 
@@ -4584,9 +4616,9 @@ initialize_implicit_table(ITAB_ENTRY *itab)
 {
   int i;
 
-  /* first initialize everything to double */
+  /* first initialize everything to float */
   for(i = 0; i < 26; i++) {
-    itab[i].type = Double;
+    itab[i].type = Float;
     itab[i].declared = FALSE;
   }
 

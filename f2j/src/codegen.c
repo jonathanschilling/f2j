@@ -2543,6 +2543,8 @@ vardec_emit(JVM_METHOD *meth, AST *root, enum returntype returns,
 
     if (returns == Integer)
       fprintf (curfp, "= new int[");
+    else if (returns == Float)
+      fprintf (curfp, "= new float[");
     else if (returns == Double)
       fprintf (curfp, "= new double[");
     else if (returns == Logical)
@@ -4371,7 +4373,11 @@ pushConst(JVM_METHOD *meth, AST *root) {
     case INTEGER:
       bc_push_int_const(meth, atoi(root->astnode.constant.number));
       break;
-    case EXPONENTIAL:
+    case E_EXPONENTIAL:
+    case FLOAT:
+      bc_push_float_const(meth, atof(root->astnode.constant.number));
+      break;
+    case D_EXPONENTIAL:
     case DOUBLE:
       bc_push_double_const(meth, atof(root->astnode.constant.number));
       break;
@@ -4946,12 +4952,6 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
       bc_append(meth, jvm_dup);
 
       temp = root->astnode.ident.arraylist;
-/*
- *    fprintf (curfp, "%s(", javaname);
- *    expr_emit (temp);
- *    fprintf (curfp, ")");
- */
-
       fprintf (curfp, "new Character( %s(", javaname);
       expr_emit (meth, temp);
       fprintf (curfp, ") ).toString()");
@@ -5223,7 +5223,10 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 
       /* square root */
     case ifunc_SQRT:
-      if(root->vartype == Double)
+      /* the java sqrt only supports double, so use that entry for
+       * either double or float .
+       */
+      if((root->vartype == Double) || (root->vartype == Float))
         entry = &intrinsic_toks[ifunc_DSQRT];
       else if(root->vartype == Complex)
         entry = &intrinsic_toks[ifunc_CSQRT];
@@ -5234,7 +5237,10 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 
       /* exponential */
     case ifunc_EXP:
-      if(root->vartype == Double)
+      /* the java exp only supports double, so use that entry for
+       * either double or float .
+       */
+      if((root->vartype == Double) || (root->vartype == Float))
         entry = &intrinsic_toks[ifunc_DEXP];
       else if(root->vartype == Complex)
         entry = &intrinsic_toks[ifunc_CEXP];
@@ -5467,7 +5473,7 @@ intrinsic0_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 
 void
 intrinsic_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry, 
-                                                         enum returntype argtype)
+  enum returntype argtype)
 {
   int c;
 
@@ -5832,11 +5838,19 @@ enum returntype
 get_type(char *num)
 {
   unsigned int idx;
+  int contains_dot = FALSE, contains_f = FALSE;
 
   for(idx = 0;idx < strlen(num);idx++) 
-    if(num[idx] == '.') {
-      return Double;
-    }
+    if(num[idx] == '.')
+      contains_dot = TRUE;
+    else if(num[idx] == 'f')
+      contains_f = TRUE;
+
+  if(contains_dot && contains_f)
+    return Float;
+
+  if(contains_dot && !contains_f)
+    return Double;
 
   if( !strcmp(num,"false") || !strcmp(num,"true"))
     return Logical;
@@ -6465,7 +6479,31 @@ relationalop_emit(JVM_METHOD *meth, AST *root)
       fprintf(stderr,"WARNING: relop not supported on logicals!\n");
       break;
     case Float: 
-      fprintf(stderr,"WARNING: single precision not supported!\n");
+      {
+        JVM_CODE_GRAPH_NODE *cmp_node, *goto_node, *iconst_node, *next_node;
+
+        /* the only difference between fcmpg and fcmpl is the handling
+         * of the NaN value.  for .lt. and .le. we use fcmpg, otherwise
+         * use fcmpl.  this mirrors the behavior of javac.
+         */
+        if((root->token == rel_lt) || (root->token == rel_le))
+          bc_append(meth, jvm_fcmpg);
+        else
+          bc_append(meth, jvm_fcmpl);
+
+        cmp_node = bc_append(meth, dcmp_opcode[root->token]);
+        bc_append(meth, jvm_iconst_0);
+        goto_node = bc_append(meth, jvm_goto);
+        iconst_node = bc_append(meth, jvm_iconst_1);
+        bc_set_branch_target(cmp_node, iconst_node);
+
+        /* create a dummy instruction node following the iconst so that
+         * we have a branch target for the goto statement.  it'll be
+         * removed later.
+         */
+        next_node = bc_append(meth, jvm_xxxunusedxxx);
+        bc_set_branch_target(goto_node, next_node);
+      }
       break;
     case Double: 
       {
@@ -10143,14 +10181,12 @@ assign_emit (JVM_METHOD *meth, AST * root)
    * conversion if the types do not agree.
    */
  
- 
   hashtemp = type_lookup(cur_type_table, root->astnode.assignment.lhs->astnode.ident.name);
      if(hashtemp)
         root->astnode.assignment.lhs->vartype = hashtemp->variable->vartype;
   hashtemp = type_lookup(cur_type_table, root->astnode.assignment.rhs->astnode.ident.name);
      if(hashtemp)
        root->astnode.assignment.rhs->vartype = hashtemp->variable->vartype;
-
 
   ltype = root->astnode.assignment.lhs->vartype;
   rtype = root->astnode.assignment.rhs->vartype;
@@ -10198,6 +10234,14 @@ assign_emit (JVM_METHOD *meth, AST * root)
         fprintf(curfp," == 0 ? false : true");
         if(rtype == Integer) {
           if_node = bc_append(meth, jvm_ifeq);
+          bc_append(meth, jvm_iconst_1);
+          goto_node = bc_append(meth, jvm_goto);
+          iconst_node = bc_append(meth, jvm_iconst_0);
+        }
+        else if(rtype == Float) {
+          bc_append(meth, jvm_fconst_0);
+          bc_append(meth, jvm_fcmpl);
+          if_node = bc_append(meth, jvm_ifne);
           bc_append(meth, jvm_iconst_0);
           goto_node = bc_append(meth, jvm_goto);
           iconst_node = bc_append(meth, jvm_iconst_1);
@@ -10206,9 +10250,9 @@ assign_emit (JVM_METHOD *meth, AST * root)
           bc_append(meth, jvm_dconst_0);
           bc_append(meth, jvm_dcmpl);
           if_node = bc_append(meth, jvm_ifne);
-          bc_append(meth, jvm_iconst_1);
+          bc_append(meth, jvm_iconst_0);
           goto_node = bc_append(meth, jvm_goto);
-          iconst_node = bc_append(meth, jvm_iconst_0);
+          iconst_node = bc_append(meth, jvm_iconst_1);
         }
         else
           fprintf(stderr,"WARNING: unsupported cast.\n");
@@ -12328,12 +12372,12 @@ int
 cast_data_stmt(AST  *LHS, int no_change){
   int tok = no_change;
 
-  if(LHS->vartype == Integer){
+  if(LHS->vartype == Integer)
       tok = INTEGER;
-  }
-  else if(LHS->vartype == Double){
+  else if(LHS->vartype == Float)
+      tok = FLOAT;
+  else if(LHS->vartype == Double)
       tok = DOUBLE;
-  }
 
   fprintf(curfp, "(%s) ", returnstring[LHS->vartype]);
 

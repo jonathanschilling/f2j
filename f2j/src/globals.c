@@ -134,8 +134,8 @@ KWDTAB tab_type[] =
 {
     {"DOUBLEPRECISION", TYPE, Double},
     {"REAL*8", TYPE, Double},
-    {"REAL*4", TYPE, Double},
-    {"REAL", TYPE, Double},
+    {"REAL*4", TYPE, Float},
+    {"REAL", TYPE, Float},
 
     {"INTEGER*4", TYPE, Integer},
     {"INTEGER", TYPE, Integer},
@@ -290,24 +290,24 @@ METHODTAB intrinsic_toks[]=
   {ifunc_CONJG, "CONJG",    "(int)",             "Unused",           "Unused",           "Unused", COMPLEX_ARG, Complex},
 
   /* Sqare Root */
-  {ifunc_SQRT, "SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(F)F", RDC_ARGS, Float},
+  {ifunc_SQRT, "SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(F)F", RDC_ARGS, Double},
   {ifunc_DSQRT, "DSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", DOUBLE_ARG, Double},
   {ifunc_CSQRT, "CSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", COMPLEX_ARG, Complex},
 
   /* Exponential */
-  {ifunc_EXP, "EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", RDC_ARGS, Float},
+  {ifunc_EXP, "EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", RDC_ARGS, Double},
   {ifunc_DEXP, "DEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", DOUBLE_ARG, Double},
   {ifunc_CEXP, "CEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", COMPLEX_ARG, Complex},
 
   /* Natural Logarithm */
   {ifunc_LOG, "LOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", RDC_ARGS, Double},
-  {ifunc_ALOG, "ALOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", REAL_ARG, Float},
+  {ifunc_ALOG, "ALOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", REAL_ARG, Double},
   {ifunc_DLOG, "DLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", DOUBLE_ARG, Double},
   {ifunc_CLOG, "CLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", COMPLEX_ARG, Complex},
 
   /* Common Logarithm - use java's log function then divide by 2.30258509 */
   {ifunc_LOG10, "LOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", RD_ARGS, Double},
-  {ifunc_ALOG10, "ALOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", REAL_ARG, Float},
+  {ifunc_ALOG10, "ALOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", REAL_ARG, Double},
   {ifunc_DLOG10, "DLOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", DOUBLE_ARG, Double},
 
   /* Sine */
@@ -363,9 +363,9 @@ METHODTAB intrinsic_toks[]=
   {ifunc_LLT, "LLT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* fortran pseudo intrinsic */
-  {ifunc_ETIME, "ETIME", ".etime",    "org/netlib/util/Etime", "etime",    "([DI)D", IRDC_ARGS, Double}, 
+  {ifunc_ETIME, "ETIME", ".etime",    "org/netlib/util/Etime", "etime",    "([FI)F", IRDC_ARGS, Float}, 
 
-  {ifunc_SECOND, "SECOND", "System.currentTimeMillis",    "java/lang/System", "currentTimeMillis",    "()J", NO_ARG, Double}, 
+  {ifunc_SECOND, "SECOND", "System.currentTimeMillis",    "java/lang/System", "currentTimeMillis",    "()J", NO_ARG, Float}, 
 
   /*  Ends a scanning loop.  See comment above. */
   {0, NULL , NULL, NULL, NULL, NULL, 0, 0}    
@@ -738,8 +738,8 @@ char *init_vals[MAX_RETURNS+1] =
   "\" \"",
   "\" \"",
   "0",
-  "0.0",
-  "0.0",
+  "0.0d",
+  "0.0f",
   "0",
   "false"
 };

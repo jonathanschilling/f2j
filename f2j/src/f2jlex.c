@@ -1469,7 +1469,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
           {
             ncp += 2;
             tokenlength += 2;
-            type = DOUBLE;	/* Case of `nn.dd...' */
+            type = FLOAT;	/* Case of `nn.dd...' */
             
             /* Control passes to back to 
              * while() loop; get another 
@@ -1482,7 +1482,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
           {
             ncp++;
             tokenlength++;
-            type = DOUBLE;	/* Case of `nn.' */
+            type = FLOAT;	/* Case of `nn.' */
 
             /* Back to while() loop
              * for another character.*/
@@ -1504,9 +1504,14 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
 
           if (*(ncp + 1) == '+' || *(ncp + 1) == '-')
           {
+            if(*ncp == 'e' || *ncp == 'E')
+              type = E_EXPONENTIAL;
+            else 
+              type = D_EXPONENTIAL;
+            
             ncp += 2;
             tokenlength += 2;
-            type = EXPONENTIAL;
+
             continue;	/*  Loop again.  */
           }
 
@@ -1514,9 +1519,14 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
 
           if (isdigit ((int) *(ncp + 1)))
           {
+            if(*ncp == 'e' || *ncp == 'E')
+              type = E_EXPONENTIAL;
+            else 
+              type = D_EXPONENTIAL;
+
             ncp++;
             tokenlength++;
-            type = EXPONENTIAL;
+
             continue;	/*  Loop again.  */
           }
           else
@@ -1726,8 +1736,10 @@ tok2str(int tok)
       return("DOUBLE");
     case INTEGER:
       return("INTEGER");
-    case EXPONENTIAL:
-      return("EXPONENTIAL");
+    case E_EXPONENTIAL:
+      return("E_EXPONENTIAL");
+    case D_EXPONENTIAL:
+      return("D_EXPONENTIAL");
     case CONST_EXP:
       return("CONST_EXP");
     case TrUE:

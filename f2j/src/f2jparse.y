@@ -926,7 +926,7 @@ DataConstant:  Constant
                     hash_temp->variable->astnode.constant.number);
                  }
                  else{
-                    printf("Error: Data statement constant undeclared\n");
+                    printf("Error: '%s' is not a constant\n",yylval.lexeme);
                     exit(1);
                  }
                }   

@@ -12163,8 +12163,12 @@ void
 calcOffsets(CodeGraphNode *val)
 {
   /* if we already visited this node, then do not visit again. */
-  printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
-         jvm_opcode[val->op].op,val->stack_depth);
+  printf("in calcoffsets, before op %d : %s, stack_Depth = %d\n",
+         val->pc, jvm_opcode[val->op].op,val->stack_depth);
+if(val->next == NULL)
+  printf("next is NULL\n");
+else
+  printf("next is %s\n", jvm_opcode[val->next->op].op);
 
   if(val->visited)
     return;
@@ -12177,6 +12181,7 @@ calcOffsets(CodeGraphNode *val)
 
 if(stacksize < 0)
   fprintf(stderr,"\tpc = %d\n", val->pc);
+
 
   inc_stack(getStackIncrement(val->op, val->operand));
 
@@ -12265,8 +12270,16 @@ if(stacksize < 0)
   else {
     /* null branch target, set stack depth for following instruction only. */
     if(val->next != NULL) {
-      val->next->stack_depth = stacksize;
-      calcOffsets(val->next);
+      /* set stack depth for following instruction only if the current
+       * instruction is NOT a return.
+       */
+      if((val->op != jvm_return) && (val->op != jvm_areturn) &&
+         (val->op != jvm_dreturn) && (val->op != jvm_freturn) &&
+         (val->op != jvm_ireturn) && (val->op != jvm_areturn))
+      {
+        val->next->stack_depth = stacksize;
+        calcOffsets(val->next);
+      }
     }
   }
 }

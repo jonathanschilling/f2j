@@ -540,7 +540,7 @@ yylex ()
             bad keywords. */
       if (token)  
       {
-        if(  ((token == DO) || (token == IF)) 
+        if(  ((token == DO) || (token == IF) || (token == DATA))
            && 
              /* (((tokennumber != 1) && (firsttoken != INTEGER)) || */
              (((tokennumber != 0) && (firsttoken != INTEGER)) ||

@@ -9409,6 +9409,7 @@ needs_adapter(AST *root)
   HASHNODE *hashtemp;
   METHODREF *mtmp;
   AST *temp;
+  char *dptr, *current_descriptor = NULL;
 
   /* first, check for a null parameter list.  if there are no parameters, 
    * we certainly wont need an adapter.
@@ -9422,82 +9423,51 @@ needs_adapter(AST *root)
       root->astnode.ident.name);
 
   if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
+    current_descriptor = hashtemp->variable->astnode.source.descriptor;
+  else if((mtmp = find_method(root->astnode.ident.name, descriptor_table)) != NULL)
+    current_descriptor = mtmp->descriptor;
+  else 
+    return 0;
+
+  /* if for some reason current_descriptor is null, just return false now */
+  if(!current_descriptor)
+    return 0;
+
+  if(gendebug)
+    printf("needs_adapter: got descriptor '%s'\n", current_descriptor);
+
+  dptr = skipToken(current_descriptor);
+
+  temp = root->astnode.ident.arraylist;
+
+  for( ; temp != NULL; temp = temp->nextstmt)
   {
-    AST *t2;
+    if(dptr == NULL)
+      break;
 
-    temp = root->astnode.ident.arraylist;
-    t2=hashtemp->variable->astnode.source.args;
-
-    for( ; temp != NULL; temp = temp->nextstmt)
+      /*
+       * if the arg is an identifier  AND
+       *    it is in the array table  AND
+       *    the function is not expecting an array
+       */
+    if(omitWrappers) {
+      if((temp->nodetype == Identifier) && 
+          type_lookup(cur_array_table, temp->astnode.ident.name) &&
+          (dptr[0] != '[') && isPassByRef_desc(dptr))
+             return 1;
+    }
+    else
     {
-       if(t2 == NULL)
-         break;
-
-         /*
-          * if the arg is an identifier  AND
-          *    it is in the array table  AND
-          *    the function is not expecting an array
-          */
-       if(omitWrappers) {
-         if((temp->nodetype == Identifier) && 
-             type_lookup(cur_array_table, temp->astnode.ident.name) &&
-             !t2->astnode.ident.arraylist &&
-             t2->astnode.ident.passByRef)
-                return 1;
-       }
-       else
-       {
-         if((temp->nodetype == Identifier) && 
-           type_lookup(cur_array_table, temp->astnode.ident.name) &&
-           !t2->astnode.ident.arraylist)
-              return 1;
-       }
-
-       if(t2 != NULL)
-         t2 = t2->nextstmt;
+      if((temp->nodetype == Identifier) && 
+        type_lookup(cur_array_table, temp->astnode.ident.name) &&
+        (dptr[0] != '['))
+           return 1;
     }
-  }
-  else {
-    char *dptr;
 
-    mtmp = find_method(root->astnode.ident.name, descriptor_table);
- 
-    if(mtmp) {
-
-      if(gendebug)
-        printf("needs_adapter: found descriptor '%s'\n", mtmp->descriptor);
-
-      dptr = skipToken(mtmp->descriptor);
-
-      temp = root->astnode.ident.arraylist;
-
-      for( ; temp != NULL; temp = temp->nextstmt)
-      {
-        if(dptr == NULL)
-          break;
-
-          /*
-           * if the arg is an identifier  AND
-           *    it is in the array table  AND
-           *    the function is not expecting an array
-           */
-        if(omitWrappers) {
-          if((temp->nodetype == Identifier) && 
-              type_lookup(cur_array_table, temp->astnode.ident.name) &&
-              (dptr[0] != '[') && isPassByRef_desc(dptr))
-                 return 1;
-        }
-        else
-        {
-          if((temp->nodetype == Identifier) && 
-            type_lookup(cur_array_table, temp->astnode.ident.name) &&
-            (dptr[0] != '['))
-               return 1;
-        }
-
-        dptr = skipToken(dptr);
-      }
-    }
+    /* consume the offset arg if necessary */
+    if(dptr[0] == '[')
+      dptr = skipToken(dptr);
+    dptr = skipToken(dptr);
   }
 
   return 0;
@@ -11127,7 +11097,7 @@ dec_stack(int dec) {
   stacksize -= dec;
 
   if(stacksize < 0)
-    fprintf(stderr,"WARNING: negative stacksize! (%s)\n", cur_filename);
+    fprintf(stderr,"WARNING: negative stack! (%s)\n", cur_filename);
 }
 
 /*****************************************************************************
@@ -11729,6 +11699,10 @@ calcOffsets(CodeGraphNode *val)
   stacksize = val->stack_depth;
 
   dec_stack(getStackDecrement(val->op, val->operand));
+
+if(stacksize < 0)
+  fprintf(stderr,"\tpc = %d\n", val->pc);
+
   inc_stack(getStackIncrement(val->op, val->operand));
 
   /* special handling for return instructions? */

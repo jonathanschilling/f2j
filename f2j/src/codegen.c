@@ -10133,7 +10133,10 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
   else
   {
     fprintf(curfp,"arg%d",i);
-    gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
+    if(isPassByRef_desc(dptr))
+      gen_load_op(arg->astnode.ident.localvnum, Object);
+    else
+      gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
   }
 
   return lv;

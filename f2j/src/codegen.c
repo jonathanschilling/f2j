@@ -2080,27 +2080,6 @@ is_static(AST *root)
 
   temp = root;
 
-  if(f2j_arrays_static) {
-    if(type_lookup (cur_array_table, temp->astnode.ident.name)
-       && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
-
-      ht = type_lookup(cur_type_table,temp->astnode.ident.name);
-
-      if(ht == NULL)
-        return FALSE;
-
-      if(type_lookup(cur_data_table,temp->astnode.ident.name) &&
-         !ht->variable->astnode.ident.needs_declaration)
-      {
-        if(gendebug)
-          printf("is_static: declared data statement\n");
-        return FALSE;
-      }
-
-      return TRUE;
-    }
-  }
-
   if(type_lookup(cur_args_table,temp->astnode.ident.name)) {
     if(gendebug)
       printf("@@ is_static(): %s: not static (is arg)\n",
@@ -2156,7 +2135,11 @@ is_static(AST *root)
       printf("@@ Variable %s: Corresponding data stmt not found\n",
         temp->astnode.ident.name);
 
-    return FALSE;
+    if(type_lookup (cur_array_table, temp->astnode.ident.name)
+         && f2j_arrays_static)
+      return TRUE;
+    else
+      return FALSE;
   }
 }
 

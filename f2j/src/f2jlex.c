@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -649,7 +649,8 @@ prelex (BUFFER * bufstruct)
       printf("the line is [%s]\n",bufstruct->stmt);
 
     /* truncate anything beyond 72 characters */
-    bufstruct->stmt[72] = '\0';
+    bufstruct->stmt[72] = '\n';
+    bufstruct->stmt[73] = '\0';
 
     /* Dispose of comments and blank lines for now.
      * Later, a COMMENT token can be defined and the

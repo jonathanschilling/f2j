@@ -735,6 +735,7 @@ common_check(AST *root)
           printf("# @#Typecheck: inserting %s into the type table, merged = %s\n",
             ht->variable->astnode.ident.name, 
             ht->variable->astnode.ident.merged_name);
+            ht->variable->astnode.ident.passByRef = TRUE;
 
         type_insert(chk_type_table,ht->variable,ht->variable->vartype,
           ht->variable->astnode.ident.name);
@@ -1036,7 +1037,7 @@ intrinsic_check(AST *root)
   uppercase(tempname);
 
   entry = methodscan (intrinsic_toks, tempname);
-
+  printf("Tempname=%s\n", tempname);
   f2jfree(tempname, strlen(tempname)+1);
 
   if(!entry) {
@@ -1062,6 +1063,9 @@ intrinsic_check(AST *root)
       if(temp->vartype < min_type)
         min_type = temp->vartype;
 
+      printbits("This is the bitmask ", &bitfields[temp->vartype], 1);
+      printbits("This is the entry-args ", &entry->args, 1);
+      printf("temp->vartype=%s\n", returnstring[temp->vartype]); 
       if(! (bitfields[temp->vartype] & entry->args)) {
         fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
                 entry->fortran_name);

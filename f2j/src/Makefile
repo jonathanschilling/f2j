@@ -3,7 +3,7 @@
 # $Source$
 # Revision:$
 
-.PHONY: depend clean goto
+.PHONY: clean goto
 
 # defining DEBUG_MEM includes some code that will
 # trash any freed memory, thus helping to expose
@@ -47,11 +47,50 @@ $(JAVAB):
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y
 
-dep:	
-	rm -f f2j.dep
-	$(CC) -M $(SRC) > f2j.dep
+f2jparse.tab.o: f2jparse.tab.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h constant_pool.h f2jmem.h
 
-sinclude f2j.dep
+f2jlex.o: f2jlex.c initialize.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h f2jmem.h constant_pool.h
+
+f2jmain.o: f2jmain.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h constant_pool.h f2jmem.h
+
+symtab.o: symtab.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jmem.h constant_pool.h
+
+codegen.o: codegen.c codegen.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+vcg_emitter.o: vcg_emitter.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h
+
+typeassign.o: typeassign.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h
+
+opcode.o: opcode.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h
+
+dlist.o: dlist.c dlist.h f2j.h symtab.h class.h graph.h opcodes.h \
+ f2jmem.h constant_pool.h
+
+typecheck.o: typecheck.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h f2jmem.h constant_pool.h
+
+optimize.o: optimize.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h codegen.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+constant_pool.o: constant_pool.c constant_pool.h class.h dlist.h f2j.h \
+ symtab.h graph.h opcodes.h f2jparse.tab.h f2jmem.h
+
+class.o: class.c class.h dlist.h codegen.h f2j.h symtab.h graph.h \
+ opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+globals.o: globals.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h
+
+f2jmem.o: f2jmem.c f2jmem.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h constant_pool.h
 
 clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
@@ -61,4 +100,4 @@ goto:
 	cd $(GOTO_TRANS); $(MAKE) realclean
 
 realclean: clean goto
-	rm -f ../bin/f2java ../bin/puref2j f2j.dep
+	rm -f ../bin/f2java ../bin/puref2j

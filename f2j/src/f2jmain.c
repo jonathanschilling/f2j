@@ -17,7 +17,7 @@ main (int argc, char **argv)
     extern char *inputfilename;
     extern FILE *ifp;
     extern FILE *jasminfp;
-    extern FILE *javafp;
+/*    extern FILE *javafp;  9-11-97, Keith*/
     extern FILE *vcgfp;
     extern int lineno;
     extern int statementno;
@@ -137,12 +137,15 @@ main (int argc, char **argv)
       }
       jasminheader (jasminfp, classname);
     } else {
-      if((javafp = fopen (sourcename, "w"))==NULL) {
-        fprintf(stderr,"Cannot open output file '%s'.\n",sourcename);
-        perror("Reason");
-        exit(1);
-      }
-      javaheader (javafp, classname);
+/*  commented out 9-11-97, keith
+*
+*     if((javafp = fopen (sourcename, "w"))==NULL) {
+*       fprintf(stderr,"Cannot open output file '%s'.\n",sourcename);
+*       perror("Reason");
+*       exit(1);
+*     }
+*     javaheader (javafp, classname);
+*/
       /* Write to standard out to debug code
          generation.  */
       /*  javafp = stdout;     */
@@ -160,8 +163,14 @@ main (int argc, char **argv)
 
     if(JAS)
       fclose (jasminfp);
-    else
-      fclose (javafp);
+    else {
+
+/*  commented out 9-11-97, keith
+*     fprintf(javafp,"} // End class.\n");
+*     fclose (javafp);
+*/
+
+    }
 
 #if VCG
     fclose (vcgfp);
@@ -225,32 +234,32 @@ jasminheader (FILE * jasminfp, char *classname)
    contains directories that contain the actual classes. 
    The preprocessor junk is a necessary evil, at least temporarily. */
 void
-javaheader (FILE * javafp, char *classname)
+javaheader (FILE * fp, char *classname)
 {
-    fprintf (javafp, "/*\n");
-    fprintf (javafp, " *  Produced by f2java.  f2java is part of the Fortran-\n");
-    fprintf (javafp, " *  -to-Java project at the University of Tennessee Netlib\n");
-    fprintf (javafp, " *  numerical software repository.\n *\n");
-    fprintf (javafp, " *  Original authorship for the BLAS and LAPACK numerical\n");
-    fprintf (javafp, " *  routines may be found in the Fortran source, available at\n");
-    fprintf (javafp, " *  www.netlib.org.\n *\n");
-    fprintf (javafp, " *  Fortran input file: %s\n *\n", inputfilename);
+    fprintf (fp, "/*\n");
+    fprintf (fp, " *  Produced by f2java.  f2java is part of the Fortran-\n");
+    fprintf (fp, " *  -to-Java project at the University of Tennessee Netlib\n");
+    fprintf (fp, " *  numerical software repository.\n *\n");
+    fprintf (fp, " *  Original authorship for the BLAS and LAPACK numerical\n");
+    fprintf (fp, " *  routines may be found in the Fortran source, available at\n");
+    fprintf (fp, " *  www.netlib.org.\n *\n");
+    fprintf (fp, " *  Fortran input file: %s\n *\n", inputfilename);
     /*  The time functions provided by the GNU libc do not work under sun4.
 	It would however be nice to have the translations time-stamped. */
-    /* fprintf (javafp, " *  translated: %s\n", time); */
-    fprintf (javafp, " *  The f2j compiler code was written by\n");
-    fprintf (javafp, " *  David M. Doolin (doolin@cs.utk.edu) and\n");
-    fprintf (javafp, " *  Keith  Seymour (seymour@cs.utk.edu)\n");
-    fprintf (javafp, " */\n\n");
+    /* fprintf (fp, " *  translated: %s\n", time); */
+    fprintf (fp, " *  The f2j compiler code was written by\n");
+    fprintf (fp, " *  David M. Doolin (doolin@cs.utk.edu) and\n");
+    fprintf (fp, " *  Keith  Seymour (seymour@cs.utk.edu)\n");
+    fprintf (fp, " */\n\n");
 #if LAPACK
-    fprintf (javafp, "package lapack;\n");
-    fprintf (javafp, "import blas.*;\n");
+    fprintf (fp, "// package lapack;\n");
+    fprintf (fp, "// import blas.*;\n");
 #endif
 #if BLAS
-    fprintf (javafp, "package blas;\n");
+    fprintf (fp, "// package blas;\n");
 #endif
-    fprintf (javafp, "import java.lang.*;\n\n");
-    fprintf (javafp, "public class %s {\n\n", classname);
+    fprintf (fp, "import java.lang.*;\n\n");
+    fprintf (fp, "public class %s {\n\n", classname);
 }
 
 
@@ -266,13 +275,16 @@ initialize ()
 {
   extern int lineno;
   extern int statmentno;
-    int tablesize = 211;
-    extern SYMTABLE *array_table;	/* Variables of type array. */
+  int tablesize = 211;
+  extern SYMTABLE *array_table; /* Variables of type array. */
 
-lineno = 0;
-statementno = 0;
-    array_table = (SYMTABLE *) new_symtable (tablesize);
+  lineno = 0;
+  statementno = 0;
+  func_stmt_num = 0;
 
+  array_table  = (SYMTABLE *) new_symtable (tablesize);
+  format_table = (SYMTABLE *) new_symtable (tablesize);
+  data_table = (SYMTABLE *) new_symtable (tablesize);
 }
 
 

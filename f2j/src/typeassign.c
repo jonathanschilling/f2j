@@ -20,6 +20,12 @@ typedef struct codetag_
   }
 CODES;
 
+/* this was FILE *javafp, but I'm moving around the *
+ * file creation code, so I'm altering this so that *
+ * it'll compile.  Currently this code is not used, *
+ * anyway.   9-11-97, Keith                         */
+
+FILE *temp_javafp;
 
 assign (AST * root)
 {
@@ -277,7 +283,7 @@ expr_assign (AST * root)
       case Expression:
 	  /*
 	     if (root->astnode.expression.parens)
-	     fprintf (javafp, "(");
+	     fprintf (temp_javafp, "(");
 	   */
 	  if (root->astnode.expression.lhs != NULL)
 	      expr_assign (root->astnode.expression.lhs);
@@ -285,7 +291,7 @@ expr_assign (AST * root)
 	      expr_assign (root->astnode.expression.rhs);
 	  /*
 	     if (root->astnode.expression.parens)
-	     fprintf (javafp, ")");
+	     fprintf (temp_javafp, ")");
 	   */
 	  break;
 	  /* Ok, to emit a binary op, we need to examine the
@@ -316,7 +322,7 @@ expr_assign (AST * root)
 	  stacksize += stack;
 	  break;
       case Unaryop:
-	  fprintf (javafp, "%c", root->astnode.expression.minus);
+	  fprintf (temp_javafp, "%c", root->astnode.expression.minus);
 	  expr_assign (root->astnode.expression.rhs);
 	  break;
       case Constant:
@@ -418,18 +424,18 @@ call_assign (AST * root)
     *tempname = toupper (*tempname);
 
     /* Assume all methods that are invoked are static.  */
-    fprintf (javafp, "%s.%s", tempname, root->astnode.ident.name);
+    fprintf (temp_javafp, "%s.%s", tempname, root->astnode.ident.name);
 
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "(");
+    fprintf (temp_javafp, "(");
     while (temp->nextstmt != NULL)
       {
 	  expr_assign (temp);
-	  fprintf (javafp, ",");
+	  fprintf (temp_javafp, ",");
 	  temp = temp->nextstmt;
       }
     expr_assign (temp);
-    fprintf (javafp, ");\n");
+    fprintf (temp_javafp, ");\n");
 }
 
 int
@@ -448,16 +454,16 @@ spec_assign (AST * root)
       case Parameter:
 	  assigntemp = root->astnode.typeunit.declist;
 	  printf ("Parameter stmt.\n");
-	  /*  fprintf (javafp, "public static final "); */
+	  /*  fprintf (temp_javafp, "public static final "); */
 	  /* Now look up the variable in the symbol table to
 	     see what kind of type it is. */
 	  /* Let's assign a comment here noting that the assignment
 	     comes from a fortran PARAMETER specification. */
-	  fprintf (javafp, "// Assignment from fortran PARAMETER specification.\n");
+	  fprintf (temp_javafp, "// Assignment from fortran PARAMETER specification.\n");
 	  name_assign (assigntemp->astnode.assignment.lhs);
-	  fprintf (javafp, " = ");
+	  fprintf (temp_javafp, " = ");
 	  expr_assign (assigntemp->astnode.assignment.rhs);
-	  fprintf (javafp, ";\n");
+	  fprintf (temp_javafp, ";\n");
 	  break;
 
 	  /*  I am reaching these next two cases.  */

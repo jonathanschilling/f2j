@@ -42,7 +42,7 @@ BOOLEAN commaseen;
 
 int lexdebug = 0;
 
-
+char *tok2str(int);
 
 typedef struct _buffer
   {
@@ -85,8 +85,10 @@ main (int argc, char **argv)
 	  /* This prints out some random int on the EOF 
 	     condition. 
 	   */
+         if(lexdebug) {
 	  printf ("From main: %d\n", token);
 	  printf ("yytext: %s\n\n", yytext);
+         }
       }
     if(lexdebug)printf ("EOF\n");
 }				/*   Close main().  */
@@ -104,6 +106,7 @@ yylex ()
     static int tokennumber;
     static int firsttoken;
     static int parencount = 0;
+    static int format_stmt;    /* are we lexing a format statement */
     int token = 0;
 
     /* yyparse() makes a call to yylex() each time it needs a
@@ -123,12 +126,18 @@ yylex ()
 
 /* Test so that yylex will know when to call prelex to get 
    another character string.  */
+
     if (*buffer.stmt == 0)
-      {
-	  prelex (&buffer);   /* No more tokens? Get another statement. */
-          tokennumber = 0;    /* Reset for each statement. */
-	  parencount = 0;     /* Reset for each statement. */
-      }
+    {
+      if(lexdebug) printf("calling prelex\n");
+      prelex (&buffer);   /* No more tokens? Get another statement. */
+      tokennumber = 0;    /* Reset for each statement. */
+      parencount = 0;     /* Reset for each statement. */
+      format_stmt = 0;    /* Reset for each statement. */
+    }
+
+    if(lexdebug)
+      printf("here in yylex(), buffer.stmt = \"%s\"\n",buffer.stmt);
 
 
 /* Check for end of file condition.  */
@@ -136,8 +145,10 @@ yylex ()
 	I may later comment this out to investigate the
 	behavior.  If this does work, it is confusing with
 	what I said above.  */
-    if (*buffer.stmt == '\0')
-	return 0;
+    if (*buffer.stmt == '\0') {
+      if(lexdebug) printf("(first): lexer returning 0 \n");
+      return 0;
+    }
 
 /* All the context handling will need to be handled 
    before keyscanning.  Contexts will include `if' 
@@ -161,6 +172,9 @@ yylex ()
             if (token)
               {
 	        tokennumber++;
+                if(lexdebug)
+                  printf("1: lexer returns %s (%s)\n",
+                    tok2str(token),buffer.stmt);
 	        return token;
               }
 	    /*  Trap errors.  */
@@ -168,14 +182,18 @@ yylex ()
 
 	else /* Other three cases. */
 	  {
+            if(lexdebug)
+              printf("keyscanning %s, ",buffer.stmt);
 	    token = keyscan (tab_type, &buffer);
+            if(lexdebug)
+              printf("token = %d\n",token);
             if (token)
 	      {
-		/* printf("Here...\n"); */
 		firsttoken = token;
 		tokennumber++;
-		/* printf("Token number: %d,First token %d\n", 
-                        tokennumber, firsttoken); */
+                if(lexdebug)
+                  printf("2: lexer returns %s (%s)\n",
+                    tok2str(token),buffer.stmt);
                 return token;
 	      }
 
@@ -184,6 +202,11 @@ yylex ()
 	      {
 		firsttoken = token;
 		tokennumber++;
+                if(token == END)
+                  func_stmt_num = 0;
+                if(lexdebug)
+                  printf("3: lexer returns %s (%s)\n",
+                    tok2str(token),buffer.stmt);
 	        return token;
 	      }
 
@@ -194,6 +217,9 @@ yylex ()
 		{
 		  firsttoken = token;
 		  tokennumber++;
+                  if(lexdebug)
+                    printf("4: lexer returns %s (%s)\n",
+                      tok2str(token),buffer.stmt);
 		  return token;
 		}
 	      /*  Should probably trap errors here.  */
@@ -201,12 +227,19 @@ yylex ()
 	/*  Should probably trap errors here.  */
       } /* Close if (firsttoken == 0).  */
 
-    if(statementno == 1 && firsttoken == TYPE && tokennumber ==1)
+  if(lexdebug)
+    printf("func_stmt_num = %d, firsttoken = %d, and tokennumber = %d\n",
+  func_stmt_num,firsttoken,tokennumber);
+
+    if(func_stmt_num == 1 && firsttoken == TYPE && tokennumber ==1)
       {
 	 token = keyscan (tab_stmt, &buffer);
 	 if (token)
 	      {
 		tokennumber++;
+                if(lexdebug)
+                  printf("5: lexer returns %s (%s)\n",tok2str(token),
+                    buffer.stmt);
 	        return token;
 	      }
       }
@@ -222,6 +255,9 @@ yylex ()
 	if (token == CP)
 	  parencount--;
 	tokennumber++;
+        if(lexdebug)
+          printf("6: lexer returns %s (%s)\n",
+            tok2str(token),buffer.stmt);
 	return token;
       }
     /* Now check context again. This should be the only other
@@ -234,15 +270,25 @@ yylex ()
 	 parencount == 0)          ||
 	/*  Takes care of labeled (numbered) statements,
 	    i.e. 10 CONTINUE.  */
-	firsttoken == INTEGER)  
+	firsttoken == INTEGER)
       {
 	if (equalseen == TRUE)
 	  {
+            /* First, look for labeled DO statement */
+	    if((token = keyscan (tab_stmt, &buffer)) == DO)
+            {
+              if(lexdebug)
+                printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+              return token;
+            }
+
             if (isalpha (*buffer.stmt))
 	       token = name_scan (&buffer);
             if (token)
 	      {
 		tokennumber++;
+                if(lexdebug)
+                  printf("7.2: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
 	        return token;
 	      }
 	  }
@@ -254,6 +300,9 @@ yylex ()
             if (token)  
 	      {
 		tokennumber++;
+                format_stmt = 1;
+                if(lexdebug)
+                  printf("8: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
 	        return token;
 	      }
 	  }
@@ -265,19 +314,96 @@ yylex ()
     if (token)
       {
 	tokennumber++;
-	return token;
+
+        if(lexdebug)
+          printf("firsttoken = %s and format_stmt = %s\n",
+            tok2str(firsttoken), format_stmt?"TRUE":"FALSE");
+
+        /* check to see if we're parsing a FORMAT statment so
+           that we can look for edit speicification characters */
+        if((firsttoken == INTEGER) && (format_stmt)) {
+          if(lexdebug)
+            printf("****the spec is '%s'\n", yylval.lexeme);
+          if(yylval.lexeme[0] == 'X') {
+            char *tmp;
+
+            token = EDIT_DESC;
+            if(strlen(yylval.lexeme) > 1) {
+              if(lexdebug)
+                printf("now we want to push '%s' back before '%s'\n",
+                  yylval.lexeme + 1,buffer.stmt);
+              tmp = strdup(buffer.stmt);
+              strcpy(buffer.stmt,yylval.lexeme + 1);
+              strcat(buffer.stmt,tmp);
+              yylval.lexeme[1] = '\0';
+              if(lexdebug)
+                printf("now lexeme = '%s' and buffer.stmt = '%s'\n",
+                  yylval.lexeme,buffer.stmt);
+              strcpy(buffer.text,buffer.stmt);
+            }
+          }
+
+          if( (yylval.lexeme[0] == 'A') ||
+              (yylval.lexeme[0] == 'F') ||
+              (yylval.lexeme[0] == 'I') ||
+              (yylval.lexeme[0] == 'D') ||
+              (yylval.lexeme[0] == 'G') ||
+              (yylval.lexeme[0] == 'E') ||
+              (yylval.lexeme[0] == 'L'))
+          {
+            token = EDIT_DESC;
+
+            /* the following if statment grabs format specs like
+               G10.3 (although, at this point, we've already got
+               G10 so now we want to grab the rest and append it) */
+            if( buffer.stmt[0] == '.' )
+            {
+              char *bufptr = strdup(buffer.stmt);
+              int len=1;
+ 
+              /* len is initialized to 1, so we skip the '.' char */
+              while(!isdigit(bufptr[len]))
+                len++; /* do nothing */
+              
+              bufptr[len+1] = '\0';
+              strcat(yylval.lexeme,bufptr);
+              free(bufptr);
+              bufptr = buffer.stmt + len + 1;
+              strcpy(buffer.stmt,bufptr);
+            }
+            if(lexdebug)
+              printf("8.5: lexer returns %s (%s)\n", 
+                tok2str(token),buffer.stmt);
+            return token;
+          }
+        }
+
+        if((firsttoken == IMPLICIT) && 
+           (!strcmp(yylval.lexeme,"NONE") || !strcmp(yylval.lexeme,"none")))
+           token = NONE;
+
+        if(lexdebug)
+          printf("9: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+  	return token;
       }
-    if (isdigit (*buffer.stmt))
+    if (isdigit (*buffer.stmt)) {
 	token = number_scan (&buffer);
+    }
     if (token)
       {
 	tokennumber++;
+        if(lexdebug) {
+          printf("10: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+          printf("10: lexeme is '%s'\n",yylval.lexeme);
+        }
 	return token;
       }
     token = string_or_char_scan (&buffer);
     if (token)
       {
 	tokennumber++;
+        if(lexdebug)
+          printf("11: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
 	return token;
       }
     
@@ -285,7 +411,7 @@ yylex ()
 
 #if NOTSALES	    
     token = keyscan (tab_type, &buffer);
-    if (token) 
+    if (token)
         return token;
     token = keyscan (tab_toks, &buffer);
     if (token)
@@ -312,7 +438,10 @@ yylex ()
 /*  This code below appears to never get called.
    Not sure why not.
  */
-    if(lexdebug)printf ("Token (yylex): %d\n");
+    if(lexdebug) {
+      printf ("Token (yylex): %d\n");
+      printf("(second): lexer returning 0\n");
+    }
     return 0;
 }				/* Close yylex().  */
 
@@ -331,9 +460,16 @@ prelex (BUFFER * bufstruct)
     extern FILE *ifp;
     extern int lineno;
     extern int statementno;
+    extern int func_stmt_num;
+
+    if(lexdebug)
+      printf("entering prelex()\n");
 
     while (fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
       {
+         if(lexdebug)
+           printf("the line is [%s]\n",bufstruct->stmt);
+
 	  /* Dispose of comments and blank lines for now.
 	     Later, a COMMENT token can be defined and the
 	     comment returned for inclusion in either
@@ -362,6 +498,7 @@ prelex (BUFFER * bufstruct)
 	  if(lexdebug)printf ("From prelex: %s\n", bufstruct->stmt);
 	  lineno++;
 	  statementno++;
+          func_stmt_num++;
 	  return;
       }
     /* EOF conditions. */
@@ -395,6 +532,10 @@ collapse_white_space (BUFFER * bufstruct)
 
     tcp = tempbuf;
     yycp = bufstruct->text;
+
+    if(lexdebug)
+      printf("entering collapse_white_space, buffer is [%s]\n",
+        bufstruct->stmt);
 
     for (cp = bufstruct->stmt; *cp; cp++)
       {
@@ -513,10 +654,12 @@ check_continued_lines (FILE * ifp, char *current_line)
 		return;
 	    }
 #endif
-	  /*  Accept either "$" or "*"  in column 6 to
+	  /*  Accept either "$", "*", "+", or "&" in column 6 to
 	      indicate that the statement continues on
 	      the next line.  */
 	  if (next_line[5] != '*' &&
+	      next_line[5] != '&' &&
+	      next_line[5] != '+' &&
 	      next_line[5] != '$')
 	      /*  There is no continuation marker.  Reset the 
 	         pointer to the start of the line, and return. */
@@ -592,21 +735,25 @@ char *
 methodscan (METHODTAB * tab, char * name)
 {
 
-    /*  The method translation table is initialized in
-	the header block of this file.  We treat the table
-	as a linear linked list by stepping through the
-	array entries with the pointer `*tab'. Note that
-	`NULL' last entry in the table shuts down the for()
-	loop.  */
-/*  for (temptab;temptab->fortran_name  != NULL;temptab++)  */
+  /*  The method translation table is initialized in
+      the header block of this file.  We treat the table
+      as a linear linked list by stepping through the
+      array entries with the pointer `*tab'. Note that
+      `NULL' last entry in the table shuts down the for()
+      loop.  */
+
+  /*  for (temptab;temptab->fortran_name  != NULL;temptab++)  */
 
   while (tab->fortran_name != NULL) { 
+
     /* if (*tab->fortran_name == NULL) return 0; */
-    if (tab->fortran_name == NULL) return 0;
+
+    if (tab->fortran_name == NULL) 
+      return 0;
 
     if (!strcmp (tab->fortran_name,name)) {
-      if(lexdebug)printf("java_name: %s\n", tab->java_method); 
-      printf("java_name: %s\n", tab->java_method); 
+      if(lexdebug)
+        printf("java_name: %s\n", tab->java_method); 
 
       return tab->java_method; 
     }
@@ -660,8 +807,14 @@ number_scan (BUFFER * bufstruct)
     int token;
     int tokenlength = 0;
     int type = INTEGER;  /* Default, in case we find nothing else. */
+
     ncp = bufstruct->stmt; /*  Number character pointer. */
     tcp = bufstruct->text;  /* Literal text character pointer. */
+
+    if(lexdebug) {
+      printf("here in number scan\n   buf.stmt = '%s'\n",bufstruct->stmt);
+      printf("   buf.text = '%s'\n",bufstruct->text);
+    }
 
 /*  Test and see whether it is a number (constant).
    If so, store the literal text in yytext.  These
@@ -753,6 +906,11 @@ number_scan (BUFFER * bufstruct)
 	  break;
       }				/* Close while() loop. */
 
+    if(lexdebug) {
+      printf("ok that was fun, ncp = '%s', tcp = '%s'",ncp,tcp);
+      printf(" and tokenlength = %d\n",tokenlength);
+    }
+
     strncpy (yylval.lexeme, tcp, tokenlength);
     yylval.lexeme[tokenlength] = '\0';
     if(lexdebug)printf ("Number: %s\n", yytext);
@@ -795,16 +953,176 @@ string_or_char_scan (BUFFER * bufstruct)
 	  /* Reset the value; strlen does not include the value
 	     of '\0' that terminates the string.  */
           tokenlength = strlen(yylval.lexeme);
-/*	  printf("Tokenlength: %d\n", tokenlength); */
 	  if (tokenlength == 1)
 	    {
-	      /*     printf("Got Char, %s\n", yylval.lexeme); */
 	      return CHAR;
 	    }
 	  else
 	    {
-/*	      printf("Got String, %s\n", yylval.lexeme); */
 	      return STRING;
 	    }
       }
 }				/* Close string_or_char_scan(). */
+
+
+char *
+tok2str(int tok)
+{
+  switch(tok) 
+  {
+    case PLUS:
+      return("PLUS");
+    case MINUS:
+      return("MINUS");
+    case OP:
+      return("OP");
+    case CP:
+      return("CP");
+    case STAR:
+      return("STAR");
+    case POW:
+      return("POW");
+    case DIV:
+      return("DIV");
+    case CAT:
+      return("CAT");
+    case CM:
+      return("CM");
+    case EQ:
+      return("EQ");
+    case COLON:
+      return("COLON");
+    case NL:
+      return("NL");
+    case NOT:
+      return("NOT");
+    case AND:
+      return("AND");
+    case OR:
+      return("OR");
+    case RELOP:
+      return("RELOP");
+    case EQV:
+      return("EQV");
+    case NAME:
+      return("NAME");
+    case DOUBLE:
+      return("DOUBLE");
+    case INTEGER:
+      return("INTEGER");
+    case EXPONENTIAL:
+      return("EXPONENTIAL");
+    case CONST:
+      return("CONST");
+    case TrUE:
+      return("TrUE");
+    case FaLSE:
+      return("FaLSE");
+    case ICON:
+      return("ICON");
+    case RCON:
+      return("RCON");
+    case LCON:
+      return("LCON");
+    case CCON:
+      return("CCON");
+    case FLOAT:
+      return("FLOAT");
+    case CHARACTER:
+      return("CHARACTER");
+    case LOGICAL:
+      return("LOGICAL");
+    case COMPLEX:
+      return("COMPLEX");
+    case NONE:
+      return("NONE");
+    case IF:
+      return("IF");
+    case THEN:
+      return("THEN");
+    case ELSE:
+      return("ELSE");
+    case ELSEIF:
+      return("ELSEIF");
+    case ENDIF:
+      return("ENDIF");
+    case DO:
+      return("DO");
+    case GOTO:
+      return("GOTO");
+    case ASSIGN:
+      return("ASSIGN");
+    case TO:
+      return("TO");
+    case CONTINUE:
+      return("CONTINUE");
+    case STOP:
+      return("STOP");
+    case RDWR:
+      return("RDWR");
+    case END:
+      return("END");
+    case STRING:
+      return("STRING");
+    case CHAR:
+      return("CHAR");
+    case OPEN:
+      return("OPEN");
+    case CLOSE:
+      return("CLOSE");
+    case BACKSPACE:
+      return("BACKSPACE");
+    case REWIND:
+      return("REWIND");
+    case ENDFILE:
+      return("ENDFILE");
+    case FORMAT:
+      return("FORMAT");
+    case PROGRAM:
+      return("PROGRAM");
+    case FUNCTION:
+      return("FUNCTION");
+    case SUBROUTINE:
+      return("SUBROUTINE");
+    case ENTRY:
+      return("ENTRY");
+    case CALL:
+      return("CALL");
+    case RETURN:
+      return("RETURN");
+    case TYPE:
+      return("TYPE");
+    case DIMENSION:
+      return("DIMENSION");
+    case COMMON:
+      return("COMMON");
+    case EQUIVALENCE:
+      return("EQUIVALENCE");
+    case EXTERNAL:
+      return("EXTERNAL");
+    case PARAMETER:
+      return("PARAMETER");
+    case INTRINSIC:
+      return("INTRINSIC");
+    case IMPLICIT:
+      return("IMPLICIT");
+    case SAVE:
+      return("SAVE");
+    case DATA:
+      return("DATA");
+    case COMMENT:
+      return("COMMENT");
+    case WRITE:
+      return("WRITE");
+    case FMT:
+      return("FMT");
+    case UMINUS:
+      return("UMINUS");
+    case EDIT_DESC:
+      return("EDIT_DESC");
+    case REPEAT:
+      return("REPEAT");
+    default:
+      return("Unknown token");
+  }
+}

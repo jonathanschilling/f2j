@@ -3,7 +3,7 @@ CFLAGS= -g -ansi #-p
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
-OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o
+OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o list.o
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
 JFILES = *.j
@@ -22,6 +22,9 @@ f2jlex: f2jlex.o f2j.h
 
 f2jlex.o: f2jlex.c
 	$(CC) -c $(CFLAGS) f2jlex.c
+
+list.o: list.c list.h
+	$(CC) -c $(CFLAGS) list.c
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 	$(CC) -c $(CFLAGS) f2jparse.tab.c
@@ -50,7 +53,7 @@ lexdebug:  f2jlex.c
 #	${CC} -c ${CFLAGS} $<
 
 clean:
-	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.h tmp f2j core a.out *.output *~
+	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h tmp f2j core a.out *.output *~ f2java
 
 realclean: clean
 	rm -f f2java

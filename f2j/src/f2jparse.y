@@ -4,7 +4,7 @@
 #include<string.h>
 
 #define YYDEBUG 0
-#define THISWORKS 0
+#define THISWORKS 1
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -22,6 +22,7 @@ char funname[30];
 char tempname[30];
 char * tname;
 int temptok;
+char * lowercase(char * );
 void start_vcg();
 void emit();
 void jas_emit();
@@ -42,7 +43,7 @@ int debug = 0;
        struct ast_node *ptnode;
        int tok;
        enum returntype type;
-       char lexeme[30];
+       char lexeme[80];
 }
 
 /* generic tokens */
@@ -61,7 +62,7 @@ int debug = 0;
 %token <type> TYPE  
 %token DIMENSION
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
-%token SAVE DATA COMMENT
+%token SAVE DATA COMMENT WRITE FMT EDIT_DESC REPEAT
 
 %left EQV
 %left OR
@@ -84,8 +85,8 @@ in alphabetic order. */
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
 %type <ptnode> Arrayindexlist Arrayindex Arrayindexop
 %type <ptnode> Binaryop Blockif Boolean
-%type <ptnode> Call Char Complex Constant  Constantlist Continue
-%type <ptnode> Data Datalist Do_incr Doloop 
+%type <ptnode> Call /* Char */ Complex Constant  Constantlist Continue
+%type <ptnode> Data DataList DataItem DataElement Do_incr Doloop 
 %type <ptnode> Do_vals Do_statements Do_statement Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -98,9 +99,12 @@ in alphabetic order. */
 %type <ptnode> Relationalop Return 
 %type <ptnode> Save Specstmt Specstmts Statements Statement Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star /* Startindex */  
-%type <ptnode> String  Subroutine
+%type <ptnode> String  Subroutine Stop SubstringOp
 %type <ptnode> Typestmt Typevar Typevarlist
 %type <type>   Types Type
+%type <ptnode> Write WriteFileDesc FormatSpec
+%type <ptnode> Format FormatExplist FormatExp FormatSeparator
+%type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
 
 
 %%
@@ -108,34 +112,57 @@ in alphabetic order. */
 /*  The new stuff is here.  */
 F2java:   Sourcecodes
           {
+printf("F2java -> Sourcecodes\n");
 	    $$ = addnode();
 	    $$ = switchem($1);
-                if(JAS) {
-		  assign_local_vars(localvarlist); 
-		  assign_local_vars($1); 
-                  assign($$); 
-                  if(emittem) jas_emit($$);
-                }else {
-                  if(emittem) emit($$);
-                }
+
+/**************************************************
+*               if(JAS) {
+*                 assign_local_vars(localvarlist); 
+*                 assign_local_vars($1); 
+*                 assign($$); 
+*                 if(emittem) jas_emit($$);
+*               }else {
+*                 if(emittem) emit($$);
+*               }
+***************************************************/
+
           }
 ;
 
 
-Sourcecodes:   Sourcecode {$$=$1;}
-             | Sourcecodes Sourcecode {$2->prevstmt = $1; $$=$2;}
+Sourcecodes:   Sourcecode {printf("Sourcecodes -> Sourcecode\n"); $$=$1;}
+             | Sourcecodes Sourcecode {printf("Sourcecodes -> Sourcecodes Sourcecode\n");$2->prevstmt = $1; $$=$2;}
 ;
 
 
 
 Sourcecode :    Fprogram
+                { 
+                  printf("Sourcecode -> Fprogram\n"); 
+                  format_table = (SYMTABLE *) new_symtable (100);
+                  data_table = (SYMTABLE *) new_symtable (100);
+                }
               | Fsubroutine
+                { 
+                  printf("Sourcecode -> Fsubroutine\n"); 
+                  format_table = (SYMTABLE *) new_symtable (100);
+                  data_table = (SYMTABLE *) new_symtable (100);
+                }
               | Ffunction
+                { 
+                  printf("Sourcecode -> Ffunction\n"); 
+                  format_table = (SYMTABLE *) new_symtable (100);
+                  data_table = (SYMTABLE *) new_symtable (100);
+                }
 ;
-
 
 Fprogram:   Program  Specstmts  Statements End 
               {
+printf("Fprogram -> Program  Specstmts  Statements End\n");
+printf("***calling type_hash!\n");
+		$2 = switchem($2);
+        	type_hash($2); 
                 $$ = addnode();
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -143,11 +170,13 @@ Fprogram:   Program  Specstmts  Statements End
 	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
-		$2 = switchem($2);
-        	type_hash($2); 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
+
+                /* a PROGRAM has no args, so set the symbol table
+                   to NULL */
+                args_table = NULL;  
 
 #if VCG
                 if(emittem) start_vcg($$);
@@ -170,6 +199,7 @@ Fprogram:   Program  Specstmts  Statements End
 
 Fsubroutine: Subroutine Specstmts Statements End 
               {
+printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
                 $$ = addnode();
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -178,6 +208,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
+printf("***calling type_hash!\n");
         	type_hash($2); 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -200,7 +231,9 @@ Fsubroutine: Subroutine Specstmts Statements End
 
 Ffunction:   Function Specstmts Statements  End
               {
+printf("Ffunction ->   Function Specstmts Statements  End\n");
                 $2 = switchem($2);
+printf("***calling type_hash!\n");
 		type_hash($2);
                 $$ = addnode();
 	        $1->parent = $$; /* 9-4-97 - Keith */
@@ -229,34 +262,41 @@ Ffunction:   Function Specstmts Statements  End
               }
 ;
 
-Program:      PROGRAM Name
+Program:      PROGRAM Name NL
               {
+printf("Program ->  PROGRAM Name\n");
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
 		 $$->astnode.source.name = $2;
+                 $$->nodetype = Program;
+                 $$->token = PROGRAM;
+                 $$->astnode.source.args = NULL;
               }
 ;
 
 /*  Subroutine is handled correctly.  */
 Subroutine:   SUBROUTINE Name Functionargs NL
               {
+printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 	         $3->parent = $$; /* 9-4-97 - Keith */
                  lowercase($2->astnode.ident.name);
                  $$->astnode.source.name = $2; 
                  $$->nodetype = Subroutine;
-		   $$->token = SUBROUTINE;
+                 $$->token = SUBROUTINE;
                  $$->astnode.source.args = switchem($3);
               }
 ;
 
 Function:  Type FUNCTION Name Functionargs NL 
            {
+printf("Function ->  Type FUNCTION Name Functionargs NL\n");
              $$ = addnode();
-	     $3->parent = $$; /* 9-4-97 - Keith */
-	     $4->parent = $$; /* 9-4-97 - Keith */
+
+  	     $3->parent = $$;  /* 9-4-97 - Keith */
+  	     $4->parent = $$;  /* 9-4-97 - Keith */
              $$->astnode.source.name = $3;
              $$->nodetype = Function;
 	     $$->token = FUNCTION;
@@ -265,8 +305,15 @@ Function:  Type FUNCTION Name Functionargs NL
            }
 ; 
 
-Specstmts: Specstmt  {$$=$1;}
-          | Specstmts  Specstmt { $2->prevstmt = $1; $$ = $2; }
+Specstmts: Specstmt  
+           {
+             $$=$1;
+           }
+         | Specstmts  Specstmt 
+           { 
+             $2->prevstmt = $1; 
+             $$ = $2; 
+           }
 ;
 
 Specstmt:  DIMENSION
@@ -293,7 +340,10 @@ Specstmt:  DIMENSION
          | External  {$$=$1;}
          | Parameter {$$=$1;}
          | Implicit  {$$=$1;}
-         | Datalist NL {$$=$1;}
+         | Data NL 
+           { 
+             $$=$1;
+           }
 ;
 
 Save:   SAVE Namelist NL
@@ -309,7 +359,7 @@ Implicit:   IMPLICIT
 	      printf("Must use IMPLICIT NONE.\n");
 	      exit(-1);
 	    }
-         |  IMPLICIT NONE
+         |  IMPLICIT NONE NL
             {
 	      $$=addnode();
 	      $$->nodetype = Specification;
@@ -319,25 +369,72 @@ Implicit:   IMPLICIT
 ;
 
 
-/*  DATA statement hasn't really been implemented.
-    This is just some dummy code to allow parsing. */
-Datalist:   Data {$$ = $1;}
-          | Datalist CM Data {$3->prevstmt = $1; $$ = $3;}
+Data:       DATA DataList
+            {
+              /* $$ = $2; */
+              $$ = addnode();
+              $$->nodetype = DataList;
+              $$->astnode.label.stmt = $2;
+            } 
 ;
 
-Data:       DATA Namelist DIV Constantlist DIV 
-            { 
-              $$ = addnode();
-	      $2->parent = $$; /* 9-4-97 - Keith */
-	      $4->parent = $$; /* 9-4-97 - Keith */
-	      $$->nodetype = Unimplemented;
+DataList:   DataItem
+            {
+              $$ = $1;
+            }
+        |   DataList CM DataItem
+            {
+              $3->prevstmt = $1;
+              $$ = $3;
             }
 ;
 
-Constantlist: Constant
-            | Constantlist CM Constant
+DataItem:   Namelist DIV Constantlist DIV
+            {
+              AST *temp;
+              int idx;
+
+              $$ = addnode();
+              $$->astnode.data.nlist = switchem($1);
+              $$->astnode.data.clist = switchem($3);
+              $$->nodetype = DataStmt;
+              $$->prevstmt = NULL;
+              $$->nextstmt = NULL;
+
+              for(temp=$1;temp!=NULL;temp=temp->prevstmt) {
+                idx = hash(temp->astnode.ident.name) % data_table->num_entries;
+                if(debug)
+                  printf("@@insert %s into data table\n",
+                     temp->astnode.ident.name);
+                type_insert(&(data_table->entry[idx]), temp, Float);
+              }
+            }
 ;
 
+Constantlist: DataElement
+              { 
+                $$ = $1;
+              }
+            | Constantlist CM DataElement
+              {
+                $3->prevstmt = $1;
+                $$ = $3;
+              }
+;
+
+DataElement:  Constant
+              {
+                $$ = $1;
+              }
+           |  Constant STAR Constant
+              {
+                $$=addnode();
+                $$->astnode.expression.lhs = $1;
+                $$->astnode.expression.rhs = $3;
+                $$->nodetype = Binaryop;
+                $$->astnode.expression.optype = '*';
+              }
+;
 
 /*  Here is where the fun begins.  */
 /*  No newline token here.  Newlines have to be dealt with at 
@@ -391,6 +488,16 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               {
                 $$ = $1;
                 $$->nodetype = Label;
+              }
+            | Write
+              {
+                $$ = $1;
+                $$->nodetype = Write;
+              }
+            | Stop
+              {
+                $$ = $1;
+                $$->nodetype = Stop;
               }
 ;           
 
@@ -484,6 +591,8 @@ Typevar:   Name
 /*  Deleted the Type REAL hack...  Need to take care of that in the 
     lexer.  This CHAR and STRING stuff is in the wrong place and
     needs to get axed.  Putting the TYPE back in ...
+          ^^^^^^^^^^^ it is commented out for now 9-12-97, Keith
+                   moved to 'Constant' production 9-17-97, Keith
  */
 /*  Might have to explicitely set the arraydeclist pointer to
     NULL in this action.  `Name' gets pointed to by the node
@@ -494,28 +603,41 @@ Name:    NAME
            $$=addnode();
 	   $$->token = NAME;
            $$->nodetype = Identifier;
-           strcpy($$->astnode.ident.name, yylval.lexeme);
+           strcpy($$->astnode.ident.name, strdup(lowercase(yylval.lexeme)));
 	   /*  if(debug)printf("Name NAME, %s.\n",yylval.lexeme); */
          }
+/*
        | Char {$$ = $1;}
        | String {$$ = $1;}
+*/
 ;
 
+/*
 Char:     CHAR
          {
            $$=addnode();
- 	    $$->token = CHAR; 
+           $$->token = CHAR; 
            $$->nodetype = Identifier;
            strcpy($$->astnode.ident.name, yylval.lexeme);
          }
 ;
+*/
 
 String:  STRING
          {
            $$=addnode();
-	    $$->token = STRING;
+           $$->token = STRING;
            $$->nodetype = Identifier;
            strcpy($$->astnode.ident.name, yylval.lexeme);
+           printf("**The string value is %s\n",$$->astnode.ident.name);
+         }
+       | CHAR
+         {
+           $$=addnode();
+           $$->token = STRING;
+           $$->nodetype = Identifier;
+           strcpy($$->astnode.ident.name, yylval.lexeme);
+           printf("**The string value is %s\n",$$->astnode.ident.name);
          }
 ;
 
@@ -596,6 +718,7 @@ Lhs:     Name {$$=$1;}
 	   /* We don't switch index order.  */
 	   $$->astnode.ident.arraylist = switchem($3);
 	 }
+       | SubstringOp { $$ = $1; }
 ;
 
 
@@ -729,6 +852,7 @@ Do_statement:    Assignment NL {$$=$1; $$->nodetype = Assignment;}
                | Return {$$=$1; $$->nodetype = Return;}
                | Goto {$$=$1; $$->nodetype = Goto;}
                | Label {$$=$1; $$->nodetype = Label;}
+               | Write {$$=$1; $$->nodetype = Write;}
 ;           
 
 
@@ -750,6 +874,143 @@ Label: Integer Doloop
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
 	 $$->astnode.label.stmt = $2;
        }
+      | Integer Format NL 
+       {
+         $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
+	 $$->nodetype = Format;
+	 $$->astnode.label.number = atoi($1->astnode.constant.number);
+	 $$->astnode.label.stmt = $2;
+         $2->astnode.label.number = $$->astnode.label.number;
+         printf("@@ inserting format line num %d\n",$$->astnode.label.number);
+         hash_insert(format_table,$2);
+       }
+;
+
+/*  The following productions for FORMAT parsing are derived
+    from Robert K. Moniot's grammar (see ftnchek-2.9.4) */
+
+Format: FORMAT OP FormatExplist CP
+       {
+         $$ = addnode();
+         $$->nodetype = Format;
+         $$->astnode.label.stmt = switchem($3);
+       }
+;
+
+FormatExplist:   FormatExp
+           {
+             AST *temp;
+
+             temp = addnode();
+             temp->nodetype = Format;
+             $1->parent = temp;
+
+             $$ = $1;
+           }
+         | FormatExplist FormatExp
+           {
+             $1->nextstmt = $2;
+             $2->prevstmt = $1;
+             $2->parent = $1->parent;
+             if(($2->token == REPEAT) && ($1->token == INTEGER)) {
+               $2->astnode.label.number = atoi($1->astnode.constant.number);
+printf("## setting number = %s\n", $1->astnode.constant.number);
+             }
+             if($2->token == REPEAT)
+               printf("## $2 is repeat token, $1 = %s ##\n",tok2str($1->token));
+             if($1->token == REPEAT)
+               printf("## $1 is repeat token, $2 = %s ##\n",tok2str($2->token));
+             $$ = $2;
+           }
+;
+
+FormatExp:  
+       RepeatableItem
+       {
+         $$ = $1;
+       }
+     | UnRepeatableItem 
+       {
+         $$ = $1;
+       }
+     | FormatSeparator
+       {
+         $$ = $1;
+       }
+;
+
+RepeatableItem:  EDIT_DESC  /* A, F, I, D, G, E, L, X */
+       {
+         $$ = addnode();
+         $$->token = EDIT_DESC;
+         strcpy($$->astnode.ident.name, yylval.lexeme);
+       }
+     | Name
+       {
+         $$ = $1;
+       }
+     | Name '.' Constant
+       {
+         /* ignore the constant part for now */
+         $$ = $1;
+       }
+     | OP FormatExplist CP
+       {
+         $$ = addnode();
+         $$->token = REPEAT;
+         $$->astnode.label.stmt = switchem($2);
+printf("## setting number = 1\n");
+         $$->astnode.label.number = 1;
+       }
+;
+
+UnRepeatableItem:  String
+       {
+         $$ = $1;
+       }
+     | RepeatSpec
+       {
+         $$ = $1;
+       }
+;
+
+FormatSeparator:
+       CM
+       {
+         $$ = addnode();
+         $$->token = CM;
+       }
+     | DIV
+       {
+         $$ = addnode();
+         $$->token = DIV;
+       }
+     | CAT   /* CAT is two DIVs "//" */
+       {
+         $$ = addnode();
+         $$->token = CAT;
+       }
+;
+
+RepeatSpec:  Integer
+       {
+         $$ = $1;
+       }
+     | PLUS Integer
+       {
+         $$ = $2;
+       }
+/*
+  this will stay commented out until I know the
+meaning of a negative repeat specification.
+
+     | MINUS Integer
+       {
+         $$ = $1;
+       }
+*/
 ;
 
 Continue:  Integer CONTINUE NL
@@ -761,6 +1022,79 @@ Continue:  Integer CONTINUE NL
 	 $$->astnode.label.stmt = NULL;
        }
 ;
+
+Write: WRITE OP WriteFileDesc CM FormatSpec CP Explist NL
+       {
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Write;
+         /*
+           $$->astnode.io_stmt.file_desc = ;
+         */
+         if($5->astnode.constant.number[0] == '*') 
+           $$->astnode.io_stmt.format_num = -1;
+         else
+           $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+         $$->astnode.io_stmt.arg_list = switchem($7);
+       }
+     | WRITE OP WriteFileDesc CM FormatSpec CP NL
+       {
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Write;
+         /*
+           $$->astnode.io_stmt.file_desc = ;
+         */
+         if($5->astnode.constant.number[0] == '*') 
+           $$->astnode.io_stmt.format_num = -1;
+         else
+           $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+         $$->astnode.io_stmt.arg_list = NULL;
+       }
+;
+
+/* 
+   Maybe I'll implement this stuff someday. 
+*/
+WriteFileDesc: 
+      Exp
+       {
+         /* do nothing for now */
+         $$ = $1;
+       }
+    | STAR
+       {
+         /* do nothing for now */
+         ;
+       }
+;
+     
+FormatSpec:
+       FMT EQ Integer
+        {
+          $$ = $3;
+        }
+     | Integer
+        {
+          $$ = $1;
+        }
+     | FMT EQ STAR
+        {
+          $$ = addnode();
+	  $$->token = INTEGER;
+          $$->nodetype = Constant;
+          strcpy($$->astnode.constant.number,"*");
+	  $$->astnode.constant.type = Integer;
+        }
+     | STAR
+        {
+          $$ = addnode();
+	  $$->token = INTEGER;
+          $$->nodetype = Constant;
+          strcpy($$->astnode.constant.number,"*");
+	  $$->astnode.constant.type = Integer;
+        }
+;
+
+
 /*  Got a problem when a Blockif opens with a Blockif.  The
     first statement of the second Blockif doesn't get into the
     tree.  Might be able to use do loop for example to fix this. */
@@ -768,22 +1102,22 @@ Continue:  Integer CONTINUE NL
 Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
            {
              $$ = addnode();
-	     $3->parent = $$;
-	     $7->parent = $$; /* 9-4-97 - Keith */
+             $3->parent = $$;
+             $7->parent = $$; /* 9-4-97 - Keith */
              if($8 != NULL) 
                $8->parent = $$; /* 9-4-97 - Keith */
              if($9 != NULL)
                $9->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Blockif;
-	     $$->astnode.blockif.conds = $3;
-	     if($7 != 0) $7 = switchem($7);
-	     $$->astnode.blockif.stmts = $7;
-	     /*  If there are any `else if' statements,
-		 switchem. Otherwise, NULL pointer checked
-		 in code generating functions. */
-	     if($8 != 0) $8 = switchem($8); 
-	     $$->astnode.blockif.elseifstmts = $8; /* Might be NULL. */
-	     $$->astnode.blockif.elsestmts = $9;   /* Might be NULL. */
+             $$->astnode.blockif.conds = $3;
+             if($7 != 0) $7 = switchem($7);
+             $$->astnode.blockif.stmts = $7;
+             /*  If there are any `else if' statements,
+                 switchem. Otherwise, NULL pointer checked
+                 in code generating functions. */
+             if($8 != 0) $8 = switchem($8); 
+             $$->astnode.blockif.elseifstmts = $8; /* Might be NULL. */
+             $$->astnode.blockif.elsestmts = $9;   /* Might be NULL. */
            }
 ;
 
@@ -827,8 +1161,8 @@ Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
 Logicalif: IF OP Exp CP Logicalifstmts   
            {
              $$ = addnode();
-	     $3->parent = $$;
-	     $5->parent = $$; /* 9-4-97 - Keith */
+             $3->parent = $$;
+             $5->parent = $$; /* 9-4-97 - Keith */
              $$->astnode.logicalif.conds = $3;
              $$->astnode.logicalif.stmts = $5;
            }           
@@ -856,6 +1190,11 @@ Logicalifstmts:  Assignment NL {
                     $$=$1;
                     $$->nodetype = Call;
                   }
+                | Write 
+                  {
+                    $$=$1;
+                    $$->nodetype = Write;
+                  }
 ;
 
 /* This _may_ have to be extended to deal with jasmin opcode. 
@@ -867,30 +1206,42 @@ Logicalifstmts:  Assignment NL {
    list reversed, otherwise, it is a subroutine
    or function (method) call and we reverse
    the arguments.  */
-Subroutinecall:   Name OP Explist CP 
+Subroutinecall:   Name OP Explist CP
                   {
-		    HASHNODE * hashtemp;/* In case we need to switch index order. */
+                    HASHNODE * hashtemp;  /* In case we need to switch index order. */
                     $$ = addnode();
                     $1->parent = $$;  /* 9-4-97 - Keith */
-                  /*  $3->parent = $$; */  /* 9-4-97 - Keith */
+                    /*  $3->parent = $$;  9-4-97 - Keith */
                     strcpy($3->parent->astnode.ident.name, 
-                           $1->astnode.ident.name);
-		    $$->nodetype = Identifier;
-		    strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-		    /*  This is in case we want to switch index order later. */
-	            /*
-	            hashtemp = type_lookup(array_table, $1->astnode.ident.name);
-		    if(hashtemp != NULL)
-		      $$->astnode.ident.arraylist = $3;
-		    else
-		    */
-		    /* We don't switch index order.  */
-                      $$->astnode.ident.arraylist = switchem($3);
+                        $1->astnode.ident.name);
+                    $$->nodetype = Identifier;
+                    strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+                    /*  This is in case we want to switch index order later. */
+                    /*
+                       hashtemp = type_lookup(array_table, $1->astnode.ident.name);
+                       if(hashtemp != NULL)
+                         $$->astnode.ident.arraylist = $3;
+                       else
+                    */
+                    /* We don't switch index order.  */
+                    $$->astnode.ident.arraylist = switchem($3);
                   }
 ;
 
+SubstringOp: Name OP Exp COLON Exp CP
+           {
+              printf("SubString!\n");
+              $$ = addnode();
+              $1->parent = $$;
+              strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+              $$->nodetype = Substring;
+              $$->astnode.ident.arraylist = $3;
+              $3->nextstmt = $5;
+           }
+;
 
-/* Here what I'm going to try to do is have each element
+
+/* What I'm going to try to do here is have each element
    of the list linked back to a single node through its
    parent pointer.  This will allow the code generator
    to check the array context (whether it is being used
@@ -1073,6 +1424,7 @@ Exp:         Name {$$=$1;}
 	     }
           |  Complex {$$=$1;}
           |  Subroutinecall {$$=$1;}    
+          |  SubstringOp {$$=$1;}    
 /*          |  Boolean  {$$=$1;}       */
           |  Relationalop {$$=$1; } 
           |  Logicalop {$$=$1;} 
@@ -1142,6 +1494,7 @@ Constant:   Integer
        | Double
        | Exponential
        | Boolean
+       | String   /* 9-16-97, keith */
 ; 
 
 Integer :     INTEGER 
@@ -1187,6 +1540,14 @@ Return:      RETURN NL
                 $$= addnode();
              }
 ;
+
+Stop:   STOP NL
+        {
+          $$ = addnode();
+          $$->nodetype = Stop;
+        }
+;
+
 Goto:   GOTO Integer  NL
         {
           $$ = addnode();
@@ -1305,7 +1666,7 @@ AST *
 switchem(AST * root) 
 {
 
-if (root->prevstmt == NULL)
+if (root->prevstmt == NULL) 
 return root;
 
   while ( root->prevstmt != 0) 
@@ -1323,60 +1684,65 @@ return root;
 int 
 type_hash(AST * types)
 {
-   AST * temptypes, * tempnames;
-   int return_type, index;
-   char * hashid;
-   extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
-   type_table = (SYMTABLE*)new_symtable(211);
-   intrinsic_table = (SYMTABLE*)new_symtable(211);
-   external_table = (SYMTABLE*)new_symtable(211);
+  AST * temptypes, * tempnames;
+  int return_type, index;
+  char * hashid;
+  extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
+  type_table = (SYMTABLE*)new_symtable(211);
+  intrinsic_table = (SYMTABLE*)new_symtable(211);
+  external_table = (SYMTABLE*)new_symtable(211);
    
+printf("***in type_hash!\n");
 
    /* Outer for loop traverses typestmts, inner for()
       loop traverses declists. Code for stuffing symbol table is
       is in inner for() loop.  */
-   for (temptypes = types; temptypes; temptypes = temptypes->nextstmt)
+  for (temptypes = types; temptypes; temptypes = temptypes->nextstmt)
+  {
+      /* Long assignment, set up the for() loop here instead of
+         the expression list.  */
+    tempnames = temptypes->astnode.typeunit.declist;
+
+      /* Need to set the return value here before entering
+         the next for() loop.  */
+    return_type = temptypes->astnode.typeunit.returns;
+
+    for (tempnames; tempnames; tempnames = tempnames->nextstmt)
     {
-       /* Long assignment, set up the for() loop here instead of
-       the expression list.  */
-       tempnames = temptypes->astnode.typeunit.declist;
+      /* Stuff names and return types into the symbol table. */
+      hashid = tempnames->astnode.ident.name;
+      if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
 
-       /* Need to set the return value here before entering
-	  the next for() loop.  */
-       return_type = temptypes->astnode.typeunit.returns;
+      /*  Hash...  */
+      index = hash(hashid) % type_table->num_entries;
+      if(search_hashlist (type_table->entry[index], hashid) != NULL)
+      {
+        if(debug)printf("Duplicate entry.\n");  
+        /*  exit(-1);  */
+      }
 
-      for (tempnames; tempnames; tempnames = tempnames->nextstmt)
-        {
-         /* Stuff names and return types into the symbol table. */
-	  hashid = tempnames->astnode.ident.name;
-	  if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
-	  /*  Hash...  */
-	  index = hash(hashid) % type_table->num_entries;
-	  if(search_hashlist (type_table->entry[index], hashid) != NULL)
-	    {
-	      if(debug)printf("Duplicate entry.\n");  
-	      /*	      exit(-1);   */
-	    }
-	  /* All names go into the name table.  */
-	  type_insert(&(type_table->entry[index]), tempnames, return_type);
+      printf("***inserting into type_table!\n");
 
-	  /* Now separate out the EXTERNAL from the INTRINSIC on the
-	     fortran side.  */
-	  if(temptypes->token != (int)NULL)
-	  switch (temptypes->token)
-	    {
-	    case INTRINSIC:
-	      type_insert(&(intrinsic_table->entry[index]), tempnames, return_type);
-	      break;
-	    case EXTERNAL:
-	      type_insert(&(external_table->entry[index]), tempnames, return_type);
-	      break;
-	    } /* Close switch().  */
-        }  /* Close inner for() loop.  */
-    }    /* Close outer for() loop.  */
+      /* All names go into the name table.  */
+
+      type_insert(&(type_table->entry[index]), tempnames, return_type);
+
+      /* Now separate out the EXTERNAL from the INTRINSIC on the
+         fortran side.  */
+
+      if(temptypes->token != (int)NULL)
+      switch (temptypes->token)
+      {
+        case INTRINSIC:
+          type_insert(&(intrinsic_table->entry[index]), tempnames, return_type);
+          break;
+        case EXTERNAL:
+          type_insert(&(external_table->entry[index]), tempnames, return_type);
+          break;
+      } /* Close switch().  */
+    }  /* Close inner for() loop.  */
+  }    /* Close outer for() loop.  */
 }     /* Close type_hash().       */
-
-
 
 
 /*  Since jasmin doesn't have any EXPONENTIAL data types, these
@@ -1423,7 +1789,8 @@ arg_table_load(AST * arglist)
 
    args_table = (SYMTABLE*)new_symtable(211);
 
-temp = arglist;
+   temp = arglist;
+
    /* We traverse down `prevstmt' because the arglist is
       built with right recursion, i.e. in reverse.  This
       procedure, 'arg_table_load()' is called when the non-
@@ -1441,13 +1808,16 @@ temp = arglist;
 }
 
 
-lowercase(char * name)
+char * lowercase(char * name)
 {
+  char *ptr = name;
+
   while (*name)
     {
      *name = tolower(*name);
       name++;
     }
+  return ptr;
 }
 
 
@@ -1472,6 +1842,7 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
 	for (declist; declist; declist = declist->nextstmt)
 	  {
 	    if(debug)printf("dec list name: %s\n", declist->astnode.ident.name);
+printf("***looking in type_table!\n");
             hashtemp = type_lookup(type_table, declist->astnode.ident.name);
             if(hashtemp == NULL)
 	     {
@@ -1518,6 +1889,7 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
     {
 
       if(debug)printf("arg list name: %s\n", locallist->astnode.ident.name);
+printf("***looking in type_table\n");
       hashtemp = type_lookup(type_table, locallist->astnode.ident.name);
       if(hashtemp == NULL)
 	{

@@ -18,7 +18,6 @@ typedef struct sym_table
   }
 SYMTABLE;
 
-
 /*  Prototypes. */
 
 HASHNODE * search_hashlist(HASHNODE *, char *);

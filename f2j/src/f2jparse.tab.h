@@ -2,7 +2,7 @@ typedef union {
        struct ast_node *ptnode;
        int tok;
        enum returntype type;
-       char lexeme[30];
+       char lexeme[80];
 } YYSTYPE;
 #define	PLUS	258
 #define	MINUS	259
@@ -75,7 +75,11 @@ typedef union {
 #define	SAVE	326
 #define	DATA	327
 #define	COMMENT	328
-#define	UMINUS	329
+#define	WRITE	329
+#define	FMT	330
+#define	EDIT_DESC	331
+#define	REPEAT	332
+#define	UMINUS	333
 
 
 extern YYSTYPE yylval;

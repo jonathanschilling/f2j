@@ -3,6 +3,8 @@
 
 #define symdebug 0
 
+char *strdup(char *);
+
 SYMTABLE *
 new_symtable (int numentries)
 {
@@ -38,7 +40,23 @@ hash_insert (SYMTABLE * table, AST * node)
 {
 
     int index;
-    char *hashid = node->astnode.ident.name;
+    char tmp[100];
+    char *hashid;
+
+    if(node->nodetype == Format) {
+      sprintf(tmp,"%d",node->astnode.label.number);
+      hashid = tmp;
+    }
+    else {
+      hashid = node->astnode.ident.name;
+    }
+
+    if(table == NULL) 
+    {
+       fprintf(stderr,
+          "Error: Trying to insert into null symbol table\n");
+       return(-1);
+    }
 
     index = hash (hashid) % table->num_entries;
 
@@ -73,6 +91,20 @@ hash_insert (SYMTABLE * table, AST * node)
 	      type_insert (&(table->entry[index]), temp, returntype);
 	  }
 	  break;
+      case Format:
+	  {
+             HASHNODE *newnode = (HASHNODE *) malloc(sizeof(HASHNODE));
+             
+     
+             newnode->ident = strdup(tmp);
+             newnode->type = 0;             
+             newnode->variable = node;             
+             newnode->localvarnum = -1;
+ 
+             newnode->next = table->entry[index];
+             table->entry[index] = newnode;
+          }
+          break;
       }				/* Close switch().  */
     return (1);
 }
@@ -127,6 +159,11 @@ type_lookup (SYMTABLE * table, char *id)
 {
     int index;
     HASHNODE *hash_entry;
+
+    if(table == NULL) {
+      return NULL;
+    }
+
     index = hash (id) % table->num_entries;
 
     hash_entry = search_hashlist (table->entry[index], id);
@@ -144,22 +181,19 @@ type_lookup (SYMTABLE * table, char *id)
       }
 }
 
+HASHNODE * format_lookup(SYMTABLE *table, char *label)
+{
+  return type_lookup(table,label);
+}
 
 HASHNODE *
 search_hashlist (HASHNODE * list, char *id)
 {
-  /*HASHNODE *hash_entry;*/
+  for (list; list; list = list->next)
+    if (!strcmp (list->ident, id))
+      return (list);
 
-    /*for (hash_entry = list; hash_entry != NULL; hash_entry = hash_entry->next)*/
-    for (list; list; list = list->next)
-
-      {
-	  if (!strcmp (list->ident, id))
-	    {
-		return (list);
-	    }
-      }
-    return NULL;		/*  Not in list. */
+  return NULL;		/*  Not in list. */
 }
 
 

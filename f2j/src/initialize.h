@@ -53,6 +53,7 @@ KWDTAB tab_stmt[] =
     {"STOP", STOP, 0},
     {"SUBROUTINE", SUBROUTINE, 0},
     {"THEN", THEN, 0},
+    {"WRITE", WRITE, 0},
     NULL  /* Ends a scanning loop.  See comment above. */
 };
 
@@ -110,6 +111,7 @@ KWDTAB tab_toks[] =
     {".GE.", RELOP, rel_ge},
     {".TRUE.", TrUE, 1},
     {".FALSE.", FaLSE, 0},
+    {"FMT", FMT, 0},
     NULL  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
@@ -126,13 +128,14 @@ KWDTAB tab_toks[] =
 METHODTAB intrinsic_toks[]=
 {
   {"LSAME", ".equalsIgnoreCase"}, 
+  {"LSAMEN", ".regionMatches"}, 
   {"MAX", "Math.max"},
   {"MIN", "Math.min"},
   {"ABS", "Math.abs"},
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
   {"DSQRT", "Math.sqrt"},
-  {"MOD", "Math.IEEEremainder"},
+  {"MOD", "(int) Math.IEEEremainder"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 

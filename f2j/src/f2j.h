@@ -9,7 +9,7 @@
 typedef int BOOLEAN;
 #define TRUE 1
 #define FALSE 0
-#define VCG 1   /* define VCG to get graph output */
+#define VCG 0   /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
 #define JAVA 0
@@ -23,9 +23,10 @@ typedef int BOOLEAN;
 BOOLEAN typedecs;
 int lineno;
 int statementno;
+int func_stmt_num;
 FILE *ifp;
 FILE *jasminfp;
-FILE *javafp;
+/* FILE *javafp; */
 FILE *vcgfp;
 int JAS;
 
@@ -35,6 +36,8 @@ SYMTABLE *external_table;
 SYMTABLE *intrinsic_table;
 SYMTABLE *args_table;
 SYMTABLE *array_table; 
+SYMTABLE *format_table; 
+SYMTABLE *data_table; 
 
 int locals;
 int stacksize;
@@ -81,10 +84,14 @@ typedef struct ast_node
 	    Progunit,
 	    Subroutine,
 	    Function,
+            Program,
 	    Blockif,
+            DataStmt,
+            DataList,
 	    Elseif,
 	    Else,
 	    Forloop,
+            Format,
 	    Constant,
 	    Method,
 	    Identifier,
@@ -103,7 +110,10 @@ typedef struct ast_node
 	    Power,
 	    Unaryop,
 	    Specification,
+	    Substring,
 	    End,
+            Write,
+            Stop,
 	    Unimplemented
 	}
       nodetype;
@@ -125,7 +135,7 @@ typedef struct ast_node
 	    struct _assignment
 	      {
 		  BOOLEAN parens;
-                int label;
+                  int label;
 		  char minus;
 		  char optype;
 		  char *opcode;
@@ -178,7 +188,7 @@ typedef struct ast_node
 		     emitted.  */
 		  char *invokemethod;
 		  int localvnum;
-		  char name[40];
+		  char name[80];
 	      }
 	    ident;
 
@@ -199,6 +209,20 @@ typedef struct ast_node
 		  struct ast_node *labelstmt;
 	      }
 	    go_to;		/*, label; *//* goto is a reserved word! */
+
+            struct _io
+              {
+                int io_type, file_desc, format_num;
+                struct ast_node *arg_list;
+              }
+            io_stmt;
+
+	    struct _data_stmt
+	      {
+		  struct ast_node *nlist;
+		  struct ast_node *clist;
+	      }
+            data;
 	}
       astnode;
 
@@ -289,3 +313,5 @@ void else_assign(AST *);
 void store_array_var(AST *);
 void initialize();
 void uppercase(char *);
+void while_emit(AST *);
+AST *format_item_emit(AST *, AST**);

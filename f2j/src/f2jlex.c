@@ -624,7 +624,7 @@ collapse_white_space (BUFFER * bufstruct)
             tcp++;
             /* Hack... */
             *yycp = *cp;
-            (*yycp)++;      /*  parens for -Wall  */
+            yycp++;
             cp++;
 
             while(!done) 
@@ -637,7 +637,7 @@ collapse_white_space (BUFFER * bufstruct)
 			   without using the toupper function.  The next
 			   two lines were left out originally. */
                 *yycp = *cp;
-                (*yycp)++;      /*  parens for -Wall  */
+                yycp++;
                 cp++;
               }  /*  End while() for copying strings.  */
 
@@ -651,12 +651,12 @@ collapse_white_space (BUFFER * bufstruct)
                 *tcp = *cp;
                 tcp++;
                 *yycp = *cp;
-                (*yycp)++;      /*  parens for -Wall  */
+                yycp++;
                 cp++;
                 *tcp = *cp;
                 tcp++;
                 *yycp = *cp;
-                (*yycp)++;      /*  parens for -Wall  */
+                yycp++;
                 cp++;
               }
               else
@@ -876,13 +876,19 @@ name_scan (BUFFER * bufstruct)
    We checked the first character in yylex to make sure 
    it was alphabetic. 
  */
+printf("here we are in name_scan,\n");
+printf("    stmt = %s\n",bufstruct->stmt);
+printf("    text = %s\n",bufstruct->text);
+
     while (isalnum (*ncp))
       {
 	  ncp++;
 	  tokenlength++;
       }
+printf("tokenlength = %d\n",tokenlength);
     strncpy (yylval.lexeme, tcp, tokenlength);
     yylval.lexeme[tokenlength] = '\0';
+printf("now lexeme = %s\n",yylval.lexeme);
     tcp += tokenlength;
     strcpy (bufstruct->text, tcp);
     strcpy (bufstruct->stmt, ncp);

@@ -95,8 +95,8 @@ SYMTABLE * new_symtable (int );
 %left CAT
 %left PLUS MINUS
 %left STAR DIV
-%right POW
 %nonassoc UMINUS
+%right POW
 
 
 /*  All of my additions or changes to Levine's code. These 

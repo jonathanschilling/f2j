@@ -1801,25 +1801,72 @@ intrinsic_emit(AST *root)
   /*put end brace here when KJGKJKJKKJH defined*/ 
 #endif	  
 
-  if (!strcmp (tempname, "MAX"))
+  if( !strcmp (tempname, "MAX") || !strcmp (tempname, "MIN"))
   {
-    temp = root->astnode.ident.arraylist;
-    fprintf (curfp, "%s(", javaname);
-    expr_emit (temp);
-    fprintf (curfp, ", ");
-    expr_emit (temp->nextstmt);
-    fprintf (curfp, ")");
-    return;
-  }
+    int ii,arg_count = 0;
 
-  if (!strcmp (tempname, "MIN"))
-  {
-    temp = root->astnode.ident.arraylist;
-    fprintf (curfp, "%s(", javaname);
-    expr_emit (temp);
-    fprintf (curfp, ", ");
-    expr_emit (temp->nextstmt);
-    fprintf (curfp, ")");
+    for(temp = root->astnode.ident.arraylist; temp != NULL; temp = temp->nextstmt)
+      arg_count++;
+
+    /* If we only have one arg, just emit that expression.  This should not
+     * normally happen
+     */
+
+    if(arg_count == 1) {
+      fprintf (curfp, "(");
+      expr_emit (temp);
+      fprintf (curfp, ")");
+    }
+
+    /* special handling of common situation in which MAX or MIN has three args.
+     * instead of two method calls, we use one call and one '?' operator.
+     * for example, MAX(a,b,c) would be translated to:
+     *  Math.max(a>b?a:b,c)
+     */
+
+    else if(arg_count == 3) {
+      temp = root->astnode.ident.arraylist;
+      fprintf (curfp, "%s((", javaname);
+      expr_emit (temp);
+      if( !strcmp (tempname, "MAX"))
+        fprintf (curfp, ") > (");
+      else
+        fprintf (curfp, ") < (");
+      expr_emit (temp->nextstmt);
+      fprintf (curfp, ") ? (");
+      expr_emit (temp);
+      fprintf (curfp, ") : (");
+      expr_emit (temp->nextstmt);
+      fprintf (curfp, "), ");
+      expr_emit (temp->nextstmt->nextstmt);
+      fprintf (curfp, ")");
+    }
+
+    /*
+     * For cases in which MAX or MIN has more than three args, we generate n-1
+     * method calls, where n is the number of args.  For example, MAX(a,b,c,d,e)
+     * would be translated to:
+     *   Math.max(Math.max(Math.max(Math.max(a,b),c),d),e)
+     * I dont think this situation is very common (in LAPACK/BLAS at least).
+     */
+
+    else {
+      for(ii=0;ii<arg_count -1;ii++)
+        fprintf(curfp,"%s(",javaname);
+      
+      temp = root->astnode.ident.arraylist;
+      expr_emit (temp);
+      fprintf (curfp, ", ");
+
+      for(temp = temp->nextstmt; temp != NULL; temp = temp->nextstmt) {
+        expr_emit(temp);
+        if(temp->nextstmt != NULL)
+          fprintf (curfp, "), ");
+        else
+          fprintf (curfp, ") ");
+      }
+    }
+
     return;
   }
 

@@ -38,6 +38,11 @@ puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB)
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 
 
+lint:
+	lint class.c codegen.c constant_pool.c dlist.c f2jlex.c\
+ f2jmain.c f2jmem.c f2jparse.tab.c globals.c opcode.c optimize.c\
+ symtab.c typeassign.c typecheck.c vcg_emitter.c
+
 #  Fortran has gotos, java does not.  So we need to 
 #  translate goto statements.
 $(JAVAB):	

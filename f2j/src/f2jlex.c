@@ -763,7 +763,7 @@ prelex (BUFFER * bufstruct)
     printf("entering prelex()\n");
 
   do {
-    while (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
+    if (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
     {
       if(lexdebug)
         printf("the line is [%s](%d)\n",bufstruct->stmt,
@@ -1081,7 +1081,7 @@ check_continued_lines (FILE * fp, char *current_line)
    * line and examining column 6 for a continuation marker.
    */
 
-  while (1)
+  for(;;)
   {
     next_line[0] = '\0';
     items = fread (next_line, 1, 6, fp);

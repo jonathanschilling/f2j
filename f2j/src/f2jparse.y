@@ -3446,11 +3446,11 @@ mypow(double x, double y)
   if(y < 0)
   {
     fprintf(stderr,"Warning: got negative exponent in mypow!\n");
-    return 0;
+    return 0.0;
   }
 
   if(y == 0)
-    return 1;
+    return 1.0;
 
   if(y == 1)
     return x;
@@ -3643,26 +3643,25 @@ eval_const_expr(AST *root)
   {
     case Identifier:
       if(!strcmp(root->astnode.ident.name,"*"))
-        return 0;
+        return 0.0;
 
       p = type_lookup(parameter_table, root->astnode.ident.name);
 
-      if(p == NULL)
-      {
-        /* The array size is specified with a variable, but we
-         * cant find it in the parameter table.  it is probably
-         * an argument to the function.  do nothing here, just
-         * fall through and hit the 'return 0' below.  --keith
-         */
-      }
-      else
+      if(p)
       {
          if(p->variable->nodetype == Constant) {
            root->vartype = p->variable->vartype;
            return ( atof(p->variable->astnode.constant.number) );
          }
       }
-      return 0;
+
+      /* else p==NULL, then the array size is specified with a
+       * variable, but we cant find it in the parameter table.
+       * it is probably an argument to the function.  do nothing
+       * here, just fall through and hit the 'return 0' below.  --keith
+       */
+
+      return 0.0;
       
     case Expression:
       if (root->astnode.expression.lhs != NULL)
@@ -3700,7 +3699,7 @@ eval_const_expr(AST *root)
         return (result1 / result2);
       else
         fprintf(stderr,"eval_const_expr: Bad optype!\n");
-      return 0;
+      return 0.0;
       
     case Unaryop:
       root->vartype = root->astnode.expression.rhs->vartype;
@@ -3716,7 +3715,7 @@ eval_const_expr(AST *root)
 
       if(root->token == STRING) {
         if(!strcmp(root->astnode.ident.name,"*"))
-          return 0;
+          return 0.0;
         else
           fprintf (stderr, "String in array dec (%s)!\n",
             root->astnode.constant.number);
@@ -3763,14 +3762,14 @@ eval_const_expr(AST *root)
             break;
         }
         strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
-        return root->token;
+        return (double)root->token;
       }
       
     default:
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");
-      return 0;
+      return 0.0;
   }
-  return 0;
+  return 0.0;
 }
 
 void

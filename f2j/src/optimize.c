@@ -188,6 +188,7 @@ optimize (AST * root, AST * rptr)
         fprintf (stderr,"Bad node\n");
 
       optimize (root->nextstmt, rptr);
+      break;
     case Progunit:
       if (optdebug)
         printf ("Source.\n");

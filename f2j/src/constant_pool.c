@@ -374,7 +374,7 @@ cp_find_function_body(Dlist list, enum _constant_tags tag, const void *value) {
           printf("&& ok.. going to find/insert a method reference...\n");
 
         newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
-        newnode->tag = tag;
+        newnode->tag = (u1) tag;
 
         if(cp_debug)
           printf("&& first find/insert %s...\n",mref->classname);
@@ -576,7 +576,7 @@ insert_constant(Dlist list, int tok, const void * tag)
 
       newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
       newnode->tag = CONSTANT_String;
-      newnode->cpnode.String.string_index = idx;
+      newnode->cpnode.String.string_index = (u2)idx;
 
       return cp_insert(list, newnode, 1);
 

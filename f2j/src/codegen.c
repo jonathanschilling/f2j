@@ -4534,7 +4534,7 @@ pushStringConst(char *str)
 
 void
 pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
-   char *desc, unsigned int lv, BOOL deref)
+   char *desc, int lv, BOOL deref)
 {
   CPNODE *c;
 
@@ -4573,7 +4573,7 @@ pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
 
 void
 storeVar(enum returntype vt, BOOL isArg, char *class, char *name,
-   char *desc, unsigned int lv, BOOL deref)
+   char *desc, int lv, BOOL deref)
 {
   CPNODE *c;
 
@@ -6856,8 +6856,7 @@ constructor (AST * root)
     /* Define the constructor for the class. */
 
     fprintf (curfp, "\npublic static %s %s (",
-      returnstring[returns],
-      root->astnode.source.name->astnode.ident.name);
+      returnstring[returns], name);
 
     if(genInterfaces)
       emit_interface(root);
@@ -11915,7 +11914,7 @@ methcall_arglist_emit(AST *temp)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int count, dim;
+  int count=0, dim;
   AST *arg;
 
   for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
@@ -12136,7 +12135,7 @@ inc_stack(int inc)
   stacksize += inc;
   
   if(stacksize > cur_code->attr.Code->max_stack)
-    cur_code->attr.Code->max_stack = stacksize;
+    cur_code->attr.Code->max_stack = (u2)stacksize;
 }
 
 /*****************************************************************************
@@ -12233,7 +12232,7 @@ newExceptionsAttribute(Dlist exc)
 
   tmp->attribute_length = 2 + (cnt * 2);
 
-  tmp->attr.Exceptions->number_of_exceptions = cnt;
+  tmp->attr.Exceptions->number_of_exceptions = (u2) cnt;
   tmp->attr.Exceptions->exception_index_table = new;
 
   return tmp;
@@ -13813,7 +13812,7 @@ get_wrapper_from_desc(char *desc)
   }
 
   new = strdup(ls+1);
-  new[dptr-ls-1] = '\0';
+  new[(int)(dptr-ls-1)] = '\0';
 
   return new;
 }

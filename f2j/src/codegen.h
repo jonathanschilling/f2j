@@ -267,7 +267,6 @@ void
 int
   cgPassByRef(char *),
   dl_int_examine(Dlist),
-  opWidth(enum _opcode),
   getNextLocal(enum returntype),
   needs_adapter(AST *),
   idxNeedsDecr(AST *),
@@ -279,6 +278,9 @@ int
   num_locals_in_descriptor(char *),
   adapter_methcall_arg_emit(AST *, int, int, char *),
   determine_var_length(HASHNODE *);
+
+u1
+  opWidth(enum _opcode);
 
 double
   eval_const_expr(AST *);

@@ -6685,7 +6685,7 @@ label_emit (AST * root)
    * whatever is the next generated opcode, so we set the PC appropriately.
    */
   if(lastOp == jvm_impdep1)
-    root->astnode.label.pc = pc - jvm_opcode[jvm_impdep1].width;
+    root->astnode.label.pc = pc - opWidth(jvm_impdep1);
   else
     root->astnode.label.pc = pc;
 
@@ -11185,7 +11185,7 @@ traverse_code(Dlist cgraph)
     else
       warn = "";
 
-    if(jvm_opcode[val->op].width > 1)
+    if(opWidth(val->op) > 1)
       printf("%d: %s %d %s\n", val->pc, jvm_opcode[val->op].op, 
          val->operand, warn);
     else
@@ -11960,7 +11960,8 @@ bytecode1(enum _opcode op, u4 operand)
   if((prev != NULL) && (prev->op == jvm_impdep1)) {
     prev->op = op;
     prev->operand = operand;
-    pc += jvm_opcode[op].width - jvm_opcode[jvm_impdep1].width;
+    prev->width = opWidth(op);
+    pc += opWidth(op) - opWidth(jvm_impdep1);
     return prev;
   }
 
@@ -11979,9 +11980,9 @@ bytecode1(enum _opcode op, u4 operand)
         (op == jvm_lload) || (op == jvm_dload) || (op == jvm_istore) || 
         (op == jvm_fstore) || (op == jvm_astore) || (op == jvm_lstore) || 
         (op == jvm_dstore) || (op == jvm_ret))
-      tmp->width = jvm_opcode[op].width + 1;
+      tmp->width = opWidth(op) + 1;
     else if(op == jvm_iinc)
-      tmp->width = jvm_opcode[op].width + 2;
+      tmp->width = opWidth(op) + 2;
     else
       fprintf(stderr,"Error: bad op used after wide instruction (%s)\n",
           jvm_opcode[op].op);
@@ -12014,7 +12015,7 @@ bytecode0(enum _opcode op)
  *                                                                           *
  *****************************************************************************/
 
-int
+u1
 opWidth(enum _opcode op)
 {
   return jvm_opcode[op].width;

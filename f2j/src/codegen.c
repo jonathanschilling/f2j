@@ -797,7 +797,7 @@ reflect_declarations_emit(AST *root)
             GETCLASS_DESC);
       bytecode1(jvm_invokevirtual, c->index);
 
-      c = newMethodref(cur_const_table, METHOD_CLASS, "getDeclaredMethods",
+      c = newMethodref(cur_const_table, JL_CLASS, "getDeclaredMethods",
             GETMETHODS_DESC);
       bytecode1(jvm_invokevirtual, c->index);
 
@@ -828,7 +828,7 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
   /* emit handler for InvocationTargetException */
   et->target = gen_store_op(vnum, Object);
 
-  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+  c = newFieldref(cur_const_table, JL_SYSTEM, "err", OUT_DESC);
   bytecode1(jvm_getstatic, c->index);
 
   c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
@@ -857,6 +857,11 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
   c = newMethodref(cur_const_table, PRINTSTREAM, "println",
         println_descriptor[String]);
   bytecode1(jvm_invokevirtual, c->index);
+
+  /* artificially set stack depth at beginning of exception
+   * handler to 1.
+   */
+  et->target->stack_depth = 1;
 
   releaseLocal();
 }

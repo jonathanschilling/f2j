@@ -63,6 +63,7 @@
 #define IOEXCEPTION "java/io/IOException"
 #define METHOD_CLASS "java/lang/reflect/Method"
 #define GETMETHODS_DESC "()[Ljava/lang/reflect/Method;"
+#define JL_CLASS "java/lang/Class"
 #define GETCLASS_DESC "()Ljava/lang/Class;"
 #define INVOKE_DESC "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
 #define THROWABLE_CLASS "java/lang/Throwable"

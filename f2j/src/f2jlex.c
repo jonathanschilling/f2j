@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -423,8 +423,12 @@ yylex ()
             bad keywords. */
       if (token)  
       {
-        if(((token == DO) || (token == IF)) && 
-           ((tokennumber != 1) && (firsttoken != INTEGER)))
+        if(  ((token == DO) || (token == IF)) 
+           && 
+             /* (((tokennumber != 1) && (firsttoken != INTEGER)) || */
+             (((tokennumber != 0) && (firsttoken != INTEGER)) ||
+              ((tokennumber != 1) && (firsttoken == INTEGER)))
+          )
         {
           if(lexdebug)
             printf("got incorrect DO or IF keyword, restoring buffer\n");

@@ -27,14 +27,14 @@
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
  *****************************************************************************/
 
-#define YYDEBUG 0
+#define YYDEBUG 1
 
 /*****************************************************************************
  * Global variables.                                                         *
  *****************************************************************************/
 
 int 
-  debug = FALSE,                  /* set to TRUE for debugging output        */
+  debug = TRUE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok;                        /* temporary token for an inline expr      */

@@ -39,7 +39,6 @@ int
   debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
-  got_main = 0,                   /* have we parsed PROGRAM prog unit yet?   */
   temptok;                        /* temporary token for an inline expr      */
 
 char
@@ -133,24 +132,11 @@ extern enum returntype default_implicit_table[];
 %token OPEN_IOSTAT OPEN_ERR OPEN_FILE OPEN_STATUS OPEN_ACCESS 
 %token OPEN_FORM OPEN_UNIT OPEN_RECL OPEN_BLANK
 
-/*
- * the LOWER_THAN_COMMENT token is meant to silence conflicts
- * related to parsing comments - we want to allow comments between
- * a program unit header and the typedecs, but it's ambiguous
- * as written.
- *
- * the HIGHER_THAN_TYPE token is meant to silence conflicts
- * related to allowing PROGRAMs to be specified without a
- * PROGRAM header.  It just says that the empty program
- * header gets higher precedence than a type dec.
- */
+/* these are here to silence conflicts related to parsing comments */
 
 %nonassoc RELOP 
 %nonassoc LOWER_THAN_COMMENT
 %nonassoc COMMENT
-
-%nonassoc TYPE
-%nonassoc HIGHER_THAN_TYPE
 
 /*  All of my additions or changes to Levine's code. These 
  * non-terminals are in alphabetic order because I have had to 
@@ -495,9 +481,6 @@ Program:      PROGRAM Name NL
                  if(debug)
                    printf("Program ->  PROGRAM Name\n");
 
-                 if(got_main)
-                   fprintf(stderr,"Error: redeclaring main!\n");
-
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
@@ -508,28 +491,8 @@ Program:      PROGRAM Name NL
 
                  init_tables();
 
-                 got_main = TRUE;
                  fprintf(stderr," MAIN %s:\n",$2->astnode.ident.name);
               }
-       |   /* empty */            %prec HIGHER_THAN_TYPE
-            {
-                 if(debug)
-                   printf("Program ->  PROGRAM Name\n");
-
-                 if(got_main)
-                   fprintf(stderr,"Error: redeclaring main!\n");
-
-                 $$ = addnode();
-                 $$->astnode.source.name = initialize_name("main");
-                 $$->nodetype = Program;
-                 $$->token = PROGRAM;
-                 $$->astnode.source.args = NULL;
-
-                 init_tables();
-
-                 got_main = TRUE;
-                 fprintf(stderr," MAIN %s:\n",$$->astnode.source.name->astnode.ident.name);
-            }
 ;
 
 Subroutine: SUBROUTINE Name Functionargs NL

@@ -8414,38 +8414,52 @@ blockif_emit (AST * root)
   fprintf (curfp, ")  {\n    ");
   if(root->astnode.blockif.stmts != NULL)
     emit (root->astnode.blockif.stmts);
-  goto_node = bytecode0(jvm_goto);
+  fprintf (curfp, "}\n");
 
-  dl_insert_b(gotos, goto_node);
-
-  fprintf (curfp, "}              // Close if()\n");
-
-  /* create a dummy instruction node so that
-   * we have a branch target for the goto statement.
-   * it will be removed later.
-   */
-  next_node = bytecode0(jvm_impdep1);
-  if_node->branch_target = next_node;
-
-  for(temp = root->astnode.blockif.elseifstmts; 
-      temp != NULL;
-      temp = temp->nextstmt)
+  if(root->astnode.blockif.elseifstmts || root->astnode.blockif.elsestmts)
   {
-    goto_node = elseif_emit (temp);
+    goto_node = bytecode0(jvm_goto);
+
     dl_insert_b(gotos, goto_node);
+
+    /* create a dummy instruction node so that
+     * we have a branch target for the goto statement.
+     * it will be removed later.
+     */
+    next_node = bytecode0(jvm_impdep1);
+    if_node->branch_target = next_node;
+
+    for(temp = root->astnode.blockif.elseifstmts; 
+        temp != NULL;
+        temp = temp->nextstmt)
+    {
+      goto_node = elseif_emit (temp);
+      dl_insert_b(gotos, goto_node);
+    }
+
+    if(root->astnode.blockif.elsestmts != NULL)
+      else_emit (root->astnode.blockif.elsestmts);
+
+    next_node = bytecode0(jvm_impdep1);
+
+    dl_traverse(lptr, gotos) {
+      goto_node = (CodeGraphNode *) lptr->val;
+      goto_node->branch_target = next_node;
+    }
+
+    dl_delete_list(gotos);
   }
+  else {
+    /* Else there are no else or elseif blocks, so we do not need
+     * any gotos to branch from the end of the blocks to the statement
+     * following the block if.  All we need to do is set the if_node
+     * branch target to the opcode to which we should branch if the
+     * conditional expression is false.
+     */
 
-  if(root->astnode.blockif.elsestmts != NULL)
-    else_emit (root->astnode.blockif.elsestmts);
-
-  next_node = bytecode0(jvm_impdep1);
-
-  dl_traverse(lptr, gotos) {
-    goto_node = (CodeGraphNode *) lptr->val;
-    goto_node->branch_target = next_node;
+    next_node = bytecode0(jvm_impdep1);
+    if_node->branch_target = next_node;
   }
-
-  dl_delete_list(gotos);
 }
 
 /*****************************************************************************

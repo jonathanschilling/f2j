@@ -274,6 +274,11 @@ emit (AST * root)
       }				/* switch on nodetype.  */
 }
 
+/*  This function emits common blocks as a static class containing
+    the variables specified in the COMMON statement.  Currently,
+    each COMMON statement must specify the same variable names for
+    the translation to work reliably.     10/9/97   --Keith    */
+
 int
 common_emit(AST *root)
 {
@@ -320,7 +325,6 @@ common_emit(AST *root)
       fclose(commonfp);
     }
   }
-
 }
 
 /* This function emits declarations for static class variables. 

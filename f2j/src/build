@@ -26,8 +26,25 @@ if($#argv != 1) then
 endif
 
 set JAVA_SRC = $1
-set CLASS = `echo $1 | sed s/java/class/g`
-set JAS_SRC = `echo $1 | sed s/java/j/g`
+
+set result = `echo $JAVA_SRC | egrep '.java$'`
+
+if (! -e $JAVA_SRC) then
+  if ("$result" == "") then
+    set ALT_JAVA_SRC = $JAVA_SRC.java
+    if (! -e $ALT_JAVA_SRC) then
+      echo Error\: Can\'t open $JAVA_SRC or $ALT_JAVA_SRC
+      exit
+    endif
+    set JAVA_SRC = $ALT_JAVA_SRC
+  else
+    echo Error\: Can\'t open $JAVA_SRC
+    exit
+  endif
+endif
+
+set CLASS = `echo $JAVA_SRC | sed s/java/class/g`
+set JAS_SRC = `echo $JAVA_SRC | sed s/java/j/g`
 
 #
 # Step 1.  Compile the java .file to a .class file.
@@ -63,6 +80,16 @@ djava -o jasmin $CLASS > $CLASS.out
 echo "./trans < $CLASS.out > $JAS_SRC"
 ./trans < $CLASS.out > $JAS_SRC
 
+# Verify that all of the gotos have been translated.
+
+set result = `egrep Dummy $JAS_SRC`
+if ("$result" != "") then
+  echo \*\*
+  echo \*\* Error\: not all gotos could be translated\!
+  echo \*\*   The resulting code may be unreliable.
+  echo \*\*
+endif
+  
 #
 # Step 4.  Assemble the resulting jasmin assembler code into
 #          a new class file.
@@ -71,3 +98,4 @@ echo "./trans < $CLASS.out > $JAS_SRC"
 echo "jasmin $JAS_SRC"
 jasmin $JAS_SRC
 rm -f $CLASS.out
+rm -f $JAS_SRC

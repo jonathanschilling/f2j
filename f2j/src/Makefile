@@ -3,7 +3,8 @@ CFLAGS= -g -ansi #-p
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
-OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o list.o
+OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o list.o typecheck.o
+LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
 JFILES = *.j
@@ -11,8 +12,8 @@ JAVAFILES = *.java
 
 
 
-f2java: f2j.h f2jparse.y $(OBJS) 
-	${CC} $(CFLAGS) -o $@ $(OBJS) 
+f2java: f2j.h f2jparse.y $(OBJS)
+	${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 f2jmain.o:  f2jmain.c f2j.h f2jparse.y
 	$(CC) -c $(CFLAGS) f2jmain.c
@@ -43,6 +44,8 @@ opcode.o: opcode.c f2j.h
 symtab.o: symtab.c symtab.h
 
 typeassign.o: typeassign.c f2j.h
+
+typecheck.o: typecheck.c f2j.h
 
 #initialize.o: initialize.c f2j.h
 

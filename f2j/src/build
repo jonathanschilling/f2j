@@ -20,56 +20,59 @@ set PNAME = `echo $0 | awk -F/ '{print $NF}'`
 
 # check the args
 #
-if($#argv != 1) then
-  echo Usage:  $PNAME \<source file\>
+if($#argv < 1) then
+  echo Usage:  $PNAME source_file ...
   exit
 endif
 
-set JAVA_SRC = $1
+foreach file ($argv)
 
-set result = `echo $JAVA_SRC | egrep '.java$'`
+  set JAVA_SRC = $file
 
-if (! -e $JAVA_SRC) then
-  if ("$result" == "") then
-    set ALT_JAVA_SRC = $JAVA_SRC.java
-    if (! -e $ALT_JAVA_SRC) then
-      echo Error\: Can\'t open $JAVA_SRC or $ALT_JAVA_SRC
-      exit
+  set result = `echo $JAVA_SRC | egrep '.java$'`
+
+  if (! -e $JAVA_SRC) then
+    if ("$result" == "") then
+      set ALT_JAVA_SRC = $JAVA_SRC.java
+      if (! -e $ALT_JAVA_SRC) then
+        echo Error\: Can\'t open $JAVA_SRC or $ALT_JAVA_SRC
+        continue
+      endif
+      set JAVA_SRC = $ALT_JAVA_SRC
+    else
+      echo Error\: Can\'t open $JAVA_SRC
+      continue
     endif
-    set JAVA_SRC = $ALT_JAVA_SRC
-  else
-    echo Error\: Can\'t open $JAVA_SRC
-    exit
   endif
-endif
 
-set CLASS = `echo $JAVA_SRC | sed s/java/class/g`
-set JAS_SRC = `echo $JAVA_SRC | sed s/java/j/g`
+  set CLASS = `echo $JAVA_SRC | sed s/java/class/g`
+  set JAS_SRC = `echo $JAVA_SRC | sed s/java/j/g`
 
+  echo === Building $JAVA_SRC
 #
 # Step 1.  Compile the java .file to a .class file.
 #
 
-echo "javac $JAVA_SRC"
-rm -f __out
-javac $JAVA_SRC >& __out
+  echo "javac $JAVA_SRC"
+  rm -f __out
+  javac $JAVA_SRC >& __out
 
 # check for compilation errors
-if(! -z __out) then
- echo "Trouble compiling - check your source file."
- cat __out
- rm -f __out
- exit
-endif
-rm -f __out
+  if(! -z __out) then
+   echo "Trouble compiling - check your source file."
+   cat __out
+   rm -f __out
+   continue
+  endif
+  rm -f __out
 
 #
 # Step 2.  Disassemble the class file into a file containing
 #          jasmin assembler.
 #
 
-echo "djava -o jasmin $CLASS > $CLASS.out"
-djava -o jasmin $CLASS > $CLASS.out
+  echo "djava -o jasmin $CLASS > $CLASS.out"
+  djava -o jasmin $CLASS > $CLASS.out
 
 #
 # Step 3.  Translate the 'dummy' gotos (see Dummy.java) to
@@ -77,25 +80,26 @@ djava -o jasmin $CLASS > $CLASS.out
 #          trans, which should be in the current directory.
 #
 
-echo "./trans < $CLASS.out > $JAS_SRC"
-./trans < $CLASS.out > $JAS_SRC
+  echo "./trans < $CLASS.out > $JAS_SRC"
+  ./trans < $CLASS.out > $JAS_SRC
 
 # Verify that all of the gotos have been translated.
 
-set result = `egrep Dummy $JAS_SRC`
-if ("$result" != "") then
-  echo \*\*
-  echo \*\* Error\: not all gotos could be translated\!
-  echo \*\*   The resulting code may be unreliable.
-  echo \*\*
-endif
+  set result = `egrep Dummy $JAS_SRC`
+  if ("$result" != "") then
+    echo \*\*
+    echo \*\* Error\: not all gotos could be translated\!
+    echo \*\*   The resulting code may be unreliable.
+    echo \*\*
+  endif
   
 #
 # Step 4.  Assemble the resulting jasmin assembler code into
 #          a new class file.
 #
 
-echo "jasmin $JAS_SRC"
-jasmin $JAS_SRC
-rm -f $CLASS.out
-rm -f $JAS_SRC
+  echo "jasmin $JAS_SRC"
+  jasmin $JAS_SRC
+  rm -f $CLASS.out
+  rm -f $JAS_SRC
+end

@@ -40,6 +40,7 @@ SYMTABLE *format_table;
 SYMTABLE *data_table; 
 SYMTABLE *save_table; 
 SYMTABLE *common_table; 
+SYMTABLE *function_table; 
 
 int locals;
 int stacksize;
@@ -119,6 +120,7 @@ typedef struct ast_node
             Write,
             Stop,
             ComputedGoto,
+            ArrayAccess,
 	    Unimplemented
 	}
       nodetype;
@@ -244,7 +246,7 @@ typedef struct ast_node
 
 	    struct _computed_goto
 	      {
-		  char *name;
+		  struct ast_node *name;
 		  struct ast_node *intlist;
 	      }
             computed_goto;

@@ -176,8 +176,10 @@ main (int argc, char **argv)
     fclose (vcgfp);
 #endif
 
+/*
     printf("Line number: %d\n", lineno);
     printf("Statement number: %d\n", statementno);
+*/
     exit (0);
 }
 
@@ -287,6 +289,7 @@ initialize ()
   data_table = (SYMTABLE *) new_symtable (tablesize);
   save_table = (SYMTABLE *) new_symtable (tablesize);
   common_table = (SYMTABLE *) new_symtable (tablesize);
+  function_table = (SYMTABLE *) new_symtable (tablesize);
 }
 
 

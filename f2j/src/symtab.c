@@ -84,11 +84,13 @@ hash_insert (SYMTABLE * table, AST * node)
 		{
 		    /* Call appropriate insertion routine
 		       to insert the ast and returntype.  */
-		    type_insert (&(table->entry[index]), temp, returntype);
+		    type_insert (&(table->entry[index]), temp, returntype, 
+                       temp->astnode.ident.name);
 		    temp = temp->nextstmt;
 		}
 	      /* Then insert the last stmt.  */
-	      type_insert (&(table->entry[index]), temp, returntype);
+	      type_insert (&(table->entry[index]), temp, returntype,
+                       temp->astnode.ident.name);
 	  }
 	  break;
       case Format:
@@ -110,13 +112,14 @@ hash_insert (SYMTABLE * table, AST * node)
 }
 
 int
-type_insert (HASHNODE ** list, AST * node_val, int returntype)
+type_insert (HASHNODE ** list, AST * node_val, int returntype, char *tag)
 {
 
     HASHNODE *newnode;
 
     newnode = (HASHNODE *) malloc (sizeof (HASHNODE));
-    newnode->ident = node_val->astnode.ident.name;
+/*     newnode->ident = node_val->astnode.ident.name; */
+    newnode->ident = tag;
     newnode->type = returntype;
     newnode->variable = node_val;
     /*  Initialize to zero; assign number after all types

@@ -33,7 +33,7 @@ void format_name_emit(AST *);
 char *progname;
 char *returnname;
 char *cur_filename;
-int gendebug = 1;
+int gendebug = 0;
 int cur_idx = 0;
 EntryList *doloop = NULL;
 EntryList *while_list = NULL;
@@ -47,6 +47,16 @@ FILE *javafp;
 
 char *returnstring[] =
 {"String", "complex", "double", "float", "int", "boolean"};
+
+#ifdef WRAPPER
+
+char *wrapper_returns[] =
+{"StringW", "complexW", "doubleW", "floatW", "intW", "booleanW"};
+
+char *init_vals[] =
+{"\"\"", "0", "0.0", "0.0", "0", "false"};
+
+#endif
 
 void
 emit (AST * root)
@@ -72,7 +82,8 @@ emit (AST * root)
              variables, so we must do that now, before the
              method header has been emitted.   10/3/97 -- Keith */
 
-          fprintf(javafp,"// Static variables (fortran SAVE stmt)\n");
+          if(tmp != NULL)
+            fprintf(javafp,"// Static variables (fortran SAVE stmt)\n");
 
           tmp = root->astnode.source.typedecs;
           while(tmp != NULL)
@@ -101,15 +112,18 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Function.\n");
 	  returnname = root->astnode.source.name->astnode.ident.name;
-	  printf ("Function name: %s\n", 
+          if(gendebug)
+            printf ("Function name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
 	  constructor (root);
 	  break;
       case Program:
 	  if (gendebug)
 	      printf ("Program.\n");
-	  returnname = root->astnode.source.name->astnode.ident.name;
-	  printf ("Program name: %s\n", 
+	  returnname = NULL;	/* programs return void. */
+/*	  returnname = root->astnode.source.name->astnode.ident.name; */
+	  if (gendebug)
+	    printf ("Program name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
           constructor(root);
           break;
@@ -196,7 +210,11 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Return: %s.\n", returnname);
 	  if (returnname != NULL)
+#ifdef WRAPPER
+	      fprintf (javafp, "return %s.val;\n", returnname);
+#else
 	      fprintf (javafp, "return %s;\n", returnname);
+#endif
 	  else
 	      fprintf (javafp, "return;\n");
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
@@ -231,7 +249,8 @@ emit (AST * root)
 	      emit (root->nextstmt);
 	  break;
       case Format:
-          printf("skipping format statement\n");
+	  if (gendebug)
+            printf("skipping format statement\n");
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
           break;
@@ -315,8 +334,14 @@ common_emit(AST *root)
             Ntemp->astnode.ident.name);
           continue;
         }
+#ifdef WRAPPER
+        fprintf(commonfp,"static %s %s = new %s(%s);\n",
+          wrapper_returns[hashtemp->type], Ntemp->astnode.ident.name,
+          wrapper_returns[hashtemp->type], init_vals[hashtemp->type]);
+#else
         fprintf(commonfp,"static %s %s;\n",returnstring[hashtemp->type], 
           Ntemp->astnode.ident.name);
+#endif
       }
   
       if(Ctemp->astnode.common.name != NULL)
@@ -392,13 +417,15 @@ typedec_emit (AST * root)
              the DATA node.  --9/22/97,  Keith */
 
           if(type_lookup(data_table,temp->astnode.ident.name)) {
-             printf("@@ Variable %s: Found corresponding data stmt\n",
-               temp->astnode.ident.name);
+             if(gendebug)
+               printf("@@ Variable %s: Found corresponding data stmt\n",
+                 temp->astnode.ident.name);
              continue;
           }
           else
-             printf("@@ Variable %s: Corresponding data stmt not found\n",
-               temp->astnode.ident.name);
+             if(gendebug)
+               printf("@@ Variable %s: Corresponding data stmt not found\n",
+                 temp->astnode.ident.name);
 
           if(type_lookup(save_table,temp->astnode.ident.name)) {
              /* we already emitted this variable as a static variable 
@@ -472,20 +499,46 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
 
       fprintf (javafp, "];\n");
     }
-      
   } else {
-    fprintf (javafp, "%s%s ", prefix,returnstring[returns]);
+#ifdef WRAPPER
+    fprintf (javafp, "%s%s ", prefix, wrapper_returns[returns]);
+#else
+    fprintf (javafp, "%s%s ", prefix, returnstring[returns]);
+#endif
     if (gendebug)
       printf ("%s\n", returnstring[returns]);
     name_emit (root);
 
     if(only_static == STATIC_WITHDATA) {
+#ifdef WRAPPER
+      if (returns == Integer)
+        fprintf (javafp, "= new intW(%s)", init_vals[returns]);
+      else if (returns == Double)
+        fprintf (javafp, "= new doubleW(%s)", init_vals[returns]);
+      else if (returns == Logical)
+        fprintf (javafp, "= new booleanW(%s)", init_vals[returns]);
+      else if (returns == Character)
+        fprintf (javafp, "= new StringW(%s)", init_vals[returns]);
       fprintf (javafp, ";\n");
+#else
+      fprintf (javafp, ";\n");
+#endif
     } else {
       /*  initialize local variables to zero or
         false to keep the java compiler from
         squawking.  */
 
+#ifdef WRAPPER
+      if (returns == Integer)
+        fprintf (javafp, "= new intW(%s)", init_vals[returns]);
+      else if (returns == Double)
+        fprintf (javafp, "= new doubleW(%s)", init_vals[returns]);
+      else if (returns == Logical)
+        fprintf (javafp, "= new booleanW(%s)", init_vals[returns]);
+      else if (returns == Character)
+        fprintf (javafp, "= new StringW(%s)", init_vals[returns]);
+      fprintf (javafp, ";\n");
+#else
       if (returns == Integer || returns == Double)
         fprintf (javafp, "= 0");
       else if (returns == Logical)
@@ -493,6 +546,7 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
       else if (returns == Character)
         fprintf (javafp, "= null");
       fprintf (javafp, ";\n");
+#endif
     }
   }
 }
@@ -580,7 +634,18 @@ data_emit(AST *root)
         }
       }
 
+#ifdef WRAPPER
+      if(is_array)
+          fprintf(javafp,"%s ", returnstring[ hashtemp->type]);
+      else {
+        if(type_lookup(save_table,Ntemp->astnode.ident.name))
+          fprintf(javafp,"%s ", returnstring[ hashtemp->type]);
+        else
+          fprintf(javafp,"%s ", wrapper_returns[ hashtemp->type]);
+      }
+#else
       fprintf(javafp,"%s ", returnstring[ hashtemp->type]);
+#endif
    
       if( is_array ) {
         fprintf(javafp,"[] ");
@@ -638,14 +703,28 @@ data_emit(AST *root)
               Ctemp->astnode.constant.sign == 1 ? "-" : "",
               Ctemp->astnode.constant.number);
           else
-            fprintf(javafp,"%s = %s%s;\n",Ntemp->astnode.ident.name,
+#ifdef WRAPPER
+            fprintf(javafp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
+              wrapper_returns[ hashtemp->type],
               Ctemp->astnode.constant.sign == 1 ? "-" : "",
               Ctemp->astnode.constant.number);
+#else
+            fprintf(javafp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
+              wrapper_returns[ hashtemp->type],
+              Ctemp->astnode.constant.sign == 1 ? "-" : "",
+              Ctemp->astnode.constant.number);
+#endif
         }
 
+#ifdef WRAPPER
+        if(type_lookup(save_table,Ntemp->astnode.ident.name))
+          fprintf(javafp,"%s.val = _temp_%s;\n",Ntemp->astnode.ident.name,
+             Ntemp->astnode.ident.name);
+#else
         if(type_lookup(save_table,Ntemp->astnode.ident.name))
           fprintf(javafp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
              Ntemp->astnode.ident.name);
+#endif
 
         Ctemp = Ctemp->nextstmt;
       }
@@ -667,443 +746,517 @@ data_emit(AST *root)
 
 /*  Heh... gotta love it...  -dmd  9/26/97  */
 
+/*  Started cleaning up name_emit  10/10/97  --Keith */
 
 int
 name_emit (AST * root)
 {
-    AST *temp;
-    HASHNODE *hashtemp;
-    char *javaname, * tempname;
-    extern METHODTAB intrinsic_toks[];
-    extern SYMTABLE *array_table;
+  AST *temp;
+  HASHNODE *hashtemp;
+  char *javaname, * tempname;
+  extern METHODTAB intrinsic_toks[];
+  extern SYMTABLE *array_table;
 
-    /*  Check to see whether name is in external table.  Names are
-       loaded into the external table from the parser.   */
+  /*  Check to see whether name is in external table.  Names are
+      loaded into the external table from the parser.   */
 
-printf("** nodetype = %s, token = %s\n", print_nodetype(root),
-  tok2str(root->token));
+  if(root->nodetype == Identifier)
+    if(root->token == STRING)
+      printf("** maybe I should emit a string literal here\n");
 
-    if(root->nodetype == Identifier)
-      if(root->token == STRING)
-        printf("** I really should emit a string literal here\n");
+  tempname = strdup(root->astnode.ident.name);
+  uppercase(tempname);
 
-    hashtemp = type_lookup (external_table, root->astnode.ident.name);
+  /* If the name is in the external table, then check to see if
+     it is an intrinsic function instead (e.g. SQRT, ABS, etc).  */
 
-    /* If the name is in the external table, then check to see if
-       is an intrinsic function instead.  */
-
-    if (hashtemp != NULL)
-      {
-
-          tempname = strdup(root->astnode.ident.name);
-          uppercase(tempname);
-
-	  javaname = (char *) methodscan (intrinsic_toks, tempname);
-
-	  /*  This block of code is only called if the identifier
-	     absolutely does not have an entry in any table,
-	     and corresponds to a method invocation of
-	     something in the blas or lapack packages.  */
-          if (javaname == NULL)
-          {
-            if (root->astnode.ident.arraylist != NULL)
-            {
-              call_emit (root);
-              return;
-            }
-            return;
-          }
-
-          if (root->astnode.ident.arraylist != NULL)
-          {
-            if (!strcmp (tempname, "LSAME"))
-            {
-              temp = root->astnode.ident.arraylist;
-              fprintf (javafp, "%s", temp->astnode.ident.name);
-              fprintf (javafp, "%s(", javaname);
-              name_emit (temp->nextstmt);
-              fprintf (javafp, ")");
-              /* goto end; *//*  Hack ... */
-              return;
-            }
-            else if (!strcmp (tempname, "LSAMEN"))
-            {
-              temp = root->astnode.ident.arraylist;
-
-              /* first, make sure there are enough args to work with */
-              if(temp == NULL) {
-                fprintf(stderr,"No args to LSAMEN\n");
-                return;
-              } 
-              else if(temp->nextstmt == NULL) {
-                fprintf(stderr,"Not enough args to LSAMEN\n");
-                return;
-              }
-              else if(temp->nextstmt->nextstmt == NULL) {
-                fprintf(stderr,"Not enough args to LSAMEN\n");
-                return;
-              }
-
-              fprintf (javafp, "%s", temp->nextstmt->astnode.ident.name);
-              fprintf (javafp, "%s(true,0,", javaname);
-              name_emit (temp->nextstmt->nextstmt);
-              fprintf (javafp, ",0,");
-              expr_emit (temp);
-              fprintf (javafp, ")");
-              /* goto end; *//*  Hack ... */
-              return;
-            }
-          }
-      }
-
-    /*  Check to see whether name is in intrinsic table.  */
-
-    /*
-
-    hashtemp = type_lookup (intrinsic_table, root->astnode.ident.name);
-    if (hashtemp != NULL)
-      {
-
-    */
-         
-    tempname = strdup(root->astnode.ident.name);
-    uppercase(tempname);
-    if(gendebug)printf ("Tempname  %s\n", tempname);
-	  javaname = (char *) methodscan (intrinsic_toks, tempname);
-	  
-	  if (javaname != NULL)
-	    {
-	  
-	      /* This goes into an infinite loop. I don't
-		 know why.  Might be a result from parsing.
-		 It will replace the entire lower block
-		 when I get it to work.  */
-#ifdef  KJGKJKJKKJH
-	       temp = root->astnode.ident.arraylist;
-	       assert(temp != NULL);
-	      fprintf (javafp, "%s(", javaname);
-	      for (temp; temp != NULL; temp->nextstmt)
-		{
-		  printf("Yoikes\n");
-		  expr_emit (temp);
-		  if(temp->nextstmt)
-		    fprintf (javafp, ", ");
-		}
-	      fprintf (javafp, ")");
-	      return;
-	    }
-#endif	  
-	  /* #ifdef ININININ  */
-		if (!strcmp (tempname, "MAX"))
-		  {
-		      temp = root->astnode.ident.arraylist;
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ", ");
-		      expr_emit (temp->nextstmt);
-		      fprintf (javafp, ")");
-		      return;
-		  }
-
-		if (!strcmp (tempname, "MIN"))
-		  {
-		      temp = root->astnode.ident.arraylist;
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ", ");
-		      expr_emit (temp->nextstmt);
-		      fprintf (javafp, ")");
-		      return;
-		  }
-
-		if (!strcmp (tempname, "ABS"))
-		  {
-		      temp = root->astnode.ident.arraylist;
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ")");
-		      return;
-		  }
-
-		if (!strcmp (tempname, "DABS"))
-		  {
-		      temp = root->astnode.ident.arraylist;
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ")");
-		      return;
-		  }
-
-		if ( (!strcmp (tempname, "DSQRT")) ||
-                     (!strcmp (tempname, "SQRT")))
-		  {
-		      temp = root->astnode.ident.arraylist;
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ")");
-		      return;
-		  }
-	
-		if (!strcmp (tempname, "MOD"))
-		  {
-		      temp = root->astnode.ident.arraylist;
-                      fprintf(javafp,"(");
-                      expr_emit(temp);
-                      fprintf(javafp,")%%(");
-                      expr_emit(temp->nextstmt);
-                      fprintf(javafp,") ");
-
-                     /*  this chunk of code will emit a call to MOD as a call to
-                        Math.IEEERemainder().  usually that is not appropriate
-                        since IEEERemainder returns double, whereas the expected
-                        type is int.   -- keith
-
-		          fprintf (javafp, "%s(", javaname);
-		          expr_emit (temp);
-		          fprintf (javafp, ", ");
-		          expr_emit (temp->nextstmt);
-		          fprintf (javafp, ")");
-                      */
-		      return;
-		  }
-	    }
-/* #endif	 */
-	  /*
-      }
-      */
-
-    hashtemp = type_lookup (array_table, root->astnode.ident.name);
-
+  if (type_lookup (external_table, root->astnode.ident.name) != NULL)
+    external_emit(root);  /* handles LSAME, LSAMEN */
+  else if( methodscan (intrinsic_toks, tempname) != NULL) 
+    intrinsic_emit(root);
+  else
     switch (root->token)
-      {
-      /* I think these first two cases are obsolete now since string and char 
-         constants were moved to the Constant production.  9/23/97, Keith */
+    {
+      /* I think the first case (STRING/CHAR) is obsolete now since string 
+         and char constants were moved to the Constant production.  
+         9/23/97, Keith */
 
       case STRING:
-          printf("** I am going to emit a String literal!\n");
- 	  fprintf (javafp, "\"%s\"", root->astnode.ident.name);
-	  break;
       case CHAR:
+        if(gendebug)
           printf("** I am going to emit a String/char literal!\n");
-	  fprintf (javafp, "\"%s\"", root->astnode.ident.name);
-	  break;
+        fprintf (javafp, "\"%s\"", root->astnode.ident.name);
+        break;
+      case INTRINSIC: 
+        /* do nothing */
+        break;
       case NAME:
       default:
-	  /* At some point in here I will have to switch on the
-	     token type check whether it is a variable or
-	     string or character literal. Also have to look up whether
-	     name is intrinsic or external.  */
+        hashtemp = type_lookup (array_table, root->astnode.ident.name);
 
-	  if (root->astnode.ident.arraylist == NULL) {
+        if (root->astnode.ident.arraylist == NULL)
+          scalar_emit(root, hashtemp);
+        else if (hashtemp != NULL)
+          array_emit(root, hashtemp);
+        else
+          subcall_emit(root);
+        break;
+    }
+}
 
-            if(hashtemp == NULL) {
-              char * prefix = strtok(strdup(inputfilename),".");
-              HASHNODE *ht;
+/*  This function emits a subroutine call */
 
-              ht = type_lookup(common_table, root->astnode.ident.name);
+int 
+subcall_emit(AST *root)
+{
+  AST *temp;
+  char *tempstr;
 
-              if(ht == NULL) {
-                fprintf (javafp, "%s", root->astnode.ident.name);
-              }
-              else {
-                fprintf (javafp, "%s_%s.%s", prefix, 
-                   ht->variable->astnode.ident.commonBlockName,
-                   root->astnode.ident.name);
-              }
-            } 
-            else {
-              if(root->parent == NULL) {
-                fprintf(stderr,"name_emit(): NO PARENT!\n");
-              } 
-              else {
-                if (root->parent->nodetype == Call) {
-                  if((type_lookup(external_table, 
-                                  root->parent->astnode.ident.name) != NULL))
-                  {
-                    fprintf (javafp, "%s,0", root->astnode.ident.name);
-                  }
-                  else {
-	            fprintf (javafp, "%s", root->astnode.ident.name);
-                  }
-                } else {
-	          fprintf (javafp, "%s", root->astnode.ident.name);
-                }
-              }
-            }
-          }
-	  else if (hashtemp != NULL)
-	    {
-               int is_arg=FALSE;
+  tempstr = strdup (root->astnode.ident.name);
+  *tempstr = toupper (*tempstr);
 
-		if (gendebug)
-		  printf ("Array... %s, My node type is %s\n", 
-                    root->astnode.ident.name,
-                    print_nodetype(root));
+  fprintf (javafp, "%s.%s", tempstr,root->astnode.ident.name);
+  temp = root->astnode.ident.arraylist;
 
-              /* Now, what needs to happen here is the context of the
-                 array needs to be determined.  If the array is being
-                 passed as a parameter to a method, then the array index
-                 needs to be passed separately and the array passed as
-                 itself.  If not, then an array value is being set,
-                 so dereference with index arithmetic.  */
-
-		fprintf (javafp, "%s", root->astnode.ident.name);
-		temp = root->astnode.ident.arraylist;
-
-                if(root->parent == NULL) {
-                  /* Under normal circumstances, I dont think this should 
-                     be reached */
-		  printf ("Array... %s, NO PARENT - ", root->astnode.ident.name);
-		  printf ("This is not good!\n");
-                } else {
-		  printf ("Array... %s, Parent node type... %s\n", 
-                    root->astnode.ident.name,
-                    print_nodetype(root->parent));
-
-                  if( type_lookup(args_table,root->astnode.ident.name) != NULL )
-                    is_arg = TRUE;
-                  else
-                    is_arg = FALSE;
-
-                  if((root->parent->nodetype == Call)) 
-                  {
-                    if((type_lookup(external_table, 
-                                    root->parent->astnode.ident.name) != NULL))
-                    {
-                      printf("Function name is: %s - ",
-                        root->parent->astnode.ident.name);
-                        /* This is an external function */
-#if ONED
-                        fprintf (javafp, ",");
-                        fprintf (javafp, "(");
-                        expr_emit (temp);
-                        fprintf (javafp, "- 1)");
-                        if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
-                            temp->nextstmt != NULL)
-                        {
-                          temp = temp->nextstmt;
-                          fprintf (javafp, "+");
-                          fprintf (javafp, "(");
-                          expr_emit (temp);
-                          fprintf (javafp, "- 1)");
-                          fprintf (javafp, "*");
-                          fprintf(javafp,  "%s", 
-                               hashtemp->variable->astnode.ident.leaddim);
-                        }  /* Multi dimension.  */
-                        if(is_arg)
-                          fprintf(javafp,  "+ _%s_offset",root->astnode.ident.name);
-
-#endif
-#if TWOD
-                        printf("TWOD not implemented yet!\n");
-#endif
-                    } else {
-                        /* I dont think this is an external function */
-#if ONED
-                       printf("NOT an EXTERNAL function!\n");
-                       if( type_lookup(args_table,root->astnode.ident.name) != NULL )
-                         printf("This is an ARG\n");
-                       else
-                         printf("This is NOT an ARG\n");
-
-                        fprintf (javafp, "[");
-                        fprintf (javafp, "(");
-                        expr_emit (temp);
-                        fprintf (javafp, "- 1)");
-                        if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
-                            temp->nextstmt != NULL)
-                        {
-                          temp = temp->nextstmt;
-                          fprintf (javafp, "+");
-                          fprintf (javafp, "(");
-                          expr_emit (temp);
-                          fprintf (javafp, "- 1)");
-                          fprintf (javafp, "*");
-                          fprintf(javafp,  "%s", 
-                               hashtemp->variable->astnode.ident.leaddim);
-                        }  /* Multi dimension.  */
-                        if(is_arg)
-                          fprintf(javafp,  "+ _%s_offset",root->astnode.ident.name);
-                        fprintf(javafp, "]");
-#endif
-#if TWOD
-                        for (temp; temp != NULL; temp = temp->prevstmt)
-                        {
-                          fprintf (javafp, "[");
-                          if (*temp->astnode.ident.name != '*')
-                            expr_emit (temp);
-                          fprintf (javafp, "]");
-                        }           /* Close for() loop. */
-#endif
-                    } 
-                  } else if((root->parent->nodetype == Typedec)) {
-                     printf("I guess this is an array declaration\n");
-                  } else {
-#if ONED
-                      fprintf (javafp, "[");
-                      fprintf (javafp, "(");
-                      expr_emit (temp);
-                      fprintf (javafp, "- 1)");
-                      if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
-                          temp->nextstmt != NULL)
-                      {
-                        temp = temp->nextstmt;
-                        fprintf (javafp, "+");
-                        fprintf (javafp, "(");
-                        expr_emit (temp);
-                        fprintf (javafp, "- 1)");
-                        fprintf (javafp, "*");
-                        fprintf(javafp,  "%s", 
-                             hashtemp->variable->astnode.ident.leaddim);
-                      }  /* Multi dimension.  */
-                      if(is_arg)
-                        fprintf(javafp,  "+ _%s_offset",root->astnode.ident.name);
-                      fprintf(javafp, "]");
-#endif
-#if TWOD
-                      for (temp; temp != NULL; temp = temp->prevstmt)
-                      {
-                        fprintf (javafp, "[");
-                        if (*temp->astnode.ident.name != '*')
-                          expr_emit (temp);
-                        fprintf (javafp, "]");
-                      }           /* Close for() loop. */
-#endif
-                  }
-                }
-	    }
-	  /*  I think this code is redundant.  */
-                      /* possibly not -- keith */
-	  else
-	    {
-                /* else it's not in the array table? */
-                char *tempstr;
-
-                tempstr = strdup (root->astnode.ident.name);
-                *tempstr = toupper (*tempstr);
-
-		fprintf (javafp, "%s.%s", tempstr,root->astnode.ident.name);
-		temp = root->astnode.ident.arraylist;
-		fprintf (javafp, "(");
-		for (temp; temp != NULL; temp = temp->nextstmt)
-		  {
-		      /* fprintf (javafp, "["); */
-
-                      if(temp != root->astnode.ident.arraylist)
-		        fprintf (javafp, ",");  /* if not first iteration */
+  fprintf (javafp, "(");
+  for (temp; temp != NULL; temp = temp->nextstmt)
+  {
+    if(temp != root->astnode.ident.arraylist)
+      fprintf (javafp, ",");  /* if not first iteration */
                         
-		      if (*temp->astnode.ident.name != '*')
-			  expr_emit (temp);
+    if (*temp->astnode.ident.name != '*')
+      expr_emit (temp);
+  }
+  fprintf (javafp, ")");
+}
 
-		      /* fprintf (javafp, "]"); */
-		  }		/* Close for() loop. */
-		fprintf (javafp, ")");
-	    }
-	  break;
-      }				/* Close switch(). */
-    /* end: */
-}				/* Close name_emit().  */
+/*  This function emits the index to an array.  The boolean argument
+    is_arg represents whether the array is an argument to the current 
+    function or subroutine and the boolean is_ext represents whether
+    the array is being passed to an external function.
+*/    
+int
+func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, int is_ext)
+{
+#if ONED
+  if(is_ext)
+    fprintf (javafp, ",");
+  else
+    fprintf (javafp, "[");
 
+  fprintf (javafp, "(");
+  expr_emit (root);
+  fprintf (javafp, "- 1)");
+  if (hashtemp->variable->astnode.ident.leaddim[0] != '*' && root->nextstmt != NULL)
+  {
+    root = root->nextstmt;
+    fprintf (javafp, "+");
+    fprintf (javafp, "(");
+    expr_emit (root);
+    fprintf (javafp, "- 1)");
+    fprintf (javafp, "*");
+#ifdef WRAPPER
+    if(isalpha(hashtemp->variable->astnode.ident.leaddim[0]))
+      fprintf(javafp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+    else
+      fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+#else
+    fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+#endif
+  }  /* Multi dimension.  */
+
+  if(is_arg)
+    fprintf(javafp,  "+ _%s_offset",arrayname);
+
+  if(! is_ext)
+    fprintf(javafp, "]");
+#endif
+
+#if TWOD
+  fprintf(stderr,"TWOD not implemented yet!\n");
+#endif
+}
+
+/* 
+   Here we emit array variables.  actually we first determine 
+   the context in which the array access is found and then call
+   func_array_emit() to emit the array index.
+   10/10/97 --Keith
+*/
+int
+array_emit(AST *root, HASHNODE *hashtemp)
+{
+  extern METHODTAB intrinsic_toks[];
+  AST *temp;
+  int is_arg=FALSE;
+
+  if (gendebug)
+    printf ("Array... %s, My node type is %s\n", 
+      root->astnode.ident.name,
+      print_nodetype(root));
+
+  /* Now, what needs to happen here is the context of the
+     array needs to be determined.  If the array is being
+     passed as a parameter to a method, then the array index
+     needs to be passed separately and the array passed as
+     itself.  If not, then an array value is being set,
+     so dereference with index arithmetic.  */
+
+  fprintf (javafp, "%s", root->astnode.ident.name);
+  temp = root->astnode.ident.arraylist;
+
+  if(root->parent == NULL) {
+    /* Under normal circumstances, I dont think this should 
+       be reached */
+    fprintf (stderr,"Array... %s, NO PARENT - ", root->astnode.ident.name);
+    fprintf (stderr,"This is not good!\n");
+  } else {
+    if(gendebug)
+      printf ("Array... %s, Parent node type... %s\n", 
+        root->astnode.ident.name,
+        print_nodetype(root->parent));
+
+    if( type_lookup(args_table,root->astnode.ident.name) != NULL )
+      is_arg = TRUE;
+    else
+      is_arg = FALSE;
+
+    if((root->parent->nodetype == Call)) 
+    {
+      if((type_lookup(external_table, root->parent->astnode.ident.name) != NULL))
+        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
+      else 
+        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
+    } 
+    else if((root->parent->nodetype == Typedec)) 
+    {
+      /*  Just a declaration, don't emit index. */
+      if(gendebug)
+        printf("I guess this is just an array declaration\n");
+    }
+    else 
+      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
+  }
+}
+
+/*  
+  This function emits a scalar variable.  The first thing that needs
+  to be checked here is whether the variable is part of a common block.
+  If so, we need to emit the common block name followed by a dot and
+  the variable name.  Otherwise, just emit the variable name.   If using
+  object wrappers, the nodetype of the parent node must be checked.  If the 
+  parent node is a 'call' to an external function then the variables must 
+  be passed as objects.  Otherwise, the value from the wrapper should be 
+  obtained by appending .val to the variable name.   10/10/97  -- Keith
+ 
+  (note: this function also emits array variables which do not have
+   indices)
+*/
+
+int
+scalar_emit(AST *root, HASHNODE *hashtemp)
+{
+  extern METHODTAB intrinsic_toks[];
+
+  if(hashtemp == NULL) {
+    char * prefix = strtok(strdup(inputfilename),".");
+    HASHNODE *ht;
+
+    ht = type_lookup(common_table, root->astnode.ident.name);
+
+#ifdef WRAPPER
+/*
+ printf("here we are emitting a scalar: %s,",root->astnode.ident.name);
+ printf("The parent node is : %s\n",print_nodetype(root->parent));
+*/
+
+    if(ht == NULL) {
+      if(root->parent == NULL) {
+        fprintf(stderr,"name_emit(): NO PARENT! (%s)\n",
+          root->astnode.ident.name);
+      } else {
+        if (root->parent->nodetype == Call) {
+          char *tempname;
+
+/*
+          printf("in CALL, '%s' <- '%s'\n", 
+            root->parent->astnode.ident.name,
+            root->astnode.ident.name);
+*/
+
+          tempname = strdup(root->parent->astnode.ident.name);
+          uppercase(tempname);
+ 
+          if((methodscan (intrinsic_toks, tempname) == NULL) &&
+             (type_lookup(array_table, root->parent->astnode.ident.name) == NULL))
+          {
+            /* printf("did not find %s in intrinsics table\n",
+                 root->parent->astnode.ident.name); */
+            fprintf (javafp, "%s", root->astnode.ident.name);
+          }
+          else
+          {
+            /* printf("found %s in intrinsics\n",
+                 root->parent->astnode.ident.name); */
+            fprintf (javafp, "%s.val", root->astnode.ident.name);
+          }
+        }
+        else if(root->parent->nodetype == Typedec) {
+          fprintf (javafp, "%s", root->astnode.ident.name);
+        }
+        else {
+          fprintf (javafp, "%s.val", root->astnode.ident.name);
+        }
+      }
+    }
+    else {
+      fprintf (javafp, "%s_%s.%s.val", prefix, 
+        ht->variable->astnode.ident.commonBlockName,
+        root->astnode.ident.name);
+    }
+#else
+    if(ht == NULL) {
+      fprintf (javafp, "%s", root->astnode.ident.name);
+    }
+    else {
+      fprintf (javafp, "%s_%s.%s", prefix, 
+        ht->variable->astnode.ident.commonBlockName,
+        root->astnode.ident.name);
+    }
+#endif
+  }
+  else 
+  {
+    /* if we reach this case, we are emitting an array, but there
+       is no index specified.  Normally, we would just emit the variable
+       name, but we must also check the parent nodetype.  If it is a
+       call to an external function, then we have to emit the variable
+       name followed by ",0" to signify that the offset into this array
+       is 0.   10/10/97  --Keith 
+    */
+    if(root->parent == NULL) 
+    {
+      fprintf(stderr,"name_emit(): NO PARENT!\n");
+    } 
+    else 
+    {
+      if((root->parent->nodetype == Call) && 
+         (type_lookup(external_table, root->parent->astnode.ident.name) != NULL))
+        fprintf (javafp, "%s,0", root->astnode.ident.name);
+      else 
+        fprintf (javafp, "%s", root->astnode.ident.name);
+    }
+  }
+}
+
+/*  
+  This function translates calls to external functions.  First, 
+  check whether we are translating a call to LSAME or LSAMEN.
+  LSAME is from BLAS and LSAMEN is from LAPACK.  Instead of translating
+  the actual files lsame.f and lsamen.f to java, we just translate
+  the calls to equivalent java method calls (String.equalsIgnoreCase
+  and String.regionMatches respectively).   If we're not translating
+  a call to LSAME or LSAMEN, use the function call_emit().  --Keith 
+*/
+
+int
+external_emit(AST *root)
+{
+  extern METHODTAB intrinsic_toks[];
+  char *tempname, *javaname;
+  AST *temp;
+
+  tempname = strdup(root->astnode.ident.name);
+  uppercase(tempname);
+
+  javaname = (char *) methodscan (intrinsic_toks, tempname);
+
+  /*  This block of code is only called if the identifier
+      absolutely does not have an entry in any table,
+      and corresponds to a method invocation of
+      something in the blas or lapack packages.  */
+
+  if (javaname == NULL)
+  {
+    if (root->astnode.ident.arraylist != NULL)
+      call_emit (root);
+    return;
+  }
+
+  if (root->astnode.ident.arraylist != NULL)
+  {
+    if (!strcmp (tempname, "LSAME"))
+    {
+      temp = root->astnode.ident.arraylist;
+#ifdef WRAPPER
+      fprintf (javafp, "%s.val", temp->astnode.ident.name);
+#else
+      fprintf (javafp, "%s", temp->astnode.ident.name);
+#endif
+      fprintf (javafp, "%s(", javaname);
+      name_emit (temp->nextstmt);
+      fprintf (javafp, ")");
+      return;
+    }
+    else if (!strcmp (tempname, "LSAMEN"))
+    {
+      temp = root->astnode.ident.arraylist;
+
+      /* first, make sure there are enough args to work with */
+      if(temp == NULL) {
+        fprintf(stderr,"No args to LSAMEN\n");
+        return;
+      } 
+      else if(temp->nextstmt == NULL) {
+        fprintf(stderr,"Not enough args to LSAMEN\n");
+        return;
+      }
+      else if(temp->nextstmt->nextstmt == NULL) {
+        fprintf(stderr,"Not enough args to LSAMEN\n");
+        return;
+      }
+
+#ifdef WRAPPER
+      fprintf (javafp, "%s.val", temp->nextstmt->astnode.ident.name);
+#else
+      fprintf (javafp, "%s", temp->nextstmt->astnode.ident.name);
+#endif
+      fprintf (javafp, "%s(true,0,", javaname);
+      name_emit (temp->nextstmt->nextstmt);
+      fprintf (javafp, ",0,");
+      expr_emit (temp);
+      fprintf (javafp, ")");
+      return;
+    }
+  }
+}
+
+int
+intrinsic_emit(AST *root)
+{
+  extern METHODTAB intrinsic_toks[];
+  AST *temp;
+  char *tempname, *javaname;
+
+  tempname = strdup(root->astnode.ident.name);
+  uppercase(tempname);
+
+  javaname = (char *)methodscan (intrinsic_toks, tempname);
+
+  /* This goes into an infinite loop. I don't
+     know why.  Might be a result from parsing.
+     It will replace the entire lower block
+     when I get it to work.  */
+
+#ifdef  KJGKJKJKKJH
+  temp = root->astnode.ident.arraylist;
+  assert(temp != NULL);
+  fprintf (javafp, "%s(", javaname);
+
+  for (temp; temp != NULL; temp->nextstmt)
+  {
+    printf("Yoikes\n");
+    expr_emit (temp);
+    if(temp->nextstmt)
+      fprintf (javafp, ", ");
+  }
+  fprintf (javafp, ")");
+  return;
+  /*put end brace here*/ 
+#endif	  
+
+  if (!strcmp (tempname, "MAX"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (javafp, "%s(", javaname);
+    expr_emit (temp);
+    fprintf (javafp, ", ");
+    expr_emit (temp->nextstmt);
+    fprintf (javafp, ")");
+    return;
+  }
+
+  if (!strcmp (tempname, "MIN"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (javafp, "%s(", javaname);
+    expr_emit (temp);
+    fprintf (javafp, ", ");
+    expr_emit (temp->nextstmt);
+    fprintf (javafp, ")");
+    return;
+  }
+
+  if (!strcmp (tempname, "ABS"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (javafp, "%s(", javaname);
+    expr_emit (temp);
+    fprintf (javafp, ")");
+    return;
+  }
+
+  if (!strcmp (tempname, "DABS"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (javafp, "%s(", javaname);
+    expr_emit (temp);
+    fprintf (javafp, ")");
+    return;
+  }
+
+  if ( (!strcmp (tempname, "DSQRT")) ||
+       (!strcmp (tempname, "SQRT")))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (javafp, "%s(", javaname);
+    expr_emit (temp);
+    fprintf (javafp, ")");
+    return;
+  }
+
+  if (!strcmp (tempname, "MOD"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf(javafp,"(");
+    expr_emit(temp);
+    fprintf(javafp,")%%(");
+    expr_emit(temp->nextstmt);
+    fprintf(javafp,") ");
+
+    /*  this chunk of code will emit a call to MOD as a call to
+        Math.IEEERemainder().  usually that is not appropriate
+        since IEEERemainder returns double, whereas the expected
+        type is int.   -- keith
+
+       fprintf (javafp, "%s(", javaname);
+       expr_emit (temp);
+       fprintf (javafp, ", ");
+       expr_emit (temp->nextstmt);
+       fprintf (javafp, ")");
+    */
+    return;
+  }
+}
+
+enum returntype
+get_type(char *num)
+{
+  int isfloat = 0;
+  int isbool = 0;
+  int idx;
+
+  for(idx = 0;idx < strlen(num);idx++) 
+    if(num[idx] == '.') {
+      return Double;
+      break;
+    }
+
+  if( !strcmp(num,"false") || !strcmp(num,"true"))
+    return Logical;
+
+  return Integer;
+}
 
 /* All this will do is emit a number if there is one.
    Needs to be extended for arrays, etc.  Consider using
@@ -1112,95 +1265,137 @@ printf("** nodetype = %s, token = %s\n", print_nodetype(root),
 int
 expr_emit (AST * root)
 {
-    switch (root->nodetype)
+  extern METHODTAB intrinsic_toks[];
+  char *tempname;
+
+  switch (root->nodetype)
+  {
+    case Identifier:
+      name_emit (root);
+      break;
+    case Expression:
+      if (root->astnode.expression.parens)
+        fprintf (javafp, "(");
+
+      if (root->astnode.expression.lhs != NULL)
+        expr_emit (root->astnode.expression.lhs);
+
+      expr_emit (root->astnode.expression.rhs);
+
+      if (root->astnode.expression.parens)
+        fprintf (javafp, ")");
+      break;
+    case Power:
+      fprintf (javafp, "Math.pow(");
+      expr_emit (root->astnode.expression.lhs);
+      fprintf (javafp, ", ");
+      expr_emit (root->astnode.expression.rhs);
+      fprintf (javafp, ")");
+      break;
+    case Binaryop:
+      expr_emit (root->astnode.expression.lhs);
+      fprintf (javafp, "%c", root->astnode.expression.optype);
+      expr_emit (root->astnode.expression.rhs);
+      break;
+    case Unaryop:
+      fprintf (javafp, "%c", root->astnode.expression.minus);
+      expr_emit (root->astnode.expression.rhs);
+      break;
+    case Constant:
+
+     /* here we need to determine if this is a parameter to a function
+        or subroutine.  if so, and we are using wrappers, then we need
+        to create a temporary wrapper and pass that in instead of the
+        constant.   10/9/97  -- Keith */
+
+#ifdef WRAPPER
+     if(root->parent != NULL)
+     {
+       tempname = strdup(root->parent->astnode.ident.name);
+       uppercase(tempname);
+     }
+
+     if( (root->parent != NULL) &&
+         (root->parent->nodetype == Call) &&
+         (type_lookup(array_table,root->parent->astnode.ident.name) == NULL) &&
+         (methodscan(intrinsic_toks, tempname) == NULL))
+     {
+       if(root->token == STRING)
+         fprintf (javafp, "new StringW(\"%s\")", root->astnode.ident.name);
+       else {
+         fprintf (javafp, "new %s(%s)", 
+           wrapper_returns[get_type(root->astnode.constant.number)],
+           root->astnode.constant.number);
+         }
+       }
+       else 
+       {
+         if(root->token == STRING)
+           fprintf (javafp, "\"%s\"", root->astnode.ident.name);
+         else
+           fprintf (javafp, "%s", root->astnode.constant.number);
+       }
+#else
+       if(root->token == STRING)
+         fprintf (javafp, "\"%s\"", root->astnode.ident.name);
+       else
+         fprintf (javafp, "%s", root->astnode.constant.number);
+#endif
+       break;
+    case Logicalop:
+      /* Change all of this code to switch on the tokens.
+         The parser code will have to store the NOT token.
+      */
+      if (root->astnode.expression.lhs != NULL)
+        expr_emit (root->astnode.expression.lhs);
+      else
+        fprintf (javafp, "!");
+      if (root->token == AND)
+        fprintf (javafp, " && ");
+      if (root->token == OR)
+        fprintf (javafp, " || ");
+      expr_emit (root->astnode.expression.rhs);
+      break;
+    case Relationalop:
+      expr_emit (root->astnode.expression.lhs);
+
+      /*  Leave all the rest of this stuff out because the
+        preceding doesn't work.
+      */
+      switch (root->token)
       {
-      case Identifier:
-	  name_emit (root);
-	  break;
-      case Expression:
-	  if (root->astnode.expression.parens)
-	      fprintf (javafp, "(");
-	  if (root->astnode.expression.lhs != NULL)
-	      expr_emit (root->astnode.expression.lhs);
-	  expr_emit (root->astnode.expression.rhs);
-	  if (root->astnode.expression.parens)
-	      fprintf (javafp, ")");
-	  break;
-      case Power:
-	  fprintf (javafp, "Math.pow(");
-	  expr_emit (root->astnode.expression.lhs);
-	  fprintf (javafp, ", ");
-	  expr_emit (root->astnode.expression.rhs);
-	  fprintf (javafp, ")");
-	  break;
-      case Binaryop:
-	  expr_emit (root->astnode.expression.lhs);
-	  fprintf (javafp, "%c", root->astnode.expression.optype);
-	  expr_emit (root->astnode.expression.rhs);
-	  break;
-      case Unaryop:
-	  fprintf (javafp, "%c", root->astnode.expression.minus);
-	  expr_emit (root->astnode.expression.rhs);
-	  break;
-      case Constant:
-          if(root->token == STRING)
-	    fprintf (javafp, "\"%s\"", root->astnode.ident.name);
-          else
-	    fprintf (javafp, "%s", root->astnode.constant.number);
-	  break;
-      case Logicalop:
-	  /* Change all of this code to switch on the tokens.
-	     The parser code will have to store the NOT token.
-	   */
-	  if (root->astnode.expression.lhs != NULL)
-	      expr_emit (root->astnode.expression.lhs);
-	  else
-	      fprintf (javafp, "!");
-	  if (root->token == AND)
-	      fprintf (javafp, " && ");
-	  if (root->token == OR)
-	      fprintf (javafp, " || ");
-	  expr_emit (root->astnode.expression.rhs);
-	  break;
-      case Relationalop:
-	  expr_emit (root->astnode.expression.lhs);
-	  /*  Leave all the rest of this stuff out because the
-	     preceding doesn't work.
-	   */
-	   switch (root->token)
-	    {
-	    case rel_eq:
-		fprintf (javafp, " == ");
-		break;
-	    case rel_ne:
-		fprintf (javafp, " != ");
-		break;
-	    case rel_lt:
-		fprintf (javafp, " < ");
-		break;
-	    case rel_le:
-		fprintf (javafp, " <= ");
-		break;
-	    case rel_gt:
-		fprintf (javafp, " > ");
-		break;
-	    case rel_ge:
-		fprintf (javafp, " >= ");
-		break;
-	    }
-	  expr_emit (root->astnode.expression.rhs);	/*  */
-	  break;
-      case Substring:
-          fprintf(javafp,"%s.substring((",root->astnode.ident.name);
-          expr_emit(root->astnode.ident.arraylist);
-          fprintf(javafp,")-1,");
-          expr_emit(root->astnode.ident.arraylist->nextstmt);
-          fprintf(javafp,")");
+        case rel_eq:
+          fprintf (javafp, " == ");
           break;
-      default:
-          fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",
-            print_nodetype(root));
+        case rel_ne:
+          fprintf (javafp, " != ");
+          break;
+        case rel_lt:
+          fprintf (javafp, " < ");
+          break;
+        case rel_le:
+          fprintf (javafp, " <= ");
+          break;
+        case rel_gt:
+          fprintf (javafp, " > ");
+          break;
+        case rel_ge:
+          fprintf (javafp, " >= ");
+          break;
       }
+      expr_emit (root->astnode.expression.rhs);
+      break;
+    case Substring:
+      fprintf(javafp,"%s.substring((",root->astnode.ident.name);
+      expr_emit(root->astnode.ident.arraylist);
+      fprintf(javafp,")-1,");
+      expr_emit(root->astnode.ident.arraylist->nextstmt);
+      fprintf(javafp,")");
+      break;
+    default:
+      fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",
+        print_nodetype(root));
+  }
 }
 
 int
@@ -1215,7 +1410,8 @@ open_output_file(AST *root)
   cur_filename = classname;
   strcat(filename,".java");
 
-  printf("filename is %s\n",filename);
+  if(gendebug)
+    printf("filename is %s\n",filename);
 
   if((javafp = fopen(filename,"w"))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);
@@ -1246,8 +1442,16 @@ constructor (AST * root)
       returns = root->astnode.source.returns;
 
       /* Test code.... */
+#ifdef WRAPPER
+      fprintf (javafp, "static %s %s = new %s(%s);\n\n", 
+         wrapper_returns[returns],
+         root->astnode.source.name->astnode.ident.name,
+         wrapper_returns[returns],
+         init_vals[returns]);
+#else
       fprintf (javafp, "static %s %s;\n\n", returnstring[returns],
          root->astnode.source.name->astnode.ident.name);
+#endif
 
       /* Define the constructor for the class. */
       fprintf (javafp, "\npublic static %s %s (",
@@ -1293,7 +1497,14 @@ constructor (AST * root)
 		printf ("Bad return value, check types.\n");
 	    }
 
+#ifdef WRAPPER
+	  if (hashtemp->variable->astnode.ident.arraylist == NULL)
+	    tempstring = wrapper_returns[returns];
+          else
+	    tempstring = returnstring[returns];
+#else
 	  tempstring = returnstring[returns];
+#endif
 
 	  /* I haven't yet decided how the pass-by-reference
 	     pass-by-value problem will be resolved.  It may
@@ -1303,6 +1514,10 @@ constructor (AST * root)
 	     This means that primitives such as int and
 	     double are wrapped as objects. */
 	  /* *tempstring = toupper (*tempstring);  */
+          /* To save space, I'm wrapping the primitives with
+             special-purpose wrappers (intW, doubleW, etc.).
+             10/8/97  --Keith */
+
 	  fprintf (javafp, "%s ", tempstring);
 
 	  if (hashtemp->variable->astnode.ident.arraylist == NULL)
@@ -1357,18 +1572,36 @@ forloop_emit (AST * root)
    
 /* This block writes out the loop parameters.  */
     fprintf (javafp, "for (");
+
     assign_emit (root->astnode.forloop.start);
-    /* fprintf (javafp, " -1; %s<", indexname); */
-    fprintf (javafp, "; %s<=", indexname);
+
+#ifdef WRAPPER
+    fprintf (javafp, "; %s.val <=", indexname);
+#else
+    fprintf (javafp, "; %s <=", indexname);
+#endif
+
     expr_emit (root->astnode.forloop.stop);
+
     fprintf (javafp, "; ");
+
+#ifdef WRAPPER
+    if (root->astnode.forloop.incr == NULL)
+	fprintf (javafp, "%s.val++", indexname);
+    else
+    {
+      fprintf (javafp, "%s.val += ", indexname);
+      expr_emit (root->astnode.forloop.incr);
+    }
+#else
     if (root->astnode.forloop.incr == NULL)
 	fprintf (javafp, "%s++", indexname);
     else
-      {
-	  fprintf (javafp, "%s+=", indexname);
-	  expr_emit (root->astnode.forloop.incr);
-      }
+    {
+      fprintf (javafp, "%s += ", indexname);
+      expr_emit (root->astnode.forloop.incr);
+    }
+#endif
 
     fprintf (javafp, ") {\n");
 
@@ -1434,12 +1667,13 @@ computed_goto_emit (AST *root)
   AST *temp;
   int count = 1;
 
-printf("~~~~ COMPUTED GOTO ~~~~~ \n");
   for(temp = root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp != root->astnode.computed_goto.intlist)
       fprintf(javafp,"else ");
-    fprintf(javafp,"if (%s == %d) \n", root->astnode.computed_goto.name, count);
+    fprintf(javafp,"if (");
+    expr_emit(root->astnode.computed_goto.name);
+    fprintf(javafp," == %d) \n", count);
     fprintf(javafp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
       temp->astnode.constant.number);
     count++;
@@ -1488,17 +1722,20 @@ write_emit (AST * root)
   fprintf (javafp, "System.out.println(");
 
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
-  printf("***Looking for format statement number: %s\n",tmp);
+  if(gendebug)
+    printf("***Looking for format statement number: %s\n",tmp);
 
   if( (hnode = format_lookup(format_table,tmp)) != NULL ) {
-    printf("****FOUND****\n");
+    if(gendebug)
+      printf("****FOUND****\n");
 
     nodeptr = root->astnode.io_stmt.arg_list; 
 
     format_list_emit(hnode->variable->astnode.label.stmt,&nodeptr);
   }
   else {
-    printf("****NOT FOUND****\n");
+    if(gendebug)
+      printf("****NOT FOUND****\n");
 
     for( temp = root->astnode.io_stmt.arg_list; 
       temp != NULL; 
@@ -1529,27 +1766,31 @@ format_item_emit(AST *temp, AST **nodeptr)
   switch(temp->token) {
     case EDIT_DESC:
     case NAME:
-      printf("NAme/EDIT_DESC\n");
+      if(gendebug)
+        printf("NAme/EDIT_DESC\n");
       format_name_emit(*nodeptr);
       if(*nodeptr == NULL)
         fprintf(stderr,"ERROR, nodeptr now null (Name)\n");
       else {
-        printf("** Advancing nodeptr ** \n");
-        *nodeptr = (*nodeptr)->nextstmt;
+        if(gendebug)
+          printf("** Advancing nodeptr ** \n");
+            *nodeptr = (*nodeptr)->nextstmt;
       }
       if(temp->nextstmt != NULL)
         fprintf(javafp," + ");
       return(temp->nextstmt);
       break;
     case STRING:
-      printf("STring: %s\n",temp->astnode.ident.name);
+      if(gendebug)
+        printf("STring: %s\n",temp->astnode.ident.name);
       fprintf(javafp,"\"%s\" ",temp->astnode.ident.name);
       if(temp->nextstmt != NULL)
         fprintf(javafp," + ");
       return(temp->nextstmt);
       break;
     case REPEAT:
-      printf("Repeat %d\n",temp->astnode.label.number);
+      if(gendebug)
+        printf("Repeat %d\n",temp->astnode.label.number);
       for(i=0;i<temp->astnode.label.number;i++) {
         format_list_emit(temp->astnode.label.stmt,nodeptr);
 
@@ -1560,7 +1801,8 @@ format_item_emit(AST *temp, AST **nodeptr)
       return(temp->nextstmt);
       break;
     case INTEGER:
-      printf("INteger %d\n",atoi(temp->astnode.constant.number));
+      if(gendebug)
+        printf("INteger %d\n",atoi(temp->astnode.constant.number));
 
       if(temp->nextstmt != NULL) {
         if(temp->nextstmt->token != REPEAT) {
@@ -1584,27 +1826,31 @@ format_item_emit(AST *temp, AST **nodeptr)
       return(temp->nextstmt);
       break;
     case CM:
-      printf("Comma\n");
+      if(gendebug)
+        printf("Comma\n");
       return(temp->nextstmt);
       break;
     case DIV:
-      printf("Div\n");
+      if(gendebug)
+        printf("Div\n");
       fprintf(javafp,"\"\\n\" ");
       if(temp->nextstmt != NULL)
         fprintf(javafp," + ");
       return(temp->nextstmt);
       break;
     case CAT:
-      printf("two divs\n");
+      if(gendebug)
+        printf("two divs\n");
       fprintf(javafp,"\"\\n\\n\" ");
       if(temp->nextstmt != NULL)
         fprintf(javafp," + ");
       return(temp->nextstmt);
       break;
     default:
-      printf("Unknown token!!! %d (%s) - ",temp->token,
-         tok2str(temp->token));
-      printf("this node type %s\n",print_nodetype(temp));
+      fprintf(stderr,"format_item_emit: Unknown token!!! %d (%s) - ",
+         temp->token, tok2str(temp->token));
+      if(gendebug)
+        printf("this node type %s\n",print_nodetype(temp));
       return(temp->nextstmt);
       break;
   }
@@ -1614,7 +1860,7 @@ void
 format_name_emit(AST *node)
 {
   if(node == NULL) {
-    printf("Bad formatting!\n");
+    fprintf(stderr,"Bad formatting!\n");
     fprintf(javafp,"\" NULL \"");
   }
   else {
@@ -1745,38 +1991,65 @@ else_emit (AST * root)
 int
 call_emit (AST * root)
 {
-    AST *temp;
-    char *tempname;
+  AST *temp;
+  char *tempname;
 
-    assert (root != NULL);
+  assert (root != NULL);
 
-    lowercase (root->astnode.ident.name);
-    tempname = strdup (root->astnode.ident.name);
-    *tempname = toupper (*tempname);
+  lowercase (root->astnode.ident.name);
+  tempname = strdup (root->astnode.ident.name);
+  *tempname = toupper (*tempname);
 
-    /* Assume all methods that are invoked are static.  */
-    fprintf (javafp, "%s.%s", tempname, root->astnode.ident.name);
+printf("Looking up function name %s, ", root->astnode.ident.name);
 
-    assert (root->astnode.ident.arraylist != NULL);
+if( type_lookup(function_table, root->astnode.ident.name) != NULL )
+  printf("Found!!\n");
+else
+  printf("NOT FOUND!!\n");
 
-    temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "(");
-    while (temp->nextstmt != NULL)
-      {
-	  expr_emit (temp);
-	  fprintf (javafp, ",");
-	  temp = temp->nextstmt;
-      }
-    expr_emit (temp);
-    /*  Problem here, depends on who called this procedure.
-        When this is used by the CALL keyword, it works as
-	written.  When used to create an external function call,
-	it adds an extra ; and \n to the output.  Might be
-	able to fix this by checking the nodetype. */
-    if(root->nodetype == Call)
-      fprintf (javafp, ");\n");
+  /* Assume all methods that are invoked are static.  */
+  fprintf (javafp, "%s.%s", tempname, root->astnode.ident.name);
+
+  assert (root->astnode.ident.arraylist != NULL);
+
+  fprintf (javafp, "(");
+
+  temp = root->astnode.ident.arraylist;
+
+  for( ; temp != NULL; temp = temp->nextstmt)
+  {
+#ifdef WRAPPER
+    if(((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL)) ||
+       (temp->nodetype == Constant))
+    {
+      expr_emit (temp);
+    }
     else
-      fprintf (javafp, ")");
+    {
+      fprintf(javafp,"new %s(", wrapper_returns[temp->vartype]);
+      expr_emit (temp);
+      fprintf(javafp,")");
+    }
+#else
+    expr_emit (temp);
+#endif
+
+    if(temp->nextstmt != NULL)
+      fprintf(javafp, ",");
+  }
+
+  /*  
+      Problem here, depends on who called this procedure.
+      When this is used by the CALL keyword, it works as
+      written.  When used to create an external function call,
+      it adds an extra ; and \n to the output.  Might be
+      able to fix this by checking the nodetype. 
+  */
+
+  if(root->nodetype == Call)
+    fprintf (javafp, ");\n");
+  else
+    fprintf (javafp, ")");
 }				/*  Close call_emit().  */
 
 int

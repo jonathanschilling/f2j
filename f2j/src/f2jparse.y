@@ -44,15 +44,14 @@ AST
   * equivList = NULL,             /* list to keep track of equivalences      */
   * localvarlist;                 /* list of local variables                 */
 
+
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
 
 int 
   yylex(),
-  hash(char *),
-  eval_const_expr(AST *, int),
-  hash_insert (SYMTABLE * , AST *);
+  eval_const_expr(AST *, int);
 
 char 
   * strdup(const char *),
@@ -72,13 +71,16 @@ void
   assign(AST *),
   typecheck(AST *),
   optScalar(AST *),
-  type_insert (HASHNODE ** , AST * , int , char *),
+  type_insert (SYMTABLE * , AST * , int , char *),
   type_hash(AST *),
   merge_common_blocks(AST *),
   arg_table_load(AST *),
-  exp_to_double (char *, char *);
+  exp_to_double (char *, char *),
+  insert_constant(AST *, char *),
+  prepend_minus(char *);
 
 AST 
+  * dl_astnode_examine(Dlist l),
   * addnode(),
   * switchem();
 
@@ -215,8 +217,6 @@ F2java:   Sourcecodes
 Sourcecodes:   Sourcecode 
                {
                  AST *temp;
-                 char *hashid;
-                 int index;
 
                  if(debug)
                    printf("Sourcecodes -> Sourcecode\n"); 
@@ -230,17 +230,12 @@ Sourcecodes:   Sourcecode
                  if(omitWrappers && ($1->nodetype != Comment)) {
                    temp = $1->astnode.source.progtype->astnode.source.name;
 
-                   hashid = temp->astnode.ident.name;
-                   index = hash(hashid) % global_func_table->num_entries;
-                   type_insert(&(global_func_table->entry[index]), $1, 0,
-                     temp->astnode.ident.name);
+                   type_insert(global_func_table, $1, 0, temp->astnode.ident.name);
                  }
                }
              | Sourcecodes Sourcecode 
                {
                  AST *temp;
-                 char *hashid;
-                 int index;
 
                  if(debug)
                    printf("Sourcecodes -> Sourcecodes Sourcecode\n");
@@ -255,10 +250,7 @@ Sourcecodes:   Sourcecode
                  if(omitWrappers && ($2->nodetype != Comment)) {
                    temp = $2->astnode.source.progtype->astnode.source.name;
 
-                   hashid =temp->astnode.ident.name;
-                   index = hash(hashid) % global_func_table->num_entries;
-                   type_insert(&(global_func_table->entry[index]), $2, 0,
-                     temp->astnode.ident.name);
+                   type_insert(global_func_table, $2, 0, temp->astnode.ident.name);
                  }
                }
 ;
@@ -310,6 +302,7 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
+                $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
@@ -344,8 +337,6 @@ Fsubroutine: Subroutine Specstmts Statements End
               {
                 HASHNODE *ht;
                 AST *temp;
-                char *hashid;
-                int index;
 
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
@@ -371,6 +362,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
+                $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
@@ -402,9 +394,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                   }
                 }
 
-                hashid = $1->astnode.source.name->astnode.ident.name;
-                index = hash(hashid) % function_table->num_entries;
-                type_insert(&(function_table->entry[index]), $1, 0,
+                type_insert(function_table, $1, 0,
                    $1->astnode.source.name->astnode.ident.name);
               }
 ;
@@ -413,8 +403,6 @@ Ffunction:   Function Specstmts Statements  End
               {
                 HASHNODE *ht;
                 AST *temp;
-                char *hashid;
-                int index;
 
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
@@ -435,6 +423,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
+                $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
@@ -471,9 +460,7 @@ Ffunction:   Function Specstmts Statements  End
                   }
                 }
 
-                hashid = $1->astnode.source.name->astnode.ident.name;
-                index = hash(hashid) % function_table->num_entries;
-                type_insert(&(function_table->entry[index]), $1, 0,
+                type_insert(function_table, $1, 0,
                   $1->astnode.source.name->astnode.ident.name);
               }
 ;
@@ -542,8 +529,6 @@ Subroutine: SUBROUTINE Name Functionargs NL
 Function:  Type FUNCTION Name Functionargs NL 
            {
              HASHNODE *hash_entry;
-             char *hashid;
-             int index;
 
              if(debug)
                printf("Function ->  Type FUNCTION Name Functionargs NL\n");
@@ -569,21 +554,14 @@ Function:  Type FUNCTION Name Functionargs NL
                 * the hash table for lookup later.
                 */
 
-               hashid = $3->astnode.ident.name;
-
-               /*  Hash...  */
-               index = hash(hashid) % type_table->num_entries;
-               hash_entry = search_hashlist (type_table->entry[index], hashid);
-               if(hash_entry != NULL)
-                  if(debug) printf("Duplicate symbol table entry: %s\n", hashid);  
+               hash_entry = type_lookup(type_table,$3->astnode.ident.name);
 
                if(hash_entry == NULL)
                  $3->vartype = $1;
                else
                  $3->vartype = hash_entry->variable->vartype;
 
-               type_insert(&(type_table->entry[index]), $3, $3->vartype,
-                    $3->astnode.ident.name);
+               type_insert(type_table, $3, $3->vartype, $3->astnode.ident.name);
              }
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
@@ -738,7 +716,7 @@ CommonList: CommonSpec
 CommonSpec: DIV Name DIV Namelist
            {
               AST *temp;
-              int idx, pos;
+              int pos;
 
               $$ = addnode();
               $$->nodetype = Common;
@@ -757,22 +735,18 @@ CommonSpec: DIV Name DIV Namelist
                   temp->astnode.ident.position = pos++;
 
                 /* insert this name into the common table */
-                idx = hash(temp->astnode.ident.name)%common_table->num_entries;
                 if(debug)
-                  printf("@insert %s (block = %s) into common table (idx=%d)\n",
-                   temp->astnode.ident.name, $2->astnode.ident.name, idx);
-                type_insert(&(common_table->entry[idx]), temp, Float,
-                   temp->astnode.ident.name);
+                  printf("@insert %s (block = %s) into common table\n",
+                    temp->astnode.ident.name, $2->astnode.ident.name);
+
+                type_insert(common_table, temp, Float, temp->astnode.ident.name);
               }
 
-              idx = hash($$->astnode.common.name) % global_common_table->num_entries;
-              type_insert(&(global_common_table->entry[idx]), $$, Float,
-                 $$->astnode.common.name);
+              type_insert(global_common_table, $$, Float, $$->astnode.common.name);
            }
          | CAT Namelist     /* CAT is // */
            {
               AST *temp;
-              int idx;
 
               /* This is an unnamed common block */
 
@@ -787,17 +761,14 @@ CommonSpec: DIV Name DIV Namelist
 
                 /* insert this name into the common table */
 
-                idx = hash(temp->astnode.ident.name) % common_table->num_entries;
                 if(debug)
                   printf("@@insert %s (block = unnamed) into common table\n",
                     temp->astnode.ident.name);
-                type_insert(&(common_table->entry[idx]), temp, Float,
-                   temp->astnode.ident.name);
+
+                type_insert(common_table, temp, Float, temp->astnode.ident.name);
               }
 
-              idx = hash($$->astnode.common.name) % global_common_table->num_entries;
-              type_insert(&(global_common_table->entry[idx]), $$, Float,
-                 $$->astnode.common.name);
+              type_insert(global_common_table, $$, Float, $$->astnode.common.name);
            }
 ;
 
@@ -817,37 +788,33 @@ Save: SAVE NL
     | SAVE DIV Namelist DIV NL
            {
              AST *temp;
-             int idx;
 
              $$ = addnode();
              $3->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Save;
 
              for(temp=$3;temp!=NULL;temp=temp->prevstmt) {
-               idx = hash(temp->astnode.ident.name) % save_table->num_entries;
                if(debug)
                  printf("@@insert %s into save table\n",
                     temp->astnode.ident.name);
-               type_insert(&(save_table->entry[idx]), temp, Float,
-                   temp->astnode.ident.name);
+
+               type_insert(save_table, temp, Float, temp->astnode.ident.name);
              }
 	   }
     | SAVE Namelist NL
            {
              AST *temp;
-             int idx;
 
              $$ = addnode();
              $2->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Save;
 
              for(temp=$2;temp!=NULL;temp=temp->prevstmt) {
-               idx = hash(temp->astnode.ident.name) % save_table->num_entries;
                if(debug)
                  printf("@@insert %s into save table\n",
                     temp->astnode.ident.name);
-               type_insert(&(save_table->entry[idx]), temp, Float,
-                   temp->astnode.ident.name);
+
+               type_insert(save_table, temp, Float, temp->astnode.ident.name);
              }
 	   }
 ;
@@ -890,7 +857,6 @@ DataList:   DataItem
 DataItem:   LhsList DIV DataConstantList DIV
             {
               AST *temp;
-              int idx;
 
               $$ = addnode();
               $$->astnode.data.nlist = switchem($1);
@@ -908,20 +874,10 @@ DataItem:   LhsList DIV DataConstantList DIV
                 temp->parent = $$;
 
                 if(temp->nodetype == Forloop) 
-                {
-                  idx = hash(temp->astnode.forloop.counter->astnode.ident.name)
-                          % data_table->num_entries;
-
-                  type_insert(&(data_table->entry[idx]), temp, Float,
+                  type_insert(data_table, temp, Float,
                      temp->astnode.forloop.counter->astnode.ident.name);
-                }
                 else
-                {
-                  idx = hash(temp->astnode.ident.name) % data_table->num_entries;
-
-                  type_insert(&(data_table->entry[idx]), temp, Float,
-                     temp->astnode.ident.name);
-                }
+                  type_insert(data_table, temp, Float, temp->astnode.ident.name);
               }
             }
 ;
@@ -943,8 +899,8 @@ DataConstant:  Constant
                }
             |  MINUS Constant   
                {
+                 prepend_minus($2->astnode.constant.number);
                  $$ = $2;
-                 $$->astnode.constant.sign = 1;
                }
             |  Constant STAR Constant
                {
@@ -1316,23 +1272,23 @@ String:  STRING
          {
            $$=addnode();
            $$->token = STRING;
-           $$->nodetype = Identifier;
-           $$->astnode.ident.lead_expr = NULL;
-           strcpy($$->astnode.ident.name, yylval.lexeme);
+           $$->nodetype = Constant;
+           strcpy($$->astnode.constant.number, yylval.lexeme);
+
            $$->vartype = String;
            if(debug)
-             printf("**The string value is %s\n",$$->astnode.ident.name);
+             printf("**The string value is %s\n",$$->astnode.constant.number);
          }
        | CHAR
          {
            $$=addnode();
            $$->token = STRING;
-           $$->nodetype = Identifier;
-           $$->astnode.ident.lead_expr = NULL;
-           strcpy($$->astnode.ident.name, yylval.lexeme);
+           $$->nodetype = Constant;
+           strcpy($$->astnode.constant.number, yylval.lexeme);
+
            $$->vartype = String;
            if(debug)
-             printf("**The char value is %s\n",$$->astnode.ident.name);
+             printf("**The char value is %s\n",$$->astnode.constant.number);
          }
 ;
 
@@ -1596,6 +1552,13 @@ Label: Integer Statement
        }
      | Integer Format NL 
        {
+         HASHNODE *newnode;
+         char *tmpLabel;
+
+         tmpLabel = (char *) malloc(10); /* plenty of space for a f77 label num */
+
+         newnode = (HASHNODE *) malloc(sizeof(HASHNODE));
+
          $$ = addnode();
          $1->parent = $$;
          $2->parent = $$;
@@ -1605,7 +1568,10 @@ Label: Integer Statement
          $2->astnode.label.number = $$->astnode.label.number;
          if(debug)
            printf("@@ inserting format line num %d\n",$$->astnode.label.number);
-         hash_insert(format_table,$2);
+
+         sprintf(tmpLabel,"%d",$2->astnode.label.number);
+
+         type_insert(format_table,$2,0,tmpLabel);
        }
 
 /*  The following productions for FORMAT parsing are derived
@@ -1765,6 +1731,10 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
          {
            if($5->astnode.constant.number[0] == '*') 
              $$->astnode.io_stmt.format_num = -1;
+           else if($5->token == STRING) {
+             $$->astnode.io_stmt.format_num = -1;
+             $$->astnode.io_stmt.fmt_list = $5;
+           }
            else
              $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
          }
@@ -1814,7 +1784,7 @@ FormatSpec:
 	  $$->token = INTEGER;
           $$->nodetype = Constant;
           strcpy($$->astnode.constant.number,"*");
-	  $$->astnode.constant.type = Integer;
+	  $$->vartype = Integer;
         }
      | STAR
         {
@@ -1822,7 +1792,7 @@ FormatSpec:
 	  $$->token = INTEGER;
           $$->nodetype = Constant;
           strcpy($$->astnode.constant.number,"*");
-	  $$->astnode.constant.type = Integer;
+	  $$->vartype = Integer;
         }
      | FMT EQ String
         {
@@ -2239,21 +2209,32 @@ arith_expr: term
             }
           | MINUS term
             {
-              $$ = addnode();
-              $2->parent = $$;
-              $$->astnode.expression.rhs = $2;
-              $$->astnode.expression.lhs = 0;
-              $$->astnode.expression.minus = '-';   
-              $$->nodetype = Unaryop;
+              if($2->nodetype == Constant) {
+                prepend_minus($2->astnode.constant.number);
+                $$ = $2;
+              }
+              else {
+                $$ = addnode();
+                $2->parent = $$;
+                $$->astnode.expression.rhs = $2;
+                $$->astnode.expression.lhs = 0;
+                $$->astnode.expression.minus = '-';   
+                $$->nodetype = Unaryop;
+              }
             }
           | PLUS term
             {
-              $$ = addnode();
-              $2->parent = $$;
-              $$->astnode.expression.rhs = $2;
-              $$->astnode.expression.lhs = 0;
-              $$->astnode.expression.minus = '+';
-              $$->nodetype = Unaryop;
+              if($2->nodetype == Constant) {
+                $$ = $2;
+              }
+              else {
+                $$ = addnode();
+                $2->parent = $$;
+                $$->astnode.expression.rhs = $2;
+                $$->astnode.expression.lhs = 0;
+                $$->astnode.expression.minus = '+';
+                $$->nodetype = Unaryop;
+              }
             }
           | arith_expr PLUS term
             {
@@ -2353,7 +2334,6 @@ primary:     Name {$$=$1;}
           |  Constant
              {
 	       $$ = $1;
-               $$->nodetype = Constant;
 	     }
    /*       |  Complex {$$=$1;} */
           |  Subroutinecall {$$=$1;}    
@@ -2383,8 +2363,6 @@ Boolean:  TrUE
                $$->token = TrUE;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, "true");
-               $$->astnode.constant.type = INTEGER;
-               $$->astnode.constant.sign = 0;
                $$->vartype = Logical;
              }
          | FaLSE
@@ -2393,8 +2371,6 @@ Boolean:  TrUE
                $$->token = FaLSE;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, "false");
-               $$->astnode.constant.type = INTEGER;
-               $$->astnode.constant.sign = 0;
                $$->vartype = Logical;
              }
 
@@ -2404,22 +2380,30 @@ Constant:
          Integer  
          { 
            $$ = $1; 
+
+           insert_constant($$, $$->astnode.constant.number);
          }
        | Double
          { 
            $$ = $1; 
+
+           insert_constant($$, $$->astnode.constant.number);
          }
        | Exponential
          { 
            $$ = $1; 
+
+           insert_constant($$, $$->astnode.constant.number);
          }
        | Boolean
          { 
            $$ = $1; 
+           insert_constant($$, $$->astnode.constant.number);
          }
        | String   /* 9-16-97, keith */
          { 
            $$ = $1; 
+           insert_constant($$, $$->astnode.constant.number);
          }
 ; 
 
@@ -2429,8 +2413,6 @@ Integer :     INTEGER
                $$->token = INTEGER;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, yylval.lexeme);
-               $$->astnode.constant.type = Integer;
-               $$->astnode.constant.sign = 0;
                $$->vartype = Integer;
              }
 ;
@@ -2441,9 +2423,6 @@ Double:       DOUBLE
 	       $$->token = DOUBLE;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, yylval.lexeme);
-	       /*               $$->astnode.constant.type = DOUBLE; */
-	       $$->astnode.constant.type = Double;
-               $$->astnode.constant.sign = 0;
                $$->vartype = Double;
              }
 ;
@@ -2471,8 +2450,6 @@ Exponential:   EXPONENTIAL
                $$->nodetype = Constant;
 	       exp_to_double(yylval.lexeme, tempname);
                strcpy($$->astnode.constant.number, tempname);
-               $$->astnode.constant.type = EXPONENTIAL;
-               $$->astnode.constant.sign = 0;
                $$->vartype = Double;
              }
 ;
@@ -2562,8 +2539,6 @@ Pdecs:    Pdec
 Pdec:     Assignment
           {
             AST *temp;
-            int index;
-            char *hashid;
 
             if(debug)
               printf("Parameter...\n");
@@ -2573,9 +2548,7 @@ Pdec:     Assignment
 
             temp = $$->astnode.assignment.rhs;
 
-            hashid = $$->astnode.assignment.lhs->astnode.ident.name;
-            index = hash(hashid) % parameter_table->num_entries;
-            type_insert(&(parameter_table->entry[index]), temp, 0,
+            type_insert(parameter_table, temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
 
             /*
@@ -2651,7 +2624,7 @@ addnode()
   }
 
   return newnode;
-} 
+}
 
 
 /*****************************************************************************
@@ -2698,8 +2671,7 @@ type_hash(AST * types)
 {
   HASHNODE *hash_entry;
   AST * temptypes, * tempnames;
-  int return_type, index;
-  char * hashid;
+  int return_type;
   extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
    
    /* Outer for loop traverses typestmts, inner for()
@@ -2719,28 +2691,25 @@ type_hash(AST * types)
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
       /* Stuff names and return types into the symbol table. */
-      hashid = tempnames->astnode.ident.name;
       if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
 
-      /*  Hash...  */
-      index = hash(hashid) % type_table->num_entries;
-      if((hash_entry = search_hashlist (type_table->entry[index], hashid)) != NULL)
-      {
-        if(debug)printf("Duplicate entry.\n");  
-        /*  exit(-1);  */
-      }
+      hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
 
-      if(hash_entry == NULL)
+      if(hash_entry == NULL) {
         tempnames->vartype = return_type;
-      else
+      }
+      else {
+        if(debug)
+          printf("Duplicate entry.\n");  
+
         tempnames->vartype = hash_entry->variable->vartype;
+      }
 
       /* 
        * All names go into the name table.  
        */
 
-      type_insert(&(type_table->entry[index]), tempnames, return_type,
-          tempnames->astnode.ident.name);
+      type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
 
       /* Now separate out the EXTERNAL from the INTRINSIC on the
          fortran side.  */
@@ -2749,12 +2718,12 @@ type_hash(AST * types)
         switch (temptypes->token)
         {
           case INTRINSIC:
-            type_insert(&(intrinsic_table->entry[index]), 
-               tempnames, return_type, tempnames->astnode.ident.name);
+            type_insert(intrinsic_table, 
+                    tempnames, return_type, tempnames->astnode.ident.name);
             break;
           case EXTERNAL:
-            type_insert(&(external_table->entry[index]), tempnames, 
-               return_type, tempnames->astnode.ident.name);
+            type_insert(external_table,
+                    tempnames, return_type, tempnames->astnode.ident.name);
             break;
         } /* Close switch().  */
     }  /* Close inner for() loop.  */
@@ -2821,8 +2790,6 @@ exp_to_double (char *lexeme, char *temp)
 void
 arg_table_load(AST * arglist)
 {
-  char * hashid;
-  int index;
   AST * temp;
   extern SYMTABLE * args_table;
 
@@ -2836,10 +2803,7 @@ arg_table_load(AST * arglist)
 
    for(temp = arglist; temp; temp = temp->nextstmt)
    {
-     hashid = temp->astnode.ident.name;
-     index = hash(hashid) % args_table->num_entries;
-     type_insert(&(args_table->entry[index]), temp, 0,
-           temp->astnode.ident.name);
+     type_insert(args_table, temp, 0, temp->astnode.ident.name);
      if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
    }
 }
@@ -3007,13 +2971,8 @@ void
 store_array_var(AST * var)
 {
   extern SYMTABLE * array_table;
-  char * hashid;
-  int index;
 
-  hashid = var->astnode.ident.name;
-  index = hash(hashid) % array_table->num_entries;
-  type_insert(&(array_table->entry[index]), var, 0,
-     var->astnode.ident.name);
+  type_insert(array_table, var, 0, var->astnode.ident.name);
 
   if(debug)
     printf("Array name: %s\n", var->astnode.ident.name);
@@ -3063,6 +3022,9 @@ mypow(int x, int y)
 void
 init_tables()
 {
+  if(debug)
+    printf("Initializing tables.\n");
+
   array_table     = (SYMTABLE *) new_symtable(211);
   format_table    = (SYMTABLE *) new_symtable(211);
   data_table      = (SYMTABLE *) new_symtable(211);
@@ -3073,6 +3035,7 @@ init_tables()
   intrinsic_table = (SYMTABLE *) new_symtable(211);
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
+  constants_table = (SYMTABLE *) new_symtable(211);
   equivList       = NULL;
 }
 
@@ -3094,7 +3057,7 @@ merge_common_blocks(AST *root)
 {
   HASHNODE *ht;
   AST *Clist, *temp;
-  int idx, count;
+  int count;
   char ** name_array;
   char *comvar = NULL, *var = NULL, und_var[80], 
        var_und[80], und_var_und[80], *t;
@@ -3177,9 +3140,8 @@ merge_common_blocks(AST *root)
       }
     }
 
-    idx = hash(Clist->astnode.common.name)%common_block_table->num_entries;
-    type_insert(&(common_block_table->entry[idx]), (AST *)name_array, 
-       Float, Clist->astnode.common.name);
+    type_insert(common_block_table, (AST *)name_array, Float,
+         Clist->astnode.common.name);
   }
 }
 
@@ -3290,9 +3252,11 @@ eval_const_expr(AST *root, int dims)
       return 0;
       break;
     case Unaryop:
+     /*
       result1 = eval_const_expr (root->astnode.expression.rhs, dims);
       if(root->astnode.expression.minus == '-')
         return -result1;
+     */
       break;
     case Constant:
       if(root->token == STRING)
@@ -3309,4 +3273,93 @@ eval_const_expr(AST *root, int dims)
       return 0;
   }
   return 0;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * insert_constant                                                           *
+ *                                                                           *
+ * This function inserts a Constant into the constants_table.  We're keeping *
+ * track of constants in order to build the constant pool for bytecode       *
+ * generation.                                                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+insert_constant(AST * nodeToInsert, char * key)
+{
+  extern SYMTABLE *constants_table;
+  BOOLEAN insertLiteral = FALSE;
+  char *tag;
+
+  if(nodeToInsert == NULL)
+    return;
+
+  tag = nodeToInsert->astnode.constant.number;
+
+  if(!type_lookup(constants_table,tag)) {
+    switch(nodeToInsert->token) {
+      case INTEGER:
+        {
+          /* if integer value is between -1 and 5 inclusive, then
+           * we can use the iconst_<i> opcode.  Thus, there's no
+           * need to create a constant pool entry.
+           */
+          int intVal = atoi(nodeToInsert->astnode.constant.number);
+
+          if( intVal < -1 || intVal > 5 )
+            insertLiteral = TRUE;
+        }
+        break;
+      case EXPONENTIAL:
+      case DOUBLE:
+        {
+          /* if double value is 0.0 or 1.0, then we can use
+           * the dconst_<i> opcode.  Thus, there's no
+           * need to create a constant pool entry.
+           */
+          double doubleVal = atof(nodeToInsert->astnode.constant.number);
+
+          if( doubleVal != 0.0 && doubleVal != 1.0 )
+            insertLiteral = TRUE;
+        }
+        break;
+      case TrUE:
+      case FaLSE:
+          /* boolean literals do not need constant pool entries because
+           * we can use the iconst_1 opcode for TRUE and iconst_0 for FALSE.
+           */
+        break;
+      case STRING:
+          /* unique string literals always go into the constant pool.
+           */
+        insertLiteral = TRUE;
+        break;
+    }
+  }
+  
+  if(insertLiteral) {
+    nodeToInsert->astnode.constant.cp_index = constants_table->num_items + 1;
+    type_insert(constants_table, nodeToInsert, 0, tag);
+printf("insert_constant(): Constant to insert is: '%s'\n",
+  nodeToInsert->astnode.constant.number);
+  } else {
+printf("insert_constant(): NOT inserting constant: '%s'\n",
+  nodeToInsert->astnode.constant.number);
+  }
+   
+}
+
+void
+prepend_minus(char *num) {
+  char * tempstr;
+
+  /* allocate enough for the number, minus sign, and null char */
+  tempstr = (char *)malloc(strlen(num) + 2);
+
+  strcpy(tempstr,"-");
+  strcat(tempstr,num);
+  strcpy(num,tempstr);
+
+  free(tempstr);
 }

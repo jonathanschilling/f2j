@@ -22,15 +22,6 @@
 #include"f2jparse.tab.h"
 
 /*****************************************************************************
- * Define ONED as 1 if two-dimensional arrays should be linearized.          *
- * Define TWOD as 1 if they should be generated as Java 2D arrays.           *
- * The latter option is not currently implemented.                           *
- *****************************************************************************/
-
-#define ONED 1
-#define TWOD 0
-
-/*****************************************************************************
  * MAX_RETURNS represents the number of elements in the returnstring         *
  * array (see below).  OBJECT_TYPE identifies the type 'Object'.             *
  *****************************************************************************/
@@ -92,7 +83,8 @@ SYMTABLE                /* Symbol tables containing...                       */
   *cur_save_table,      /* variables contained in SAVE stmts                 */
   *cur_common_table,    /* variables contained in COMMON stmts               */
   *cur_param_table,     /* variables which are parameters                    */
-  *cur_equiv_table;     /* variables which are equivalenced                  */
+  *cur_equiv_table,     /* variables which are equivalenced                  */
+  *cur_const_table;     /* constants designated to go into the constant pool */
 
 AST 
   *cur_equivList;       /* list of equivalences                              */
@@ -210,6 +202,7 @@ emit (AST * root)
        print_equivalences(AST *),
        emit_prolog_comments(AST *),
        emit_javadoc_comments(AST *);
+    char * tok2str(int);
 
     int isPassByRef(char *);
 
@@ -223,6 +216,8 @@ emit (AST * root)
       case Progunit:
         {
           char *tmpname;
+          Dlist cur_constantList, tmpPtr;
+          AST *tmpconst;
 
 	  if (gendebug)
             printf ("Source.\n");
@@ -241,7 +236,21 @@ emit (AST * root)
           cur_param_table = root->astnode.source.parameter_table;
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
+          cur_const_table = root->astnode.source.constants_table;
+       
+          cur_constantList = enumerate_symtable(root->astnode.source.constants_table);
 
+            printf("List of Constants for program unit: %s\n", 
+              root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+            printf("\n");
+
+            dl_traverse(tmpPtr,cur_constantList) {
+              tmpconst = (AST *) tmpPtr->val;
+          
+              printf(" Constant (%d): '%s'\n", tmpconst->astnode.constant.cp_index,
+                          tmpconst->astnode.constant.number);
+            }
+          
           if(gendebug)
             print_equivalences(cur_equivList);
 
@@ -1645,11 +1654,11 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
     if(Ctemp->token == STRING)
-      fprintf(curfp,"\"%s\" ",Ctemp->astnode.ident.name);
+      fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
     else {
       if(Ctemp->nodetype == Binaryop)
       {
-        int j, repeat, dsign;
+        int j, repeat;
         char *ditem;
   
         if((Ctemp->astnode.expression.lhs == NULL) || 
@@ -1668,18 +1677,15 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 
         repeat = atoi(Ctemp->astnode.expression.lhs->astnode.constant.number);
         ditem = Ctemp->astnode.expression.rhs->astnode.constant.number;
-        dsign = Ctemp->astnode.expression.rhs->astnode.constant.sign;
 
         /* emit the all but the last with a comma.. the last one without */
 
         for(j=0;j<repeat-1;j++)
-          fprintf(curfp,"%s%s, ",  dsign == 1 ? "-" : "", ditem);
-        fprintf(curfp,"%s%s ",  dsign == 1 ? "-" : "", ditem);
+          fprintf(curfp,"%s, ", ditem);
+        fprintf(curfp,"%s ", ditem);
       }
       else
-        fprintf(curfp,"%s%s ",  
-          Ctemp->astnode.constant.sign == 1 ? "-" : "",
-          Ctemp->astnode.constant.number);
+        fprintf(curfp,"%s ", Ctemp->astnode.constant.number);
     }
 
     /* 
@@ -1756,23 +1762,23 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
         if(isPassByRef(Ntemp->astnode.ident.name))
           fprintf(curfp,"%s = new StringW(\"%*s\");\n",
             Ntemp->astnode.ident.name, len,
-            Ctemp->astnode.ident.name);
+            Ctemp->astnode.constant.number);
         else
           fprintf(curfp,"%s = new String(\"%*s\");\n",
             Ntemp->astnode.ident.name, len,
-            Ctemp->astnode.ident.name);
+            Ctemp->astnode.constant.number);
       }
       else
       {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
-          Ctemp->astnode.ident.name);
+          Ctemp->astnode.constant.number);
       }
     }
     else
     {
       expr_emit(Ntemp);
-      fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.ident.name);
+      fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.constant.number);
     }
   }
   else 
@@ -1785,29 +1791,22 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
     {
       if(omitWrappers) {
         if(isPassByRef(Ntemp->astnode.ident.name))
-          fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
-            wrapper_returns[ type],
-            Ctemp->astnode.constant.sign == 1 ? "-" : "",
-            Ctemp->astnode.constant.number);
+          fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
+            wrapper_returns[ type], Ctemp->astnode.constant.number);
         else
-          fprintf(curfp,"%s = %s%s;\n",Ntemp->astnode.ident.name,
-            Ctemp->astnode.constant.sign == 1 ? "-" : "",
+          fprintf(curfp,"%s = %s;\n",Ntemp->astnode.ident.name,
             Ctemp->astnode.constant.number);
       }
       else
       {
-        fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
-          wrapper_returns[ type],
-          Ctemp->astnode.constant.sign == 1 ? "-" : "",
-          Ctemp->astnode.constant.number);
+        fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
+          wrapper_returns[ type], Ctemp->astnode.constant.number);
       }
     }
     else
     {
       expr_emit(Ntemp);
-      fprintf(curfp," = %s%s;\n",
-        Ctemp->astnode.constant.sign == 1 ? "-" : "",
-        Ctemp->astnode.constant.number);
+      fprintf(curfp," = %s;\n", Ctemp->astnode.constant.number);
     }
   }
 }
@@ -1858,7 +1857,7 @@ name_emit (AST * root)
 
   if(root->nodetype == Identifier)
     if(root->token == STRING)
-      printf("** maybe I should emit a string literal here\n");
+      printf("** string literal (this case should NOT be reached)\n");
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -1891,7 +1890,7 @@ name_emit (AST * root)
       case CHAR:
         if(gendebug)
           printf("** I am going to emit a String/char literal!\n");
-        fprintf (curfp, "\"%s\"", root->astnode.ident.name);
+        fprintf (curfp, "\"%s\"", root->astnode.constant.number);
         break;
       case INTRINSIC: 
         /* do nothing */
@@ -2035,7 +2034,6 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   void expr_emit (AST *);
   int needs_cast = FALSE;
 
-#if ONED
   HASHNODE *ht;
 
   if(is_ext)
@@ -2220,11 +2218,6 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
   if(! is_ext)
     fprintf(curfp, "]");
-#endif
-
-#if TWOD
-  fprintf(stderr,"TWOD not implemented yet!\n");
-#endif
 }
 
 /*****************************************************************************
@@ -3169,6 +3162,8 @@ expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
   char *tempname;
+  HASHNODE * ht;
+
   void name_emit (AST *);
 
   if(root == NULL)
@@ -3225,6 +3220,14 @@ expr_emit (AST * root)
       * constant.   10/9/97  -- Keith 
       */
 
+printf("looking up %s constant '%s'...",returnstring[root->vartype],root->astnode.constant.number);
+ht=type_lookup(cur_const_table,root->astnode.constant.number);
+if(ht) {
+  printf("found!  constant pool index: %d\n",ht->variable->astnode.constant.cp_index);
+}else {
+  printf("not found!  can probaly use literal opcode\n");
+}
+
       if(root->parent != NULL)
       {
         tempname = strdup(root->parent->astnode.ident.name);
@@ -3238,11 +3241,11 @@ expr_emit (AST * root)
       {
         if(root->token == STRING) {
           if(omitWrappers) {
-            fprintf (curfp, "\"%s\"", root->astnode.ident.name);
+            fprintf (curfp, "\"%s\"", root->astnode.constant.number);
           }
           else
           {
-            fprintf (curfp, "new StringW(\"%s\")", root->astnode.ident.name);
+            fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
         }
         else {
@@ -3260,7 +3263,7 @@ expr_emit (AST * root)
       else 
       {
         if(root->token == STRING)
-          fprintf (curfp, "\"%s\"", root->astnode.ident.name);
+          fprintf (curfp, "\"%s\"", root->astnode.constant.number);
         else
           fprintf (curfp, "%s", root->astnode.constant.number);
       }
@@ -3611,16 +3614,7 @@ constructor (AST * root)
     else {
       /* Declare as array variables.  */
       char temp2[100];
-#if ONED
       fprintf (curfp, "[]");
-#endif      
-#if TWOD
-      temp = hashtemp->variable->astnode.ident.arraylist;
-      for (; temp != NULL; temp = temp->nextstmt)
-      {
-        fprintf (curfp, "[]");
-      }		/* Close for() loop. */
-#endif
       fprintf (curfp, " %s", tempnode->astnode.ident.name);
 
       /* 
@@ -4105,42 +4099,25 @@ forloop_emit (AST * root)
 
     if(root->astnode.forloop.incr->nodetype == Constant)
     {
-      /* This must be a positive constant, since a negative constant
-       * would have a nodetype Unaryop.
-       */
+      int increment =  atoi(root->astnode.forloop.incr->astnode.constant.number);
 
       name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-      fprintf(curfp," <= ");
+      if(increment > 0)
+        fprintf(curfp," <= ");
+      else if(increment < 0)
+        fprintf(curfp," >= ");
+      else {
+        fprintf(stderr,"WARNING: Zero increment in do loop\n");
+        fprintf(curfp," /* ERROR, zero increment..following op incorrect */ <= ");
+      }
+
       expr_emit (root->astnode.forloop.stop);
 
       fprintf (curfp, "; ");
       name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf (curfp, " += _%s_inc",indexname);
     }
-    else if((root->astnode.forloop.incr->nodetype == Unaryop) &&
-            (root->astnode.forloop.incr->astnode.expression.rhs->nodetype == Constant))
-    {
-      /* We are looking at a Unary operation on a constant.  This includes,
-       * for example, "- 5" and "+ 5".
-       */
- 
-      if(root->astnode.forloop.incr->astnode.expression.minus == '+') {
-        name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-        fprintf(curfp," <= ");
-        expr_emit (root->astnode.forloop.stop);
-      }
-      else {
-        name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-        fprintf(curfp," >= ");
-        expr_emit (root->astnode.forloop.stop);
-      }
-
-      fprintf (curfp, "; ");
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-      fprintf (curfp, " += _%s_inc",indexname);
-    }
     else {
-
       fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
       name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf(curfp," >= ");
@@ -4533,7 +4510,7 @@ write_emit (AST * root)
 
   if(root->astnode.io_stmt.fmt_list != NULL)
   {
-    fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.ident.name);
+    fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
     if(root->astnode.io_stmt.arg_list != NULL)
       fprintf(curfp, " + ");
   }
@@ -4723,8 +4700,8 @@ format_item_emit(AST *temp, AST **nodeptr)
       break;
     case STRING:
       if(gendebug)
-        printf("STring: %s\n",temp->astnode.ident.name);
-      fprintf(curfp,"\"%s\" ",temp->astnode.ident.name);
+        printf("STring: %s\n",temp->astnode.constant.number);
+      fprintf(curfp,"\"%s\" ",temp->astnode.constant.number);
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -5829,6 +5806,20 @@ int
 dl_int_examine(Dlist l)
 {
   return ( *( (int *) dl_val(dl_last(l)) ) );
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * dl_astnode_examine                                                        *
+ *                                                                           *
+ * This function returns the last item in a dlist of astnodes.               *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+dl_astnode_examine(Dlist l)
+{
+  return ( (AST *) dl_val(dl_last(l)) );
 }
 
 /*****************************************************************************

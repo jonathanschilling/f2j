@@ -549,7 +549,7 @@ void
 jas_constant_emit (AST * root)
 {
   /*  Need to check for arrays here also.  */
-  switch (root->astnode.constant.type)
+  switch (root->vartype)
   {
     case Integer:
       fprintf (jasminfp, Mindent1 "%s %s",
@@ -557,6 +557,7 @@ jas_constant_emit (AST * root)
             root->astnode.constant.number);
       fprintf (jasminfp, "\t; %s\n", root->astnode.constant.number);
       break;
+    default:
   }
 }				/* Close constant_emit()  */
 

@@ -1,3 +1,7 @@
+
+#ifndef _DLIST_H
+#define _DLIST_H
+
 typedef struct dlist {
   struct dlist *flink;
   struct dlist *blink;
@@ -39,3 +43,4 @@ extern void *dl_pop(/* head_node */);  /* returns the first node and removes
   for (ptr = dl_first(list); ptr != dl_nil(list); ptr = dl_next(ptr))
 #define dl_empty(list) (list->flink == list)
 
+#endif

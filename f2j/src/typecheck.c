@@ -460,13 +460,11 @@ void remove_duplicates(AST *root)
 void 
 insertEquivalences(AST *root)
 {
-  int idx;
   AST *temp, *ctemp;
   AST *eqvList = root->astnode.source.equivalences;
   SYMTABLE *eqvSymTab = root->astnode.source.equivalence_table;
   char *merged_name;
-  int hash(char *);
-  void type_insert (HASHNODE **, AST *, int, char *);
+  void type_insert (SYMTABLE *, AST *, int, char *);
   char *merge_names(AST *);
 
   /* foreach equivalence statement... */
@@ -483,8 +481,7 @@ insertEquivalences(AST *root)
 
       ctemp->astnode.ident.merged_name = merged_name;
 
-      idx = hash(ctemp->astnode.ident.name) % eqvSymTab->num_entries;
-      type_insert( &(eqvSymTab->entry[idx]), ctemp, Float, ctemp->astnode.ident.name);
+      type_insert(eqvSymTab, ctemp, Float, ctemp->astnode.ident.name);
     }
   }
 }
@@ -634,10 +631,9 @@ common_check(AST *root)
 {
   HASHNODE *ht;
   AST *Ctemp, *Ntemp;
-  int i,idx;
+  int i;
   char **names;
-  int hash (char *);
-  void type_insert (HASHNODE **, AST *, int, char *);
+  void type_insert (SYMTABLE *, AST *, int, char *);
 
   for(Ctemp=root->astnode.common.nlist;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
@@ -673,14 +669,13 @@ common_check(AST *root)
         }
 
         ht->variable->astnode.ident.merged_name = names[i];
-        idx = hash(ht->variable->astnode.ident.name)%chk_type_table->num_entries;
 
         if(checkdebug)
           printf("# @#Typecheck: inserting %s into the type table, merged = %s\n",
             ht->variable->astnode.ident.name, 
             ht->variable->astnode.ident.merged_name);
 
-        type_insert(&(chk_type_table->entry[idx]),ht->variable,ht->variable->vartype,
+        type_insert(chk_type_table,ht->variable,ht->variable->vartype,
           ht->variable->astnode.ident.name);
       }
     }

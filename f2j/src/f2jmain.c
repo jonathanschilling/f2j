@@ -57,15 +57,14 @@ main (int argc, char **argv)
   AST *temp;
   int errflg = 0;
   int c;
-  int i, index;
+  int i;
 
   AST *addnode();
   char *strdup(const char *);
   SYMTABLE * new_symtable (int);
-  int hash (char *);
   int yyparse (void);
   extern int getopt(int, char *const *, const char *);
-  void type_insert (HASHNODE **, AST *, int, char *);
+  void type_insert (SYMTABLE *, AST *, int, char *);
   void handle_segfault();
 
   char f2java_help[] = "The program is used as follows:
@@ -219,29 +218,20 @@ will most likely not work for other code.\n";
   java_keyword_table  = (SYMTABLE *) new_symtable (211);
   temp = addnode();
  
-  for(i=0;java_reserved_words[i] != NULL; i++) {
-    index = hash(java_reserved_words[i]) % java_keyword_table->num_entries;
-    type_insert(&(java_keyword_table->entry[index]),temp,0,
-      java_reserved_words[i]);
-  }
+  for(i=0;java_reserved_words[i] != NULL; i++)
+    type_insert(java_keyword_table,temp,0,java_reserved_words[i]);
 
   jasmin_keyword_table = (SYMTABLE *) new_symtable(211);
   temp = addnode();
 
-  for(i=0;jasmin_reserved_words[i] != NULL; i++) {
-    index = hash(jasmin_reserved_words[i]) % jasmin_keyword_table->num_entries;
-    type_insert(&(jasmin_keyword_table->entry[index]),temp,0,
-      jasmin_reserved_words[i]);
-  }
+  for(i=0;jasmin_reserved_words[i] != NULL; i++)
+    type_insert(jasmin_keyword_table,temp,0,jasmin_reserved_words[i]);
 
   blas_routine_table = (SYMTABLE *) new_symtable(211);
   temp = addnode();
 
-  for(i=0;blas_routines[i] != NULL; i++) {
-    index = hash(blas_routines[i]) % blas_routine_table->num_entries;
-    type_insert(&(blas_routine_table->entry[index]),temp,0,
-      blas_routines[i]);
-  }
+  for(i=0;blas_routines[i] != NULL; i++)
+    type_insert(blas_routine_table,temp,0,blas_routines[i]);
 
   fprintf(stderr,"%s:\n",inputfilename);
   yyparse ();

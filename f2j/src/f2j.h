@@ -93,7 +93,8 @@ SYMTABLE
   *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
-  *global_common_table;    /* Global COMMON table                            */
+  *global_common_table,    /* Global COMMON table                            */
+  *constants_table;        /* constants (for bytecode constant pool gen.)    */
 
 
 /* Enumeration of the different kinds of Specification statements */
@@ -202,7 +203,8 @@ struct _source
     *save_table,                    /* variables declared in a SAVE stmt     */
     *common_table,                  /* variables declared in a COMMON stmt   */
     *parameter_table,               /* variables declared as PARAMETERS      */
-    *equivalence_table;             /* variables that are equivalenced       */
+    *equivalence_table,             /* variables that are equivalenced       */
+    *constants_table;               /* constant_pool info for bytecode gen.  */
 
   BOOLEAN 
     needs_input,                    /* does this unit read any data          */
@@ -218,7 +220,8 @@ struct _source
 
 struct _assignment
 {
-  BOOLEAN parens;                   /* is this expr surrounded by parens     */
+  BOOLEAN parens;                   /* used only by expr nodes.  TRUE if the */
+                                    /* expression is enclosed by parens      */
 
   int label;                        /* label for this expr (used w/Jasmin)   */
 
@@ -270,12 +273,8 @@ struct _forloop
 struct _constant
 {
   int 
-    type,                           /* data type of this constant            */
-    sign;                           /* sign used for data statements when we * 
-                                     * dont want to allow full expressions,  * 
-                                     * but we need to allow negative         * 
-                                     * constants.  if sign == 1, the         * 
-                                     * constant is negative.                 */
+    cp_index;                       /* constant pool index of this constant  */
+
   char 
     *opcode,                        /* e.g., iconst_1, bipush 121.23         */
     number[80];                     /* the constant                          */

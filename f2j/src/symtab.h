@@ -12,6 +12,7 @@
  *                                                                           *
  *****************************************************************************/
 
+#include "dlist.h"
 
 /*****************************************************************************
  * Structure of a hash table node.                                           *
@@ -33,7 +34,9 @@ HASHNODE;
 
 typedef struct sym_table
 {
-  int num_entries;               /* Number of entries in this hash table     */
+  int num_entries,               /* Number of entries in this hash table     */
+      num_items;                 /* Number of items stored in hash table     */
+
   HASHNODE **entry;              /* Pointer to the entries                   */
 }
 SYMTABLE;
@@ -45,3 +48,5 @@ SYMTABLE;
 HASHNODE 
   * search_hashlist(HASHNODE *, char *),
   * type_lookup(SYMTABLE *, char *);
+
+Dlist enumerate_symtable(SYMTABLE *);

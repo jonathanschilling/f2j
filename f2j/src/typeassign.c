@@ -315,7 +315,7 @@ void
 constant_assign (AST * root)
 {
   /*  Need to check for arrays here also.  */
-  switch (root->astnode.constant.type)
+  switch (root->vartype)
   {
     case Integer:
       root->astnode.constant.opcode = strdup ("ldc");
@@ -323,6 +323,7 @@ constant_assign (AST * root)
     case Double:
       root->astnode.constant.opcode = strdup ("ldc");
       break;
+    default:
   }
 }				/* Close constant_assign()  */
 

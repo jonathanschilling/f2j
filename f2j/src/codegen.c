@@ -324,7 +324,7 @@ emit (AST * root)
 
           write_class(cur_class_file);
  
-          cp_dump(cur_const_table);
+          /* cp_dump(cur_const_table); */
           break;
         }
       case Subroutine:

@@ -269,10 +269,14 @@ write_methods(struct ClassFile *class, FILE *out)
     if(class_debug) report_position("method attributes count", out);
     write_u2(tmpmeth->attributes_count,out);
 
+    if(class_debug) report_position("method attributes", out);
     cnt = write_attributes(tmpmeth->attributes,class->constant_pool,out);
 
-    if(class_debug) report_position("method attributes", out);
-    write_attributes(tmpmeth->attributes,class->constant_pool,out);
+    if(tmpmeth->attributes_count != cnt) {
+      fprintf(stderr,"WARNING: expected to write %d attributes,",
+          tmpmeth->attributes_count);
+      fprintf(stderr,"but actually wrote %d attributes.", cnt);
+    }
   }
 }
 

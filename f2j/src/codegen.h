@@ -53,6 +53,7 @@
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "(Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
+#define STRLEN_DESC "()I"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
 #define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"

@@ -1305,7 +1305,7 @@ Types:       Type
 	  |  Type Star OP Star CP
              {
                $$ = $1;
-               len = 1;
+               len = -1;
                free_ast_node($2);
                free_ast_node($4);
              }

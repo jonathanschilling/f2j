@@ -396,9 +396,7 @@ struct _ident
 {
   int 
     dim,                            /* number of dimensions (for arrays)     */
-    position;                       /* ident's position in COMMON block      */
-
-  unsigned int
+    position,                       /* ident's position in COMMON block      */
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
     localvnum;                      /* local variable number (for Jasmin)    */ 
 

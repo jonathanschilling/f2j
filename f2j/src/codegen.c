@@ -4859,16 +4859,41 @@ intrinsic_emit(AST *root)
     case ifunc_LEN:
       temp = root->astnode.ident.arraylist;
 
+      /* the handling of the LEN intrinsic here is really a hack..
+       * LEN(x) should return the declared length of x, but if x
+       * was passed in as an argument, we may not know the declared
+       * length of x at compile-time.  In this case, we just use
+       * the length() method at run-time.  That's pretty bad, but
+       * the alternative is to create some sort of fortran string
+       * class that keeps track of the declared length - definitely
+       * a hassle to implement and also makes the API nastier by
+       * not allowing the user to pass String constants..  -keith
+       */
+
       if(temp != NULL) {
         if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
         {
-          fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
+          if(ht->variable->astnode.ident.len > 0) {
+            fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
 
-          pushIntConst(ht->variable->astnode.ident.len);
+            pushIntConst(ht->variable->astnode.ident.len);
 
-          if(gendebug)
-            printf("LEN(%s) = %d\n",temp->astnode.ident.name,
-              ht->variable->astnode.ident.len);
+            if(gendebug)
+              printf("LEN(%s) = %d\n",temp->astnode.ident.name,
+                ht->variable->astnode.ident.len);
+          }
+          else {
+            CPNODE *c;
+
+            expr_emit(temp);
+            fprintf(curfp,".length()+1");
+
+            c = newMethodref(cur_const_table,JL_STRING,
+                 "length", STRLEN_DESC);
+            bytecode1(jvm_invokevirtual, c->index);
+            bytecode0(jvm_iconst_1);
+            bytecode0(jvm_iadd);
+          }
         }
         else
         {

@@ -981,8 +981,9 @@ check_continued_lines (FILE * fp, char *current_line)
 
       fgets (next_line, 100, fp);
       next_line[strlen(next_line)-1] = '\0';
-if(current_line[strlen(current_line)-1] == '\n')
-  current_line[strlen(current_line)-1] = '\0';
+
+      if(current_line[strlen(current_line)-1] == '\n')
+        current_line[strlen(current_line)-1] = '\0';
 
       strcat (current_line, next_line);
       lineno++;

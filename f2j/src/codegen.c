@@ -4441,9 +4441,15 @@ intrinsic_emit(AST *root)
       bytecode0(jvm_dup);
 
       temp = root->astnode.ident.arraylist;
-      fprintf (curfp, "%s(", javaname);
+/*
+ *    fprintf (curfp, "%s(", javaname);
+ *    expr_emit (temp);
+ *    fprintf (curfp, ")");
+ */
+
+      fprintf (curfp, "new Character( %s(", javaname);
       expr_emit (temp);
-      fprintf (curfp, ")");
+      fprintf (curfp, ") ).toString()");
 
       c = newMethodref(cur_const_table,JL_CHAR,
              "<init>", "(C)V");

@@ -160,7 +160,7 @@ void
   arg_assignment_emit(int, int, int, BOOLEAN, enum returntype),
   arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
          enum returntype argtype),
-  calcOffsets(CodeGraphNode *),
+  calcOffsets(Dlist, CodeGraphNode *),
   traverse_code(Dlist),
   while_emit(AST *),
   format_name_emit(AST *),
@@ -336,6 +336,7 @@ METHODREF
 
 BOOLEAN
   adapter_insert_from_descriptor(AST *, AST *, char *),
+  checkDistance(enum _opcode, int, int),
   isArrayNoIdx(AST *);
 
 struct var_info

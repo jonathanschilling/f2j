@@ -76,7 +76,8 @@ AST
 BOOLEAN 
   import_reflection,    /* does this class need to import reflection         */
   import_blas,          /* does it need to import the BLAS library           */
-  bytecode_gen=TRUE;    /* is bytecode generation currently enabled          */
+  bytecode_gen=TRUE,    /* is bytecode generation currently enabled          */
+  reCalcAddr;           /* do instruction PCs need to be recalculated?       */
 
 unsigned int 
   pc,                   /* current program counter                           */
@@ -911,14 +912,14 @@ end_emit(AST *root)
 
   if(import_reflection) {
     /* this goto skips the execption handlers under normal execution */
-    goto_node = bytecode0(jvm_goto_w);
+    goto_node = bytecode0(jvm_goto);
 
     /* set the end point for the exception handlers. */
     reflect_entry->to = goto_node;
     access_entry->to = goto_node;
 
     invocation_exception_handler_emit(reflect_entry);
-    goto_node2 = bytecode0(jvm_goto_w);
+    goto_node2 = bytecode0(jvm_goto);
     invocation_exception_handler_emit(access_entry);
 
     c = cp_find_or_insert(cur_const_table,CONSTANT_Class, INVOKE_EXCEPTION);
@@ -4625,7 +4626,7 @@ printf("args = %p\n", root->astnode.ident.arraylist);
 
       cmp_node = bytecode0(jvm_if_icmpeq);
       bytecode0(jvm_iconst_0);
-      goto_node = bytecode0(jvm_goto_w);
+      goto_node = bytecode0(jvm_goto);
       iconst_node = bytecode0(jvm_iconst_1);
       cmp_node->branch_target = iconst_node;
 
@@ -5252,7 +5253,7 @@ intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
     fprintf(stderr,"intrinsic_lexical_compare_emit(): bad tag!\n");
 
   bytecode0(jvm_iconst_0);
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
   if_node->branch_target = bytecode0(jvm_iconst_1);
 
   /* create a dummy instruction node following the stmts so that
@@ -5924,7 +5925,7 @@ expr_emit (AST * root)
             if_node2 = bytecode0(jvm_ifeq);
 
             bytecode0(jvm_iconst_1);
-            goto_node = bytecode0(jvm_goto_w);
+            goto_node = bytecode0(jvm_goto);
             next_node = bytecode0(jvm_iconst_0);
 
             if_node1->branch_target = next_node;
@@ -5945,7 +5946,7 @@ expr_emit (AST * root)
             if_node2 = bytecode0(jvm_ifne);
 
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto_w);
+            goto_node = bytecode0(jvm_goto);
             next_node = bytecode0(jvm_iconst_1);
 
             if_node1->branch_target = next_node;
@@ -6175,7 +6176,7 @@ expr_emit (AST * root)
 
             cmp_node = bytecode0(dcmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto_w);
+            goto_node = bytecode0(jvm_goto);
             iconst_node = bytecode0(jvm_iconst_1);
             cmp_node->branch_target = iconst_node;
 
@@ -6193,7 +6194,7 @@ expr_emit (AST * root)
 
             cmp_node = bytecode0(icmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto_w);
+            goto_node = bytecode0(jvm_goto);
             iconst_node = bytecode0(jvm_iconst_1);
             cmp_node->branch_target = iconst_node;
 
@@ -7033,7 +7034,7 @@ forloop_bytecode_emit(AST *root)
   gen_store_op(root->astnode.forloop.localvar, Integer);
 
   /* goto the end of the loop where we test for completion */
-  root->astnode.forloop.goto_node = bytecode0(jvm_goto_w);
+  root->astnode.forloop.goto_node = bytecode0(jvm_goto);
 
   set_bytecode_status(JAVA_AND_JVM);
 }
@@ -7063,7 +7064,7 @@ goto_emit (AST * root)
   /* for bytecode, maintain a list of the gotos so that we can come back
    * later and resolve the branch targets.
    */
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.go_to.label;
    
@@ -7158,7 +7159,7 @@ computed_goto_emit (AST *root)
     pushIntConst(count);
     if_node = bytecode0(jvm_if_icmpne);
 
-    goto_node = bytecode0(jvm_goto_w);
+    goto_node = bytecode0(jvm_goto);
     goto_node->branch_target = NULL;
     goto_node->branch_label = atoi(temp->astnode.constant.number);
 
@@ -7248,7 +7249,7 @@ arithmeticif_emit (AST * root)
     gen_load_op(lvar, Integer);
     if_node = bytecode0(jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto_w);
+    goto_node = bytecode0(jvm_goto);
     goto_node->branch_target = NULL;
     goto_node->branch_label = root->astnode.arithmeticif.neg_label;
 
@@ -7260,7 +7261,7 @@ arithmeticif_emit (AST * root)
     bytecode0(jvm_dcmpg);
     if_node = bytecode0(jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto_w);
+    goto_node = bytecode0(jvm_goto);
     goto_node->branch_target = NULL;
     goto_node->branch_label = root->astnode.arithmeticif.neg_label;
 
@@ -7272,11 +7273,11 @@ arithmeticif_emit (AST * root)
 
   if_node = bytecode0(jvm_ifne);
 
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.arithmeticif.zero_label;
 
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.arithmeticif.pos_label;
 
@@ -7496,7 +7497,7 @@ read_emit (AST * root)
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
 
-    goto_node1 = bytecode0(jvm_goto_w);  /* skip the exception handler */
+    goto_node1 = bytecode0(jvm_goto);  /* skip the exception handler */
 
     /* following is the exception handler for IOException.  this
      * implements Fortrans END specifier (eg READ(*,*,END=100)).
@@ -7511,7 +7512,7 @@ read_emit (AST * root)
      */
     pop_node->stack_depth = 1;
 
-    goto_node2 = bytecode0(jvm_goto_w);
+    goto_node2 = bytecode0(jvm_goto);
     goto_node2->branch_target = NULL;
     goto_node2->branch_label = root->astnode.io_stmt.end_num;
 
@@ -8027,7 +8028,7 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
   gen_store_op(icount, Integer);
 
   /* goto the end of the loop where we test for completion */
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
 
   loop_body_bytecode_emit(node);
 
@@ -8561,7 +8562,7 @@ blockif_emit (AST * root)
   fprintf (curfp, ")  {\n    ");
   if(root->astnode.blockif.stmts != NULL)
     emit (root->astnode.blockif.stmts);
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
 
   dl_insert_b(gotos, goto_node);
 
@@ -8662,7 +8663,7 @@ elseif_emit (AST * root)
   emit (root->astnode.blockif.stmts);
   fprintf (curfp, "}              // Close else if()\n");
 
-  goto_node = bytecode0(jvm_goto_w);
+  goto_node = bytecode0(jvm_goto);
 
   /* create a dummy instruction node so that we have a branch target 
    * for the conditional statement. it will be removed later.
@@ -10024,7 +10025,7 @@ assign_emit (AST * root)
         if(rtype == Integer) {
           if_node = bytecode0(jvm_ifeq);
           bytecode0(jvm_iconst_0);
-          goto_node = bytecode0(jvm_goto_w);
+          goto_node = bytecode0(jvm_goto);
           iconst_node = bytecode0(jvm_iconst_1);
         }
         else if(rtype == Double) {
@@ -10032,7 +10033,7 @@ assign_emit (AST * root)
           bytecode0(jvm_dcmpl);
           if_node = bytecode0(jvm_ifne);
           bytecode0(jvm_iconst_1);
-          goto_node = bytecode0(jvm_goto_w);
+          goto_node = bytecode0(jvm_goto);
           iconst_node = bytecode0(jvm_iconst_0);
         }
         else
@@ -12028,7 +12029,8 @@ releaseLocal(enum returntype vtype)
  * nodeAtPC                                                                  *
  *                                                                           *
  * this function searches the list of nodes for the given PC.  returns the   *
- * node if found, otherwise NULL.
+ * node if found, otherwise NULL.  this is not very efficient - we should    *
+ * probably modify it eventually.                                            * 
  *                                                                           *
  *****************************************************************************/
 
@@ -12073,8 +12075,10 @@ traverse_code(Dlist cgraph)
   val = (CodeGraphNode *) dl_val(dl_first(cgraph));
   val->stack_depth = 0;
 
+  reCalcAddr = FALSE;
+
   /* traverse the whole graph calculating branch target offsets. */
-  calcOffsets(val);
+  calcOffsets(cgraph, val);
 
   /* now traverse paths originating from exception handlers */
   num_handlers = 0;
@@ -12082,7 +12086,49 @@ traverse_code(Dlist cgraph)
     /* count number of handlers.. we'll use this info later */
     num_handlers++;
     et_entry = (ExceptionTableEntry *) tmp->val;
-    calcOffsets(et_entry->target);
+    calcOffsets(cgraph, et_entry->target);
+  }
+
+  /* 
+   * if there was a branch offset that exceeds the JVM instruction's
+   * limit (signed 16-bit value), then the width of that instruction
+   * must change (e.g. from goto to goto_w), thus altering the
+   * addresses of all instructions following that one.  here we are
+   * recalculating the PCs and all branch target offsets (only if
+   * necessary though).  there are only a few instances in the LAPACK
+   * code where the branch exceeds the limits, so this shouldn't
+   * increase the compilation time very much.
+   */
+
+  if(reCalcAddr) {
+    int tmpPC = 0;
+
+    dl_traverse(tmp,cgraph) {
+      val = (CodeGraphNode *) tmp->val;
+
+      val->pc = tmpPC;
+      tmpPC += val->width;
+    }
+
+    /* now that all the instruction addresses are correct, recalculate
+     * the branch target offsets.
+     */
+
+    reCalcAddr = FALSE;
+    dl_traverse(tmp,cgraph) {
+      val = (CodeGraphNode *) tmp->val;
+
+      if ( val->branch_target != NULL) {
+        reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc);
+
+        val->operand = val->branch_target->pc - val->pc;
+      }
+    }
+
+    if(reCalcAddr)
+      fprintf(stderr,"BAD NEWS - things are still screwed.\n");
+
+    pc = tmpPC;
   }
 
   if(pc > MAX_CODE_LEN)
@@ -12170,24 +12216,46 @@ cfg_emit(Dlist cgraph, char *mname)
  * checks whether a branch is too far.  currently the branch target offset   *
  * is a signed 16-bit integer, so the maximum branch is -2^15..2^15-1.       *
  *                                                                           *
+ * return value is TRUE if the branch is too far away, FALSE otherwise.      *
+ *                                                                           *
  *****************************************************************************/
 
 BOOLEAN
-checkDistance(int dest, int src)
+checkDistance(enum _opcode op, int dest, int src)
 {
   int distance;
 
+  /* if it's a wide goto, then it'll always be ok.. otherwise check */
+  if(op == jvm_goto_w)
+    return FALSE;
+
   distance = dest - src;
   if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
-     (distance < ((int)-mypow( 2.0, 15.0 )))) 
-  {
-    fprintf(stderr,"Warning: branch target too far away");
-    fprintf(stderr," (src = %d, dest = %d)\n", src, dest);
-   
-    return FALSE;
-  }
-  else
+     (distance < ((int)-mypow( 2.0, 15.0 ))))
     return TRUE;
+  else
+    return FALSE;
+}
+
+/*****************************************************************************
+ * getListNode                                                               *
+ *                                                                           *
+ * given a list and a graph node, this function returns the list node which  *
+ * contains the graph node.                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+Dlist
+getListNode(Dlist cgraph, CodeGraphNode *n)
+{
+  Dlist tmp;
+
+  dl_traverse(tmp,cgraph) {
+    if((CodeGraphNode *) tmp->val == n) 
+      return tmp;
+  }
+
+  return NULL;
 }
 
 /*****************************************************************************
@@ -12203,11 +12271,12 @@ checkDistance(int dest, int src)
  *****************************************************************************/
 
 void
-calcOffsets(CodeGraphNode *val)
+calcOffsets(Dlist cgraph, CodeGraphNode *val)
 {
   /* if we already visited this node, then do not visit again. */
   printf("in calcoffsets, before op %d : %s, stack_Depth = %d\n",
          val->pc, jvm_opcode[val->op].op,val->stack_depth);
+
 if(val->next == NULL)
   printf("next is NULL\n");
 else
@@ -12261,11 +12330,17 @@ if(stacksize < 0)
                     label_node->pc, cur_filename);
           }
 
-          checkDistance(label_node->pc, val->pc);
+          /* if branching too far, change to wide goto, we'll fix
+           * the following instructions later.  */
+
+          if((reCalcAddr = checkDistance(val->op, label_node->pc, val->pc))) {
+            val->op = jvm_goto_w;
+            val->width = opWidth(jvm_goto_w);
+          }
 
           val->operand = label_node->pc - val->pc;
           val->branch_target = label_node;
-          calcOffsets(label_node);
+          calcOffsets(cgraph, label_node);
         }
         else 
           fprintf(stderr,"WARNING: cannot find node for pc %d\n", 
@@ -12286,10 +12361,16 @@ if(stacksize < 0)
                 val->branch_target->pc, cur_filename);
       }
 
-      checkDistance(val->branch_target->pc, val->pc);
+      /* if branching too far, change to wide goto, we'll fix
+       * the following instructions later.  */
+
+      if((reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc))) {
+        val->op = jvm_goto_w;
+        val->width = opWidth(jvm_goto_w);
+      }
 
       val->operand = val->branch_target->pc - val->pc;
-      calcOffsets(val->branch_target);
+      calcOffsets(cgraph, val->branch_target);
     }
   }
   else if ( val->branch_target != NULL) {
@@ -12301,14 +12382,44 @@ if(stacksize < 0)
     if(val->next != NULL)
       val->next->stack_depth = stacksize;
 
-    checkDistance(val->branch_target->pc, val->pc);
+    if((reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc))) {
+      CodeGraphNode *gotoNode, *wideGotoNode;
+      Dlist listNode;
 
-    val->branch_target->stack_depth = stacksize;
-    val->operand = val->branch_target->pc - val->pc;
+      val->branch_target->stack_depth = stacksize;
+      val->operand = val->branch_target->pc - val->pc;
 
-    if(val->next != NULL)
-      calcOffsets(val->next);
-    calcOffsets(val->branch_target);
+      gotoNode = newGraphNode(jvm_goto, 0);
+      wideGotoNode = newGraphNode(jvm_goto_w, 0);
+
+      gotoNode->visited = TRUE;
+      wideGotoNode->visited = TRUE;
+
+      gotoNode->branch_target = val->next;
+      wideGotoNode->next = val->next;
+      gotoNode->next = wideGotoNode;
+      val->next = gotoNode;
+      wideGotoNode->branch_target = val->branch_target;
+      val->branch_target = wideGotoNode;
+
+      listNode = getListNode(cgraph, val);
+      dl_insert_a(listNode, gotoNode);
+      listNode = dl_next(listNode);
+      dl_insert_a(listNode, wideGotoNode);
+
+      if(gotoNode->next != NULL)
+        calcOffsets(cgraph, gotoNode->branch_target);
+      calcOffsets(cgraph, wideGotoNode->branch_target);
+    }
+    else {
+
+      val->branch_target->stack_depth = stacksize;
+      val->operand = val->branch_target->pc - val->pc;
+
+      if(val->next != NULL)
+        calcOffsets(cgraph, val->next);
+      calcOffsets(cgraph, val->branch_target);
+    }
   }
   else {
     /* null branch target, set stack depth for following instruction only. */
@@ -12321,7 +12432,7 @@ if(stacksize < 0)
          (val->op != jvm_ireturn) && (val->op != jvm_areturn))
       {
         val->next->stack_depth = stacksize;
-        calcOffsets(val->next);
+        calcOffsets(cgraph, val->next);
       }
     }
   }

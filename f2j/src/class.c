@@ -343,6 +343,7 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       write_u2(tmpattr->attr.Code->max_locals,out); 
 
       if(class_debug) report_position("code length", out);
+
       write_u4(tmpattr->attr.Code->code_length,out);
 
       if(class_debug) report_position("code", out);

@@ -1,0 +1,11 @@
+#  Top level makefile for the f2j system.
+
+f2java:
+	cd src; $(MAKE)
+
+javab:
+	cd goto_trans; $(MAKE)
+
+clean:
+	cd goto_trans; $(MAKE) realclean
+	cd src; $(MAKE) clean

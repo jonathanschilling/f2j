@@ -2,6 +2,7 @@
 #define F2JMEM_H
 
 #include"f2j.h"
+#include"constant_pool.h"
 
 void
   alloc_error(size_t),
@@ -10,6 +11,13 @@ void
   free_var_info(struct var_info *),
   * f2jalloc(size_t),
   * f2jcalloc(size_t, size_t),
-  * f2jrealloc(void *, size_t);
+  * f2jrealloc(void *, size_t),
+  free_class(struct ClassFile *),
+  free_constant_pool(struct ClassFile *),
+  free_interfaces(struct ClassFile *),
+  free_fields(struct ClassFile *),
+  free_methods(struct ClassFile *),
+  free_attributes(Dlist, Dlist),
+  free_code(Dlist);
 
 #endif

@@ -82,7 +82,7 @@
  * comment out the following line to disable the generation of VCG control   *
  * flow graphs.                                                              *
  *****************************************************************************/
-#define VCG_CONTROL_FLOW
+/* #define VCG_CONTROL_FLOW */
 
 /*****************************************************************************
  * Definitions of code generation status.  These are used to set the target  *

@@ -375,8 +375,9 @@ spec_optimize(AST *root, AST *rptr)
 
           ht = type_lookup(global_func_table,temp->astnode.ident.name);
           if(!ht) {
-            fprintf(stderr,"Cant locate %s, not optimizing.\n",
-               temp->astnode.ident.name);
+            if(!find_method(temp->astnode.ident.name, descriptor_table))
+              fprintf(stderr,"Cant locate %s, not optimizing.\n",
+                temp->astnode.ident.name);
             continue;
           }
 

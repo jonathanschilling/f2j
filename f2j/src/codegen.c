@@ -4182,13 +4182,15 @@ printf("args = %p\n", root->astnode.ident.arraylist);
       bytecode1(jvm_invokestatic, c->index);
     }
     else if(!strcmp(tempname, "SECOND")) {
-      fprintf(curfp, "(double) System.currentTimeMillis()");
+      fprintf(curfp, "(System.currentTimeMillis() / 1000.0)");
 
       c = newMethodref(cur_const_table,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bytecode1(jvm_invokestatic, c->index);
       bytecode0(jvm_l2d);
+      pushDoubleConst(1000.0);
+      bytecode0(jvm_ddiv);
     }
   }
 }

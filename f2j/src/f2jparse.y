@@ -156,7 +156,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Arrayindexlist Arithmeticif ArraydecList
 %type <ptnode> Blockif Boolean Close Comment
 %type <ptnode> Call Constant Continue
-%type <ptnode> Data DataList DataConstant DataItem 
+%type <ptnode> Data DataList DataConstantExpr DataConstant DataItem 
 %type <ptnode> /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
 %type <ptnode> Do_vals Double
@@ -1073,15 +1073,35 @@ DataItem:   LhsList DIV DataConstantList DIV
             }
 ;
 
-DataConstantList:  DataConstant
+DataConstantList:  DataConstantExpr
                    {
                      $$ = $1;
                    }
-                |  DataConstantList CM DataConstant
+                |  DataConstantList CM DataConstantExpr
                    {
                      $3->prevstmt = $1;
                      $$ = $3;
                    }
+;
+
+DataConstantExpr: DataConstant 
+                  {
+                    $$ = $1;
+                  }
+                | DataConstant STAR DataConstant
+                  {
+                    $$ = $1;
+                    $$=addnode();
+                    $$->nodetype = Binaryop;
+                    $$->token = STAR;
+                    $1->expr_side = left;
+                    $3->expr_side = right;
+                    $1->parent = $$;
+                    $3->parent = $$;
+                    $$->astnode.expression.lhs = $1;
+                    $$->astnode.expression.rhs = $3;
+                    $$->astnode.expression.optype = '*';
+                  }
 ;
 
 DataConstant:  Constant
@@ -1110,20 +1130,6 @@ DataConstant:  Constant
                {
                  prepend_minus($2->astnode.constant.number);
                  $$ = $2;
-               }
-            |  Constant STAR Constant
-               {
-                 $$ = $1;
-                 $$=addnode();
-                 $$->nodetype = Binaryop;
-                 $$->token = STAR;
-                 $1->expr_side = left;
-                 $3->expr_side = right;
-                 $1->parent = $$;
-                 $3->parent = $$;
-                 $$->astnode.expression.lhs = $1;
-                 $$->astnode.expression.rhs = $3;
-                 $$->astnode.expression.optype = '*';
                }
 ;
 

@@ -34,7 +34,7 @@ srcdist_common:
 #	mv src/f2java src/f2jas bin/
 
 clean:
-	/bin/rm -rf f2j
+	/bin/rm -rf f2j f2jsrc.tgz f2jsrc.zip
 	cd docs; $(MAKE) clean
 	cd goto_trans; $(MAKE) realclean
 	cd src; $(MAKE) clean

@@ -553,7 +553,7 @@ fopen_fullpath(char *file, char *mode)
     strcat(full_file, file);
   }
   else
-    full_file = file;
+    full_file = strdup(file);
 
 printf("full_file = '%s'\n", full_file);
 
@@ -561,12 +561,14 @@ printf("full_file = '%s'\n", full_file);
     if(! S_ISREG(buf->st_mode) ) {
       f2jfree(buf, sizeof(struct stat));
       f2jfree(pwd, strlen(pwd)+1);
+      f2jfree(full_file, strlen(full_file)+1);
       return NULL;
     }
 
   if( (f = fopen(full_file, mode)) ) {
     f2jfree(buf, sizeof(struct stat));
     f2jfree(pwd, strlen(pwd)+1);
+    f2jfree(full_file, strlen(full_file)+1);
     return f;
   }
 
@@ -583,6 +585,7 @@ printf("full_file = '%s'\n", full_file);
           chdir(pwd);
           f2jfree(pwd, strlen(pwd)+1);
           f2jfree(buf, sizeof(struct stat));
+          f2jfree(full_file, strlen(full_file)+1);
           return NULL;
         }
       }
@@ -590,6 +593,7 @@ printf("full_file = '%s'\n", full_file);
         chdir(pwd);
         f2jfree(pwd, strlen(pwd)+1);
         f2jfree(buf, sizeof(struct stat));
+        f2jfree(full_file, strlen(full_file)+1);
         return NULL;
       }
     }
@@ -598,6 +602,7 @@ printf("full_file = '%s'\n", full_file);
         chdir(pwd);
         f2jfree(pwd, strlen(pwd)+1);
         f2jfree(buf, sizeof(struct stat));
+        f2jfree(full_file, strlen(full_file)+1);
         return NULL;
       }
     }
@@ -606,6 +611,7 @@ printf("full_file = '%s'\n", full_file);
       chdir(pwd);
       f2jfree(pwd, strlen(pwd)+1);
       f2jfree(buf, sizeof(struct stat));
+      f2jfree(full_file, strlen(full_file)+1);
       return NULL;
     }
 
@@ -616,10 +622,12 @@ printf("full_file = '%s'\n", full_file);
     chdir(pwd);
     f2jfree(pwd, strlen(pwd)+1);
     f2jfree(buf, sizeof(struct stat));
+    f2jfree(full_file, strlen(full_file)+1);
     return f;
   }
 
   chdir(pwd);
+  f2jfree(full_file, strlen(full_file)+1);
   f2jfree(buf, sizeof(struct stat));
   f2jfree(pwd, strlen(pwd)+1);
   return NULL;

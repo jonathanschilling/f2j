@@ -8271,7 +8271,7 @@ else_emit (AST * root)
 int
 method_name_emit (AST *root, BOOLEAN adapter)
 {
-  char *tempname;
+  char *tempname = NULL;
   HASHNODE *ht;
   AST *temp;
   CPNODE *c;
@@ -8634,9 +8634,9 @@ get_method_name(AST *root, BOOLEAN adapter)
 METHODREF *
 get_methodref(AST *node)
 {
-  METHODREF *new_mref = NULL, *srch_mref;
-  HASHNODE *ht;
-  char *tempname;
+  METHODREF *new_mref = NULL, *srch_mref = NULL;
+  HASHNODE *ht = NULL;
+  char *tempname = NULL;
 
   new_mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
 
@@ -8673,6 +8673,7 @@ get_methodref(AST *node)
       new_mref->classname  = get_full_classname(tempname);
       new_mref->methodname = strdup(node->astnode.ident.name);
 
+      f2jfree(tempname, strlen(tempname)+1);
       tempname = get_desc_from_arglist(node->astnode.ident.arraylist);
 
       new_mref->descriptor = (char *)f2jalloc(strlen(tempname) + 10);
@@ -8682,8 +8683,11 @@ get_methodref(AST *node)
       strcat(new_mref->descriptor,")V");  /* assume void return type */
     }
     else {
-      f2jfree(new_mref, sizeof(METHODREF));
-      new_mref = srch_mref;
+      /* we may later free the mref, so dup the table entry */
+
+      new_mref->classname = strdup(srch_mref->classname);
+      new_mref->methodname = strdup(srch_mref->methodname);
+      new_mref->descriptor = strdup(srch_mref->descriptor);
     }
   }
 
@@ -9618,7 +9622,8 @@ assign_emit (AST * root)
       else
       {
         if(typeconv_matrix[rtype][ltype] == jvm_nop)
-          fprintf(stderr,"WARNING: unable to handle this cast!\n");
+          fprintf(stderr,"WARNING: unable to handle cast (%s->%s)!\n",
+              returnstring[rtype], returnstring[ltype]);
 
         /* numeric value = numeric value of some other type */
         fprintf(curfp,"(%s)(",returnstring[ltype]);
@@ -10821,6 +10826,8 @@ emit_invocations(AST *root)
     f2jfree(tmpdesc, strlen(tmpdesc)+1);
   }
 
+  if(cur_name) f2jfree(cur_name, strlen(cur_name)+1);
+  if(cur_desc) f2jfree(cur_desc, strlen(cur_desc)+1);
   dl_delete_list(exc_list);
 }
 

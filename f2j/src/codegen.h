@@ -32,6 +32,9 @@
  * F2J_UTIL defines the default name of the f2java utility package.          *
  * UTIL_CLASS is where the insertString() method is defined.                 *
  * INS_DESC is the desc for insertString, used for LHS substring assignments *
+ * JL_SYSTEM is the fully-qualified name of the System class, for System.out *
+ * OUT_DESC is the desc for System.out, the standard output stream.          *
+ * STRBUF_DESC is the desc for StringBuffer's constructor.                   *
  *                                                                           *
  *****************************************************************************/
 
@@ -43,6 +46,12 @@
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
 #define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"
+#define JL_SYSTEM "java/lang/System"
+#define PRINTSTREAM "java/io/PrintStream"
+#define OUT_DESC "Ljava/io/PrintStream;"
+#define STRINGBUFFER "java/io/StringBuffer"
+#define STRBUF_DESC "(Ljava/lang/String;)V"
+#define TOSTRING_DESC "()Ljava/lang/String;"
 
 /*****************************************************************************
  * When we're generating the byte array to hold the jvm opcodes, we dont     *
@@ -336,7 +345,7 @@ char * numeric_wrapper[MAX_RETURNS+1] = {
 };
 
 /* descriptors for the valueOf() method for the various wrapper classes.     */
-char * valueOf_descriptor[MAX_RETURNS+1] = {
+char * wrapper_valueOf_descriptor[MAX_RETURNS+1] = {
   "(Ljava/lang/Object;)Ljava/lang/String;",
   "(Ljava/lang/Object;)Ljava/lang/String;",
   "(Ljava/lang/String;)Ljava/lang/Double;",
@@ -345,6 +354,30 @@ char * valueOf_descriptor[MAX_RETURNS+1] = {
   "(Ljava/lang/String;)Ljava/lang/Integer;",
   "(Ljava/lang/String;)Ljava/lang/Boolean;",
   "(Ljava/lang/Object;)Ljava/lang/Object;"  /* invalid, but not used */
+};
+
+/* descriptors for java/lang/String's valueOf() methods                      */
+char * string_valueOf_descriptor[MAX_RETURNS+1] = {
+  "asdfjklasdfjkldjf",        /* not used */
+  "asdfjklasdfjkldjf",        /* not used */
+  "(D)Ljava/lang/String;",
+  "(D)Ljava/lang/String;",
+  "(F)Ljava/lang/String;",
+  "(I)Ljava/lang/String;",
+  "(Z)Ljava/lang/String;",
+  "asdfjklasdfjkldjf"         /* not used */
+};
+
+/* descriptors for the StringBuffer.append() methods                      */
+char * append_descriptor[MAX_RETURNS+1] = {
+  "(Ljava/lang/String;)Ljava/lang/StringBuffer;",
+  "(Ljava/lang/String;)Ljava/lang/StringBuffer;",
+  "(D)Ljava/lang/StringBuffer;",
+  "(D)Ljava/lang/StringBuffer;",
+  "(F)Ljava/lang/StringBuffer;",
+  "(I)Ljava/lang/StringBuffer;",
+  "(Z)Ljava/lang/StringBuffer;",
+  "(Ljava/lang/Object;)Ljava/lang/StringBuffer;",
 };
 
 /* descriptors for the numeric wrapper classes' toString() methods           */
@@ -357,6 +390,18 @@ char * toString_descriptor[MAX_RETURNS+1] = {
   "(I)Ljava/lang/String;",
   "(Z)Ljava/lang/String;",
   "()Ljava/lang/String;"
+};
+
+/* descriptors of PrintStream's print() and println() methods */
+char * println_descriptor[MAX_RETURNS+1] = {
+  "(Ljava/lang/String;)V",
+  "(Ljava/lang/String;)V",
+  "(D)V",
+  "(D)V",
+  "(F)V",
+  "(I)V",
+  "(Z)V",
+  "(Ljava/lang/Object;)V",
 };
 
 /* table of numericValue methods (e.g. doubleValue(), intValue(), etc.

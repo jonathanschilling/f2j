@@ -5751,14 +5751,18 @@ read_implied_loop_emit(AST *node, char **func)
 void
 write_emit (AST * root)
 {
-  HASHNODE *hnode;
-  AST *temp;
-  AST *nodeptr;
-  char tmp[100];
-  void format_list_emit(AST *, AST **);
-  void write_implied_loop_emit(AST *);
-  int implied_loop = FALSE;
+  BOOLEAN implied_loop = FALSE, use_stringbuffer = FALSE;
   extern int ignored_formatting;
+  AST *nodeptr, *temp;
+  HASHNODE *hnode;
+  char tmp[100];
+  CPNODE *c;
+
+  void format_list_emit(AST *, AST **),
+       write_implied_loop_emit(AST *);
+
+  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+  code_one_op_w(jvm_getstatic, c->index);
 
   /* 
    * Check to see if there are any implied DO loops in this WRITE
@@ -5775,6 +5779,30 @@ write_emit (AST * root)
       break;
     }
       
+  /* if there are multiple items to print, then we should create a
+   * new StringBuffer and append all the items to it before printing.
+   * note that if we encounter an implied loop, assume that it represents
+   * multiple items (actually unknown until runtime).
+   */
+
+  if(  ((root->astnode.io_stmt.fmt_list != NULL) &&
+        (root->astnode.io_stmt.arg_list != NULL)) 
+     || 
+       ((root->astnode.io_stmt.arg_list != NULL) &&
+        (root->astnode.io_stmt.arg_list->nextstmt != NULL))
+     || 
+       implied_loop)
+  {
+    /* either there is an inline FORMAT + at least one arg,
+     * or there are multiple args, or there is an implied loop.
+     */
+    use_stringbuffer = TRUE;
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+    code_one_op_w(jvm_new,c->index);
+    code_zero_op(jvm_dup);
+  }
+
   if(implied_loop)
     fprintf (curfp, "System.out.print(");
   else
@@ -5792,6 +5820,15 @@ write_emit (AST * root)
   if(root->astnode.io_stmt.fmt_list != NULL)
   {
     fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
+    
+    pushStringConst(root->astnode.io_stmt.fmt_list->astnode.constant.number);
+
+    if(use_stringbuffer) {
+      c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+
+      code_one_op_w(jvm_invokespecial, c->index);
+    }
+
     if(root->astnode.io_stmt.arg_list != NULL)
       fprintf(curfp, " + ");
   }
@@ -5846,15 +5883,64 @@ write_emit (AST * root)
         fprintf(curfp,"(");
         expr_emit (temp);
         fprintf(curfp,")");
+
+        if((temp == root->astnode.io_stmt.arg_list) &&
+           (root->astnode.io_stmt.fmt_list == NULL))
+        {
+          /* this is the first item in the list and we do not have an inline
+           * format spec, therefore we must create the new StringBuffer now.
+           * The StringBuffer constructor only takes a String argument, so
+           * if the first item is not a string, we must convert it to String
+           * before calling the constructor.
+           */
+
+          if((temp->vartype != String) && (temp->vartype != Character)) {
+            /* call String.valueOf() to convert this numeric type to string */
+            c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+                   string_valueOf_descriptor[temp->vartype]);
+            code_one_op_w(jvm_invokestatic, c->index);
+          }
+
+          c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+          code_one_op_w(jvm_invokespecial, c->index);
+        }
+        else {
+          c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+                  append_descriptor[temp->vartype]);
+
+          code_one_op_w(jvm_invokevirtual, c->index);
+        }
+
         if(temp->nextstmt != NULL) 
         {
-          if(temp->nextstmt->nodetype == ImpliedLoop)
+          pushStringConst(" ");
+          c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+                append_descriptor[String]);
+
+          code_one_op_w(jvm_invokevirtual, c->index);
+
+          if(temp->nextstmt->nodetype == ImpliedLoop) {
+            /* next item is an implied loop.  finish up this print statement. */
             fprintf (curfp, " + \" \");\n");
-          else
+
+            c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+                  TOSTRING_DESC);
+            code_one_op_w(jvm_invokevirtual, c->index);
+
+            c = newMethodref(cur_const_table, JL_STRING, "print", 
+                  println_descriptor[String]);
+            code_one_op_w(jvm_invokevirtual, c->index);
+          }
+          else {
             fprintf (curfp, " + \" \" + ");
+          }
         }
-        else if(implied_loop)
+        else if(implied_loop) {
           fprintf (curfp, ");\n");
+          c = newMethodref(cur_const_table, JL_STRING, "print", 
+                println_descriptor[String]);
+          code_one_op_w(jvm_invokevirtual, c->index);
+        }
       }
     }
   }
@@ -6946,7 +7032,7 @@ assign_emit (AST * root)
         fprintf(curfp,").%sValue()",returnstring[ltype]);
 
         c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
-                        valueOf_descriptor[ltype]);
+                        wrapper_valueOf_descriptor[ltype]);
 
         code_one_op_w(jvm_invokestatic, c->index);
 

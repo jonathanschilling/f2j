@@ -911,14 +911,14 @@ end_emit(AST *root)
 
   if(import_reflection) {
     /* this goto skips the execption handlers under normal execution */
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bytecode0(jvm_goto_w);
 
     /* set the end point for the exception handlers. */
     reflect_entry->to = goto_node;
     access_entry->to = goto_node;
 
     invocation_exception_handler_emit(reflect_entry);
-    goto_node2 = bytecode0(jvm_goto);
+    goto_node2 = bytecode0(jvm_goto_w);
     invocation_exception_handler_emit(access_entry);
 
     c = cp_find_or_insert(cur_const_table,CONSTANT_Class, INVOKE_EXCEPTION);
@@ -4625,7 +4625,7 @@ printf("args = %p\n", root->astnode.ident.arraylist);
 
       cmp_node = bytecode0(jvm_if_icmpeq);
       bytecode0(jvm_iconst_0);
-      goto_node = bytecode0(jvm_goto);
+      goto_node = bytecode0(jvm_goto_w);
       iconst_node = bytecode0(jvm_iconst_1);
       cmp_node->branch_target = iconst_node;
 
@@ -5252,7 +5252,7 @@ intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
     fprintf(stderr,"intrinsic_lexical_compare_emit(): bad tag!\n");
 
   bytecode0(jvm_iconst_0);
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
   if_node->branch_target = bytecode0(jvm_iconst_1);
 
   /* create a dummy instruction node following the stmts so that
@@ -5924,7 +5924,7 @@ expr_emit (AST * root)
             if_node2 = bytecode0(jvm_ifeq);
 
             bytecode0(jvm_iconst_1);
-            goto_node = bytecode0(jvm_goto);
+            goto_node = bytecode0(jvm_goto_w);
             next_node = bytecode0(jvm_iconst_0);
 
             if_node1->branch_target = next_node;
@@ -5945,7 +5945,7 @@ expr_emit (AST * root)
             if_node2 = bytecode0(jvm_ifne);
 
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
+            goto_node = bytecode0(jvm_goto_w);
             next_node = bytecode0(jvm_iconst_1);
 
             if_node1->branch_target = next_node;
@@ -6175,7 +6175,7 @@ expr_emit (AST * root)
 
             cmp_node = bytecode0(dcmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
+            goto_node = bytecode0(jvm_goto_w);
             iconst_node = bytecode0(jvm_iconst_1);
             cmp_node->branch_target = iconst_node;
 
@@ -6193,7 +6193,7 @@ expr_emit (AST * root)
 
             cmp_node = bytecode0(icmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
+            goto_node = bytecode0(jvm_goto_w);
             iconst_node = bytecode0(jvm_iconst_1);
             cmp_node->branch_target = iconst_node;
 
@@ -7033,7 +7033,7 @@ forloop_bytecode_emit(AST *root)
   gen_store_op(root->astnode.forloop.localvar, Integer);
 
   /* goto the end of the loop where we test for completion */
-  root->astnode.forloop.goto_node = bytecode0(jvm_goto);
+  root->astnode.forloop.goto_node = bytecode0(jvm_goto_w);
 
   set_bytecode_status(JAVA_AND_JVM);
 }
@@ -7063,7 +7063,7 @@ goto_emit (AST * root)
   /* for bytecode, maintain a list of the gotos so that we can come back
    * later and resolve the branch targets.
    */
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.go_to.label;
    
@@ -7158,7 +7158,7 @@ computed_goto_emit (AST *root)
     pushIntConst(count);
     if_node = bytecode0(jvm_if_icmpne);
 
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bytecode0(jvm_goto_w);
     goto_node->branch_target = NULL;
     goto_node->branch_label = atoi(temp->astnode.constant.number);
 
@@ -7248,7 +7248,7 @@ arithmeticif_emit (AST * root)
     gen_load_op(lvar, Integer);
     if_node = bytecode0(jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bytecode0(jvm_goto_w);
     goto_node->branch_target = NULL;
     goto_node->branch_label = root->astnode.arithmeticif.neg_label;
 
@@ -7260,7 +7260,7 @@ arithmeticif_emit (AST * root)
     bytecode0(jvm_dcmpg);
     if_node = bytecode0(jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bytecode0(jvm_goto_w);
     goto_node->branch_target = NULL;
     goto_node->branch_label = root->astnode.arithmeticif.neg_label;
 
@@ -7272,11 +7272,11 @@ arithmeticif_emit (AST * root)
 
   if_node = bytecode0(jvm_ifne);
 
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.arithmeticif.zero_label;
 
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.arithmeticif.pos_label;
 
@@ -7496,7 +7496,7 @@ read_emit (AST * root)
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
 
-    goto_node1 = bytecode0(jvm_goto);  /* skip the exception handler */
+    goto_node1 = bytecode0(jvm_goto_w);  /* skip the exception handler */
 
     /* following is the exception handler for IOException.  this
      * implements Fortrans END specifier (eg READ(*,*,END=100)).
@@ -7511,7 +7511,7 @@ read_emit (AST * root)
      */
     pop_node->stack_depth = 1;
 
-    goto_node2 = bytecode0(jvm_goto);
+    goto_node2 = bytecode0(jvm_goto_w);
     goto_node2->branch_target = NULL;
     goto_node2->branch_label = root->astnode.io_stmt.end_num;
 
@@ -8027,7 +8027,7 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
   gen_store_op(icount, Integer);
 
   /* goto the end of the loop where we test for completion */
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
 
   loop_body_bytecode_emit(node);
 
@@ -8561,7 +8561,7 @@ blockif_emit (AST * root)
   fprintf (curfp, ")  {\n    ");
   if(root->astnode.blockif.stmts != NULL)
     emit (root->astnode.blockif.stmts);
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
 
   dl_insert_b(gotos, goto_node);
 
@@ -8662,7 +8662,7 @@ elseif_emit (AST * root)
   emit (root->astnode.blockif.stmts);
   fprintf (curfp, "}              // Close else if()\n");
 
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bytecode0(jvm_goto_w);
 
   /* create a dummy instruction node so that we have a branch target 
    * for the conditional statement. it will be removed later.
@@ -10024,7 +10024,7 @@ assign_emit (AST * root)
         if(rtype == Integer) {
           if_node = bytecode0(jvm_ifeq);
           bytecode0(jvm_iconst_0);
-          goto_node = bytecode0(jvm_goto);
+          goto_node = bytecode0(jvm_goto_w);
           iconst_node = bytecode0(jvm_iconst_1);
         }
         else if(rtype == Double) {
@@ -10032,7 +10032,7 @@ assign_emit (AST * root)
           bytecode0(jvm_dcmpl);
           if_node = bytecode0(jvm_ifne);
           bytecode0(jvm_iconst_1);
-          goto_node = bytecode0(jvm_goto);
+          goto_node = bytecode0(jvm_goto_w);
           iconst_node = bytecode0(jvm_iconst_0);
         }
         else
@@ -10485,11 +10485,11 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
     }
 
     this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
-          (this_call->astnode.ident.arraylist != NULL) &&
+          /* (this_call->astnode.ident.arraylist != NULL) && */
           type_lookup(cur_array_table, this_call->astnode.ident.name);
 
     other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
-          (other_call->astnode.ident.arraylist != NULL) &&
+          /* (other_call->astnode.ident.arraylist != NULL) && */
           type_lookup(cur_array_table, other_call->astnode.ident.name);
 
     if( (dptr[0] == 'L') &&
@@ -12148,7 +12148,8 @@ cfg_emit(Dlist cgraph, char *mname)
          jvm_opcode[val->op].op, warn, val->stack_depth);
 
       print_vcg_node(v, val->pc, node_label);
-      if((val->next != NULL) && (val->op != jvm_goto))
+      if((val->next != NULL) && (val->op != jvm_goto)
+       && (val->op != jvm_goto_w))
         print_vcg_nearedge(v, val->pc, val->next->pc);
 
       if(val->branch_target != NULL)

@@ -977,7 +977,8 @@ back:
             op = "goto";
          else
          {
-           fprintf(stderr,"%s: encountered unknown Dummy method! (%s.%s)\n",
+           if(trdebug)
+             printf("%s: encountered unknown Dummy method! (%s.%s)\n",
               filename, cla,met);
            op = "unknown";
          }
@@ -1108,9 +1109,11 @@ back:
              numChanges++;
            }
          }
-         else if(!strcmp(op,"unknown"))
-           fprintf(stderr,"%s:Skipping unknown method invocation at offset %d\n",
+         else if(!strcmp(op,"unknown")) {
+           if(trdebug)
+             fprintf(stderr,"%s:Skipping unknown method invocation at offset %d\n",
               filename, i);
+         }
          else
            fprintf(stderr,"%s:Weird, op not set properly.\n",filename);
           

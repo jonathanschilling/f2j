@@ -1,0 +1,7 @@
+Relatively high priority modifications.
+
+1.  Automate the build procedure using autogen/automake/autoconf.
+
+2.  Isolate the WRITE/FORMAT code in the lexer into a subroutine.
+
+3.

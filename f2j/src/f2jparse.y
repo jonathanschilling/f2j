@@ -332,6 +332,8 @@ Fprogram:   Program Specstmts Statements End
                 /* a PROGRAM has no args, so set the symbol table
                    to NULL */
                 args_table = NULL;  
+
+                $1->astnode.source.descriptor = MAIN_DESCRIPTOR;
               }
 ;
 
@@ -396,7 +398,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                     temp->astnode.ident.arraylist=ht->variable->astnode.ident.arraylist;
                   }
                 }
-
+                
                 type_insert(function_table, $1, 0,
                    $1->astnode.source.name->astnode.ident.name);
               }

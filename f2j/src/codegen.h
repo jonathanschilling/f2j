@@ -78,20 +78,6 @@
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 /*****************************************************************************
- * Definitions for an expandable string structure.  STR_INIT is the initial  *
- * size of the string, while STR_CHUNK is the number of bytes by which we    *
- * increment the string when it is too small.                                *
- *****************************************************************************/
-
-#define STR_INIT  50
-#define STR_CHUNK 20
-
-struct _str {
-  unsigned int size;
-  char *val;
-};
-
-/*****************************************************************************
  * Definitions of code generation status.  These are used to set the target  *
  * language that f2java is currently generating.                             *
  *****************************************************************************/
@@ -247,7 +233,6 @@ void
   inc_stack(int);
 
 int
-  isPassByRef(char *),
   dl_int_examine(Dlist),
   opWidth(enum _opcode),
   getNextLocal(enum returntype),
@@ -301,9 +286,6 @@ AST
 enum returntype
   get_type_from_field_desc(char *),
   get_type(char *);
-
-struct _str
-  * strAppend(struct _str *, char *);
 
 METHODREF
   * get_method_name(AST *, BOOLEAN);

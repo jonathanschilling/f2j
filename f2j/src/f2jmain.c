@@ -622,3 +622,38 @@ insert_entries(char *path, Dlist methtab)
 
   return;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * strAppend                                                                 *
+ *                                                                           *
+ * Append the given string value (new) to the expandable string (str),       *
+ * allocating more memory if necessary.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+struct _str *
+strAppend(struct _str *str, char *new)
+{
+  if(str == NULL) {
+    str = (struct _str *)f2jalloc(sizeof (struct _str));
+    str->size = STR_INIT;
+    str->val = (char *)f2jalloc(STR_INIT);
+    str->val[0] = '\0';
+  }
+
+  if(strlen(new) + strlen(str->val) >= str->size) {
+    if(strlen(new) > STR_CHUNK) {
+      str->val = (char *)f2jrealloc(str->val, str->size + strlen(new));
+      str->size += strlen(new);
+    }
+    else {
+      str->val = (char *)f2jrealloc(str->val, str->size + STR_CHUNK);
+      str->size += STR_CHUNK;
+    }
+  }
+
+  strcat(str->val, new);
+
+  return str;
+}

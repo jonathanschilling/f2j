@@ -139,6 +139,7 @@ typecheck (AST * root)
         for(temp = root->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
           if(type_lookup(chk_external_table,temp->astnode.ident.name) != NULL)
             cur_unit->astnode.source.needs_reflection = TRUE;
+
       }
       break;
     case End:

@@ -55,6 +55,20 @@ typedef int BOOLEAN;
 #define FINISHED    2
 
 /*****************************************************************************
+ * Definitions for an expandable string structure.  STR_INIT is the initial  *
+ * size of the string, while STR_CHUNK is the number of bytes by which we    *
+ * increment the string when it is too small.                                *
+ *****************************************************************************/
+
+#define STR_INIT  50
+#define STR_CHUNK 20
+
+struct _str {
+  unsigned int size;
+  char *val;
+};
+
+/*****************************************************************************
  * F2J_PATH_VAR defines the environment variable used to specify the search  *
  * path for .f2j method/descriptor files.                                    *
  *****************************************************************************/
@@ -81,6 +95,12 @@ typedef int BOOLEAN;
 #define RD_ARGS (REAL_ARG | DOUBLE_ARG)
 #define RDC_ARGS (REAL_ARG | DOUBLE_ARG | COMPLEX_ARG)
 #define CS_ARGS (STRING_ARG | CHAR_ARG)
+
+/*****************************************************************************
+ * MAIN_DESCRIPTOR is the descriptor required for a main() method in Java.   *
+ *****************************************************************************/
+
+#define MAIN_DESCRIPTOR "([Ljava/lang/String;)V"
 
 /*****************************************************************************
  *  If DEBUGGEM is defined as 1, yyparse produces voluminous, detailed       *
@@ -253,6 +273,8 @@ struct _source
 
   struct ClassFile
     *class;                         /* class file for this program unit      */
+
+  char * descriptor;                /* method descriptor for this prog unit  */
 };
 
 /*****************************************************************************
@@ -628,5 +650,14 @@ void
 
 Dlist
   build_method_table(char *);
+
+char *
+  get_method_descriptor(AST *, SYMTABLE *, SYMTABLE *);
+
+struct _str
+  * strAppend(struct _str *, char *);
+
+int
+  isPassByRef(char *, SYMTABLE *);
 
 #endif

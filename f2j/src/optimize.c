@@ -95,6 +95,7 @@ optScalar(AST *root)
   AST *temp;
   HASHNODE *ht;
   SYMTABLE *opt_type_table = root->astnode.source.type_table;
+  SYMTABLE *opt_external_table = root->astnode.source.external_table;
 
   /* look up this function name */
 
@@ -151,6 +152,15 @@ optScalar(AST *root)
     if((ht = type_lookup(opt_type_table,temp->astnode.ident.name)) != NULL)
       if(ht->variable->astnode.ident.passByRef)
         temp->astnode.ident.passByRef = TRUE;
+
+  ht = type_lookup(function_table, 
+    root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+
+  if(ht) {
+    ht->variable->astnode.source.descriptor = strdup(
+        get_method_descriptor(root->astnode.source.progtype, 
+           opt_type_table, opt_external_table));
+  }
 }
 
 /*****************************************************************************
@@ -1154,4 +1164,123 @@ assign_optimize (AST * root, AST *rptr)
        root->astnode.assignment.lhs->astnode.ident.name);
 
   expr_optimize (root->astnode.assignment.rhs, rptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_method_descriptor                                                     *
+ *                                                                           *
+ * this returns the method descriptor for this program unit.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
+{
+  struct _str * temp_desc = NULL;
+  enum returntype returns;
+  HASHNODE *hashtemp;
+  AST * tempnode;
+  int isArray = 0;
+  char *tempstring, *ret_desc;
+
+  temp_desc = strAppend(temp_desc, "(");
+
+  if (root->nodetype == Function)
+  {
+    returns = root->astnode.source.returns;
+    ret_desc = field_descriptor[returns][0];
+  }
+  else  /* Program or Subroutine */
+    ret_desc = "V";
+
+  /*
+   *  Now traverse the list of constructor arguments for either
+   *  functions or subroutines.   This is where I will
+   *  have to check what the variable type is in the
+   *  symbol table.
+   */
+
+  tempnode = root->astnode.source.args;
+
+  for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    hashtemp = type_lookup (ttable, tempnode->astnode.ident.name);
+    if (hashtemp == NULL)
+    {
+      fprintf (stderr,"Type table is screwed (typecheck.c).\n");
+      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+      exit (-1);
+    }
+
+    isArray = hashtemp->variable->astnode.ident.arraylist != NULL;
+
+    /* If this variable is declared external and it is an argument to
+     * this program unit, it must be declared as Object in Java.
+     */
+
+    if(type_lookup(etable, tempnode->astnode.ident.name) != NULL)
+      returns = OBJECT_TYPE;
+    else
+      returns = hashtemp->type;
+
+    /*
+     * Check the numerical value returns.  It should not
+     * exceed the value of the enum returntypes.
+     */
+
+    if (returns > MAX_RETURNS)
+      fprintf (stderr,"Bad return value, check types.\n");
+
+    if(omitWrappers) {
+      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
+        isPassByRef(tempnode->astnode.ident.name,ttable))
+      {
+        tempstring = wrapper_returns[returns];
+        temp_desc = strAppend(temp_desc,
+                      wrapped_field_descriptor[returns][isArray]);
+      }
+      else {
+        tempstring = returnstring[returns];
+        temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
+      }
+    }
+    else
+    {
+      if (hashtemp->variable->astnode.ident.arraylist == NULL) {
+        tempstring = wrapper_returns[returns];
+        temp_desc = strAppend(temp_desc,
+                      wrapped_field_descriptor[returns][isArray]);
+      }
+      else {
+        tempstring = returnstring[returns];
+        temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
+      }
+    }
+    /* if this is an array, then append an I to the descriptor to
+     * represent the integer offset arg.
+     */
+
+    if(isArray)
+      temp_desc = strAppend(temp_desc, "I");
+  }
+
+  /* finish off the method descriptor.
+   * for Functions, use the return descriptor calculated above.
+   * for Programs, the descriptor must be ([Ljava/lang/String;)V.
+   * for Subroutines, use void as the return type.
+   */
+
+  if(root->nodetype == Function) {
+    temp_desc = strAppend(temp_desc, ")");
+    temp_desc = strAppend(temp_desc, ret_desc);
+  }
+  else if(root->nodetype == Program) {
+    temp_desc = strAppend(temp_desc, "[Ljava/lang/String;)V");
+  }
+  else {
+    temp_desc = strAppend(temp_desc, ")V");
+  }
+
+  return temp_desc->val;
 }

@@ -1535,8 +1535,13 @@ typedec_emit (AST * root)
     uppercase(tempname);
 
     if(( methodscan (intrinsic_toks, tempname) != NULL)
-     && (type_lookup(cur_intrinsic_table,temp->astnode.ident.name) != NULL)) 
+     && (type_lookup(cur_intrinsic_table,temp->astnode.ident.name) != NULL))
+    {
+      f2jfree(tempname,strlen(tempname)+1);
       continue;
+    }
+
+    f2jfree(tempname,strlen(tempname)+1);
 
      /* 
       * Let's do the argument lookup first. No need to retype variables
@@ -3817,6 +3822,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
                typenode->variable->astnode.ident.localvnum, TRUE);
           }
         }
+
+        f2jfree(tempname, strlen(tempname)+1);
       }
       else if(root->parent->nodetype == Typedec) {
 

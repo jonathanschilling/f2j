@@ -536,7 +536,7 @@ fopen_fullpath(char *file, char *mode)
   
   while(getcwd(pwd, cur_size) == NULL) {
     cur_size *= 2;
-    pwd = (char *)realloc(pwd,cur_size);
+    pwd = (char *)f2jrealloc(pwd,cur_size);
   }
 
   if(!file) return NULL;
@@ -559,11 +559,13 @@ printf("full_file = '%s'\n", full_file);
   if( stat(full_file, buf) == 0)
     if(! S_ISREG(buf->st_mode) ) {
       f2jfree(buf, sizeof(struct stat));
+      f2jfree(pwd, strlen(pwd)+1);
       return NULL;
     }
 
   if( (f = fopen(full_file, mode)) ) {
     f2jfree(buf, sizeof(struct stat));
+    f2jfree(pwd, strlen(pwd)+1);
     return f;
   }
 

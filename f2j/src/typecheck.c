@@ -967,6 +967,7 @@ external_check(AST *root)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_check (root);
+    f2jfree(tempname,strlen(tempname)+1);
     return;
   }
 
@@ -982,6 +983,7 @@ external_check(AST *root)
     {
       temp = root->astnode.ident.arraylist;
       root->vartype = Logical;
+      f2jfree(tempname,strlen(tempname)+1);
       return;
     }
     else if (!strcmp (tempname, "LSAMEN"))
@@ -995,6 +997,7 @@ external_check(AST *root)
 
       expr_check (temp);
       root->vartype = Logical;
+      f2jfree(tempname,strlen(tempname)+1);
       return;
     }
     else if( !strcmp(tempname, "ETIME") ) {
@@ -1005,6 +1008,8 @@ external_check(AST *root)
       root->vartype = Double;
     }
   }
+
+  f2jfree(tempname,strlen(tempname)+1);
 }
 
 /*****************************************************************************

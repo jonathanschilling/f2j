@@ -737,7 +737,7 @@ cp_dump(Dlist list)
         tmp_str = null_term(tmpconst2->val->cpnode.Utf8.bytes,tmpconst2->val->cpnode.Utf8.length);
 
         printf("\tclass index: %d -> %s\n",tmpconst->val->cpnode.Class.name_index,
-           null_term(tmpconst2->val->cpnode.Utf8.bytes,tmpconst2->val->cpnode.Utf8.length));
+          tmp_str);
 
         f2jfree(tmp_str, strlen(tmp_str)+1);
 

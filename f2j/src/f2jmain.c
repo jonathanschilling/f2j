@@ -461,7 +461,7 @@ build_method_table(char *path)
 
   new_table = make_dl();
 
-  full_path = (char *)malloc(size);
+  full_path = (char *)f2jalloc(size);
 
   token = strtok(path, ":");
 
@@ -489,7 +489,7 @@ build_method_table(char *path)
 
         if((len + strlen(token) +2) > size) {
           size = (len + strlen(token)) * 2;  /* double for good measure */
-          full_path = realloc(full_path, size);
+          full_path = f2jrealloc(full_path, size);
         }
 
         strcpy(full_path, token);
@@ -499,6 +499,8 @@ build_method_table(char *path)
         insert_entries(full_path, new_table);
       }
     }
+
+    f2jfree(cur_dir, sizeof(DIR));
   }
 
   return new_table;

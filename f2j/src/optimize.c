@@ -433,8 +433,11 @@ external_optimize(AST *root, AST *rptr)
     if (root->astnode.ident.arraylist != NULL)
       call_optimize (root, rptr);
 
+    f2jfree(tempname, strlen(tempname)+1);
     return;
   }
+
+  f2jfree(tempname, strlen(tempname)+1);
 }
 
 /*****************************************************************************

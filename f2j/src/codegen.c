@@ -43,10 +43,12 @@ void
   pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
   dec_stack(int),
   invoke_constructor(char *, AST *, char *),
-  set_bytecode_status(int);
+  set_bytecode_status(int),
+  releaseLocal();
 
 int
-  isPassByRef(char *);
+  isPassByRef(char *),
+  getNextLocal();
 
 HASHNODE 
   * format_lookup(SYMTABLE *, char *);
@@ -131,7 +133,10 @@ BOOLEAN
   import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE;    /* is bytecode generation currently enabled          */
 
-int pc;                 /* current program counter                           */
+int 
+  pc,                   /* current program counter                           */
+  cur_local,            /* current local variable number                     */
+  num_locals;           /* number of locals needed for this method           */
 
 struct method_info
   *clinit_method,       /* special class initialization method <clinit>      */
@@ -255,6 +260,8 @@ emit (AST * root)
           assign_local_vars(
              root->astnode.source.progtype->astnode.source.args); 
 
+          num_locals = cur_local = locals;
+
           /* needs_reflection is determined during typecheck */
 
           if(root->astnode.source.progtype->astnode.source.needs_reflection)
@@ -327,7 +334,7 @@ emit (AST * root)
            */
 
           if(pc > 0) {
-            endNewMethod(main_method, methodname, method_desc, locals);
+            endNewMethod(main_method, methodname, method_desc, num_locals);
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, main_method);
           }
@@ -6055,11 +6062,26 @@ inline_format_emit(AST *root)
 void
 write_implied_loop_emit(AST *node)
 {
+  CodeGraphNode *if_node, *goto_node;
+  AST *temp, *addnode();
+  void assign_emit(AST *), gen_istore_op(int);
+  int icount;
+
+  temp = addnode();
+  temp->nodetype = Assignment;
+  temp->astnode.assignment.lhs = node->astnode.forloop.counter;
+  temp->astnode.assignment.lhs->parent = temp;
+  temp->astnode.assignment.rhs = node->astnode.forloop.start;
+  temp->astnode.assignment.rhs->parent = temp;
+
+  set_bytecode_status(JAVA_ONLY);
+
   fprintf(curfp,"for("); 
-  expr_emit(node->astnode.forloop.counter);
-  fprintf(curfp,"="); 
-  expr_emit(node->astnode.forloop.start);
+
+  assign_emit(temp);
+
   fprintf(curfp,"; ");
+
   expr_emit(node->astnode.forloop.counter);
   fprintf(curfp," <= "); 
   expr_emit(node->astnode.forloop.stop);
@@ -6091,6 +6113,67 @@ write_implied_loop_emit(AST *node)
     fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
       unit_name,print_nodetype(node->astnode.forloop.Label));
     fprintf(stderr," in implied loop (write stmt)\n");
+  }
+
+  set_bytecode_status(JVM_ONLY);
+
+  /* the rest of this code is only generated as bytecode.
+   * first emit the initial assignment.
+   */
+  assign_emit(temp);
+
+  /* now emit the expression to calculate the number of 
+   * iterations that this loop should make.
+   */
+  expr_emit(node->astnode.forloop.iter_expr);
+  bytecode0(jvm_dup);
+  icount = getNextLocal();
+  gen_istore_op(icount);
+
+  if_node = bytecode0(jvm_ifeq);
+
+  /* emit loop body */
+  /* increment loop var */
+  /* decrement iteration count */
+  /* dup count */
+
+  goto_node = bytecode0(jvm_goto);
+  goto_node->branch_target = if_node;
+
+  /* generate dummy instruction for if target */
+
+  releaseLocal();
+  set_bytecode_status(JAVA_AND_JVM);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * gen_istore_op                                                             *
+ *                                                                           *
+ * given the local variable number, this function generates a store opcode   *
+ * store an integer to the local var.                                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+gen_istore_op(int lvnum)
+{
+  switch (lvnum) {
+    case 0:
+      bytecode0(jvm_istore_0);
+      break;
+    case 1:
+      bytecode0(jvm_istore_1);
+      break;
+    case 2:
+      bytecode0(jvm_istore_2);
+      break;
+    case 3:
+      bytecode0(jvm_istore_3);
+      break;
+    default:
+      bytecode1(jvm_istore, lvnum);
+      break;
   }
 }
 
@@ -8114,6 +8197,41 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
 
 /*****************************************************************************
  *                                                                           *
+ * getNextLocal                                                              *
+ *                                                                           *
+ * this function returns the next available local variable number and        *
+ * updates the max if necessary.                                             *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+getNextLocal()
+{
+  cur_local++;
+
+  if(cur_local > num_locals)
+    num_locals = cur_local;
+
+  return cur_local-1;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * releaseLocal                                                              *
+ *                                                                           *
+ * this function 'releases' a local variable.  that is, calling this         *
+ * function signifies that we no longer need this local variable.            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+releaseLocal()
+{
+  cur_local--;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * traverse_code                                                             *
  *                                                                           *
  * this function traverses the code graph and determines the max stack and   *
@@ -8174,7 +8292,8 @@ calcOffsets(CodeGraphNode *val)
 
   val->visited = TRUE;
 
-  printf("in calcoffsets, setting stack_Depth = %d\n",val->stack_depth);
+  printf("in calcoffsets, op = %s, setting stack_Depth = %d\n",
+         jvm_opcode[val->op].op,val->stack_depth);
 
   stacksize = val->stack_depth;
 
@@ -8746,6 +8865,10 @@ CodeGraphNode *
 bytecode1(enum _opcode op, u4 operand)
 {
   CodeGraphNode *tmp, *prev;
+
+  /* if we should not generate bytecode, then just return a dummy node */
+  if(!bytecode_gen)
+    return newGraphNode(op, operand);
 
   lastOp = op;
 

@@ -274,7 +274,8 @@ struct _forloop
     *Label,                         /* label of the CONTINUE for this loop   */
     *start,                         /* initial loop assignment (e.g. i = 0)  */
     *stop,                          /* stop when counter equals stop         */
-    *incr;                          /* amount to increment each iteration    */
+    *incr,                          /* amount to increment each iteration    */
+    *iter_expr;                     /* expression to calc # of iterations    */
 };
 
 /*****************************************************************************

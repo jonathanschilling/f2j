@@ -85,7 +85,8 @@ void
 AST 
   * dl_astnode_examine(Dlist l),
   * addnode(),
-  * switchem();
+  * switchem(),
+  * gen_iter_expr(AST *, AST *, AST *);
 
 SYMTABLE 
   * new_symtable (int );
@@ -1524,6 +1525,7 @@ Do_vals:  Assignment CM Exp   NL
             $$->astnode.forloop.start = $1;
             $$->astnode.forloop.stop = $3;
             $$->astnode.forloop.incr = 0;
+            $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,NULL);
           }
 
       
@@ -1537,6 +1539,7 @@ Do_vals:  Assignment CM Exp   NL
            $$->astnode.forloop.start = $1;
            $$->astnode.forloop.stop = $3;
            $$->astnode.forloop.incr = $5;
+           $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,$5);
          }
 ;
 
@@ -1864,6 +1867,7 @@ IoExp: Exp
          $$->astnode.forloop.incr = NULL;
          $$->astnode.forloop.counter = $4;
          $$->astnode.forloop.Label = $2;
+         $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,NULL);
 
          $2->parent = $$;
          $4->parent = $$;
@@ -1879,6 +1883,7 @@ IoExp: Exp
          $$->astnode.forloop.incr = $10;
          $$->astnode.forloop.counter = $4;
          $$->astnode.forloop.Label = $2;
+         $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,$10);
 
          $2->parent = $$;
          $4->parent = $$;
@@ -3259,4 +3264,55 @@ prepend_minus(char *num) {
   strcpy(num,tempstr);
 
   free(tempstr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * gen_iter_expr                                                             *
+ *                                                                           *
+ * this function creates an AST sub-tree representing a calculation of the   *
+ * number of iterations of a DO loop:                                        *
+ *     (stop-start+incr)/incr                                                *
+ * the full expression is MAX(INT((stop-start+incr)/incr),0) but we will     *
+ * worry about the rest of it at code generation time.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+gen_iter_expr(AST *start, AST *stop, AST *incr)
+{
+  AST *minus_node, *plus_node, *div_node, *expr_node;
+  
+  minus_node = addnode();
+  minus_node->token = MINUS;
+  minus_node->astnode.expression.lhs = stop;
+  minus_node->astnode.expression.rhs = start;
+  minus_node->nodetype = Binaryop;
+  minus_node->astnode.expression.optype = '-';
+  
+  if(incr != NULL) {
+    plus_node = addnode();
+    plus_node->token = PLUS;
+    plus_node->astnode.expression.lhs = minus_node;
+    plus_node->astnode.expression.rhs = incr;
+    plus_node->nodetype = Binaryop;
+    plus_node->astnode.expression.optype = '+';
+
+    expr_node = addnode();
+    expr_node->nodetype = Expression;
+    expr_node->astnode.expression.parens = TRUE;
+    expr_node->astnode.expression.rhs = plus_node;
+    expr_node->astnode.expression.lhs = 0;
+
+    div_node = addnode();
+    div_node->token = DIV;
+    div_node->astnode.expression.lhs = expr_node;
+    div_node->astnode.expression.rhs = incr;
+    div_node->nodetype = Binaryop;
+    div_node->astnode.expression.optype = '/';
+
+    return div_node;
+  }
+  else
+    return minus_node;
 }

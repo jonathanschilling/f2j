@@ -91,7 +91,7 @@ in alphabetic order. */
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
 %type <ptnode> Fprogram Ffunction Fsubroutine
-%type <ptnode> Goto 
+%type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> Implicit Integer Intlist Intrinsic
 %type <ptnode> Label Lhs Logicalop Logicalif  Logicalifstmts
 %type <ptnode> Name Namelist
@@ -140,23 +140,26 @@ Sourcecodes:   Sourcecode {printf("Sourcecodes -> Sourcecode\n"); $$=$1;}
 Sourcecode :    Fprogram
                 { 
                   printf("Sourcecode -> Fprogram\n"); 
-                  format_table = (SYMTABLE *) new_symtable (100);
-                  data_table = (SYMTABLE *) new_symtable (100);
-                  save_table = (SYMTABLE *) new_symtable (100);
+                  format_table = (SYMTABLE *) new_symtable (211);
+                  data_table = (SYMTABLE *) new_symtable (211);
+                  save_table = (SYMTABLE *) new_symtable (211);
+                  common_table = (SYMTABLE *) new_symtable (211);
                 }
               | Fsubroutine
                 { 
                   printf("Sourcecode -> Fsubroutine\n"); 
-                  format_table = (SYMTABLE *) new_symtable (100);
-                  data_table = (SYMTABLE *) new_symtable (100);
-                  save_table = (SYMTABLE *) new_symtable (100);
+                  format_table = (SYMTABLE *) new_symtable (211);
+                  data_table = (SYMTABLE *) new_symtable (211);
+                  save_table = (SYMTABLE *) new_symtable (211);
+                  common_table = (SYMTABLE *) new_symtable (211);
                 }
               | Ffunction
                 { 
                   printf("Sourcecode -> Ffunction\n"); 
-                  format_table = (SYMTABLE *) new_symtable (100);
-                  data_table = (SYMTABLE *) new_symtable (100);
-                  save_table = (SYMTABLE *) new_symtable (100);
+                  format_table = (SYMTABLE *) new_symtable (211);
+                  data_table = (SYMTABLE *) new_symtable (211);
+                  save_table = (SYMTABLE *) new_symtable (211);
+                  common_table = (SYMTABLE *) new_symtable (211);
                 }
 ;
 
@@ -328,11 +331,9 @@ Specstmt:  DIMENSION
 	    printf("EQUIVALENCE is not implemented.\n");
 	    exit(-1);
 	   }
-         | COMMON
+         | Common
 	   {
-	    $$ = 0;
-	    printf("COMMON is not implemented.\n");
-	    exit(-1);
+	    $$ = $1;
 	   }
          | Save      
            {
@@ -361,6 +362,62 @@ Specstmt:  DIMENSION
          | Data NL
            {
              $$=$1;
+           }
+;
+
+Common:     COMMON CommonList NL
+            {
+              $$ = switchem($2);
+            }
+;
+
+CommonList: CommonSpec
+            {
+              $$ = $1;
+            }
+         |  CommonList CommonSpec
+            {
+              $2->prevstmt = $1;
+              $$ = $2;
+            }
+;
+
+CommonSpec: DIV Name DIV Namelist
+           {
+              AST *temp;
+              int idx;
+
+              $$ = addnode();
+              $$->nodetype = Common;
+              $$->astnode.common.name = strdup($2->astnode.ident.name);
+              $$->astnode.common.nlist = switchem($4);
+
+              for(temp=$4;temp!=NULL;temp=temp->prevstmt) {
+                temp->astnode.ident.commonBlockName = 
+                  strdup($2->astnode.ident.name);
+                idx = hash(temp->astnode.ident.name)%common_table->num_entries;
+                printf("@@insert %s (block = %s) into common table (idx=%d)\n",
+                   temp->astnode.ident.name, $2->astnode.ident.name, idx);
+                type_insert(&(common_table->entry[idx]), temp, Float);
+              }
+           }
+         | CAT Namelist     /* CAT is // */
+           {
+              AST *temp;
+              int idx;
+
+              $$ = addnode();
+              $$->nodetype = Common;
+              $$->astnode.common.name = strdup("Blank");
+              $$->astnode.common.nlist = switchem($2);
+
+              for(temp=$2;temp!=NULL;temp=temp->prevstmt) {
+                temp->astnode.ident.commonBlockName = "Blank";
+                idx = hash(temp->astnode.ident.name) % common_table->num_entries;
+                printf("@@insert %s (block = unnamed) into common table\n",
+                   temp->astnode.ident.name);
+                type_insert(&(common_table->entry[idx]), temp, Float);
+              }
            }
 ;
 
@@ -513,6 +570,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               {
                 $$ = $1;
                 $$->nodetype = Return;
+              }
+            | ComputedGoto
+              {
+                $$ = $1;
+                $$->nodetype = ComputedGoto;
               }
             | Goto
               {
@@ -811,9 +873,18 @@ Arrayindexop:  Arrayindex
 		  $$->nodetype = Binaryop;
 		  $$->astnode.expression.optype = '*';
 	       }
+              | Arrayindexop DIV Arrayindexop
+              {
+                  /* this production added 10-8-97 --Keith */
+		  $$=addnode();
+	          $1->parent = $$; /* 9-4-97 - Keith */
+	          $3->parent = $$; /* 9-4-97 - Keith */
+		  $$->astnode.expression.lhs = $1;
+		  $$->astnode.expression.rhs = $3;
+		  $$->nodetype = Binaryop;
+		  $$->astnode.expression.optype = '/';
+	       }
 ;
-
-
 
 /*  New do loop productions.  Entails rewriting in codegen.c
     to emit java source code.  */
@@ -1623,18 +1694,29 @@ Goto:   GOTO Integer  NL
 	  if(debug)printf("goto label: %d\n", atoi(yylval.lexeme)); 
           $$->astnode.go_to.label = atoi(yylval.lexeme);
         }
-    |   GOTO OP Intlist CP Name NL
+;
+
+ComputedGoto:   GOTO OP Intlist CP Name NL
         {
           $$ = addnode();
           $3->parent = $$;   /* 9-4-97 - Keith */
           $5->parent = $$;   /* 9-4-97 - Keith */
-          $$->nodetype = Unimplemented;
+          $$->nodetype = ComputedGoto;
+          $$->astnode.computed_goto.name = $5->astnode.ident.name;
+          $$->astnode.computed_goto.intlist = switchem($3);
 	  printf("Computed go to,\n");
         }    
 ;
 
 Intlist:   Integer
+            {
+              $$ = $1;
+            }
       | Intlist CM Integer
+            {
+              $3->prevstmt = $1;
+              $$ = $3;
+            }
 ;
 
 Parameter:   PARAMETER OP Pdecs CP NL 

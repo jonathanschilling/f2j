@@ -32,10 +32,13 @@ void format_name_emit(AST *);
 
 char *progname;
 char *returnname;
+char *cur_filename;
 int gendebug = 1;
 int cur_idx = 0;
 EntryList *doloop = NULL;
 EntryList *while_list = NULL;
+
+extern char *inputfilename;
 
 FILE *javafp;
 
@@ -206,6 +209,13 @@ emit (AST * root)
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
+      case ComputedGoto:
+	  if (gendebug)
+	      printf ("Goto.\n");
+	  computed_goto_emit (root);
+	  if (root->nextstmt != NULL)
+	      emit (root->nextstmt);
+	  break;
       case Label:
 	  if (gendebug)
 	      printf ("Label.\n");
@@ -245,6 +255,13 @@ emit (AST * root)
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
 	  break;
+      case Common:
+	  if (gendebug)
+	      printf ("Common.\n");
+          common_emit(root);
+          if (root->nextstmt != NULL)
+            emit (root->nextstmt);
+	  break;
       case Unimplemented:
 	  fprintf (javafp, "// WARNING: Unimplemented statement in Fortran source.\n");
 	  if (root->nextstmt != NULL)
@@ -255,6 +272,55 @@ emit (AST * root)
           fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
             print_nodetype(root));
       }				/* switch on nodetype.  */
+}
+
+int
+common_emit(AST *root)
+{
+  extern char *returnstring[];
+  HASHNODE *hashtemp;
+  AST *Ctemp;
+  AST *Ntemp;
+  char filename[100];
+  FILE *commonfp;
+  char * prefix = strtok(strdup(inputfilename),".");
+
+  for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
+  {
+    if(Ctemp->astnode.common.name != NULL) {
+      sprintf(filename,"%s_%s.java", prefix, Ctemp->astnode.common.name);
+      if((commonfp = fopen(filename,"w"))==NULL) {
+        fprintf(stderr,"Cannot open output file '%s'.\n",filename);
+        perror("Reason");
+        exit(1);
+      }
+
+      if(Ctemp->astnode.common.name != NULL)
+        fprintf(commonfp,"public class %s_%s\n{\n",prefix,
+           Ctemp->astnode.common.name);
+  
+      for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
+      {
+        printf("Common block %s -- %s\n",Ctemp->astnode.common.name,
+          Ntemp->astnode.ident.name);
+  
+        if((hashtemp = type_lookup(type_table,Ntemp->astnode.ident.name)) == NULL)
+        {
+          fprintf(stderr,"Error: can't find type for common %s\n",
+            Ntemp->astnode.ident.name);
+          continue;
+        }
+        fprintf(commonfp,"static %s %s;\n",returnstring[hashtemp->type], 
+          Ntemp->astnode.ident.name);
+      }
+  
+      if(Ctemp->astnode.common.name != NULL)
+        fprintf(commonfp,"}\n",prefix);
+  
+      fclose(commonfp);
+    }
+  }
+
 }
 
 /* This function emits declarations for static class variables. 
@@ -336,6 +402,12 @@ typedec_emit (AST * root)
              continue;
           }
 
+          if(type_lookup(common_table,temp->astnode.ident.name)) {
+             /* also do not try to redefine a 'common' variable since
+                they are placed in their own classes.  10-8-97 -- Keith */
+             continue;
+          }
+
 	  /* Let's do the argument lookup first. No need to retype variables
 	     that are already declared in the argument list, or declared
 	     as externals.  So if it is already declared, loop again.  */
@@ -414,6 +486,8 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
         fprintf (javafp, "= 0");
       else if (returns == Logical)
         fprintf (javafp, "= false");
+      else if (returns == Character)
+        fprintf (javafp, "= null");
       fprintf (javafp, ";\n");
     }
   }
@@ -588,6 +662,7 @@ data_emit(AST *root)
    ...and it's getting worse by the day  --Keith */
 
 /*  Heh... gotta love it...  -dmd  9/26/97  */
+
 
 int
 name_emit (AST * root)
@@ -817,9 +892,20 @@ printf("** nodetype = %s, token = %s\n", print_nodetype(root),
 
 	  if (root->astnode.ident.arraylist == NULL) {
 
-
             if(hashtemp == NULL) {
-	      fprintf (javafp, "%s", root->astnode.ident.name);
+              char * prefix = strtok(strdup(inputfilename),".");
+              HASHNODE *ht;
+
+              ht = type_lookup(common_table, root->astnode.ident.name);
+
+              if(ht == NULL) {
+                fprintf (javafp, "%s", root->astnode.ident.name);
+              }
+              else {
+                fprintf (javafp, "%s_%s.%s", prefix, 
+                   ht->variable->astnode.ident.commonBlockName,
+                   root->astnode.ident.name);
+              }
             } 
             else {
               if(root->parent == NULL) {
@@ -1122,6 +1208,7 @@ open_output_file(AST *root)
   filename = lowercase(strdup(root->astnode.source.name->astnode.ident.name));
   *filename = toupper (*filename);
   classname = strdup(filename);
+  cur_filename = classname;
   strcat(filename,".java");
 
   printf("filename is %s\n",filename);
@@ -1291,7 +1378,8 @@ forloop_emit (AST * root)
 /* finally pop this loop's label number off the stack and 
    emit the label (for experimental goto resolution) */
    
-    fprintf(javafp,"Dummy.label(%d);\n",list_pop(&doloop));
+    fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+       list_pop(&doloop));
 }
 
 /* 
@@ -1331,7 +1419,26 @@ goto_emit (AST * root)
     /* otherwise, not quite sure what to do with this one, so
        we'll just emit a dummy goto */
 
-    fprintf(javafp,"Dummy.go_to(%d);\n",root->astnode.go_to.label);
+    fprintf(javafp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.go_to.label);
+  }
+}
+
+int
+computed_goto_emit (AST *root)
+{
+  AST *temp;
+  int count = 1;
+
+printf("~~~~ COMPUTED GOTO ~~~~~ \n");
+  for(temp = root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
+  {
+    if(temp != root->astnode.computed_goto.intlist)
+      fprintf(javafp,"else ");
+    fprintf(javafp,"if (%s == %d) \n", root->astnode.computed_goto.name, count);
+    fprintf(javafp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
+      temp->astnode.constant.number);
+    count++;
   }
 }
 
@@ -1351,7 +1458,8 @@ label_emit (AST * root)
     if (root->astnode.label.stmt->nodetype != Format) {
       fprintf(javafp,"{\n");
       fprintf (javafp, "label%d:\n   ", root->astnode.label.number);
-      fprintf(javafp,"Dummy.label(%d);\n",root->astnode.label.number);
+      fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+        root->astnode.label.number);
       emit (root->astnode.label.stmt);
       fprintf(javafp,"}\n");
     }
@@ -1359,7 +1467,8 @@ label_emit (AST * root)
   else {
     fprintf(javafp,"{\n");
     fprintf (javafp, "label%d:\n   ", root->astnode.label.number);
-    fprintf(javafp,"Dummy.label(%d);\n",root->astnode.label.number);
+    fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+      root->astnode.label.number);
     fprintf(javafp,"}\n");
   }
 }
@@ -1784,6 +1893,10 @@ char * print_nodetype (AST *root)
       return("Save");
     case DataList:
       return("DataList");
+    case Common:
+      return("Common");
+    case ComputedGoto:
+      return("Computed goto");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

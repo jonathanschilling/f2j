@@ -189,6 +189,7 @@ HASHNODE * format_lookup(SYMTABLE *table, char *label)
 HASHNODE *
 search_hashlist (HASHNODE * list, char *id)
 {
+
   for (list; list; list = list->next)
     if (!strcmp (list->ident, id))
       return (list);

@@ -286,6 +286,7 @@ initialize ()
   format_table = (SYMTABLE *) new_symtable (tablesize);
   data_table = (SYMTABLE *) new_symtable (tablesize);
   save_table = (SYMTABLE *) new_symtable (tablesize);
+  common_table = (SYMTABLE *) new_symtable (tablesize);
 }
 
 

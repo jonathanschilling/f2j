@@ -39,6 +39,7 @@ SYMTABLE *array_table;
 SYMTABLE *format_table; 
 SYMTABLE *data_table; 
 SYMTABLE *save_table; 
+SYMTABLE *common_table; 
 
 int locals;
 int stacksize;
@@ -87,6 +88,7 @@ typedef struct ast_node
 	    Function,
             Program,
 	    Blockif,
+            Common,
             DataStmt,
             DataList,
 	    Elseif,
@@ -116,6 +118,7 @@ typedef struct ast_node
 	    End,
             Write,
             Stop,
+            ComputedGoto,
 	    Unimplemented
 	}
       nodetype;
@@ -194,6 +197,7 @@ typedef struct ast_node
 		     to invoke on the stack when opcode is
 		     emitted.  */
 		  char *invokemethod;
+                  char *commonBlockName;
 		  int localvnum;
 		  char name[80];
 	      }
@@ -230,6 +234,20 @@ typedef struct ast_node
 		  struct ast_node *clist;
 	      }
             data;
+
+	    struct _commonblock
+	      {
+		  char *name;
+		  struct ast_node *nlist;
+	      }
+            common;
+
+	    struct _computed_goto
+	      {
+		  char *name;
+		  struct ast_node *intlist;
+	      }
+            computed_goto;
 	}
       astnode;
 

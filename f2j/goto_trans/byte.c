@@ -870,9 +870,7 @@ static void byte_trav(u4_int offset) {
    char lbuf[100];
    int hash(char *);
    void type_insert(HASHNODE **, int, char *);
-   void bzero(void *, size_t);
-   void bcopy(const void *, void *, size_t);
-   char *strdup(char *);
+   char *strdup(const char *);
 
    len = att -> code_length;
    byt = &(att -> info[8u]);
@@ -1069,7 +1067,7 @@ back:
                 prev_offset, strdup(lbuf));
            }
 
-           bzero(byt+last_offset, inst_size + 5);
+           memset(byt+last_offset, 0, inst_size + 5);
            numChanges++;
          }
          else if(!strcmp(op,"goto"))
@@ -1094,7 +1092,7 @@ back:
                    first 'ldc' is always 2 bytes, so add that
                    to the size of the previous instruction. */
 
-               bzero(byt+last_offset, inst_size);
+               memset(byt+last_offset, 0, inst_size);
                numChanges++;
 
                 /* use the goto_w opcode just to be sure we
@@ -1106,7 +1104,7 @@ back:
                  printf("copying %d (%x) into byt\n",temp,temp);
 
                utemp = u4BigEndian((u4_int)temp);
-               bcopy(&utemp,byt+i-1, 4);
+               memcpy(byt+i-1, &utemp, 4);
              }
              else
              {
@@ -1117,7 +1115,7 @@ back:
            else {
              fprintf(stderr,"%s: invalid goto: %s (caller = %s, this = %s)\n",
                 filename,lbuf,caller,thisClassName);
-             bzero(byt+last_offset, inst_size + 5);
+             memset(byt+last_offset, 0, inst_size + 5);
              numChanges++;
            }
          }
@@ -1177,7 +1175,7 @@ back:
 
 static void byte_codeattr(attribute_ptr a, u2_int w_arg, 
 			    u1_int *nm, u1_int *tp, u2_int w_res) {
-  static u1_int comp_stuff(u4_int);
+  u1_int comp_stuff(u4_int);
   u4_int  i; /* wide_counter */
   u1_int *bytes       = a -> info;
   u2_int  max_stack   = B2U2(bytes[0],bytes[1]);
@@ -1271,7 +1269,7 @@ static void byte_codeattr(attribute_ptr a, u2_int w_arg,
 int byte_proc(void) {
   
   u4_int i, j;       /* wide counters */
-  char *strdup(char *);
+  char *strdup(const char *);
   char *strtok(char *, const char *);
   extern char * thisClassName;
 

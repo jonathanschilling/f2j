@@ -1,0 +1,72 @@
+
+
+#  *************
+#  *** JAVAB ***
+#  ****************************************************
+#  *** Copyright (c) 1997                           ***
+#  *** Aart J.C. Bik             Indiana University *** 
+#  *** All Rights Reserved                          ***
+#  ****************************************************
+#  *** Please refer to the LICENSE file distributed ***
+#  *** with this software for further details on    ***
+#  *** the licensing terms and conditions.          ***
+#  ***                                              ***
+#  *** Please, report all bugs, comments, etc.      ***
+#  *** to: ajcbik@extreme.indiana.edu               ***
+#  ****************************************************
+#  *** Makefile : javab construction
+#  ***
+#  ***
+#  *** Your courtesy in mentioning the use of this bytecode tool
+#  *** in any scientific work that presents results obtained
+#  *** by using (extensions or modifications of) the tool
+#  *** is highly appreciated.
+
+
+#TARGET = $(HOME)\Bin\javab
+TARGET = ..\bin\javab.exe
+
+# Flags
+# *****
+
+CC     = bcc32
+CFLAGS = -c
+#LFLAGS = 
+
+OBJS   = byte.obj class.obj dump.obj main.obj symtab.obj
+
+# Executable
+# **********
+
+$(TARGET): $(OBJS)
+	$(CC) $(LFLAGS) -e$(TARGET) $(OBJS) 
+
+# System Program
+# **************
+
+main.obj : main.c class.h
+	$(CC) $(CFLAGS) main.c
+
+# Modules
+# *******
+
+symtab.obj : symtab.c symtab.h
+	$(CC) $(CFLAGS) symtab.c
+
+byte.obj  : byte.c class.h
+	$(CC) $(CFLAGS) byte.c
+
+class.obj : class.c class.h
+	$(CC) $(CFLAGS) class.c
+
+dump.obj  : dump.c class.h
+	$(CC) $(CFLAGS) dump.c
+
+# Cleanup
+# *******
+
+clean:
+	rm -f $(OBJS)
+
+realclean:  clean
+	rm -f $(TARGET)

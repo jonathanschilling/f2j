@@ -159,9 +159,9 @@ optScalar(AST *root)
     root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
   if(ht) {
-    ht->variable->astnode.source.descriptor = strdup(
+    ht->variable->astnode.source.descriptor =
         get_method_descriptor(root->astnode.source.progtype, 
-           opt_type_table, opt_common_table, opt_external_table));
+           opt_type_table, opt_common_table, opt_external_table);
   }
 }
 
@@ -1137,13 +1137,16 @@ isPassByRef_desc(char *desc)
      !strcmp(desc_copy,"Ljava/lang/Object;"))
   {
     printf("returning FALSE\n");
+    f2jfree(desc_copy, strlen(desc_copy)+1);
     return FALSE;
   }
+
+  f2jfree(desc_copy, strlen(desc_copy)+1);
 
   /* didn't hit any of the above cases, so this must be
    * pass by reference.
    */
-    printf("returning TRUE\n");
+
   return TRUE;
 }
 
@@ -1283,6 +1286,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
   AST * tempnode;
   int isArray = 0;
   char *ret_desc;
+  char *p;
 
   temp_desc = strAppend(temp_desc, "(");
 
@@ -1383,5 +1387,9 @@ tempnode->astnode.ident.name);
     temp_desc = strAppend(temp_desc, ")V");
   }
 
-  return temp_desc->val;
+  p = temp_desc->val;
+
+  f2jfree(temp_desc, sizeof(struct _str));
+
+  return p;
 }

@@ -319,7 +319,6 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       
     attr_name = null_term(c->val->cpnode.Utf8.bytes,c->val->cpnode.Utf8.length);
 
-
     if(class_debug) printf("attribute name = '%s'\n", attr_name);
 
     if(class_debug) report_position("attribute name index", out);
@@ -385,6 +384,7 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
     }
 
+    f2jfree(attr_name, strlen(attr_name)+1);
     cnt++;
   }
 

@@ -1280,6 +1280,7 @@ Types:       Type
              {
                $$ = $1;
                len = atoi($3->astnode.constant.number);
+               free_ast_node($3);
              }
 	  |  Type Star OP Star CP
              {
@@ -1668,15 +1669,16 @@ Label: Integer Statement
          $$->nodetype = Label;
          $$->astnode.label.number = atoi($1->astnode.constant.number);
          $$->astnode.label.stmt = $2;
+         free_ast_node($1);
        }
      | Integer Format NL 
        {
-         HASHNODE *newnode;
+         /* HASHNODE *newnode; */
          char *tmpLabel;
 
          tmpLabel = (char *) f2jalloc(10); /* plenty of space for a f77 label num */
 
-         newnode = (HASHNODE *) f2jalloc(sizeof(HASHNODE));
+         /* newnode = (HASHNODE *) f2jalloc(sizeof(HASHNODE)); */
 
          $$ = addnode();
          $1->parent = $$;
@@ -1691,6 +1693,7 @@ Label: Integer Statement
          sprintf(tmpLabel,"%d",$2->astnode.label.number);
 
          type_insert(format_table,$2,0,tmpLabel);
+         free_ast_node($1);
        }
 ;
 
@@ -1765,6 +1768,8 @@ RepeatableItem:  EDIT_DESC  /* A, F, I, D, G, E, L, X */
      | Name '.' Constant
        {
          /* ignore the constant part for now */
+         free_ast_node($3);
+
          $$ = $1;
        }
      | OP FormatExplist CP
@@ -1832,6 +1837,7 @@ Continue:  Integer CONTINUE NL
 	 $$->nodetype = Label;
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
 	 $$->astnode.label.stmt = NULL;
+         free_ast_node($1);
        }
 ;
 
@@ -1883,6 +1889,7 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent->nodetype = Write;
+         free_ast_node($2);
        }
      | PRINT STAR PrintIoList NL
        {
@@ -1985,6 +1992,7 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = atoi($7->astnode.constant.number);
+         free_ast_node($7);
 
          $$->astnode.io_stmt.arg_list = switchem($9);
       }
@@ -2156,6 +2164,9 @@ Arithmeticif: IF OP Exp CP Integer CM Integer CM Integer NL
                 $$->astnode.arithmeticif.neg_label  = atoi($5->astnode.constant.number);
                 $$->astnode.arithmeticif.zero_label = atoi($7->astnode.constant.number);
                 $$->astnode.arithmeticif.pos_label  = atoi($9->astnode.constant.number);
+                free_ast_node($5);
+                free_ast_node($7);
+                free_ast_node($9);
               }
 ;
 
@@ -2671,6 +2682,7 @@ Goto:   GOTO Integer  NL
 	  if(debug)
             printf("goto label: %d\n", atoi(yylval.lexeme)); 
           $$->astnode.go_to.label = atoi(yylval.lexeme);
+          free_ast_node($2);
         }
 ;
 
@@ -3039,6 +3051,11 @@ type_hash(AST * types)
                 newnode->astnode.ident.name);
 
             break;
+          default:
+            /* otherwise free the node that we didn't use. */
+            free_ast_node(newnode);
+            break;  /* ansi thing */
+
         } /* Close switch().  */
       }
     }  /* Close inner for() loop.  */

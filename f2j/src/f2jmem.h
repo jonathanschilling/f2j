@@ -18,6 +18,7 @@ void
   free_fields(struct ClassFile *),
   free_methods(struct ClassFile *),
   free_attributes(Dlist, Dlist),
+  free_ast_node(AST *),
   free_code(Dlist);
 
 #endif

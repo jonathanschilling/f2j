@@ -1038,6 +1038,8 @@ intrinsic_check(AST *root)
 
   entry = methodscan (intrinsic_toks, tempname);
 
+  f2jfree(tempname, strlen(tempname)+1);
+
   if(!entry) {
     fprintf(stderr,"Error: not expecting null entry at this point.\n");
     exit(-1);

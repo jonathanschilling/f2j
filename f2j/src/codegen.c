@@ -31,6 +31,7 @@ char
   **funcname=input_func;/* input functions, EOF-detecting or non-detecting   */
 
 Dlist 
+  dummy_nodes = NULL,   /* list of dummy graph nodes to free later           */
   doloop = NULL,        /* stack of do loop labels                           */
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
@@ -237,6 +238,8 @@ emit (AST * root)
             bytecode0(jvm_return);
             endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
           }
+          else
+            f2jfree(cur_code, sizeof(struct attribute_info));
 
           main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
 
@@ -334,7 +337,7 @@ emit (AST * root)
 
         returnname = NULL;	/* Subroutines return void. */
         cur_unit = root;
-        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
+        unit_name = root->astnode.source.name->astnode.ident.name;
 
         if(gendebug)
           printf ("Subroutine name: %s\n",  unit_name);
@@ -347,7 +350,7 @@ emit (AST * root)
 
         returnname = root->astnode.source.name->astnode.ident.name;
         cur_unit = root;
-        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
+        unit_name = root->astnode.source.name->astnode.ident.name;
 
         if(gendebug)
           printf ("Function name: %s\n",  unit_name);
@@ -360,7 +363,7 @@ emit (AST * root)
 
         returnname = NULL;	/* programs return void. */
         cur_unit = root;
-        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
+        unit_name = root->astnode.source.name->astnode.ident.name;
 
         if (gendebug)
           printf ("Program name: %s\n", unit_name);
@@ -625,6 +628,7 @@ initialize_lists()
 
   /* Initialize the lists. */
 
+  dummy_nodes = make_dl();
   while_list = make_dl();
   doloop = make_dl();
   adapter_list = make_dl();
@@ -646,6 +650,12 @@ free_lists()
   Dlist tmp;
 
   /* free memory from previous program units. */
+
+  if(dummy_nodes) {
+    dl_traverse(tmp, dummy_nodes)
+      f2jfree(dl_val(tmp), sizeof(CodeGraphNode));
+    dl_delete_list(dummy_nodes);
+  }
 
   if(while_list) {
     dl_traverse(tmp, while_list)
@@ -8520,6 +8530,10 @@ get_method_name(AST *root, BOOLEAN adapter)
     newmeth = get_methodref(root);
   }
 
+  f2jfree(buf,
+    MAX((strlen(tempname) + strlen(root->astnode.ident.name)), 
+        (strlen(root->astnode.ident.name) + 9)) + 5);
+
   return newmeth;
 }
 
@@ -8582,8 +8596,10 @@ get_methodref(AST *node)
       strcat(new_mref->descriptor,tempname);
       strcat(new_mref->descriptor,")V");  /* assume void return type */
     }
-    else
+    else {
+      f2jfree(new_mref, sizeof(METHODREF));
       new_mref = srch_mref;
+    }
   }
 
   return new_mref;
@@ -8720,6 +8736,8 @@ emit_call_arguments(AST *root, BOOLEAN adapter)
     emit_call_args_known(root, mref->descriptor, adapter);
   else
     emit_call_args_unknown(root);
+
+  free_fieldref(mref);
 }
 
 /*****************************************************************************
@@ -12163,8 +12181,14 @@ bytecode1(enum _opcode op, u4 operand)
   CodeGraphNode *tmp, *prev;
 
   /* if we should not generate bytecode, then just return a dummy node */
-  if(!bytecode_gen)
-    return newGraphNode(op, operand);
+  if(!bytecode_gen) {
+    CodeGraphNode *g;
+
+    /* keep track of the dummy node so that we may reclaim the memory later. */
+    g = newGraphNode(op, operand);
+    dl_insert_b(dummy_nodes, g);
+    return g;
+  }
 
   printf("bytecode: %s %d\n", jvm_opcode[op].op, operand);
 

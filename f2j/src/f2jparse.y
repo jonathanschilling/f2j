@@ -149,7 +149,8 @@ extern enum returntype default_implicit_table[];
 %type <ptnode> Arrayindexlist Arithmeticif ArraydecList
 %type <ptnode> Blockif Boolean Close Comment
 %type <ptnode> Call Constant Continue
-%type <ptnode> Data DataList DataConstant DataItem /* DataElement */ Do_incr Doloop 
+%type <ptnode> Data DataList DataConstant DataItem 
+%type <ptnode> /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
 %type <ptnode> Do_vals Double
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
@@ -2201,6 +2202,9 @@ EndSpec: END EQ Integer
 /*  Got a problem when a Blockif opens with a Blockif.  The
  *  first statement of the second Blockif doesn't get into the
  *  tree.  Might be able to use do loop for example to fix this. 
+ *
+ *  --apparently the problem mentioned in the comment above has
+ *    been fixed now.
  */
 
 Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else  ENDIF NL

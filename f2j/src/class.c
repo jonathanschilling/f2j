@@ -108,7 +108,7 @@ report_position(char *prefix, FILE *stream)
 
   pos = fgetpos(stream, &p);
 
-  printf("%s at position %ld\n",prefix, (long)p);
+  /* printf("%s at position %ld\n",prefix, (long)p); */
 }
 
 /*****************************************************************************

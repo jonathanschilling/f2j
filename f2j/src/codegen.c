@@ -745,18 +745,15 @@ set_bytecode_status(int mode)
       bytecode_gen=TRUE;
       savefp = curfp;
       curfp = devnull;
-printf("set_bytecode_status.1: set curfp = %p\n", curfp);
       break;
     case JAVA_ONLY:
       bytecode_gen=FALSE;
       curfp = savefp;
-printf("set_bytecode_status.2: set curfp = %p\n", curfp);
       break;
     case JAVA_AND_JVM:
     default:
       bytecode_gen=TRUE;
       curfp = savefp;
-printf("set_bytecode_status.3: set curfp = %p\n", curfp);
       break;
   }
 }
@@ -1584,7 +1581,6 @@ common_emit(AST *root)
       }
   
       curfp = commonfp;
-printf("common_emit.1: set curfp = %p\n", curfp);
       
       /* import util package for object wrapper classes */
 
@@ -4554,7 +4550,7 @@ external_emit(AST *root)
   javaname = entry->java_method;
 
 printf("javaname = %s\n",javaname);
-printf("args = %p\n", root->astnode.ident.arraylist);
+printf("args = %p\n", (void*)root->astnode.ident.arraylist);
 
   /* Ensure that the call has arguments */
 
@@ -6274,7 +6270,6 @@ open_output_file(AST *root, char *classname)
   }
 
   curfp = javafp;  /* set global pointer to output file */
-printf("open_output_file.1: set curfp = %p\n", curfp);
 
   /* add import statements if necessary */
 
@@ -12333,7 +12328,8 @@ if(stacksize < 0)
           /* if branching too far, change to wide goto, we'll fix
            * the following instructions later.  */
 
-          if((reCalcAddr = checkDistance(val->op, label_node->pc, val->pc))) {
+          if(checkDistance(val->op, label_node->pc, val->pc)) {
+            reCalcAddr = TRUE;
             val->op = jvm_goto_w;
             val->width = opWidth(jvm_goto_w);
           }
@@ -12364,7 +12360,8 @@ if(stacksize < 0)
       /* if branching too far, change to wide goto, we'll fix
        * the following instructions later.  */
 
-      if((reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc))) {
+      if(checkDistance(val->op, val->branch_target->pc, val->pc)) {
+        reCalcAddr = TRUE;
         val->op = jvm_goto_w;
         val->width = opWidth(jvm_goto_w);
       }
@@ -12382,9 +12379,11 @@ if(stacksize < 0)
     if(val->next != NULL)
       val->next->stack_depth = stacksize;
 
-    if((reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc))) {
+    if(checkDistance(val->op, val->branch_target->pc, val->pc)) {
       CodeGraphNode *gotoNode, *wideGotoNode;
       Dlist listNode;
+
+      reCalcAddr = TRUE;
 
       val->branch_target->stack_depth = stacksize;
       val->operand = val->branch_target->pc - val->pc;
@@ -12407,7 +12406,7 @@ if(stacksize < 0)
       listNode = dl_next(listNode);
       dl_insert_a(listNode, wideGotoNode);
 
-      if(gotoNode->next != NULL)
+      if(gotoNode->branch_target != NULL)
         calcOffsets(cgraph, gotoNode->branch_target);
       calcOffsets(cgraph, wideGotoNode->branch_target);
     }

@@ -15,6 +15,7 @@
  *                                                                           *
  *****************************************************************************/
 
+#include<string.h>
 #include "dlist.h"
 
 /* Enumeration of the different return types */

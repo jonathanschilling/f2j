@@ -72,28 +72,47 @@ main (int argc, char **argv)
   int c;
   int i;
 
+  /* split the help string into multiple sections to comply
+   * with some iso standard on string lengths...
+   */
   char f2java_help[] = "The program is used as follows:\n\n\
 To compile a program into Java source code:\n\
-    f2java filename\n\n\
-The -c option may also be used to specify the search\n\
+    f2java filename\n\n";
+
+  char f2java_help_c_option[] = "The -c option may also be\
+ used to specify the search\n\
 path for \".f2j\" files.  For example:\n\n\
-    f2java -c .:../objects filename\n\n\
-The -p option may also be used to specify the name\n\
+    f2java -c .:../objects filename\n\n";
+
+  char f2java_help_p_option[] = "The -p option may also be\
+ used to specify the name\n\
 of the package.  For example:\n\n\
-    f2java -p org.netlib.blas filename\n\n\
-The -o option specifies the destination directory\n\
-to which the code should be written.\n\n\
-The -w option forces all scalars to be generated as\n\
+    f2java -p org.netlib.blas filename\n\n";
+
+  char f2java_help_o_option[] = "The -o option specifies\
+ the destination directory\n\
+to which the code should be written.\n\n";
+
+  char f2java_help_w_option[] = "The -w option forces all\
+ scalars to be generated as\n\
 wrapped objects.  The default behavior is to only\n\
-wrap those scalars that must be passed by reference.\n\n\
-The -i option causes f2j to generate a high-level\n\
-interface to each subroutine and function.\n\n\
-The -h option displays this helpful information.\n\n\
-The -s option causes f2j to simplify the interfaces\n\
+wrap those scalars that must be passed by reference.\n\n";
+
+  char f2java_help_i_option[] = "The -i option causes f2j\
+ to generate a high-level\n\
+interface to each subroutine and function.\n\n";
+
+  char f2java_help_h_option[] = "The -h option displays\
+ this helpful information.\n\n";
+
+  char f2java_help_s_option[] = "The -s option causes f2j\
+ to simplify the interfaces\n\
 by removing the offset parameter and using a zero offset.\n\
 It isn't necessary to specify the -i flag in addition\n\
-to the -s.\n\n\
-The -d options causes f2j to generate comments in\n\
+to the -s.\n\n";
+
+  char f2java_help_d_option[] = "The -d options causes f2j\
+ to generate comments in\n\
 a format suitable for javadoc.  It is a bit of a LAPACK-\n\
 specfic hack...the longest comment in the program unit\n\
 is placed in the javadoc comment.  It works fine for\n\
@@ -128,6 +147,14 @@ will most likely not work for other code.\n";
         break;
       case 'h':
         printf("%s",f2java_help);
+        printf("%s",f2java_help_c_option);
+        printf("%s",f2java_help_p_option);
+        printf("%s",f2java_help_o_option);
+        printf("%s",f2java_help_w_option);
+        printf("%s",f2java_help_i_option);
+        printf("%s",f2java_help_h_option);
+        printf("%s",f2java_help_s_option);
+        printf("%s",f2java_help_d_option);
         exit(1);
         break;
       case 'i':

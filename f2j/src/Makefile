@@ -5,6 +5,10 @@
 
 .PHONY: depend clean goto
 
+# defining DEBUG_MEM includes some code that will
+# trash any freed memory, thus helping to expose
+# some memory-related bugs in f2j.
+#
 #CFLAGS= -g -ansi -Wall -pedantic
 CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
 
@@ -43,11 +47,11 @@ $(JAVAB):
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y
 
-depend:	
+dep:	
 	rm -f f2j.dep
 	$(CC) -M $(SRC) > f2j.dep
 
-include f2j.dep
+sinclude f2j.dep
 
 clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \

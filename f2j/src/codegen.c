@@ -5485,10 +5485,6 @@ get_type(char *num)
 void
 expr_emit (AST * root)
 {
-  char *tempname = NULL;
-  CPNODE * ct;
-  int cur_vt;
-
   if(root == NULL)
   {
     /* We should not have a NULL expression */
@@ -5509,547 +5505,680 @@ expr_emit (AST * root)
       name_emit (root);
       break;
     case Expression:
-      if (root->astnode.expression.parens)
-        fprintf (curfp, "(");
-
-      /* is expression.lhs ever really non-null? i dont think so.
-       * in any case, for bytecode generation, we are not concerned
-       * with parens, so it should be ok to just call expr_emit. (kgs)
-       */
-
-      if (root->astnode.expression.lhs != NULL)
-        expr_emit (root->astnode.expression.lhs);
-
-      expr_emit (root->astnode.expression.rhs);
-
-      if (root->astnode.expression.parens)
-        fprintf (curfp, ")");
+      parenthesized_expr_emit(root);
       break;
     case Power:
-      {
-        /* hack alert: determine whether this expression is used as the size
-         *   in an array declaration.  if so, it must be integer, but java's
-         *   pow() method returns double.  so we add a cast.  it would probably
-         *   be better to detect this elsewhere (e.g. in the code that emits
-         *   array declarations).
-         */
-        BOOL gencast = (root->parent != NULL) 
-                   && (root->parent->nodetype == ArrayDec);
-
-        fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
-           
-        /* the args to pow must be doubles, so cast if necessary */
-
-        expr_emit (root->astnode.expression.lhs);
-
-        if(root->astnode.expression.lhs->vartype != Double)
-          bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype]
-                                   [Double]);
-        fprintf (curfp, ", ");
-        expr_emit (root->astnode.expression.rhs);
-        if(root->astnode.expression.rhs->vartype != Double)
-          bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype]
-                                   [Double]);
-        fprintf (curfp, ")");
-
-        ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
-
-        bytecode1(jvm_invokestatic, ct->index);
- 
-        if(gencast)
-          bytecode0(jvm_d2i);
-        else if(root->vartype != Double)
-          bytecode0(typeconv_matrix[root->vartype][Double]);
-      }
+      power_emit(root);
       break;
     case Binaryop:
-      /* handle special case for string concatenation in bytecode..   we
-       * must create a new StringBuffer which contains the LHS and append
-       * the RHS to the STringBuffer.
-       */
-      if(root->token == CAT)
-      {
-        ct = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                  STRINGBUFFER);
-
-        bytecode1(jvm_new,ct->index);
-        bytecode0(jvm_dup);
-        expr_emit (root->astnode.expression.lhs);
-        if((root->astnode.expression.lhs->vartype != String) &&
-           (root->astnode.expression.lhs->vartype != Character) )
-        {
-          fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
-        }
-        ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
-
-        fprintf (curfp, "%c", root->astnode.expression.optype);
-
-        bytecode1(jvm_invokespecial, ct->index);
-        expr_emit (root->astnode.expression.rhs);
-        if((root->astnode.expression.rhs->vartype != String) &&
-           (root->astnode.expression.rhs->vartype != Character) )
-        {
-          fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
-        }
-        ct = newMethodref(cur_const_table,STRINGBUFFER, "append", 
-                          append_descriptor[String]);
-        bytecode1(jvm_invokevirtual, ct->index);
-        ct = newMethodref(cur_const_table,STRINGBUFFER, "toString", 
-                          TOSTRING_DESC);
-        bytecode1(jvm_invokevirtual, ct->index);
-      }
-      else {
-        expr_emit (root->astnode.expression.lhs);
-
-        if(root->astnode.expression.lhs->vartype > root->vartype)
-          bytecode0(
-            typeconv_matrix[root->astnode.expression.lhs->vartype]
-                           [root->vartype]);
-
-        fprintf (curfp, "%c", root->astnode.expression.optype);
-        expr_emit (root->astnode.expression.rhs);
-
-        if(root->astnode.expression.rhs->vartype > root->vartype)
-          bytecode0(
-            typeconv_matrix[root->astnode.expression.rhs->vartype]
-                           [root->vartype]);
-
-        switch(root->astnode.expression.optype) {
-          case '+':
-            bytecode0(add_opcode[root->vartype]);
-            break;
-          case '-':
-            bytecode0(sub_opcode[root->vartype]);
-            break;
-          case '/':
-            bytecode0(div_opcode[root->vartype]);
-            break;
-          case '*':
-            bytecode0(mul_opcode[root->vartype]);
-            break;
-          default:
-            fprintf(stderr,"WARNING: unsupported optype\n");
-            break;  /* for ANSI C compliance */
-        }
-      }
-
+      binaryop_emit(root);
       break;
     case Unaryop:
-      fprintf (curfp, "%c(", root->astnode.expression.minus);
-      expr_emit (root->astnode.expression.rhs);
-      fprintf (curfp, ")");
-
-      if(root->astnode.expression.minus == '-')
-        bytecode0(neg_opcode[root->vartype]);
-
+      unaryop_emit(root);
       break;
     case Constant:
-      if(root->parent != NULL)
-      {
-        tempname = strdup(root->parent->astnode.ident.name);
-        uppercase(tempname);
-      }
-
-     /* 
-      * here we need to determine if this is a parameter to a function
-      * or subroutine.  if so, and we are using wrappers, then we need
-      * to create a temporary wrapper and pass that in instead of the
-      * constant.   10/9/97  -- Keith 
-      */
-
-      if( (root->parent != NULL) &&
-          (root->parent->nodetype == Call) &&
-          (type_lookup(cur_array_table,root->parent->astnode.ident.name)
-              == NULL) &&
-          (methodscan(intrinsic_toks, tempname) == NULL))
-      {
-        if(root->token == STRING) {
-          if(omitWrappers) {
-
-            pushConst(root);
-
-            fprintf (curfp, "\"%s\"", root->astnode.constant.number);
-          }
-          else
-          {
-            invoke_constructor(full_wrappername[root->vartype], root, 
-              wrapper_descriptor[root->vartype]);
-
-            fprintf (curfp, "new StringW(\"%s\")",
-              root->astnode.constant.number);
-          }
-        }
-        else {     /* non-string constant argument to a function call */
-          if(omitWrappers) {
-            pushConst(root);
-
-            fprintf (curfp, "%s", root->astnode.constant.number);
-          }
-          else
-          {
-            invoke_constructor(full_wrappername[root->vartype], root, 
-              wrapper_descriptor[root->vartype]);
-
-            fprintf (curfp, "new %s(%s)", 
-              wrapper_returns[get_type(root->astnode.constant.number)],
-              root->astnode.constant.number);
-          }
-        }
-      }
-      else  /* this constant is not an argument to a function call */
-      {
-
-        pushConst(root);
-
-        if(root->token == STRING)
-          fprintf (curfp, "\"%s\"", root->astnode.constant.number);
-        else
-          fprintf (curfp, "%s", root->astnode.constant.number);
-      }
-
-      if(tempname != NULL)
-        f2jfree(tempname, strlen(tempname)+1);
+      constant_expr_emit(root);
       break;
     case Logicalop:
-      {
-        CodeGraphNode *if_node1, *if_node2, *goto_node, *next_node;
-
-        switch(root->token) {
-          case NOT:
-            fprintf (curfp, "!");
-            expr_emit (root->astnode.expression.rhs);
-
-            bytecode0(jvm_iconst_1);
-            bytecode0(jvm_ixor);
-            break;
-          case AND:
-            expr_emit (root->astnode.expression.lhs);
-            if_node1 = bytecode0(jvm_ifeq);
-
-            fprintf (curfp, " && ");
-
-            expr_emit (root->astnode.expression.rhs);
-            if_node2 = bytecode0(jvm_ifeq);
-
-            bytecode0(jvm_iconst_1);
-            goto_node = bytecode0(jvm_goto);
-            next_node = bytecode0(jvm_iconst_0);
-
-            if_node1->branch_target = next_node;
-            if_node2->branch_target = next_node;
-
-            next_node = bytecode0(jvm_impdep1);
-
-            goto_node->branch_target = next_node;
-            
-            break;
-          case OR:
-            expr_emit (root->astnode.expression.lhs);
-            if_node1 = bytecode0(jvm_ifne);
-
-            fprintf (curfp, " || ");
-
-            expr_emit (root->astnode.expression.rhs);
-            if_node2 = bytecode0(jvm_ifne);
-
-            bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
-            next_node = bytecode0(jvm_iconst_1);
-
-            if_node1->branch_target = next_node;
-            if_node2->branch_target = next_node;
-
-            next_node = bytecode0(jvm_impdep1);
-
-            goto_node->branch_target = next_node;
-            
-            break;
-        }
-      }
+      logicalop_emit(root);
       break;
     case Relationalop:
-
-      cur_vt = MIN(root->astnode.expression.lhs->vartype,
-                   root->astnode.expression.rhs->vartype);
-
-      if(((root->astnode.expression.lhs->vartype == String) ||
-          (root->astnode.expression.lhs->vartype == Character)) &&
-         ((root->astnode.expression.rhs->vartype == String) ||
-          (root->astnode.expression.rhs->vartype == Character)))
-      {
-        CPNODE *c;
-        int len;
-
-        if((root->token != rel_eq) && (root->token != rel_ne)) {
-          fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
-          return;
-        }
-
-        c = newMethodref(cur_const_table,JL_STRING,
-               "regionMatches", REGIONMATCHES_DESC);
-
-        if(root->token == rel_ne)
-          fprintf(curfp,"!");
-
-        expr_emit (root->astnode.expression.lhs);
-
-        bytecode0(jvm_iconst_0);
-        fprintf(curfp,".regionMatches(0, ");
-
-        expr_emit (root->astnode.expression.rhs);
-        bytecode0(jvm_iconst_0);
-
-        len = 1;
-      
-        if(root->astnode.expression.lhs->nodetype == Constant) {
-          len = strlen(root->astnode.expression.lhs->astnode.constant.number);
-        }
-        else if(root->astnode.expression.lhs->nodetype == Identifier) {
-          HASHNODE *h;
- 
-          h = type_lookup(cur_type_table, 
-                root->astnode.expression.lhs->astnode.ident.name);
-
-          if(h) {
-            if(h->variable->astnode.ident.len < 0)
-              len = 1;
-            else
-              len = h->variable->astnode.ident.len;
-          }
-        }
-
-        if(root->astnode.expression.rhs->nodetype == Constant) {
-          int rlen;
-
-          rlen = strlen(root->astnode.expression.rhs->astnode.constant.number);
-
-          if(rlen < len)
-            len = rlen;
-        }
-        else if(root->astnode.expression.rhs->nodetype == Identifier) {
-          HASHNODE *h;
- 
-          h = type_lookup(cur_type_table, 
-                root->astnode.expression.rhs->astnode.ident.name);
-
-          if(h)
-            if((h->variable->astnode.ident.len < len) &&
-              (h->variable->astnode.ident.len > 0))
-              len = h->variable->astnode.ident.len;
-        }
-        
-        /* bytecode0(jvm_iconst_1); */
-        pushIntConst(len);
-
-        fprintf(curfp,", 0, %d) ",len);
-
-        bytecode1(jvm_invokevirtual, c->index);  /* call regionMatches() */
-
-        /* now check the op type & reverse if .NE. */
-        if(root->token == rel_ne) {
-          bytecode0(jvm_iconst_1);
-          bytecode0(jvm_ixor);
-        }
-
-        return;   /* nothing more to do for strings here. */
-      }
-
-      switch (root->token)
-      {
-        case rel_eq:
-
-          if(gendebug) {
-            if(root->astnode.expression.lhs->nodetype == Identifier)
-              printf("##@@ lhs ident %s has type %s\n", 
-                 root->astnode.expression.lhs->astnode.ident.name,
-                 returnstring[root->astnode.expression.lhs->vartype]);
-
-            if(root->astnode.expression.rhs->nodetype == Identifier)
-              printf("##@@ rhs ident %s has type %s\n", 
-                root->astnode.expression.rhs->astnode.ident.name,
-                returnstring[root->astnode.expression.rhs->vartype]);
-          }
-
-          expr_emit (root->astnode.expression.lhs);
-
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-
-          fprintf (curfp, " == ");
-
-          expr_emit (root->astnode.expression.rhs);
-
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-
-          break;
-        case rel_ne:
-
-          expr_emit (root->astnode.expression.lhs);
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-          fprintf (curfp, " != ");
-          expr_emit (root->astnode.expression.rhs);
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-          break;
-        case rel_lt:
-          expr_emit (root->astnode.expression.lhs);
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-          fprintf (curfp, " < ");
-          expr_emit (root->astnode.expression.rhs);
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-          break;
-        case rel_le:
-          expr_emit (root->astnode.expression.lhs);
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-          fprintf (curfp, " <= ");
-          expr_emit (root->astnode.expression.rhs);
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-          break;
-        case rel_gt:
-          expr_emit (root->astnode.expression.lhs);
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-          fprintf (curfp, " > ");
-          expr_emit (root->astnode.expression.rhs);
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-          break;
-        case rel_ge:
-          expr_emit (root->astnode.expression.lhs);
-          if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
-          }
-          fprintf (curfp, " >= ");
-          expr_emit (root->astnode.expression.rhs);
-          if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode0(
-              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
-          }
-          break;
-      }
-
-      switch(cur_vt) {
-        case String: 
-        case Character: 
-          /* we dont need to do anything here because strings were handled
-           * above already.
-           */
-          break;
-        case Complex: 
-          fprintf(stderr,"WARNING: complex relop not supported yet!\n");
-          break;
-        case Logical:
-          fprintf(stderr,"WARNING: relop not supported on logicals!\n");
-          break;
-        case Float: 
-          fprintf(stderr,"WARNING: single precision not supported!\n");
-          break;
-        case Double: 
-          {
-            CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
-
-            /* the only difference between dcmpg and dcmpl is the handling
-             * of the NaN value.  for .lt. and .le. we use dcmpg, otherwise
-             * use dcmpl.  this mirrors the behavior of javac.
-             */
-            if((root->token == rel_lt) || (root->token == rel_le))
-              bytecode0(jvm_dcmpg);
-            else
-              bytecode0(jvm_dcmpl);
-
-            cmp_node = bytecode0(dcmp_opcode[root->token]);
-            bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
-            iconst_node = bytecode0(jvm_iconst_1);
-            cmp_node->branch_target = iconst_node;
-
-            /* create a dummy instruction node following the iconst so that
-             * we have a branch target for the goto statement.  it'll be
-             * removed later.
-             */
-            next_node = bytecode0(jvm_impdep1);
-            goto_node->branch_target = next_node;
-          }
-          break;
-        case Integer: 
-          {
-            CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
-
-            cmp_node = bytecode0(icmp_opcode[root->token]);
-            bytecode0(jvm_iconst_0);
-            goto_node = bytecode0(jvm_goto);
-            iconst_node = bytecode0(jvm_iconst_1);
-            cmp_node->branch_target = iconst_node;
-
-            /* create a dummy instruction node following the iconst so that
-             * we have a branch target for the goto statement.  it'll be
-             * removed later.
-             */
-            next_node = bytecode0(jvm_impdep1);
-            goto_node->branch_target = next_node;
-          }
-          break;
-        default:
-          fprintf(stderr,"WARNING: hit default, relop .eq.\n");
-          break;
-      }
-
+      relationalop_emit(root);
       break;
     case Substring:
-      {
-        CPNODE *c;
-
-        /* Substring operations are handled with java.lang.String.substring */
-
-        name_emit(root);
-
-        fprintf(curfp,"(");
-        expr_emit(root->astnode.ident.arraylist);
-        fprintf(curfp,")-1,");
-
-        bytecode0(jvm_iconst_m1);  /* decrement start idx by one */
-        bytecode0(jvm_iadd);
-
-        expr_emit(root->astnode.ident.arraylist->nextstmt);
-        fprintf(curfp,")");
-
-        c = newMethodref(cur_const_table,JL_STRING,
-                 "substring", SUBSTR_DESC);
-        bytecode1(jvm_invokevirtual, c->index);
-
-      }
+      substring_expr_emit(root);
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",
         print_nodetype(root));
   }
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * parenthesized_expr_emit                                                   *
+ *                                                                           *
+ * This function handles any expression surrounded by parens - really no     *
+ * need to do anything here, just call expr_emit() to emit the expression.   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+parenthesized_expr_emit(AST *root)
+{
+  if (root->astnode.expression.parens)
+    fprintf (curfp, "(");
+
+  /* is expression.lhs ever really non-null? i dont think so.
+   * in any case, for bytecode generation, we are not concerned
+   * with parens, so it should be ok to just call expr_emit. (kgs)
+   */
+
+  if (root->astnode.expression.lhs != NULL)
+    expr_emit (root->astnode.expression.lhs);
+
+  expr_emit (root->astnode.expression.rhs);
+
+  if (root->astnode.expression.parens)
+    fprintf (curfp, ")");
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * power_emit                                                                *
+ *                                                                           *
+ * This function generates code for exponential expressions (e.g. x**y).     *
+ * We use java.lang.Math.pow().                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+power_emit(AST *root)
+{
+  CPNODE * ct;
+
+  /* hack alert: determine whether this expression is used as the size
+   *   in an array declaration.  if so, it must be integer, but java's
+   *   pow() method returns double.  so we add a cast.  it would probably
+   *   be better to detect this elsewhere (e.g. in the code that emits
+   *   array declarations).
+   */
+  BOOL gencast = (root->parent != NULL)
+             && (root->parent->nodetype == ArrayDec);
+
+  fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
+
+  /* the args to pow must be doubles, so cast if necessary */
+
+  expr_emit (root->astnode.expression.lhs);
+
+  if(root->astnode.expression.lhs->vartype != Double)
+    bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype]
+                             [Double]);
+  fprintf (curfp, ", ");
+  expr_emit (root->astnode.expression.rhs);
+  if(root->astnode.expression.rhs->vartype != Double)
+    bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype]
+                             [Double]);
+  fprintf (curfp, ")");
+
+  ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
+
+  bytecode1(jvm_invokestatic, ct->index);
+
+  if(gencast)
+    bytecode0(jvm_d2i);
+  else if(root->vartype != Double)
+    bytecode0(typeconv_matrix[root->vartype][Double]);
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * binaryop_emit                                                             *
+ *                                                                           *
+ * This function generates code for binary operations (mul, add, etc).       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+binaryop_emit(AST *root)
+{
+  CPNODE * ct;
+
+  /* handle special case for string concatenation in bytecode..   we
+   * must create a new StringBuffer which contains the LHS and append
+   * the RHS to the STringBuffer.
+   */
+  if(root->token == CAT)
+  {
+    ct = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+              STRINGBUFFER);
+
+    bytecode1(jvm_new,ct->index);
+    bytecode0(jvm_dup);
+    expr_emit (root->astnode.expression.lhs);
+    if((root->astnode.expression.lhs->vartype != String) &&
+       (root->astnode.expression.lhs->vartype != Character) )
+    {
+      fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
+    }
+    ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
+
+    fprintf (curfp, "%c", root->astnode.expression.optype);
+
+    bytecode1(jvm_invokespecial, ct->index);
+    expr_emit (root->astnode.expression.rhs);
+    if((root->astnode.expression.rhs->vartype != String) &&
+       (root->astnode.expression.rhs->vartype != Character) )
+    {
+      fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
+    }
+    ct = newMethodref(cur_const_table,STRINGBUFFER, "append",
+                      append_descriptor[String]);
+    bytecode1(jvm_invokevirtual, ct->index);
+    ct = newMethodref(cur_const_table,STRINGBUFFER, "toString",
+                      TOSTRING_DESC);
+    bytecode1(jvm_invokevirtual, ct->index);
+  }
+  else {
+    expr_emit (root->astnode.expression.lhs);
+
+    if(root->astnode.expression.lhs->vartype > root->vartype)
+      bytecode0(
+        typeconv_matrix[root->astnode.expression.lhs->vartype]
+                       [root->vartype]);
+
+    fprintf (curfp, "%c", root->astnode.expression.optype);
+    expr_emit (root->astnode.expression.rhs);
+
+    if(root->astnode.expression.rhs->vartype > root->vartype)
+      bytecode0(
+        typeconv_matrix[root->astnode.expression.rhs->vartype]
+                       [root->vartype]);
+
+    switch(root->astnode.expression.optype) {
+      case '+':
+        bytecode0(add_opcode[root->vartype]);
+        break;
+      case '-':
+        bytecode0(sub_opcode[root->vartype]);
+        break;
+      case '/':
+        bytecode0(div_opcode[root->vartype]);
+        break;
+      case '*':
+        bytecode0(mul_opcode[root->vartype]);
+        break;
+      default:
+        fprintf(stderr,"WARNING: unsupported optype\n");
+        break;  /* for ANSI C compliance */
+    }
+  }
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * unaryop_emit                                                              *
+ *                                                                           *
+ * This function emits the code for a unary expression.  I think the only    *
+ * unary op we handle here is unary minus.  Unary negation gets handled in   *
+ * logicalop_emit().                                                         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+unaryop_emit(AST *root)
+{
+  fprintf (curfp, "%c(", root->astnode.expression.minus);
+  expr_emit (root->astnode.expression.rhs);
+  fprintf (curfp, ")");
+
+  if(root->astnode.expression.minus == '-')
+    bytecode0(neg_opcode[root->vartype]);
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * constant_expr_emit                                                        *
+ *                                                                           *
+ * This function emits the code for a constant expression.                   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+constant_expr_emit(AST *root)
+{
+  char *tempname = NULL;
+
+  if(root->parent != NULL)
+  {
+    tempname = strdup(root->parent->astnode.ident.name);
+    uppercase(tempname);
+  }
+
+ /*
+  * here we need to determine if this is a parameter to a function
+  * or subroutine.  if so, and we are using wrappers, then we need
+  * to create a temporary wrapper and pass that in instead of the
+  * constant.   10/9/97  -- Keith 
+  */
+
+  if( (root->parent != NULL) &&
+      (root->parent->nodetype == Call) &&
+      (type_lookup(cur_array_table,root->parent->astnode.ident.name)
+          == NULL) &&
+      (methodscan(intrinsic_toks, tempname) == NULL))
+  {
+    if(root->token == STRING) {
+      if(omitWrappers) {
+
+        pushConst(root);
+
+        fprintf (curfp, "\"%s\"", root->astnode.constant.number);
+      }
+      else
+      {
+        invoke_constructor(full_wrappername[root->vartype], root,
+          wrapper_descriptor[root->vartype]);
+
+        fprintf (curfp, "new StringW(\"%s\")",
+          root->astnode.constant.number);
+      }
+    }
+    else {     /* non-string constant argument to a function call */
+      if(omitWrappers) {
+        pushConst(root);
+
+        fprintf (curfp, "%s", root->astnode.constant.number);
+      }
+      else
+      {
+        invoke_constructor(full_wrappername[root->vartype], root,
+          wrapper_descriptor[root->vartype]);
+
+        fprintf (curfp, "new %s(%s)",
+          wrapper_returns[get_type(root->astnode.constant.number)],
+          root->astnode.constant.number);
+      }
+    }
+  }
+  else  /* this constant is not an argument to a function call */
+  {
+
+    pushConst(root);
+
+    if(root->token == STRING)
+      fprintf (curfp, "\"%s\"", root->astnode.constant.number);
+    else
+      fprintf (curfp, "%s", root->astnode.constant.number);
+  }
+
+  if(tempname != NULL)
+    f2jfree(tempname, strlen(tempname)+1);
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * logicalop_emit                                                            *
+ *                                                                           *
+ * This function emits the code for a logical expression (i.e. boolean).     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+logicalop_emit(AST *root)
+{
+  CodeGraphNode *if_node1, *if_node2, *goto_node, *next_node;
+
+  switch(root->token) {
+    case NOT:
+      fprintf (curfp, "!");
+      expr_emit (root->astnode.expression.rhs);
+
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_ixor);
+      break;
+    case AND:
+      expr_emit (root->astnode.expression.lhs);
+      if_node1 = bytecode0(jvm_ifeq);
+
+      fprintf (curfp, " && ");
+
+      expr_emit (root->astnode.expression.rhs);
+      if_node2 = bytecode0(jvm_ifeq);
+
+      bytecode0(jvm_iconst_1);
+      goto_node = bytecode0(jvm_goto);
+      next_node = bytecode0(jvm_iconst_0);
+
+      if_node1->branch_target = next_node;
+      if_node2->branch_target = next_node;
+
+      next_node = bytecode0(jvm_impdep1);
+
+      goto_node->branch_target = next_node;
+
+      break;
+    case OR:
+      expr_emit (root->astnode.expression.lhs);
+      if_node1 = bytecode0(jvm_ifne);
+
+      fprintf (curfp, " || ");
+
+      expr_emit (root->astnode.expression.rhs);
+      if_node2 = bytecode0(jvm_ifne);
+
+      bytecode0(jvm_iconst_0);
+      goto_node = bytecode0(jvm_goto);
+      next_node = bytecode0(jvm_iconst_1);
+
+      if_node1->branch_target = next_node;
+      if_node2->branch_target = next_node;
+
+      next_node = bytecode0(jvm_impdep1);
+
+      goto_node->branch_target = next_node;
+
+      break;
+  }
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * relationalop_emit                                                         *
+ *                                                                           *
+ * This function emits the code for a relational expression (e.g. .lt., .gt. *
+ * etc).                                                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+relationalop_emit(AST *root)
+{
+  int cur_vt;
+
+  cur_vt = MIN(root->astnode.expression.lhs->vartype,
+               root->astnode.expression.rhs->vartype);
+
+  if(((root->astnode.expression.lhs->vartype == String) ||
+      (root->astnode.expression.lhs->vartype == Character)) &&
+     ((root->astnode.expression.rhs->vartype == String) ||
+      (root->astnode.expression.rhs->vartype == Character)))
+  {
+    CPNODE *c;
+    int len;
+
+    if((root->token != rel_eq) && (root->token != rel_ne)) {
+      fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
+      return;
+    }
+
+    c = newMethodref(cur_const_table,JL_STRING,
+           "regionMatches", REGIONMATCHES_DESC);
+
+    if(root->token == rel_ne)
+      fprintf(curfp,"!");
+
+    expr_emit (root->astnode.expression.lhs);
+
+    bytecode0(jvm_iconst_0);
+    fprintf(curfp,".regionMatches(0, ");
+
+    expr_emit (root->astnode.expression.rhs);
+    bytecode0(jvm_iconst_0);
+
+    len = 1;
+      
+    if(root->astnode.expression.lhs->nodetype == Constant) {
+      len = strlen(root->astnode.expression.lhs->astnode.constant.number);
+    }
+    else if(root->astnode.expression.lhs->nodetype == Identifier) {
+      HASHNODE *h;
+
+      h = type_lookup(cur_type_table, 
+            root->astnode.expression.lhs->astnode.ident.name);
+
+      if(h) {
+        if(h->variable->astnode.ident.len < 0)
+          len = 1;
+        else
+          len = h->variable->astnode.ident.len;
+      }
+    }
+
+    if(root->astnode.expression.rhs->nodetype == Constant) {
+      int rlen;
+
+      rlen = strlen(root->astnode.expression.rhs->astnode.constant.number);
+
+      if(rlen < len)
+        len = rlen;
+    }
+    else if(root->astnode.expression.rhs->nodetype == Identifier) {
+      HASHNODE *h;
+
+      h = type_lookup(cur_type_table, 
+            root->astnode.expression.rhs->astnode.ident.name);
+
+      if(h)
+        if((h->variable->astnode.ident.len < len) &&
+          (h->variable->astnode.ident.len > 0))
+          len = h->variable->astnode.ident.len;
+    }
+    
+    /* bytecode0(jvm_iconst_1); */
+    pushIntConst(len);
+
+    fprintf(curfp,", 0, %d) ",len);
+
+    bytecode1(jvm_invokevirtual, c->index);  /* call regionMatches() */
+
+    /* now check the op type & reverse if .NE. */
+    if(root->token == rel_ne) {
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_ixor);
+    }
+
+    return;   /* nothing more to do for strings here. */
+  }
+
+  switch (root->token)
+  {
+    case rel_eq:
+
+      if(gendebug) {
+        if(root->astnode.expression.lhs->nodetype == Identifier)
+          printf("##@@ lhs ident %s has type %s\n", 
+             root->astnode.expression.lhs->astnode.ident.name,
+             returnstring[root->astnode.expression.lhs->vartype]);
+
+        if(root->astnode.expression.rhs->nodetype == Identifier)
+          printf("##@@ rhs ident %s has type %s\n", 
+            root->astnode.expression.rhs->astnode.ident.name,
+            returnstring[root->astnode.expression.rhs->vartype]);
+      }
+
+      expr_emit (root->astnode.expression.lhs);
+
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+
+      fprintf (curfp, " == ");
+
+      expr_emit (root->astnode.expression.rhs);
+
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+
+      break;
+    case rel_ne:
+
+      expr_emit (root->astnode.expression.lhs);
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+      fprintf (curfp, " != ");
+      expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+      break;
+    case rel_lt:
+      expr_emit (root->astnode.expression.lhs);
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+      fprintf (curfp, " < ");
+      expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+      break;
+    case rel_le:
+      expr_emit (root->astnode.expression.lhs);
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+      fprintf (curfp, " <= ");
+      expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+      break;
+    case rel_gt:
+      expr_emit (root->astnode.expression.lhs);
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+      fprintf (curfp, " > ");
+      expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+      break;
+    case rel_ge:
+      expr_emit (root->astnode.expression.lhs);
+      if(root->astnode.expression.lhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+      }
+      fprintf (curfp, " >= ");
+      expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.rhs->vartype > cur_vt) {
+        bytecode0(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+      }
+      break;
+  }
+
+  switch(cur_vt) {
+    case String: 
+    case Character: 
+      /* we dont need to do anything here because strings were handled
+       * above already.
+       */
+      break;
+    case Complex: 
+      fprintf(stderr,"WARNING: complex relop not supported yet!\n");
+      break;
+    case Logical:
+      fprintf(stderr,"WARNING: relop not supported on logicals!\n");
+      break;
+    case Float: 
+      fprintf(stderr,"WARNING: single precision not supported!\n");
+      break;
+    case Double: 
+      {
+        CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
+
+        /* the only difference between dcmpg and dcmpl is the handling
+         * of the NaN value.  for .lt. and .le. we use dcmpg, otherwise
+         * use dcmpl.  this mirrors the behavior of javac.
+         */
+        if((root->token == rel_lt) || (root->token == rel_le))
+          bytecode0(jvm_dcmpg);
+        else
+          bytecode0(jvm_dcmpl);
+
+        cmp_node = bytecode0(dcmp_opcode[root->token]);
+        bytecode0(jvm_iconst_0);
+        goto_node = bytecode0(jvm_goto);
+        iconst_node = bytecode0(jvm_iconst_1);
+        cmp_node->branch_target = iconst_node;
+
+        /* create a dummy instruction node following the iconst so that
+         * we have a branch target for the goto statement.  it'll be
+         * removed later.
+         */
+        next_node = bytecode0(jvm_impdep1);
+        goto_node->branch_target = next_node;
+      }
+      break;
+    case Integer: 
+      {
+        CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
+
+        cmp_node = bytecode0(icmp_opcode[root->token]);
+        bytecode0(jvm_iconst_0);
+        goto_node = bytecode0(jvm_goto);
+        iconst_node = bytecode0(jvm_iconst_1);
+        cmp_node->branch_target = iconst_node;
+
+        /* create a dummy instruction node following the iconst so that
+         * we have a branch target for the goto statement.  it'll be
+         * removed later.
+         */
+        next_node = bytecode0(jvm_impdep1);
+        goto_node->branch_target = next_node;
+      }
+      break;
+    default:
+      fprintf(stderr,"WARNING: hit default, relop .eq.\n");
+      break;
+  }
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * substring_expr_emit                                                       *
+ *                                                                           *
+ * This function emits the code for a substring expression.  I think this    *
+ * only handle RHS substring expressions.  Use java.lang.String.substring()  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+substring_expr_emit(AST *root)
+{
+  CPNODE *c;
+
+  /* Substring operations are handled with java.lang.String.substring */
+
+  name_emit(root);
+
+  fprintf(curfp,"(");
+  expr_emit(root->astnode.ident.arraylist);
+  fprintf(curfp,")-1,");
+
+  bytecode0(jvm_iconst_m1);  /* decrement start idx by one */
+  bytecode0(jvm_iadd);
+
+  expr_emit(root->astnode.ident.arraylist->nextstmt);
+  fprintf(curfp,")");
+
+  c = newMethodref(cur_const_table,JL_STRING,
+           "substring", SUBSTR_DESC);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  return;
 }
 
 /*****************************************************************************

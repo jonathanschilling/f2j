@@ -735,7 +735,8 @@ common_check(AST *root)
           printf("# @#Typecheck: inserting %s into the type table, merged = %s\n",
             ht->variable->astnode.ident.name, 
             ht->variable->astnode.ident.merged_name);
-            ht->variable->astnode.ident.passByRef = TRUE;
+
+        ht->variable->astnode.ident.passByRef = TRUE;
 
         type_insert(chk_type_table,ht->variable,ht->variable->vartype,
           ht->variable->astnode.ident.name);

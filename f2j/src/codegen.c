@@ -12474,6 +12474,8 @@ calcStack(char *d)
   int len = strlen(d);
   char *ptr, *tstr;
 
+printf("in calcStack, the desc = '%s'\n", d);
+
   tmp = (struct stack_info *)f2jalloc(sizeof(struct stack_info));
   tmp->arg_len = 1;
   tmp->ret_len = 1;
@@ -12520,6 +12522,7 @@ calcStack(char *d)
     tmp->ret_len = 1;
 
   f2jfree(tstr, strlen(tstr)+1);
+printf("calcStack arg_len = %d, ret_len = %d\n",tmp->arg_len, tmp->ret_len);
   return tmp;
 }
 

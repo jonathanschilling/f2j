@@ -18,6 +18,7 @@ int checkdebug = 1;
 
 SYMTABLE *chk_type_table;
 SYMTABLE *chk_external_table;
+SYMTABLE *chk_intrinsic_table;
 SYMTABLE *chk_array_table;
 
 char *methodscan (METHODTAB *, char *);
@@ -42,6 +43,7 @@ typecheck (AST * root)
 
       chk_type_table = root->astnode.source.type_table;
       chk_external_table = root->astnode.source.external_table;
+      chk_intrinsic_table = root->astnode.source.intrinsic_table;
       chk_array_table = root->astnode.source.array_table;
 
       typecheck (root->astnode.source.progtype);
@@ -276,7 +278,9 @@ name_check (AST * root)
       printf("going to external_check\n");
     external_check(root);  /* handles LSAME, LSAMEN */
   }
-  else if( methodscan (intrinsic_toks, tempname) != NULL) 
+  else if(( methodscan (intrinsic_toks, tempname) != NULL) 
+    &&   ((type_lookup(chk_intrinsic_table,root->astnode.ident.name) != NULL)
+       || (type_lookup(chk_type_table,root->astnode.ident.name) == NULL)))
   {
     if (checkdebug)
       printf("going to intrinsic_check\n");
@@ -353,7 +357,11 @@ subcall_check(AST *root)
 
   for (temp; temp != NULL; temp = temp->nextstmt)
     if (*temp->astnode.ident.name != '*')
+    {
+      if(temp == NULL)
+        fprintf(stderr,"subcall_check: calling expr_check with null pointer!\n");
       expr_check (temp);
+    }
  
    /* 
      here we need to figure out if this is a function
@@ -371,6 +379,8 @@ subcall_check(AST *root)
 int
 func_array_check(AST *root, HASHNODE *hashtemp)
 {
+      if(root == NULL)
+        fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
   expr_check (root);
 
   if(   (hashtemp->variable->astnode.ident.leaddim != NULL)
@@ -378,6 +388,8 @@ func_array_check(AST *root, HASHNODE *hashtemp)
      && (root->nextstmt != NULL))
   {
     root = root->nextstmt;
+      if(root == NULL)
+        fprintf(stderr,"func_array_check2: calling expr_check with null pointer!\n");
     expr_check (root);
   }
 }
@@ -431,6 +443,8 @@ external_check(AST *root)
       temp = root->astnode.ident.arraylist;
 
       name_check (temp->nextstmt->nextstmt);
+      if(temp == NULL)
+        fprintf(stderr,"external_check: calling expr_check with null pointer!\n");
       expr_check (temp);
       root->vartype = Logical;
       return;
@@ -453,17 +467,21 @@ intrinsic_check(AST *root)
   if (!strcmp (tempname, "MAX"))
   {
 
-printf("here we are in MAX.  arraylist is %s\n", 
-  (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
+    printf("here we are in MAX.  arraylist is %s\n", 
+      (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
 
     temp = root->astnode.ident.arraylist;
 
-printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
+    printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
 
-printf("temp->next is %s\n",
-  (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
+    printf("temp->next is %s\n",
+       (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
 
+      if(temp == NULL)
+        fprintf(stderr,"MAX1: calling expr_check with null pointer!\n");
     expr_check (temp);
+      if(temp->nextstmt == NULL)
+        fprintf(stderr,"MAX2: calling expr_check with null pointer!\n");
     expr_check (temp->nextstmt);
     root->vartype = Double;
     return;
@@ -472,7 +490,11 @@ printf("temp->next is %s\n",
   if (!strcmp (tempname, "MIN"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"MIN: calling expr_check with null pointer!\n");
     expr_check (temp);
+      if(temp->nextstmt == NULL)
+        fprintf(stderr,"MIN2: calling expr_check with null pointer!\n");
     expr_check (temp->nextstmt);
     root->vartype = Double;
     return;
@@ -481,6 +503,8 @@ printf("temp->next is %s\n",
   if (!strcmp (tempname, "ABS"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"ABS: calling expr_check with null pointer!\n");
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -489,6 +513,8 @@ printf("temp->next is %s\n",
   if (!strcmp (tempname, "DABS"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"DABS: calling expr_check with null pointer!\n");
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -500,6 +526,8 @@ printf("temp->next is %s\n",
    || !strcmp (tempname, "COS"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"DSQRT,etc: calling expr_check with null pointer!\n");
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -510,6 +538,8 @@ printf("temp->next is %s\n",
    || !strcmp (tempname, "LOG10"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"SQRT,etc: calling expr_check with null pointer!\n");
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -519,7 +549,11 @@ printf("temp->next is %s\n",
    || !strcmp (tempname, "SIGN"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"MOD: calling expr_check with null pointer!\n");
     expr_check(temp);
+      if(temp->nextstmt == NULL)
+        fprintf(stderr,"MOD2: calling expr_check with null pointer!\n");
     expr_check(temp->nextstmt);
     root->vartype = Integer;
     return;
@@ -528,6 +562,8 @@ printf("temp->next is %s\n",
   if (!strcmp (tempname, "CHAR"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"CHAR: calling expr_check with null pointer!\n");
     expr_check(temp);
     root->vartype = Character;
     return;
@@ -539,6 +575,8 @@ printf("temp->next is %s\n",
    || !strcmp (tempname, "NINT"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"%s: calling expr_check with null pointer!\n",tempname);
     expr_check(temp);
     root->vartype = Integer;
     return;
@@ -548,6 +586,8 @@ printf("temp->next is %s\n",
      !strcmp (tempname, "DBLE"))
   {
     temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"REAL: calling expr_check with null pointer!\n");
     expr_check(temp);
     root->vartype = Double;
     return;
@@ -577,17 +617,27 @@ expr_check (AST * root)
     case Expression:
       if (root->astnode.expression.lhs != NULL)
         expr_check (root->astnode.expression.lhs);
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       root->vartype = root->astnode.expression.rhs->vartype;
       break;
     case Power:
+      if(root->astnode.expression.lhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.lhs);
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       root->vartype = MIN(root->astnode.expression.lhs->vartype,
                           root->astnode.expression.rhs->vartype);
       break;
     case Binaryop:
+      if(root->astnode.expression.lhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.lhs);
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       if (checkdebug) {
          printf("here checking binaryOp...\n");
@@ -599,6 +649,8 @@ expr_check (AST * root)
                           root->astnode.expression.rhs->vartype);
       break;
     case Unaryop:
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       root->vartype = root->astnode.expression.rhs->vartype;
       break;
@@ -608,16 +660,26 @@ expr_check (AST * root)
     case Logicalop:
       if (root->astnode.expression.lhs != NULL)
         expr_check (root->astnode.expression.lhs);
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       root->vartype = Logical;
       break;
     case Relationalop:
+      if(root->astnode.expression.lhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.lhs);
+      if(root->astnode.expression.rhs == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
       root->vartype = Logical;
       break;
     case Substring:
+      if(root->astnode.ident.arraylist == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check(root->astnode.ident.arraylist);
+      if(root->astnode.ident.arraylist->nextstmt == NULL)
+        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check(root->astnode.ident.arraylist->nextstmt);
       root->vartype = String;
       break;
@@ -635,6 +697,8 @@ forloop_check (AST * root)
 {
   assign_check (root->astnode.forloop.start);
 
+      if(root->astnode.forloop.stop == NULL)
+        fprintf(stderr,"forloop_check: calling expr_check with null pointer!\n");
   expr_check (root->astnode.forloop.stop);
 
   if (root->astnode.forloop.incr != NULL)
@@ -658,7 +722,11 @@ write_check (AST * root)
   AST *temp;
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+  {
+      if(temp == NULL)
+        fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
     expr_check (temp);
+  }
 }
 
 int
@@ -712,9 +780,13 @@ if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
   temp = root->astnode.ident.arraylist;
   while (temp->nextstmt != NULL)
   {
+      if(temp == NULL)
+        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
     expr_check (temp);
     temp = temp->nextstmt;
   }
+      if(temp == NULL)
+        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
   expr_check (temp);
 }
 
@@ -722,6 +794,8 @@ int
 assign_check (AST * root)
 {
   name_check (root->astnode.assignment.lhs);
+      if(root->astnode.assignment.rhs == NULL)
+        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
   expr_check (root->astnode.assignment.rhs);
 
   printf("## ## typecheck: ltype = %s\n",

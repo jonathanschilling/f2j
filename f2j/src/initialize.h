@@ -234,9 +234,11 @@ char *java_reserved_words[] =
  * complain.  I will add names to this list as I run across
  * problems.   12/8/97 --Keith 
  *
+ *  When I finish writing the code to directly modify the
+ * bytecode, this stuff can be removed.  --Keith
  */
 
 char *jasmin_reserved_words[] =
 {
-     "ldc", 0
+     "ldc", "isub", "iinc", 0
 };

@@ -490,7 +490,8 @@ typedec_emit (AST * root)
     tempname = strdup(temp->astnode.ident.name);
     uppercase(tempname);
 
-    if( methodscan (intrinsic_toks, tempname) != NULL) 
+    if(( methodscan (intrinsic_toks, tempname) != NULL)
+     && (type_lookup(cur_intrinsic_table,temp->astnode.ident.name) != NULL)) 
       continue;
 
      /* 
@@ -603,7 +604,7 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
       else if (returns == Logical)
         fprintf (curfp, "= new booleanW(%s)", init_vals[returns]);
       else if ((returns == String) || (returns == Character))
-        fprintf (curfp, "= new StringW(%s)", init_vals[returns]);
+        print_string_initializer(root);
       fprintf (curfp, ";\n");
     } else {
       /*  
@@ -620,10 +621,37 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
       }
       else
       {
-        fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
-           init_vals[returns]);
+        if ((returns == String) || (returns == Character))
+        {
+          print_string_initializer(root);
+          fprintf(curfp,";\n");
+        }
+        else
+          fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
+            init_vals[returns]);
       }
     }
+  }
+}
+
+int
+print_string_initializer(AST *root)
+{
+  HASHNODE *ht;
+
+  ht = type_lookup(cur_type_table,root->astnode.ident.name);
+  if(ht == NULL)
+  {
+    fprintf(stderr,"Weird...can't find %s in type_table\n",
+      root->astnode.ident.name);
+    fprintf (curfp, "= new StringW(%s)", init_vals[String]);
+  }
+  else
+  {
+    char buf[ ht->variable->astnode.ident.len ];
+
+    sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
+    fprintf(curfp,"= new StringW(%s)", buf);
   }
 }
 
@@ -913,23 +941,26 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
   if(Ctemp->token == STRING) 
   {
+    HASHNODE *ht;
+    int len;
+
+    ht = type_lookup(cur_type_table,Ntemp->astnode.ident.name);
+
+    if(ht == NULL)
+      len = 1;
+    else
+      len = Ntemp->astnode.ident.len;
+
     if(!needs_dec)
     {
-/* may need to be:  fprintf(curfp," %s = new StringW(\"%s\");\n", */
-
-      fprintf(curfp,"%s = new StringW(\"%s\");\n",
-        Ntemp->astnode.ident.name,
+      fprintf(curfp,"%s = new StringW(\"%*s\");\n",
+        Ntemp->astnode.ident.name, len,
         Ctemp->astnode.ident.name);
-/*
-      fprintf(curfp,"static %s = new StringW(\"%s\");\n",
-        Ntemp->astnode.ident.name,
-        Ctemp->astnode.ident.name);
-*/
     }
     else
     {
       expr_emit(Ntemp);
-      fprintf(curfp," = \"%s\";\n", Ctemp->astnode.ident.name);
+      fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.ident.name);
     }
   }
   else 
@@ -996,7 +1027,9 @@ name_emit (AST * root)
 
   if (type_lookup (cur_external_table, root->astnode.ident.name) != NULL)
     external_emit(root);  /* handles LSAME, LSAMEN */
-  else if( methodscan (intrinsic_toks, tempname) != NULL) 
+  else if(( methodscan (intrinsic_toks, tempname) != NULL) 
+     && ( (type_lookup(cur_intrinsic_table, root->astnode.ident.name) != NULL)
+       || (type_lookup(cur_type_table, root->astnode.ident.name) == NULL)))
     intrinsic_emit(root);
   else
     switch (root->token)
@@ -1599,17 +1632,18 @@ intrinsic_emit(AST *root)
 
     temp = root->astnode.ident.arraylist;
 
-    if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
-    {
-      fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
-      printf("LEN(%s) = %d\n",temp->astnode.ident.name,
-        ht->variable->astnode.ident.len);
-    }
-    else
-    {
-      fprintf (curfp, " 1 ");
-      printf("LEN(%s) = 1\n");
-    }
+    if(temp != NULL)
+      if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
+      {
+        fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
+        printf("LEN(%s) = %d\n",temp->astnode.ident.name,
+          ht->variable->astnode.ident.len);
+      }
+      else
+      {
+        fprintf (curfp, " 1 ");
+        printf("LEN(%s) = 1\n");
+      }
     return;
   }
 
@@ -1959,11 +1993,17 @@ constructor (AST * root)
       returns = root->astnode.source.returns;
 
       /* Test code.... */
-      fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-         wrapper_returns[returns],
-         root->astnode.source.name->astnode.ident.name,
-         wrapper_returns[returns],
-         init_vals[returns]);
+      if ((returns == String) || (returns == Character))
+      {
+         print_string_initializer(root);
+         fprintf(curfp, ";\n\n");
+      }
+      else
+         fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
+           wrapper_returns[returns],
+           root->astnode.source.name->astnode.ident.name,
+           wrapper_returns[returns],
+           init_vals[returns]);
 
       /* Define the constructor for the class. */
 /*

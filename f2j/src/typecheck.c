@@ -1046,16 +1046,19 @@ intrinsic_check(AST *root)
    * in case this is a generic intrinsic (so we may correctly determine
    * which typecasts to make).
    */
-  for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt) {
-    expr_check (temp);
+  if(root->astnode.ident.arraylist->nodetype != EmptyArgList) {
+    for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt) {
 
-    if(temp->vartype < min_type)
-      min_type = temp->vartype;
+      expr_check (temp);
 
-    if(! (bitfields[temp->vartype] & entry->args)) {
-      fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
-              entry->fortran_name);
-      exit(-1);
+      if(temp->vartype < min_type)
+        min_type = temp->vartype;
+
+      if(! (bitfields[temp->vartype] & entry->args)) {
+        fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
+                entry->fortran_name);
+        exit(-1);
+      }
     }
   }
 

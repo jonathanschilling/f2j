@@ -433,7 +433,7 @@ write_code(Dlist g, FILE *out)
     op = (u1) node->op;
     write_u1(op,out);
 
-    switch(opWidth(node->op)) {
+    switch(node->width) {
       case 1:
         /* if the width is 1, then there is no operand */
         break;

@@ -3607,18 +3607,11 @@ pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc,
   }
 
   if(isArg) {
-    if((desc[0] == 'L') || (desc[0] == '[')) {
-      /* this is a reference type, so always use aload */
-      if(lv > 3)
-        bytecode1(jvm_aload, lv);
-      else
-        bytecode0(short_load_opcodes[0][lv]);
-    } else {
-      if(lv > 3)
-        bytecode1(load_opcodes[vt], lv);
-      else
-        bytecode0(short_load_opcodes[vt][lv]);
-    }
+    /* for reference types, always use aload */
+    if((desc[0] == 'L') || (desc[0] == '['))
+      gen_load_op(lv, Object);
+    else
+      gen_load_op(lv, vt);
   }
   else {
     c = newFieldref(cur_const_table, class, name, desc);
@@ -6766,10 +6759,7 @@ forloop_end_bytecode(AST *root)
   /* decrement iteration count */
   iinc_emit(icount, -1);
 
-  if(icount <= 3)
-    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
-  else
-    iload_node = bytecode1(jvm_iload, icount);
+  iload_node = gen_load_op(icount, Integer);
 
   root->astnode.forloop.goto_node->branch_target = iload_node;
 
@@ -7423,10 +7413,7 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
   /* decrement iteration count */
   iinc_emit(icount, -1);
 
-  if(icount <= 3)
-    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
-  else
-    iload_node = bytecode1(jvm_iload, icount);
+  iload_node = gen_load_op(icount, Integer);
 
   goto_node->branch_target = iload_node;
 
@@ -7541,8 +7528,17 @@ iinc_emit(unsigned int idx, int inc_const)
 {
   unsigned int operand;
 
-  operand = ((idx & 0xFF) << 8) | (inc_const & 0xFF);
- 
+  if((idx > 255) || (inc_const < -128) || (inc_const > 127)) {
+    u2 short_const;
+
+    bytecode0(jvm_wide);
+   
+    short_const = (u2) inc_const;
+    operand = ((idx & 0xFFFF) << 16) | (short_const & 0xFFFF);
+  }
+  else
+    operand = ((idx & 0xFF) << 8) | (inc_const & 0xFF);
+
   bytecode1(jvm_iinc, operand);
 }
 
@@ -7558,10 +7554,17 @@ iinc_emit(unsigned int idx, int inc_const)
 CodeGraphNode *
 gen_store_op(unsigned int lvnum, enum returntype rt)
 {
-  if((lvnum >= 0) && (lvnum <= 3))
-    return bytecode0(short_store_opcodes[rt][lvnum]);
+  CodeGraphNode *node;
+
+  if(lvnum > 255) {
+    node = bytecode0(jvm_wide); 
+    bytecode1(store_opcodes[rt], lvnum);
+  } else if((lvnum >= 0) && (lvnum <= 3))
+    node = bytecode0(short_store_opcodes[rt][lvnum]);
   else
-    return bytecode1(store_opcodes[rt], lvnum);
+    node = bytecode1(store_opcodes[rt], lvnum);
+
+  return node;
 }
 
 /*****************************************************************************
@@ -7576,10 +7579,17 @@ gen_store_op(unsigned int lvnum, enum returntype rt)
 CodeGraphNode *
 gen_load_op(unsigned int lvnum, enum returntype rt)
 {
-  if((lvnum >= 0) && (lvnum <= 3))
-    return bytecode0(short_load_opcodes[rt][lvnum]);
+  CodeGraphNode *node;
+
+  if(lvnum > 255) {
+    node = bytecode0(jvm_wide); 
+    bytecode1(load_opcodes[rt], lvnum);
+  } else if((lvnum >= 0) && (lvnum <= 3))
+    node = bytecode0(short_load_opcodes[rt][lvnum]);
   else
-    return bytecode1(load_opcodes[rt], lvnum);
+    node = bytecode1(load_opcodes[rt], lvnum);
+
+  return node;
 }
 
 /*****************************************************************************
@@ -11873,6 +11883,7 @@ newGraphNode(enum _opcode op, u4 operand)
   
   tmp->op = op;
   tmp->operand = operand;
+  tmp->width = opWidth(op);
 
   /* set pc and branch targets later */
   tmp->pc = pc;
@@ -11926,7 +11937,23 @@ bytecode1(enum _opcode op, u4 operand)
 
   dl_insert_b(cur_code->attr.Code->code, tmp);
 
-  pc += jvm_opcode[op].width;
+  /* if the previous instruction was 'wide', then we need to
+   * increase the width of this instruction. 
+   */
+  if((prev != NULL) && (prev->op == jvm_wide)) {
+    if( (op == jvm_iload) || (op == jvm_fload) || (op == jvm_aload) || 
+        (op == jvm_lload) || (op == jvm_dload) || (op == jvm_istore) || 
+        (op == jvm_fstore) || (op == jvm_astore) || (op == jvm_lstore) || 
+        (op == jvm_dstore) || (op == jvm_ret))
+      tmp->width = jvm_opcode[op].width + 1;
+    else if(op == jvm_iinc)
+      tmp->width = jvm_opcode[op].width + 2;
+    else
+      fprintf(stderr,"Error: bad op used after wide instruction (%s)\n",
+          jvm_opcode[op].op);
+  }
+
+  pc += tmp->width;
 
   return tmp;
 }

@@ -21,6 +21,7 @@ typedef struct _code_graph_node {
   enum _opcode op;          /* the opcode for this instruction               */
   u4 pc;                    /* the address in bytecode of this instruction   */
   u4 operand;               /* this opcode's operand (may be u1, u2, u4)     */
+  u1 width;                 /* width of this op (may vary with wide modifier)*/
 
   struct _code_graph_node
      * branch_target,       /* the node to which we might optionally branch  *

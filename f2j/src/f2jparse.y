@@ -56,8 +56,7 @@ int
   yylex(void);
 
 double
-  eval_const_expr(AST *),
-  mypow(double, double);
+  eval_const_expr(AST *);
 
 char 
   * strdup(const char *),
@@ -3085,6 +3084,7 @@ store_array_var(AST * var)
 double
 mypow(double x, double y)
 {
+  double result;
   int i;
 
   if(y < 0)
@@ -3099,10 +3099,12 @@ mypow(double x, double y)
   if(y == 1)
     return x;
   
+  result = x;
+
   for(i=0;i<y-1;i++)
-    x *= x;
+    result *= x;
   
-  return x;
+  return result;
 }
 
 /*****************************************************************************

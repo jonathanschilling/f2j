@@ -11172,6 +11172,10 @@ traverse_code(Dlist cgraph)
     calcOffsets(et_entry->target);
   }
 
+  if(pc > MAX_CODE_LEN)
+    fprintf(stderr,"WARNING: code length (%d) exceeds max of %d\n",
+       pc, MAX_CODE_LEN);
+
   /* now print the instructions */
   dl_traverse(tmp,cgraph) {
     val = (CodeGraphNode *) tmp->val;
@@ -11261,6 +11265,8 @@ cfg_emit(Dlist cgraph, char *mname)
 void
 calcOffsets(CodeGraphNode *val)
 {
+  int distance;
+
   /* if we already visited this node, then do not visit again. */
   printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
          jvm_opcode[val->op].op,val->stack_depth);
@@ -11308,6 +11314,11 @@ calcOffsets(CodeGraphNode *val)
                     label_node->pc, cur_filename);
           }
 
+          distance = label_node->pc - val->pc;
+          if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
+             (distance < ((int)-mypow( 2.0, 15.0 ))))
+            fprintf(stderr,"Warning: branch target too far away.\n");
+
           val->operand = label_node->pc - val->pc;
           val->branch_target = label_node;
           calcOffsets(label_node);
@@ -11331,6 +11342,11 @@ calcOffsets(CodeGraphNode *val)
                 val->branch_target->pc, cur_filename);
       }
 
+      distance = val->branch_target->pc - val->pc;
+      if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
+         (distance < (-mypow( 2.0, 15.0 ))))
+          fprintf(stderr,"Warning: branch target too far away.\n");
+
       val->operand = val->branch_target->pc - val->pc;
       calcOffsets(val->branch_target);
     }
@@ -11343,6 +11359,11 @@ calcOffsets(CodeGraphNode *val)
      */
     if(val->next != NULL)
       val->next->stack_depth = stacksize;
+
+    distance = val->branch_target->pc - val->pc;
+    if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
+       (distance < (-mypow( 2.0, 15.0 ))))
+        fprintf(stderr,"Warning: branch target too far away.\n");
 
     val->branch_target->stack_depth = stacksize;
     val->operand = val->branch_target->pc - val->pc;

@@ -670,4 +670,7 @@ int
 BOOLEAN
   isPassByRef_desc(char *);
 
+double
+  mypow(double, double);
+
 #endif

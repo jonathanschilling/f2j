@@ -99,6 +99,8 @@
 #define JVM_ONLY      2
 #define JAVA_AND_JVM  3
 
+#define MAX_CODE_LEN 65535
+
 /*****************************************************************************
  * this structure holds information about the state of the stack before and  *
  * after a method call.  to correctly calculate the maximum stack depth, we  *

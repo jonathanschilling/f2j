@@ -166,7 +166,6 @@ void
   arg_assignment_emit(int, int, int, BOOL, enum returntype),
   arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
          enum returntype argtype),
-  implicit_function_var_emit(AST *),
   calcOffsets(Dlist, CodeGraphNode *),
   traverse_code(Dlist),
   while_emit(AST *),
@@ -213,7 +212,6 @@ void
   constructor (AST *),
   typedec_emit (AST *),
   data_emit(AST *),
-  spec_emit (AST *),
   equiv_emit (AST *),
   call_emit (AST *),
   forloop_emit (AST *),
@@ -286,6 +284,7 @@ void
   inc_stack(int);
 
 int
+  cast_data_stmt(AST *, int),
   cgPassByRef(char *),
   dl_int_examine(Dlist),
   getNextLocal(enum returntype),
@@ -294,7 +293,7 @@ int
   getStackIncrement(enum _opcode, u4),
   getStackDecrement(enum _opcode, u4),
   method_name_emit (AST *, BOOL),
-  data_repeat_emit(AST *, unsigned int),
+  data_repeat_emit(AST *, AST *, unsigned int),
   methcall_arglist_emit(AST *),
   num_locals_in_descriptor(char *),
   adapter_methcall_arg_emit(AST *, int, int, char *),

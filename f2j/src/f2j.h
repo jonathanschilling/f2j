@@ -54,6 +54,17 @@ typedef int BOOL;
 #define FINISHED    2
 
 /*****************************************************************************
+* Definitions for intrinsic variable names. At certain pts in the parser, we *
+* do not know wheather this intrinsic name represents an intrinsic call,     *
+* function call, array name, or a regular variable.                          *
+*****************************************************************************/
+
+#define INTRIN_NOT_NAMED 0
+#define INTRIN_NAMED_VARIABLE 1
+#define INTRIN_NAMED_ARRAY 2
+#define INTRIN_NAMED_ARRAY_OR_FUNC_CALL 3
+
+/*****************************************************************************
  * Definitions for an expandable string structure.  STR_INIT is the initial  *
  * size of the string, while STR_CHUNK is the number of bytes by which we    *
  * increment the string when it is too small.                                *
@@ -385,11 +396,13 @@ struct _ident
     dim,                            /* number of dimensions (for arrays)     */
     position,                       /* ident's position in COMMON block      */
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
-    localvnum;                      /* local variable number (for Jasmin)    */ 
+    localvnum,                      /* local variable number (for Jasmin)    */
+    which_implicit;                 /* default 0, array 1, var 2, lfunc 3, intrin 4 */ 
 
   BOOL
     passByRef,                      /* is this ident pass by reference       */ 
-    needs_declaration;              /* does this ident need a declaration    */
+    needs_declaration,              /* does this ident need a declaration    */
+    explicit;                       /* true is explicitly declared           */
 
   struct ast_node 
     *startDim[MAX_ARRAY_DIM],       /* start expression for each dimension   */
@@ -658,7 +671,8 @@ void
   print_vcg_node(FILE *, int, char *),
   print_vcg_nearedge(FILE *, int, int),
   print_vcg_edge(FILE *, int, int),
-  print_vcg_typenode(FILE *, int, char *);
+  print_vcg_typenode(FILE *, int, char *),
+  add_implicit_to_tree(AST *);
 
 Dlist
   build_method_table(char *);
@@ -678,5 +692,7 @@ BOOL
 
 double
   mypow(double, double);
+
+AST *clone_ident(AST *);
 
 #endif

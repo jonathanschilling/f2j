@@ -15,6 +15,7 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include"string.h"
 #include"f2j.h"
 #include"symtab.h"
 #include"f2jmem.h"
@@ -78,8 +79,10 @@ type_insert (SYMTABLE * table, AST * node_val, enum returntype rt, char *tag)
   HASHNODE *newnode;
   int idx;
 
+
   idx = HASH(tag) % table->num_entries;
 
+  /*fprintf(stderr,"type_insert(): table = %p, tag = '%s', idx = %d\n", table, tag, idx);*/
   newnode = (HASHNODE *) f2jalloc (sizeof (HASHNODE));
 
   newnode->ident = tag;
@@ -156,16 +159,15 @@ HASHNODE * format_lookup(SYMTABLE *table, char *label)
 HASHNODE *
 search_hashlist (HASHNODE * list, char *id)
 {
-
   if(id == NULL)
     return NULL;
 
   for (; list; list = list->next)
   {
-    if(list->ident == NULL)
-      continue;
-    if (!strcmp (list->ident, id))
-      return (list);
+    if(list->ident){
+       if(!strcmp(list->ident, id))
+         return (list);
+    }
   }
 
   return NULL;		/*  Not in list. */
@@ -242,9 +244,50 @@ enumerate_symtable(SYMTABLE *table)
   HASHNODE *tmp;
   int i;
 
-  for(i=0;i<table->num_entries;i++)
-    for(tmp = table->entry[i]; tmp != NULL; tmp = tmp->next)
+  for(i=0;i<table->num_entries;i++){
+    for(tmp = table->entry[i]; tmp != NULL; tmp = tmp->next){
       dl_insert_b(newList,tmp->variable);
+    }
+  }
 
   return newList;
+}
+
+/******************************************************************************
+*                                                                             *
+* hash_delete                                                                 *
+*                                                                             *
+* This function removes the entry corresponding to the given tag. The         *
+* deleted node is returned if found, otherwise return NULL.                   *
+*                                                                             *
+*******************************************************************************/
+HASHNODE *
+hash_delete(SYMTABLE *table, char *tag)
+{
+  HASHNODE *list, *prev;
+  int idx;
+
+  if((table == NULL) || (tag == NULL))
+    return NULL;
+
+  idx = HASH (tag) % table->num_entries;
+  list = table->entry[idx];
+
+  for (prev = NULL; list; list = list->next)
+  {
+    if(list->ident == NULL)
+      prev = list;
+    else if (!strcmp (list->ident, tag)) {
+      if(prev)
+        prev->next = list->next;
+      else
+        table->entry[idx] = list->next;
+
+      return (list);
+    }
+
+    prev = list;
+  }
+
+  return NULL;          /*  Not in list. */
 }

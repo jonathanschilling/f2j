@@ -31,7 +31,9 @@ extern FILE
 extern char 
   *inputfilename,          /* name of the input file                         */
   *package_name,           /* what to name the package, e.g. org.netlib.blas */
-  *output_dir;             /* path to which f2java should store class files  */
+  *output_dir,             /* path to which f2java should store class files  */
+  line_buffer[];           /* copy of the fortran line                       */
+
 
 extern BOOL 
   omitWrappers,            /* should we try to optimize use of wrappers      */

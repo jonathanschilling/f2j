@@ -45,6 +45,8 @@
 
 int optdebug = FALSE;
 
+char *unit_name;        /* name of this function/subroutine                  */
+
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
@@ -201,6 +203,7 @@ optimize (AST * root, AST * rptr)
     case Subroutine:
     case Function:
     case Program:
+      unit_name = root->astnode.source.name->astnode.ident.name;
       if (optdebug)
         printf ("Unit name: %s\n", 
           root->astnode.source.name->astnode.ident.name);
@@ -469,15 +472,30 @@ name_optimize (AST * root, AST *rptr)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
+
+  hashtemp = type_lookup (opt_array_table, root->astnode.ident.name);
+  if(root->astnode.ident.arraylist == NULL){
+      return;
+  }
+  else if(hashtemp){
+      return;
+  }
+
+
   /* 
    * If the name is in the external table, then check to see if
    * it is an intrinsic function instead (e.g. SQRT, ABS, etc).  
    */
 
-  if (type_lookup (opt_external_table, root->astnode.ident.name) != NULL)
+  hashtemp = type_lookup (global_func_table, root->astnode.ident.name); 
+  if ((hashtemp != NULL)||(type_lookup(opt_external_table, root->astnode.ident.name))
+                        ||(find_method(root->astnode.ident.name, descriptor_table)))
   {
-    if(optdebug)
-      printf("going to external_optimize\n");
+    if(hashtemp){
+      optScalar(hashtemp->variable);
+      if(optdebug)
+         printf("going to external_optimize\n");
+    }
     external_optimize(root, rptr);
   }
   else if(( methodscan (intrinsic_toks, tempname) != NULL) 
@@ -497,25 +515,11 @@ name_optimize (AST * root, AST *rptr)
         break;
       case NAME:
       default:
-        /* we only care if this looks like a subcall */
 
-        hashtemp = type_lookup (opt_array_table, root->astnode.ident.name);
+        if(optdebug)
+          printf("going to subcall_optimize\n");
 
-        if (root->astnode.ident.arraylist == NULL)
-        {
-          /* dont care */
-        }
-        else if (hashtemp != NULL)
-        {
-          /* dont care */
-        }
-        else
-        {
-          if(optdebug)
-            printf("going to subcall_optimize\n");
-
-          subcall_optimize(root, rptr);
-        }
+        subcall_optimize(root, rptr);
         break;
     }
 
@@ -933,6 +937,7 @@ call_optimize (AST * root, AST *rptr)
 {
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   AST *temp;
+  HASHNODE *hashtemp;
 
   if(optdebug)
     printf("enter call_optimize\n");
@@ -942,6 +947,14 @@ call_optimize (AST * root, AST *rptr)
   /* If this function was passed in as an argument, we call an
    * 'adapter' which performs the reflective method invocation..
    */
+
+  if(root->astnode.ident.arraylist->nodetype == EmptyArgList){
+      hashtemp = type_lookup(global_func_table, root->astnode.ident.name);
+      if(hashtemp)
+         optScalar(hashtemp->variable);
+      return;
+  }
+
 
   if(type_lookup(opt_args_table, root->astnode.ident.name)) {
 
@@ -969,7 +982,7 @@ call_optimize (AST * root, AST *rptr)
   }
 
   if(root->astnode.ident.arraylist->nodetype == EmptyArgList)
-    return;
+     return;
 
   /* look up the function name so that we may compare the parameters */
 
@@ -1040,6 +1053,7 @@ args_optimize(AST *root, AST *rptr)
        /* if the function/subroutine expects an array, but
         * the arg is a scalar, then pass by reference.
         */
+
        if( !type_lookup(opt_array_table,temp->astnode.ident.name) &&
            t2->astnode.ident.arraylist )
        {
@@ -1341,7 +1355,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
     if(type_lookup(etable, tempnode->astnode.ident.name) != NULL)
       returns = OBJECT_TYPE;
     else
-      returns = hashtemp->type;
+      returns = hashtemp->variable->vartype;
 
     /*
      * Check the numerical value returns.  It should not

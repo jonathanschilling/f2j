@@ -14,7 +14,7 @@ CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
 # overkill CFLAGS:
 #CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs
 CC=gcc
-PURIFY=/usr/local/pure/purify/purify
+PURIFY=/opt/rational/releases/DeveloperTools.2002a.06.00.Proto.0038/sun4_solaris2/bin/purify 
 PFLAGS=-cache-dir=/tmp
 YFLAGS= --debug --defines --verbose 
 SRC=f2jparse.tab.c f2jlex.c f2jmain.c  symtab.c  \

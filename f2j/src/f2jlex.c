@@ -46,6 +46,7 @@
  *****************************************************************************/
 
 int lexdebug = FALSE;
+char line_buffer[BIGBUFF];
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -944,7 +945,8 @@ collapse_white_space (BUFFER * bufstruct)
   if(lexdebug)
     printf("entering collapse_white_space, buffer is [%s]\n",
       bufstruct->stmt);
-
+ 
+  
   for (cp = bufstruct->stmt; *cp; cp++)
   {
     /* Get rid of all of the newlines, tabs, whitespace.  */
@@ -1086,6 +1088,7 @@ collapse_white_space (BUFFER * bufstruct)
   /* Our new string is ready for lexing!  */
 
   strcpy (bufstruct->stmt, tempbuf);
+  strcpy (line_buffer, tempbuf);
 } 
 
 

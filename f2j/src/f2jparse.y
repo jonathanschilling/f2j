@@ -29,19 +29,19 @@
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
  *****************************************************************************/
 
-#define YYDEBUG 0 
+#define YYDEBUG 0
 
 /*****************************************************************************
  * Global variables.                                                         *
  *****************************************************************************/
 
 int 
-  debug = TRUE,                  /* set to TRUE for debugging output        */
+  debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok,                        /* temporary token for an inline expr      */
   save_all;                       /* is there a SAVE stmt without a var list */
-
+  
 char
   tempname[60];                   /* temporary string                        */
 
@@ -51,12 +51,18 @@ AST
 CPNODE
   * lastConstant;                 /* last constant inserted into the c.pool  */
 
+Dlist subroutine_names;           /* holds the names of subroutines          */
+
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
 
+METHODTAB
+  * methodscan (METHODTAB *, char *);
+
 int 
-  yylex(void);
+  yylex(void),
+  intrinsic_or_implicit(char *);
 
 double
   eval_const_expr(AST *);
@@ -67,7 +73,7 @@ char
   * first_char_is_minus(char *),
   * tok2str(int );
 
-void 
+void
   yyerror(char *),
   start_vcg(AST *),
   emit(AST *),
@@ -86,7 +92,8 @@ void
   insert_name(SYMTABLE *, AST *, enum returntype),
   store_array_var(AST *),
   initialize_implicit_table(ITAB_ENTRY *),
-  printbits(char *, void *, int);
+  printbits(char *, void *, int),
+  print_sym_table_names(SYMTABLE *);
 
 AST 
   * dl_astnode_examine(Dlist l),
@@ -98,6 +105,8 @@ AST
 
 SYMTABLE 
   * new_symtable (int );
+
+extern METHODTAB intrinsic_toks[];
 
 ITAB_ENTRY implicit_table[26];
 
@@ -187,7 +196,6 @@ F2java:   Sourcecodes
 
             if(debug)
               printf("F2java -> Sourcecodes\n");
-	    /* $$ = addnode(); */
 	    $$ = switchem($1);
 
 #if VCG
@@ -241,7 +249,7 @@ Sourcecodes:   Sourcecode
 
                  if(omitWrappers && ($1->nodetype != Comment)) {
                    temp = $1->astnode.source.progtype->astnode.source.name;
-
+                   
                    type_insert(global_func_table, $1, 0, temp->astnode.ident.name);
                  }
                }
@@ -271,7 +279,7 @@ Sourcecode :    Fprogram
                 { 
                   if(debug)
                     printf("Sourcecode -> Fprogram\n"); 
-                  $$=$1;
+                  $$=$1; 
                 }
               | Fsubroutine
                 { 
@@ -280,7 +288,7 @@ Sourcecode :    Fprogram
                   $$=$1;
                 }
               | Ffunction
-                { 
+                {
                   if(debug)
                     printf("Sourcecode -> Ffunction\n"); 
                   $$=$1;
@@ -297,6 +305,8 @@ Fprogram:   Program Specstmts Statements End
               {
                 if(debug)
                   printf("Fprogram -> Program  Specstmts  Statements End\n");
+                
+                add_implicit_to_tree($2);
 
                 $$ = addnode();
 
@@ -355,6 +365,9 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
+               
+                add_implicit_to_tree($2);
+                
                 $$ = addnode();
 	        $1->parent = $$; 
 	        $2->parent = $$;
@@ -400,13 +413,16 @@ Fsubroutine: Subroutine Specstmts Statements End
                  * size, if applicable, from the hash table into the
                  * node itself.
                  */
-
+              
                 for(temp=$1->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
                 {
                   if((ht=type_lookup(type_table,temp->astnode.ident.name)) != NULL)
                   {
                     temp->vartype=ht->variable->vartype;
                     temp->astnode.ident.arraylist=ht->variable->astnode.ident.arraylist;
+                  }
+                  if((ht=type_lookup(args_table, temp->astnode.ident.name)) != NULL){
+                      ht->variable->vartype=temp->vartype;
                   }
                 }
                 
@@ -422,6 +438,8 @@ Ffunction:   Function Specstmts Statements  End
 
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
+             
+                add_implicit_to_tree($2);
 
                 $$ = addnode();
 
@@ -475,18 +493,22 @@ Ffunction:   Function Specstmts Statements  End
                     temp->vartype=ht->variable->vartype;
                     temp->astnode.ident.arraylist=ht->variable->astnode.ident.arraylist;
                   }
+                  if((ht=type_lookup(args_table, temp->astnode.ident.name)) != NULL){
+                      ht->variable->vartype=temp->vartype;
+                  }
                 }
-
+                      
                 type_insert(function_table, $1, 0,
                   $1->astnode.source.name->astnode.ident.name);
               }
+
 ;
 
 Program:      PROGRAM UndeclaredName NL
               {
                  if(debug)
                    printf("Program ->  PROGRAM UndeclaredName\n");
-
+                 
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
@@ -496,7 +518,7 @@ Program:      PROGRAM UndeclaredName NL
                  $$->astnode.source.args = NULL;
 
                  init_tables();
-
+                
                  fprintf(stderr," MAIN %s:\n",$2->astnode.ident.name);
               }
 ;
@@ -518,7 +540,7 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
                  $$->astnode.source.args = switchem($3);
-
+                
                  fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
           | SUBROUTINE UndeclaredName NL
@@ -536,6 +558,7 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
                  $$->astnode.source.args = NULL;
+
                  fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
 ;
@@ -544,6 +567,7 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
            {
              if(debug)
                printf("Function ->  Type FUNCTION UndeclaredName Functionargs NL\n");
+
              $$ = addnode();
 
   	     $3->parent = $$;  /* 9-4-97 - Keith */
@@ -554,6 +578,7 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
              $$->token = FUNCTION;
              $$->astnode.source.returns = $1;
              $$->vartype = $1;
+             $3->vartype = $1;
              $$->astnode.source.args = switchem($4);
 
              /* since the function name is the implicit return value
@@ -563,13 +588,39 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
 
              $3->astnode.ident.localvnum = -1;
              insert_name(type_table, $3, $1);
-
+           
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
-           }
+          }
+        | FUNCTION UndeclaredName Functionargs NL
+          {
+             enum returntype ret;
+
+             $$ = addnode();
+
+             $2->parent = $$;  
+             if($3 != NULL)
+               $3->parent = $$;  
+             $$->astnode.source.name = $2;
+             $$->nodetype = Function;
+             $$->token = FUNCTION;
+             ret = implicit_table[tolower($2->astnode.ident.name[0]) - 'a'].type;
+             $$->astnode.source.returns = ret;
+             $$->vartype = ret;
+             $2->vartype = ret;
+             $$->astnode.source.args = switchem($3);
+        
+             $2->astnode.ident.localvnum = -1;
+             insert_name(type_table, $2, ret);
+            
+             fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
+          }
 ; 
 
 Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            {
+             if(debug){
+               printf("Specstmts -> SpecStmtList\n");
+             }
              $1 = switchem($1);
              type_hash($1); 
              $$=$1;
@@ -741,6 +792,10 @@ CommonSpec: DIV UndeclaredName DIV Namelist
               AST *temp;
               int pos;
 
+              if(debug){
+                 printf("CommonSpec -> DIV UndeclaredName DIV Namelist\n");
+              }
+
               $$ = addnode();
               $$->nodetype = Common;
               $$->astnode.common.name = strdup($2->astnode.ident.name);
@@ -773,6 +828,9 @@ CommonSpec: DIV UndeclaredName DIV Namelist
               AST *temp;
 
               /* This is an unnamed common block */
+              if(debug){
+                printf("CommonSpec -> CAT Namelist\n");
+              }
 
               $$ = addnode();
               $$->nodetype = Common;
@@ -815,7 +873,10 @@ Save: SAVE NL
     | SAVE DIV Namelist DIV NL
            {
              AST *temp;
-
+             
+             if(debug){
+                printf("Save -> SAVE DIV Namelist DIV NL\n");
+             }
              $$ = addnode();
              $3->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Save;
@@ -831,6 +892,9 @@ Save: SAVE NL
     | SAVE Namelist NL
            {
              AST *temp;
+             if(debug){
+                printf("Save -> SAVE Namelist NL\n");
+             }
 
              $$ = addnode();
              $2->parent = $$; /* 9-4-97 - Keith */
@@ -1331,12 +1395,18 @@ End:    END  NL
 
 Functionargs:   OP {init_tables();} Namelist CP   
                 {
+                  if(debug){
+                     printf("Functionargs -> OP Namelist CP\n");
+                  }
                   $3 = switchem($3);
                   arg_table_load($3);
                   $$ = $3;
                 }
               | OP CP
                 {
+                  if(debug){
+                     printf("Functionargs -> OP Namelist CP\n");
+                  }
                   init_tables();
                   $$ = NULL;
                 }
@@ -1345,10 +1415,16 @@ Functionargs:   OP {init_tables();} Namelist CP
 
 Namelist:   Name  
             {
+              if(debug){
+                printf("Namelist -> Name\n");
+              }
               $$=$1;
             }
           | Namelist CM Name 
             {
+              if(debug){
+                printf("Namelist -> Namelist CM Name\n");
+              }
               $3->prevstmt = $1; 
               $$ = $3;
             }
@@ -1364,6 +1440,8 @@ Namelist:   Name
 Typestmt:      Types Typevarlist NL
               {
                  AST *temp;
+                 enum returntype ret;
+                 HASHNODE *hashtemp, *hashtemp2;
 
                  $$ = addnode();
                  free_ast_node($2->parent);
@@ -1371,10 +1449,29 @@ Typestmt:      Types Typevarlist NL
                  $$->nodetype = Typedec;
 
                  for(temp = $2; temp != NULL; temp = temp->nextstmt)
-                 {
+                 { 
                    temp->vartype = $1;
+                   ret = $1;
                    temp->astnode.ident.len = len;
                    temp->parent = $$;
+                   hashtemp = type_lookup(args_table, temp->astnode.ident.name);
+                   if(hashtemp)hashtemp->variable->vartype = $1;
+                   hashtemp2 = type_lookup(type_table,  temp->astnode.ident.name);
+                   if(hashtemp2){
+                      temp->vartype = $1;
+                      temp->astnode.ident.explicit=TRUE;
+                      hashtemp2->variable = temp;
+                      if(debug)printf("explicit: %s\n", 
+                        hashtemp2->variable->astnode.ident.name);
+                   }
+                   if(hashtemp){
+                      if(temp->vartype!=hashtemp->variable->vartype){
+                         if(debug)printf("different vartypes\n");
+                         hashtemp->variable->vartype=temp->vartype;
+                         hashtemp2->variable->vartype=temp->vartype;
+                      }
+                   }
+                    
                  }
 
                  $$->astnode.typeunit.declist = $2;
@@ -1481,6 +1578,7 @@ Name:    NAME
             * be a parameter anyway.  kgs 11/7/00
             * 
             */
+          
 
            if((parameter_table != NULL) &&
               ((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL))
@@ -1490,15 +1588,21 @@ Name:    NAME
               * in the arraynamelist, e.g. A(NMAX,NMAX).   so, instead we
               * just copy the relevant fields from the constant node.
               */
-             $$ = addnode();
-             $$->nodetype = hashtemp->variable->nodetype;
-             $$->vartype = hashtemp->variable->vartype;
-             $$->token = hashtemp->variable->token;
-             strcpy($$->astnode.constant.number,
+            if(debug)
+                printf("not calling init name, param %s\n", yylval.lexeme);
+            $$ = addnode();
+            $$->nodetype = hashtemp->variable->nodetype;
+            $$->vartype = hashtemp->variable->vartype;
+            $$->token = hashtemp->variable->token;
+            strcpy($$->astnode.constant.number,
                  hashtemp->variable->astnode.constant.number);
            }
-           else
+           else{
+             if(debug){
+               printf("Name -> NAME\n");
+             }
              $$ = initialize_name(yylval.lexeme);
+           }
          }
 ;
 
@@ -1567,14 +1671,40 @@ String:  STRING
 
 Arraydeclaration: Name OP Arraynamelist CP 
                   {
-                    AST *temp;
+                    AST *temp, *tmp, *tnode;
                     int count, i;
-
+                    char *tempname, *id;
+                    enum returntype ret;
+ 
 		    /*
                      *  $$ = addnode();
                      *  $$->nodetype = Identifier;
                      *  strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 		     */
+                    if(debug){
+                      printf("we have an array declaration %s\n", $1->astnode.ident.name);
+                    }
+                    tempname = strdup($1->astnode.ident.name);
+                    uppercase(tempname);
+               
+                    /* put in type table. we now know this intrinsic name is an array */
+                    if(methodscan(intrinsic_toks, tempname)!=NULL){
+                         tmp=addnode();
+                         tmp->token = NAME;
+                         tmp->nodetype = Identifier;
+                         tmp->astnode.ident.needs_declaration = FALSE;
+                         tmp->astnode.ident.explicit = FALSE;
+                         tmp->astnode.ident.localvnum = -1;
+                         id = strdup($1->astnode.ident.name);
+                         strcpy(tmp->astnode.ident.name, id);
+                         ret = implicit_table[tolower(id[0]) - 'a'].type;
+                         tmp->vartype = ret; 
+                         tnode = clone_ident(tmp);
+                         tnode->nodetype = Identifier;
+                         tnode->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
+                         type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
+                    }
+
 
 		    $$ = $1;
                     if(debug)
@@ -2278,7 +2408,7 @@ IoExp: Exp
        {
          $$ = $1;
        }
-     | OP Explist CM UndeclaredName EQ Exp CM Exp CP /* implied do loop */
+     | OP Explist CM Name EQ Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2299,7 +2429,7 @@ IoExp: Exp
          $6->parent = $$;
          $8->parent = $$;
        }
-     | OP Explist CM UndeclaredName EQ Exp CM Exp CM Exp CP /* implied do loop */
+     | OP Explist CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2496,6 +2626,15 @@ Subroutinecall:   Name OP Explist CP
                     else
                       $$->astnode.ident.arraylist = switchem($3);
 
+                    if((!type_lookup(external_table, $$->astnode.ident.name))
+                      &&(!type_lookup(array_table, $$->astnode.ident.name))
+                      &&(methodscan(intrinsic_toks, $$->astnode.ident.name))){
+
+                       printf("drew: %s\n", $$->astnode.ident.name);
+                       type_insert(external_table,
+                                   $$, $$->vartype, $$->astnode.ident.name);
+                    }
+
                     free_ast_node($1);
                   }
 ;
@@ -2552,8 +2691,25 @@ Explist:   Exp
 /*  This is not exactly right.  There will need to 
  *  be a struct to handle this.
  */
-Call:     CALL   Subroutinecall  NL
+Call:     CALL Subroutinecall  NL
           {
+            /* we don't want subroutines in the type_table
+             * make a dlist to stuff the names in and check
+             * them in initialize_name.
+             */
+             
+             if(in_dlist(subroutine_names, $2->astnode.ident.name)==0){
+                if(debug){
+                   printf("inserting %s in dlist and del from type\n",
+                         $2->astnode.ident.name);
+                }
+                dl_insert_b(subroutine_names, strdup($2->astnode.ident.name));
+                hash_delete(type_table, $2->astnode.ident.name);
+             }
+             if(debug){
+               printf("call: %s\n", $2->astnode.ident.name);
+             }
+
              $$ = $2;
 	     $$->nodetype = Call;
           }
@@ -2808,7 +2964,7 @@ char_expr: primary
            }
 ;
 
-primary:     Name {$$=$1;}
+primary:  Name {$$=$1;}
           |  Constant
              {
 	       $$ = $1;
@@ -2857,7 +3013,7 @@ Boolean:  TrUE
 
 Constant:   
          Integer  
-         { 
+         {
            $$ = $1; 
          }
        | Double
@@ -2880,6 +3036,7 @@ Constant:
 
 Integer :     INTEGER 
              {
+               if(debug)printf("Integer\n");
                $$ = addnode();
                $$->token = INTEGER;
                $$->nodetype = Constant;
@@ -3095,6 +3252,9 @@ Pdec:     Assignment
                type_lookup(jasmin_keyword_table,cur_id))
                   cur_id[0] = toupper(cur_id[0]);
 
+            if(debug)
+               printf("insert param_table %s\n", $$->astnode.assignment.lhs->astnode.ident.name);
+            hash_delete(type_table, $$->astnode.assignment.lhs->astnode.ident.name);
             type_insert(parameter_table, temp, 0, cur_id);
             free_ast_node($$->astnode.assignment.lhs);
 /*
@@ -3265,7 +3425,7 @@ type_hash(AST * types)
   HASHNODE *hash_entry;
   AST * temptypes, * tempnames;
   int return_type;
-   
+
    /* Outer for loop traverses typestmts, inner for()
     * loop traverses declists. Code for stuffing symbol table is
     * is in inner for() loop.   
@@ -3302,8 +3462,8 @@ type_hash(AST * types)
       if(debug)
         printf("Type hash: '%s' (%s)\n", tempnames->astnode.ident.name,
           print_nodetype(tempnames));
- 
-      if(temptypes->nodetype == Dimension) {
+        
+      if(temptypes->nodetype == Dimension){
         /* looking at a Dimension spec.  check whether the ident is already
          * in the hash table.  if so, we want to assign the array dimensions
          * to that node.  if not, we will create a new node and assign the
@@ -3315,14 +3475,18 @@ type_hash(AST * types)
         if(hash_entry)
           node = hash_entry->variable;
         else {
+          if(debug){
+               printf("Calling initalize name from type_hash\n");
+          }
           node = initialize_name(tempnames->astnode.ident.name );
-/*
- *        type_insert(type_table, node, 
- *           implicit_table[tempnames->astnode.ident.name[0] - 'a'].type,
- *           tempnames->astnode.ident.name);
- */
 
-          if(debug)
+          /* if it's an intrinsic_named array */
+          if(node->astnode.ident.which_implicit == INTRIN_NAMED_ARRAY_OR_FUNC_CALL){ 
+             node->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
+             type_insert(type_table, node, node->vartype, tempnames->astnode.ident.name);  
+          }
+          
+        if(debug)
             printf("Type hash (DIM): %s\n", tempnames->astnode.ident.name);
         }
 
@@ -3356,7 +3520,6 @@ type_hash(AST * types)
             tempnames->astnode.ident.endDim[i] = var->astnode.ident.endDim[i];
           }
         }
-
         if((temptypes->token != INTRINSIC) && (temptypes->token != EXTERNAL))
         {
           hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
@@ -3364,6 +3527,10 @@ type_hash(AST * types)
           if(hash_entry == NULL) {
             tempnames->vartype = return_type;
             tempnames->astnode.ident.localvnum = -1;
+
+            if(debug){
+                printf("hh type_insert: %s\n", tempnames->astnode.ident.name);
+            }
 
             type_insert(type_table, tempnames, return_type,
                tempnames->astnode.ident.name);
@@ -3375,10 +3542,8 @@ type_hash(AST * types)
           else {
             if(debug) {
               printf("type_hash: Entry already exists...");  
-              printf("going to override the type.");  
+              printf("going to override the type.\n");  
             }
-  
-            /* tempnames->vartype = hash_entry->variable->vartype; */
             hash_entry->variable->vartype = tempnames->vartype;
           }
         }
@@ -3614,6 +3779,8 @@ init_tables()
   constants_table = make_dl();
   equivList       = NULL;
   save_all        = FALSE;
+
+  subroutine_names = make_dl();
 }
 
 /*****************************************************************************
@@ -4099,7 +4266,8 @@ AST *
 initialize_name(char *id)
 {
   HASHNODE *hashtemp;
-  AST *tmp;
+  AST *tmp, *tnode;
+  char *tempname;
 
   if(debug)
     printf("initialize_name: '%s'\n",id);
@@ -4109,6 +4277,9 @@ initialize_name(char *id)
   tmp->nodetype = Identifier;
 
   tmp->astnode.ident.needs_declaration = FALSE;
+  tmp->astnode.ident.explicit = FALSE;
+  tmp->astnode.ident.which_implicit = INTRIN_NOT_NAMED;
+  tmp->astnode.ident.localvnum = -1;
 
   if(omitWrappers)
     tmp->astnode.ident.passByRef = FALSE;
@@ -4118,36 +4289,143 @@ initialize_name(char *id)
         id[0] = toupper(id[0]);
 
   strcpy(tmp->astnode.ident.name, id);
+  tempname = strdup(tmp->astnode.ident.name);
+  uppercase(tempname);
 
-  if(type_table) {
-    hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
-    if(hashtemp)
-    {
-      if(debug)
-        printf("initialize_name:'%s' in already hash table..\n",id);
-      tmp->vartype = hashtemp->variable->vartype;
-      tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
-    }
-    else
-    {
-      enum returntype ret;
+  if((type_lookup(parameter_table, tmp->astnode.ident.name) == NULL)
+    &&(in_dlist(subroutine_names, tmp->astnode.ident.name) == 0)){  
   
-      if(debug)
-        printf("initialize_name:cannot find name %s in hash table..\n",id);
+     if(type_table) {
+        hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
+        if(hashtemp)
+        {
+          if(debug)
+             printf("initialize_name:'%s' in already hash table (type=%s)..\n",
+             id, returnstring[hashtemp->variable->vartype]);
+       
+          tmp->vartype = hashtemp->variable->vartype;
+
+          if(debug)
+            printf("now type is %s\n", returnstring[tmp->vartype]);
+
+          tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+        }
+        else
+        {
+           enum returntype ret;
+  
+           if(debug)
+             printf("initialize_name:cannot find name %s in hash table..\n",id);
+
+           if(methodscan(intrinsic_toks, tempname)!=NULL){  
+                  tmp->astnode.ident.which_implicit = 
+                                                 intrinsic_or_implicit(tmp->astnode.ident.name); 
+           }
       
-      ret = implicit_table[tolower(id[0]) - 'a'].type;
+           ret = implicit_table[tolower(id[0]) - 'a'].type;
   
-      if(debug)
-        printf("initialize_name:going to insert with default implicit type %s\n",
-          returnstring[ret]);
+           if(debug)
+              printf("initialize_name:going to insert with default implicit type %s\n",
+              returnstring[ret]);
+        
+           tmp->vartype = ret;
   
-      type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
+           if(debug)printf("type_insert: %s %d\n", tmp->astnode.ident.name, tmp->nodetype);           	
+
+           /* clone the ast node before inserting into the table */
+           tnode = clone_ident(tmp);
+           tnode->nodetype = Identifier;
+
+           if(tmp->astnode.ident.which_implicit != INTRIN_NAMED_ARRAY_OR_FUNC_CALL) {
+               if(debug){
+                  printf("insert typetable init name\n");
+               }
+               type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
+           }
+        }
     }
   }
-
   return tmp;
 }
-             
+/*****************************************************************************
+*                                                                            *
+* intrinsic_or_implict                                                       *
+*                                                                            *
+* Only gets called if it is an intrinsic name.                               *
+*                                                                            *
+* this functions tries to figure out if it's intrinsic call, array           *
+* or variable.                                                               *
+*                                                                            *
+******************************************************************************/
+int
+intrinsic_or_implicit(char *name){
+   char *p, *tempname, *space_buffer, *clean_buffer, *tmp_spot;
+   char *words[12] = {"INTEGER", "DOUBLEPRECISION", "CHARACTER", "DATA",
+                      "PARAMETER", "LOGICAL", "INTRINSIC", "EXTERNAL", 
+                      "SAVE", "IMPLICIT", "DIMENSION", "CALL"};
+   int i, ret_val = INTRIN_NAMED_VARIABLE;
+
+   tempname = (char *)malloc((strlen(name)+2)*sizeof(char));
+   space_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
+   clean_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
+
+   strcpy(tempname, name);
+   uppercase(tempname);
+   strcat(tempname, "(");
+
+   uppercase(line_buffer);
+
+   tmp_spot = line_buffer;
+   for(i=0; i<12; i++){
+     if(!strncmp(line_buffer, words[i], strlen(words[i]))){
+        tmp_spot = line_buffer + strlen(words[i]);
+        break;
+     }
+   }
+   strcpy(clean_buffer, " \0");
+   strcat(clean_buffer, tmp_spot);
+
+
+   p = strstr(clean_buffer, tempname);
+   while(p){
+      if((p)&&(!isalpha((int)*(p-1)))){
+         ret_val=INTRIN_NAMED_ARRAY_OR_FUNC_CALL;
+         break;
+      }
+      for(i=0; i<strlen(tempname); i++){
+         p++;
+      }
+      strcpy(space_buffer, " \0");
+      strcat(space_buffer, p);
+      p = strstr(space_buffer, tempname);
+   }
+
+   free(space_buffer);
+   free(clean_buffer);
+   free(tempname);
+
+   return ret_val;
+}
+
+/*****************************************************************************
+*                                                                            *
+* print_sym_table_names                                                      *
+*                                                                            *
+* Routine to see whats in the damn sym table                                 *
+*                                                                            *
+******************************************************************************/
+void
+print_sym_table_names(SYMTABLE *table){
+   Dlist t_table, tmp;
+   AST *node;
+
+   t_table = enumerate_symtable(table);
+   dl_traverse(tmp, t_table){
+
+      node = (AST *)dl_val(tmp);
+      printf("sym_table %s\n", node->astnode.ident.name);
+   }
+}
 /*****************************************************************************
  *                                                                           *
  * insert_name                                                               *
@@ -4197,4 +4475,93 @@ initialize_implicit_table(ITAB_ENTRY *itab)
   /* then change 'i' through 'n' to Integer */
   for(i = 'i' - 'a'; i <= 'n' - 'a'; i++)
     itab[i].type = Integer;
+}
+
+/*****************************************************************************
+ *                                                                           * 
+ * add_implicit_to_tree                                                      *   
+ *                                                                           * 
+ * this adds a node for an implicit variable to typedec                      * 
+ *                                                                           * 
+ *****************************************************************************/
+void
+add_implicit_to_tree(AST *typedec){
+  Dlist t_table, tmp;
+  AST *ast, *new_node, *last_typedec;
+
+  last_typedec = typedec;
+  while(last_typedec->nextstmt!=NULL){
+    last_typedec = last_typedec->nextstmt;
+  }
+
+  t_table = enumerate_symtable(type_table);
+  dl_traverse(tmp, t_table){
+    ast = (AST *)dl_val(tmp);
+    if(ast->astnode.ident.explicit==FALSE){
+      if(debug)printf("implicit name=%s\n", ast->astnode.ident.name);
+
+      new_node = addnode();
+      new_node->astnode.typeunit.returns = ast->vartype;
+      new_node->nodetype = Typedec;
+      ast->parent = new_node;
+      new_node->astnode.typeunit.declist = clone_ident(ast);
+      last_typedec->nextstmt = new_node;
+      last_typedec = last_typedec->nextstmt;
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           * 
+ * clone_ident                                                               *   
+ *                                                                           * 
+ * this function clones an astnode(ident) and passes back the new node       * 
+ *                                                                           * 
+ *****************************************************************************/
+AST *
+clone_ident(AST *ast){
+   AST *new_node;
+   int i;
+
+   new_node = addnode();
+
+   new_node->parent = ast->parent;
+   new_node->vartype = ast->vartype;
+
+   new_node->astnode.ident.dim  = ast->astnode.ident.dim;
+   new_node->astnode.ident.position  = ast->astnode.ident.position;
+   new_node->astnode.ident.len  = ast->astnode.ident.len;
+   new_node->astnode.ident.localvnum  = ast->astnode.ident.localvnum;
+   new_node->astnode.ident.which_implicit = ast->astnode.ident.which_implicit;
+
+   new_node->astnode.ident.passByRef = ast->astnode.ident.passByRef;
+   new_node->astnode.ident.needs_declaration = ast->astnode.ident.needs_declaration;
+   new_node->astnode.ident.explicit = FALSE;
+
+   for(i=0; i<=MAX_ARRAY_DIM; i++){
+      new_node->astnode.ident.startDim[i] = ast->astnode.ident.startDim[i];
+      new_node->astnode.ident.endDim[i] = ast->astnode.ident.endDim[i];
+   }
+
+  new_node->astnode.ident.arraylist = ast->astnode.ident.arraylist;
+
+  if(ast->astnode.ident.leaddim)
+    new_node->astnode.ident.leaddim = strdup(ast->astnode.ident.leaddim);
+
+  if(ast->astnode.ident.opcode)
+    new_node->astnode.ident.opcode = strdup(ast->astnode.ident.opcode);
+
+  if(ast->astnode.ident.commonBlockName)
+    new_node->astnode.ident.commonBlockName = strdup(ast->astnode.ident.commonBlockName);
+
+  strcpy(new_node->astnode.ident.name, ast->astnode.ident.name);
+
+  if(ast->astnode.ident.merged_name)
+    new_node->astnode.ident.merged_name = strdup(ast->astnode.ident.merged_name);
+
+  if(ast->astnode.ident.descriptor)
+    new_node->astnode.ident.descriptor = strdup(ast->astnode.ident.descriptor);
+
+ 
+  return new_node;
 }

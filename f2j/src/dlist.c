@@ -12,6 +12,7 @@
 #include "dlist.h"
 #include "f2j.h"
 #include "f2jmem.h"
+#include "f2j_externs.h"
 
 #define boolean int
 #define TRUE 1
@@ -125,4 +126,25 @@ Dlist li;
   f2jfree(item, sizeof(Dlist));
 
   return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * in_dlist                                                                  *
+ *                                                                           *
+ * returns 1 if it is in the list 0 otherwise                                *
+ *                                                                           *
+ *****************************************************************************/
+int
+in_dlist(Dlist list, char *name){
+   Dlist ptr;
+   char *list_name;
+
+   dl_traverse(ptr, list){
+      list_name = (char *)dl_val(ptr);
+      if(!strcmp(list_name, name))
+         return 1;
+   }
+
+   return 0;   
 }

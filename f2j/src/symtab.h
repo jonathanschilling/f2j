@@ -57,8 +57,10 @@ SYMTABLE;
 
 HASHNODE 
   * search_hashlist(HASHNODE *, char *),
-  * type_lookup(SYMTABLE *, char *);
+  * type_lookup(SYMTABLE *, char *),
+  * hash_delete(SYMTABLE *, char *);
 
 Dlist enumerate_symtable(SYMTABLE *);
+
 
 #endif

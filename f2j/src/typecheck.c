@@ -763,7 +763,8 @@ name_check (AST * root)
   char * tempname;
 
   if (checkdebug)
-    printf("here checking name %s\n",root->astnode.ident.name);
+    printf("here checking name %s, type is %s\n",root->astnode.ident.name, 
+                  returnstring[root->vartype]);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -780,9 +781,9 @@ name_check (AST * root)
       printf("going to external_check\n");
     external_check(root);
   }
-  else if(( methodscan (intrinsic_toks, tempname) != NULL) 
+  else if(( methodscan (intrinsic_toks, tempname) != NULL)  
     &&   ((type_lookup(chk_intrinsic_table,root->astnode.ident.name) != NULL)
-       || (type_lookup(chk_type_table,root->astnode.ident.name) == NULL)))
+       || (type_lookup(chk_type_table,root->astnode.ident.name) == NULL))) 
   {
     if (checkdebug)
       printf("going to intrinsic_check\n");
@@ -1058,6 +1059,8 @@ intrinsic_check(AST *root)
         printf("temp->vartype=%s\n", returnstring[temp->vartype]); 
 
       if(! (bitfields[temp->vartype] & entry->args)) {
+        fprintf(stderr, "++%s %s\n", temp->astnode.ident.name, returnstring[temp->vartype]);
+        fprintf(stderr, "--%s\n", cur_check_unit->astnode.source.name->astnode.ident.name);
         fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
                 entry->fortran_name);
         exit(-1);
@@ -1120,11 +1123,14 @@ expr_check (AST * root)
 
   switch (root->nodetype)
   {
+      /*if (checkdebug)
+        printf("before hit case identifier (%s), now type is %s\n",
+           root->astnode.ident.name,returnstring[root->vartype]); */
     case Identifier:
       name_check (root);
 
       if (checkdebug)
-        printf("hit case identifier (%s), now type is %s\n",
+        printf("after hit case identifier (%s), now type is %s\n",
            root->astnode.ident.name,returnstring[root->vartype]);
       break;
     case Expression:
@@ -1413,7 +1419,7 @@ call_check (AST * root)
 
     root->vartype = ht->variable->vartype;
   }
-
+  
   temp = root->astnode.ident.arraylist;
   while (temp->nextstmt != NULL)
   {
@@ -1428,7 +1434,6 @@ call_check (AST * root)
     fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
 
   expr_check (temp);
-
 }
 
 /*****************************************************************************

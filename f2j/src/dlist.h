@@ -45,6 +45,7 @@ extern void dl_delete_list(Dlist);  /* Deletes the entire list from
 extern void *dl_val(Dlist);   /* Returns node->val (used to shut lint up) */
 extern void *dl_pop(Dlist);  /* returns the first node and removes
                                           it from the list */
+extern int in_dlist(Dlist, char *);
 
 extern void dl_insert_list_b(Dlist, Dlist);
 

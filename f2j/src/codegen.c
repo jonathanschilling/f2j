@@ -2638,6 +2638,7 @@ name_emit (AST * root)
         break;
     }
 
+  f2jfree(tempname,strlen(tempname)+1);
   if(gendebug)
     printf("leaving name_emit\n");
 }

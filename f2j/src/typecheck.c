@@ -849,6 +849,7 @@ name_check (AST * root)
           subcall_check(root);
     }
   }
+  f2jfree(tempname, strlen(tempname)+1);
 }
 
 /*****************************************************************************

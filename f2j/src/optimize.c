@@ -522,6 +522,8 @@ name_optimize (AST * root, AST *rptr)
         }
         break;
     }
+
+  f2jfree(tempname, strlen(tempname) +1);
 }
 
 /*****************************************************************************

@@ -557,11 +557,15 @@ fopen_fullpath(char *file, char *mode)
 printf("full_file = '%s'\n", full_file);
 
   if( stat(full_file, buf) == 0)
-    if(! S_ISREG(buf->st_mode) )
+    if(! S_ISREG(buf->st_mode) ) {
+      f2jfree(buf, sizeof(struct stat));
       return NULL;
+    }
 
-  if( (f = fopen(full_file, mode)) )
+  if( (f = fopen(full_file, mode)) ) {
+    f2jfree(buf, sizeof(struct stat));
     return f;
+  }
 
   if(full_file[0] == '/')
     chdir("/");
@@ -575,12 +579,14 @@ printf("full_file = '%s'\n", full_file);
         if(mkdir(prev, 0755) == -1) {
           chdir(pwd);
           f2jfree(pwd, strlen(pwd)+1);
+          f2jfree(buf, sizeof(struct stat));
           return NULL;
         }
       }
       else {
         chdir(pwd);
         f2jfree(pwd, strlen(pwd)+1);
+        f2jfree(buf, sizeof(struct stat));
         return NULL;
       }
     }
@@ -588,6 +594,7 @@ printf("full_file = '%s'\n", full_file);
       if(! S_ISDIR(buf->st_mode)) {
         chdir(pwd);
         f2jfree(pwd, strlen(pwd)+1);
+        f2jfree(buf, sizeof(struct stat));
         return NULL;
       }
     }
@@ -595,6 +602,7 @@ printf("full_file = '%s'\n", full_file);
     if(chdir(prev) == -1) {
       chdir(pwd);
       f2jfree(pwd, strlen(pwd)+1);
+      f2jfree(buf, sizeof(struct stat));
       return NULL;
     }
 
@@ -604,6 +612,7 @@ printf("full_file = '%s'\n", full_file);
   if( (f = fopen(prev, mode)) ) {
     chdir(pwd);
     f2jfree(pwd, strlen(pwd)+1);
+    f2jfree(buf, sizeof(struct stat));
     return f;
   }
 

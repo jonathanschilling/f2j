@@ -127,7 +127,8 @@ char
   * get_common_prefix(char *),
   * getVarDescriptor(AST *),
   * char_substitution(char *, int, int),
-  * get_full_classname(char *);
+  * get_full_classname(char *),
+  * get_desc_from_arglist(AST *);
 
 METHODTAB
   * methodscan (METHODTAB * , char * );

@@ -1908,12 +1908,6 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   {
     if(!needs_dec)
     {
-         /*  can't remember why this code was here....
-          *
-          * if(type_lookup(cur_save_table,Ntemp->astnode.ident.name))
-          *   fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
-          * else
-          */
       if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
         fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
       else
@@ -2095,6 +2089,7 @@ void
 data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   void expr_emit (AST *);
+  CPNODE *c;
 
   if(Ctemp->nodetype == Binaryop)
   {
@@ -2124,20 +2119,66 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
+      char *desc;
+      u2 init_idx, class_idx;
+
+      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = new String(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
-      else
+
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                JL_STRING);
+        class_idx = c->index;
+
+        c = newMethodref(cur_const_table,JL_STRING, 
+               "<init>", STR_CONST_DESC);
+
+        init_idx = c->index;
+
+        desc = field_descriptor[String][0];
+      }
+      else {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
+
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                full_wrappername[type]);
+        class_idx = c->index;
+
+        c = newMethodref(cur_const_table,full_wrappername[Ntemp->vartype], 
+               "<init>", wrapper_descriptor[Ntemp->vartype]);
+
+        init_idx = c->index;
+
+        desc = wrapped_field_descriptor[String][0];
+      }
+
+      code_one_op_w(jvm_new,class_idx);
+      code_zero_op(jvm_dup);
+
+      c = cp_find_or_insert(cur_const_table,CONSTANT_String,
+              Ctemp->astnode.constant.number);
+
+      if(c->index > CPIDX_MAX)
+        code_one_op_w(jvm_ldc_w, c->index);
+      else
+        code_one_op(jvm_ldc, c->index);
+
+      code_one_op_w(jvm_invokespecial, init_idx);
+
+      c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+                      desc); 
+      code_one_op_w(jvm_putstatic, c->index);
     }
     else
     {
       expr_emit(Ntemp);
       fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.constant.number);
     }
+
+    code_zero_op(array_store_opcodes[Ntemp->vartype]);
   }
   else 
   {
@@ -2909,6 +2950,8 @@ array_emit(AST *root, HASHNODE *hashtemp)
     if(gendebug)
       printf ("Array... %s, Parent node type... %s\n", 
         name, print_nodetype(root->parent));
+    printf ("Array... %s, Parent node type... %s\n", 
+      name, print_nodetype(root->parent));
 
     if((root->parent->nodetype == Call)) 
     {
@@ -2929,8 +2972,9 @@ array_emit(AST *root, HASHNODE *hashtemp)
         code_zero_op(array_load_opcodes[root->vartype]);
       }
     }
-    else if((root->parent->nodetype == Assignment) &&
-            (root->parent->astnode.assignment.lhs == root))
+    else if(((root->parent->nodetype == Assignment) &&
+             (root->parent->astnode.assignment.lhs == root)) ||
+            (root->parent->nodetype == DataStmt))
     {
       func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
     }

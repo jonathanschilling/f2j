@@ -412,7 +412,9 @@ data_emit(AST *root)
   }
 }
 
-/*************************************************************
+#ifdef DATAEMIT
+
+/*  Comments, anyone...?  */
 
 int
 data_emit(AST *root)
@@ -434,6 +436,8 @@ data_emit(AST *root)
 
       returnval = hashtemp->type;
 
+      /*  There really is something screwy about those 
+          hash tables...  -dmd 9/26/97  */
       if(hashtemp->variable == NULL)
       {
         fprintf(stderr,"Wow, hashtemp->variable is NULL!\n");
@@ -466,7 +470,9 @@ data_emit(AST *root)
     }
   }
 }
-*************************************************************/
+
+#endif /*  DATAEMIT  */
+
 
 /* A name will either fly solo or lead off
    a named array.  So far, this code will emit
@@ -479,6 +485,8 @@ data_emit(AST *root)
    be rewritten. 
 
    ...and it's getting worse by the day  --Keith */
+
+/*  Heh... gotta love it...  -dmd  9/26/97  */
 
 int
 name_emit (AST * root)

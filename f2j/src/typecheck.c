@@ -1162,17 +1162,18 @@ expr_check (AST * root)
       break;
     case Binaryop:
       if(root->astnode.expression.lhs == NULL)
-        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+        fprintf(stderr,"expr_check: calling expr_check with null LHS!\n");
 
       expr_check (root->astnode.expression.lhs);
 
       if(root->astnode.expression.rhs == NULL)
-        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+        fprintf(stderr,"expr_check: calling expr_check with null RHS!\n");
 
       expr_check (root->astnode.expression.rhs);
 
       if (checkdebug) {
-         printf("here checking binaryOp...\n");
+         printf("here checking binaryOp, optype = '%c'\n",
+           root->astnode.expression.optype);
          printf("lhs type: %s\n", returnstring[root->astnode.expression.lhs->vartype]);
          printf("rhs type: %s\n", returnstring[root->astnode.expression.rhs->vartype]);
       }

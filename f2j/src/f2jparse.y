@@ -3492,7 +3492,7 @@ eval_const_expr(AST *root)
       result2 = eval_const_expr (root->astnode.expression.rhs);
 
       root->token = root->astnode.expression.rhs->token;
-      root->nodetype = root->astnode.expression.rhs->nodetype;
+
       root->vartype = root->astnode.expression.rhs->vartype;
       strcpy(root->astnode.constant.number,
           root->astnode.expression.rhs->astnode.constant.number);

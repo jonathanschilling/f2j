@@ -240,6 +240,7 @@ typedef struct ast_node
                   char *merged_name;
                   int needs_declaration;
                   int len;
+                  int passByRef;
 	      }
 	    ident;
 

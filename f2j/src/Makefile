@@ -8,7 +8,8 @@ CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
-     codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o
+     codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o \
+     optimize.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -64,6 +65,8 @@ symtab.o: symtab.c symtab.h
 typeassign.o: typeassign.c f2j.h
 
 typecheck.o: typecheck.c f2j.h
+
+optimize.o: optimize.c f2j.h
 
 #initialize.o: initialize.c f2j.h
 

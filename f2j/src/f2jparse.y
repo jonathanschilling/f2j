@@ -7,6 +7,7 @@
 
 #define YYDEBUG 0
 #define TYPECHECK
+#define OPTIMIZE
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -50,6 +51,7 @@ AST *equivList = NULL;
 void assign_local_vars(AST *);
 void assign(AST *);
 void typecheck(AST *);
+void optimize(AST *);
 int hash(char *);
 void type_insert (HASHNODE ** , AST * , int , char *);
 void type_hash(AST *);
@@ -153,6 +155,9 @@ F2java:   Sourcecodes
                 if(emittem) {
 #ifdef TYPECHECK
                   typecheck(temp);
+#endif
+#ifdef OPTIMIZE
+                  optimize(temp);
 #endif
                   emit(temp);
                 }
@@ -1117,6 +1122,7 @@ Name:    NAME
 	   $$->token = NAME;
            $$->nodetype = Identifier;
            $$->astnode.ident.needs_declaration = FALSE;
+           $$->astnode.ident.passByRef = TRUE;
            $$->astnode.ident.lead_expr = NULL;
 
            lowercase(yylval.lexeme);

@@ -138,7 +138,7 @@ void
   forloop_end_bytecode(AST *),
   substring_assign_emit(AST *),
   dint_intrinsic_emit(AST *, METHODTAB *),
-  emit_call_args_known(AST *, HASHNODE *, BOOLEAN),
+  emit_call_args_known(AST *, char *, BOOLEAN),
   emit_call_args_unknown(AST *),
   emit_call_arguments(AST *, BOOLEAN),
   aint_intrinsic_emit(AST *, METHODTAB *),
@@ -225,6 +225,10 @@ void
   adapter_assign_emit_from_descriptor(AST *, int, char *),
   adapter_tmp_assign_emit(int, enum returntype),
   adapter_assign_emit(int, int, int, char *),
+  arrayacc_arg_emit(AST *, char *, char *, BOOLEAN),
+  arrayref_arg_emit(AST *, char *, char *),
+  scalar_arg_emit(AST *, char *, char *),
+  wrapped_arg_emit(AST *, char *),
   inc_stack(int);
 
 int
@@ -288,6 +292,7 @@ METHODREF
 struct stack_info * calcStack(char *);
 
 METHODREF
+  * get_methodref(AST *),
   * find_method(char *, Dlist);
 
 BOOLEAN

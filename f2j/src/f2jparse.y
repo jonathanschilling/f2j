@@ -162,7 +162,8 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
 %type <ptnode> ImplicitSpecItem ImplicitLetterList ImplicitLetter
 %type <ptnode> Label Lhs Logicalif
-%type <ptnode> Name Namelist LhsList Open
+%type <ptnode> Name UndeclaredName Namelist UndeclaredNamelist
+%type <ptnode> LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
 %type <ptnode> Read IoExp IoExplist Return  Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
@@ -481,10 +482,10 @@ Ffunction:   Function Specstmts Statements  End
               }
 ;
 
-Program:      PROGRAM Name NL
+Program:      PROGRAM UndeclaredName NL
               {
                  if(debug)
-                   printf("Program ->  PROGRAM Name\n");
+                   printf("Program ->  PROGRAM UndeclaredName\n");
 
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
@@ -500,10 +501,10 @@ Program:      PROGRAM Name NL
               }
 ;
 
-Subroutine: SUBROUTINE Name Functionargs NL
+Subroutine: SUBROUTINE UndeclaredName Functionargs NL
               {
                  if(debug)
-                   printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
+                   printf("Subroutine ->  SUBROUTINE UndeclaredName Functionargs NL\n");
 
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
@@ -520,10 +521,10 @@ Subroutine: SUBROUTINE Name Functionargs NL
 
                  fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
-          | SUBROUTINE Name NL
+          | SUBROUTINE UndeclaredName NL
               {
                  if(debug)
-                   printf("Subroutine ->  SUBROUTINE Name NL\n");
+                   printf("Subroutine ->  SUBROUTINE UndeclaredName NL\n");
 
                  init_tables();
                  $$ = addnode();
@@ -539,10 +540,10 @@ Subroutine: SUBROUTINE Name Functionargs NL
               }
 ;
 
-Function:  Type FUNCTION Name Functionargs NL 
+Function:  Type FUNCTION UndeclaredName Functionargs NL 
            {
              if(debug)
-               printf("Function ->  Type FUNCTION Name Functionargs NL\n");
+               printf("Function ->  Type FUNCTION UndeclaredName Functionargs NL\n");
              $$ = addnode();
 
   	     $3->parent = $$;  /* 9-4-97 - Keith */
@@ -735,7 +736,7 @@ CommonList: CommonSpec
             }
 ;
 
-CommonSpec: DIV Name DIV Namelist
+CommonSpec: DIV UndeclaredName DIV Namelist
            {
               AST *temp;
               int pos;
@@ -920,14 +921,14 @@ ImplicitLetterList: ImplicitLetter
                     }
 ;
 
-ImplicitLetter: Name
+ImplicitLetter: UndeclaredName
                 {
                   $$ = addnode();
                   $$->nodetype = Expression;
                   $$->astnode.expression.lhs = $1;
                   $$->astnode.expression.rhs = $1;
                 }
-              | Name MINUS Name
+              | UndeclaredName MINUS UndeclaredName
                 {
                   $$ = addnode();
                   $$->nodetype = Expression;
@@ -999,7 +1000,7 @@ DataConstant:  Constant
                {
                  $$ = $1;
                }
-            |  Name
+            |  UndeclaredName
                {
                  HASHNODE *hash_temp;
                  if((parameter_table != NULL) &&
@@ -1053,7 +1054,7 @@ DataLhs:  Lhs
           {
             $$ = $1;
           }
-        | OP Lhs CM Name EQ LoopBounds CP
+        | OP Lhs CM UndeclaredName EQ LoopBounds CP
           {
             $6->astnode.forloop.counter = $4;
             $6->astnode.forloop.Label = $2;
@@ -1281,26 +1282,26 @@ UnitSpec: Exp
            }
 ;
 
-CharExp: Name
+CharExp: UndeclaredName
          /* UNIMPLEMENTED */
        | String
          /* UNIMPLEMENTED */
 ;
 
-Ios: Name
+Ios: UndeclaredName
       /* UNIMPLEMENTED */
-   | Name OP Arrayindexlist CP
+   | UndeclaredName OP Arrayindexlist CP
       /* UNIMPLEMENTED */
 ;
 
-Close:  CLOSE OP Name CP NL
+Close:  CLOSE OP UndeclaredName CP NL
         {
           fprintf(stderr,"WArning: CLOSE not implemented.\n");
           $$ = $3;
         }
 ;
 
-Rewind: REWIND Name NL
+Rewind: REWIND UndeclaredName NL
         {
           fprintf(stderr,"Warning: REWIND not implemented.\n");
           $$ = $2;
@@ -1499,6 +1500,45 @@ Name:    NAME
            else
              $$ = initialize_name(yylval.lexeme);
          }
+;
+
+/* 
+ * UndeclaredName is similar to Name except that it is used in
+ * contexts where the name is not actually going to be a declared
+ * variable.  Thus in Name, we can insert implicitly defined variables
+ * into the hash table, but here in UndeclaredName we do not.
+ */
+
+UndeclaredName: NAME
+                {
+                  lowercase(yylval.lexeme);
+
+                  $$=addnode();
+                  $$->token = NAME;
+                  $$->nodetype = Identifier;
+
+                  $$->astnode.ident.needs_declaration = FALSE;
+
+                  if(omitWrappers)
+                    $$->astnode.ident.passByRef = FALSE;
+
+                  if(type_lookup(java_keyword_table,yylval.lexeme) ||
+                     type_lookup(jasmin_keyword_table,yylval.lexeme))
+                        yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+
+                  strcpy($$->astnode.ident.name, yylval.lexeme);
+                }
+;
+
+UndeclaredNamelist:   UndeclaredName
+            {
+              $$=$1;
+            }
+          | UndeclaredNamelist CM UndeclaredName
+            {
+              $3->prevstmt = $1;
+              $$ = $3;
+            }
 ;
 
 String:  STRING
@@ -1928,11 +1968,11 @@ RepeatableItem:  EDIT_DESC  /* A, F, I, D, G, E, L, X */
          $$->token = EDIT_DESC;
          strcpy($$->astnode.ident.name, yylval.lexeme);
        }
-     | Name
+     | UndeclaredName
        {
          $$ = $1;
        }
-     | Name '.' Constant
+     | UndeclaredName '.' Constant
        {
          /* ignore the constant part for now */
          free_ast_node($3);
@@ -2158,7 +2198,7 @@ FormatSpec:
         {
           $$ = $3;
         }
-     | FMT EQ Name
+     | FMT EQ UndeclaredName
         {
           fprintf(stderr,"Warning - ignoring FMT = %s\n",
              $3->astnode.ident.name);
@@ -2238,7 +2278,7 @@ IoExp: Exp
        {
          $$ = $1;
        }
-     | OP Explist CM Name EQ Exp CM Exp CP /* implied do loop */
+     | OP Explist CM UndeclaredName EQ Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2259,7 +2299,7 @@ IoExp: Exp
          $6->parent = $$;
          $8->parent = $$;
        }
-     | OP Explist CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
+     | OP Explist CM UndeclaredName EQ Exp CM Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2517,7 +2557,7 @@ Call:     CALL   Subroutinecall  NL
              $$ = $2;
 	     $$->nodetype = Call;
           }
-       |  CALL Name NL
+       |  CALL UndeclaredName NL
           {
             $$ = addnode();
             $2->parent = $$;
@@ -3071,7 +3111,7 @@ Pdec:     Assignment
           }
 ;
 
-External:  EXTERNAL Namelist NL
+External:  EXTERNAL UndeclaredNamelist NL
            {
              $$=addnode(); 
              $2->parent = $$;  /* 9-3-97 - Keith */
@@ -3082,7 +3122,7 @@ External:  EXTERNAL Namelist NL
            }
 ;
 
-Intrinsic: INTRINSIC Namelist NL
+Intrinsic: INTRINSIC UndeclaredNamelist NL
            {
              $$=addnode(); 
              $2->parent = $$;  /* 9-3-97 - Keith */
@@ -3276,9 +3316,11 @@ type_hash(AST * types)
           node = hash_entry->variable;
         else {
           node = initialize_name(tempnames->astnode.ident.name );
-          type_insert(type_table, node, 
-             implicit_table[tempnames->astnode.ident.name[0] - 'a'].type,
-             tempnames->astnode.ident.name);
+/*
+ *        type_insert(type_table, node, 
+ *           implicit_table[tempnames->astnode.ident.name[0] - 'a'].type,
+ *           tempnames->astnode.ident.name);
+ */
 
           if(debug)
             printf("Type hash (DIM): %s\n", tempnames->astnode.ident.name);
@@ -3331,10 +3373,13 @@ type_hash(AST * types)
                   tempnames->astnode.ident.name);
           }
           else {
-            if(debug)
-              printf("Duplicate entry.\n");  
+            if(debug) {
+              printf("type_hash: Entry already exists...");  
+              printf("going to override the type.");  
+            }
   
-            tempnames->vartype = hash_entry->variable->vartype;
+            /* tempnames->vartype = hash_entry->variable->vartype; */
+            hash_entry->variable->vartype = tempnames->vartype;
           }
         }
       }
@@ -4080,22 +4125,16 @@ initialize_name(char *id)
     }
     else
     {
-    /*
-      unfinished code to implement implicit typing.  when finishing
-      this up, remember to remove any calls to type_insert() which
-      are found after calls to this function.
-  
       enum returntype ret;
   
-      printf("cannot find name %s in hash table..",id);
+printf("cannot find name %s in hash table..",id);
       
       ret = implicit_table[tolower(id[0]) - 'a'].type;
   
-      printf("going to insert with default implicit type %s\n",
-        returnstring[ret]);
+printf("going to insert with default implicit type %s\n",
+ returnstring[ret]);
   
       type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
-     */
     }
   }
 

@@ -312,6 +312,8 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
 
+                $$->astnode.source.javadocComments = NULL; 
+
                 /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
@@ -370,6 +372,8 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
+
+                $$->astnode.source.javadocComments = NULL; 
 
                 /* initialize some values in this node */
 
@@ -432,6 +436,8 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
+
+                $$->astnode.source.javadocComments = NULL; 
 
                 /* initialize some values in this node */
 
@@ -1113,6 +1119,7 @@ Comment: COMMENT NL
            $$ = addnode();
            $$->token = COMMENT;
            $$->nodetype = Comment;
+           $$->astnode.ident.len = 0;
            strcpy($$->astnode.ident.name, yylval.lexeme);
          }
 ;

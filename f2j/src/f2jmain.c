@@ -66,39 +66,49 @@ main (int argc, char **argv)
   void type_insert (HASHNODE **, AST *, int, char *);
   void handle_segfault();
 
-  signal(SIGSEGV,handle_segfault);
+  char f2java_help[] = "The program is used as follows:
 
-  /* 
-   * The program is used as follows:
-   *
-   * To compile a program into Java source code:
-   *     f2java -java filename
-   *
-   * To compile a program into Jasmin assembly code:
-   *     f2java -jas filename
-   *
-   * If no language is specified (e.g. "f2java filename"),
-   * the default behavior is to generate Java source code.
-   *
-   * The -p option may also be used to specify the name
-   * of the package.  For example:
-   *     f2java -java -p org.netlib.blas filename
-   *
-   * The -w option forces all scalars to be generated as
-   * wrapped objects.  The default behavior is to only
-   * wrap those scalars that must be passed by reference.
-   *
-   * The -i option causes f2j to generate a high-level
-   * interface to each subroutine and function.
-   *
-   * The -s option causes f2j to simplify the interfaces
-   * by removing the offset parameter and using a zero offset.
-   * It isn't necessary to specify the -i flag in addition
-   * to the -s.
-   */
+To compile a program into Java source code:
+    f2java -java filename
+
+To compile a program into Jasmin assembly code:
+    f2java -jas filename
+
+If no language is specified (e.g. \"f2java filename\"),
+the default behavior is to generate Java source code.
+
+The -p option may also be used to specify the name
+of the package.  For example:
+
+    f2java -java -p org.netlib.blas filename
+
+The -w option forces all scalars to be generated as
+wrapped objects.  The default behavior is to only
+wrap those scalars that must be passed by reference.
+
+The -i option causes f2j to generate a high-level
+interface to each subroutine and function.
+
+The -h option displays this helpful information.
+
+The -s option causes f2j to simplify the interfaces
+by removing the offset parameter and using a zero offset.
+It isn't necessary to specify the -i flag in addition
+to the -s.
+
+The -d options causes f2j to generate comments in
+a format suitable for javadoc.  It is a bit of a LAPACK-
+specfic hack...the longest comment in the program unit
+is placed in the javadoc comment.  It works fine for
+BLAS/LAPACK code (or any other code where the longest
+comment is the one that describes the function), but
+will most likely not work for other code.\n";
+
+  signal(SIGSEGV,handle_segfault);
 
   omitWrappers  = TRUE;
   genInterfaces = FALSE;
+  genJavadoc    = FALSE;
   noOffset      = FALSE;
   package_name  = NULL;
   JAS = FALSE;   /* default to Java output */
@@ -106,7 +116,7 @@ main (int argc, char **argv)
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"j:p:wis")) != EOF)
+  while((c = getopt(argc,argv,"j:p:wisdh")) != EOF)
     switch(c) {
       case 'j':
         if(!strcmp(optarg,"ava"))
@@ -125,8 +135,15 @@ main (int argc, char **argv)
       case 'w':
         omitWrappers = FALSE;
         break;
+      case 'h':
+        printf("%s",f2java_help);
+        exit(1);
+        break;
       case 'i':
         genInterfaces = TRUE;
+        break;
+      case 'd':
+        genJavadoc = TRUE;
         break;
       case 's':
         noOffset = TRUE;
@@ -142,7 +159,9 @@ main (int argc, char **argv)
   if(errflg || (argc < 2))
   {
     fprintf(stderr,
-     "Usage: f2java [-java/-jas] [-p package name] [-w] [-i] [-s] <filename>\n");
+     "Usage: f2java [-java/-jas] [-p package name] [-w] [-i] [-s] [-d] <filename>\n");
+    fprintf(stderr,
+     "For help: f2java -h\n");
     exit(2);
   }
 
@@ -289,7 +308,7 @@ jasminheader (FILE * fp, char *classname)
  *****************************************************************************/
 
 void
-javaheader (FILE * fp, char *classname, char *reflect)
+javaheader (FILE * fp, char *reflect)
 {
   fprintf(fp,"/*\n");
   fprintf(fp," *  Produced by f2java.  f2java is part of the Fortran-\n");
@@ -312,8 +331,6 @@ javaheader (FILE * fp, char *classname, char *reflect)
   fprintf(fp,"%s", reflect);   /* the import stmt for reflection capability */
 
   fprintf(fp,"\n\n");
-
-  fprintf(fp,"public class %s {\n\n", classname);
 }
 
 /*****************************************************************************

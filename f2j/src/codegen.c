@@ -208,7 +208,8 @@ emit (AST * root)
        emit_invocations(AST *),
        merge_equivalences(AST *),
        print_equivalences(AST *),
-       emit_prolog_comments(AST *);
+       emit_prolog_comments(AST *),
+       emit_javadoc_comments(AST *);
 
     int isPassByRef(char *);
 
@@ -270,7 +271,6 @@ emit (AST * root)
             import_blas = FALSE; 
 
           open_output_file(root->astnode.source.progtype);
-          curfp = javafp;
 
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
@@ -573,6 +573,13 @@ emit (AST * root)
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
           break;
+      case MainComment:
+          while(root->nextstmt != NULL && root->nextstmt->nodetype == Comment)
+            root = root->nextstmt;
+
+          if (root->nextstmt != NULL)
+            emit (root->nextstmt);
+          break;
       case Comment:
           if (gendebug)
             printf ("Comment.\n");
@@ -662,6 +669,37 @@ emit_prolog_comments(AST *root)
     fprintf(curfp,"// %s",temp->astnode.ident.name);
     temp = temp->nextstmt;
   }
+}
+
+void 
+emit_javadoc_comments(AST *root)
+{
+  AST *temp;
+
+  temp = root->astnode.source.javadocComments;
+
+  if(temp == NULL)
+    return;
+
+  fprintf(curfp,"/**\n");
+  fprintf(curfp,"*<pre>\n");
+  fprintf(curfp,"*Following is the description from the original\n");
+  fprintf(curfp,"*Fortran source.  For each array argument, the Java\n");
+  fprintf(curfp,"*version will include an integer offset parameter, so\n");
+  fprintf(curfp,"*the arguments may not match the description exactly.\n");
+  fprintf(curfp,"*Contact <a href=\"mailto:seymour@cs.utk.edu\">");
+  fprintf(curfp,"seymour@cs.utk.edu</a> with any");
+  fprintf(curfp," questions.\n");
+  fprintf(curfp,"*<p>\n");
+  fprintf(curfp,"*\n");
+  while( (temp != NULL) && (temp->nodetype == MainComment ||
+                            temp->nodetype == Comment))
+  {
+    fprintf(curfp,"* %s",temp->astnode.ident.name);
+    temp = temp->nextstmt;
+  }
+  fprintf(curfp,"*</pre>\n");
+  fprintf(curfp,"**/\n");
 }
 
 /*****************************************************************************
@@ -3393,6 +3431,8 @@ open_output_file(AST *root)
     exit(1);
   }
 
+  curfp = javafp;  /* set global pointer to output file */
+
   /* add import statements if necessary */
 
   import_stmt[0] = '\0';
@@ -3403,7 +3443,12 @@ open_output_file(AST *root)
   if(import_blas)
     strcat(import_stmt,"import org.netlib.blas.*;\n");
 
-  javaheader(javafp,classname,import_stmt);
+  javaheader(javafp,import_stmt);
+
+  if(genJavadoc)
+    emit_javadoc_comments(root);
+
+  fprintf(javafp,"public class %s {\n\n", classname);
 }
 
 /*****************************************************************************
@@ -3669,7 +3714,38 @@ emit_interface(AST *root)
     exit(-1);
   }
 
-  javaheader(intfp, classname, "");
+  javaheader(intfp, "");
+
+  if(genJavadoc) {
+    fprintf(intfp,"/**\n");
+    fprintf(intfp,"*<pre>\n");
+    fprintf(intfp,"*<b>%s</b> is a simplified interface to the JLAPACK",
+        classname);
+    fprintf(intfp," routine <b>%s</b>.\n",
+        root->astnode.source.name->astnode.ident.name);
+    fprintf(intfp,"*This interface converts Java-style 2D row-major arrays");
+    fprintf(intfp," into\n*the 1D column-major linearized arrays expected by");
+    fprintf(intfp," the lower\n*level JLAPACK routines.  Using this interface");
+    fprintf(intfp," also allows you\n*to omit offset and leading dimension");
+    fprintf(intfp," arguments.  However, because\n*of these conversions,");
+    fprintf(intfp," these routines will be slower than the low\n*level ones.");
+    fprintf(intfp,"  Following is the description from the original ");
+    fprintf(intfp,"Fortran\n*source.  Contact ");
+    fprintf(intfp,"<a href=\"mailto:seymour@cs.utk.edu\">");
+    fprintf(intfp,"seymour@cs.utk.edu</a> with any questions.\n");
+    fprintf(intfp,"*<p>\n");
+    tempnode = root->astnode.source.javadocComments;
+    while( (tempnode != NULL) && (tempnode->nodetype == MainComment ||
+                                  tempnode->nodetype == Comment))
+    {
+      fprintf(intfp,"* %s",tempnode->astnode.ident.name);
+      tempnode = tempnode->nextstmt;
+    }
+    fprintf(intfp,"*</pre>\n");
+    fprintf(intfp,"**/\n");
+  }
+
+  fprintf(intfp,"public class %s {\n\n", classname);
 
   if (root->nodetype == Function)
     fprintf (intfp, "\npublic static %s %s (",
@@ -6369,6 +6445,8 @@ print_nodetype (AST *root)
       return("Equivalence");
     case Comment:
       return("Comment");
+    case MainComment:
+      return("MainComment");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

@@ -275,6 +275,7 @@ optimize (AST * root, AST * rptr)
     case Return:
     case Statement:
     case Comment:
+    case MainComment:
     case DataList:
     case Equivalence:
     case Typedec:

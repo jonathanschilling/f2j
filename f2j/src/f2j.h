@@ -72,6 +72,7 @@ char
 BOOLEAN 
   omitWrappers,            /* should we try to optimize use of wrappers      */
   genInterfaces,           /* should we generate simplified interfaces       */
+  genJavadoc,              /* should we generate javadoc-compatible comments */
   noOffset,                /* should we generate offset args in interfaces   */
   JAS;                     /* should we generate Jasmin code                 */
 
@@ -127,6 +128,7 @@ enum _nodetype
   Program,
   Blockif,
   Comment,
+  MainComment,
   Common,
   CommonList,
   DataStmt,
@@ -186,7 +188,8 @@ struct _source
     *statements,                    /* executable statements                 */
     *args,                          /* argument list                         */
     *equivalences,                  /* list of equivalences                  */
-    *prologComments;                /* comments preceding unit header        */
+    *prologComments,                /* comments preceding unit header        */
+    *javadocComments;               /* comm. to be emitted in javadoc format */
 
   SYMTABLE 
     *type_table,                    /* general symbol table for this unit    */
@@ -534,7 +537,7 @@ typedef struct {
 
 void 
   jasminheader (FILE *, char *),
-  javaheader (FILE *, char *, char *),
+  javaheader (FILE *, char *),
   return_emit (AST *),
   logicalop_assign(AST *),
   relationalop_assign(AST *),

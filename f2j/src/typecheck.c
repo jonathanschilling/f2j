@@ -156,11 +156,62 @@ typecheck (AST * root)
     case Format:
     case Stop:
     case Save:
-    case Comment:
+    case MainComment:
     case Unimplemented:
 
       if (checkdebug)
         printf ("typecheck(): %s.\n", print_nodetype(root));
+
+      if (root->nextstmt != NULL)
+        typecheck (root->nextstmt);
+      break;
+    case Comment:
+      /* we're looking at a comment - possibly several lines
+       * of comments.  Here we count the number of lines in
+       * this comment.  If this is the biggest (ie, longest
+       * in terms of number of lines), then we make it the
+       * MainComment which is generated in javadoc format.
+       *
+       * Deciding that the longest comment must be the description
+       * of the function is definitely a hack and is specific to
+       * BLAS/LAPACK.  we should find a more elegant solution.
+       */
+  
+      /* if the previous statement is NULL (and we already know
+       * that the current statement is a comment) then this must
+       * be the first line of the comment block.
+       *   OR
+       * if the previous statement is non-NULL and is not Comment,
+       * then this must be the first line of the comment block.
+       */
+      if(genJavadoc) {
+        if( (root->prevstmt == NULL) ||
+            (root->prevstmt != NULL &&
+             root->prevstmt->nodetype != Comment &&
+             root->prevstmt->nodetype != MainComment))
+        {
+          AST *ctemp;
+  
+          ctemp = root;
+          root->astnode.ident.len = 0;
+  
+          while(ctemp != NULL && ctemp->nodetype == Comment) {
+            root->astnode.ident.len++;
+            ctemp = ctemp->nextstmt;
+          }
+
+          ctemp = cur_unit->astnode.source.javadocComments;
+
+          if(ctemp == NULL) {
+            root->nodetype = MainComment;
+            cur_unit->astnode.source.javadocComments = root;
+          } else if(root->astnode.ident.len > ctemp->astnode.ident.len) {
+            ctemp->nodetype = Comment;
+            root->nodetype = MainComment;
+            cur_unit->astnode.source.javadocComments = root;
+          }
+        }
+      }
 
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);

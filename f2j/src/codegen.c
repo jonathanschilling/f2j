@@ -36,11 +36,6 @@ char
   * getVarDescriptor(AST *);
 
 void 
-/*
-  code_zero_op(enum _opcode),
-  code_one_op(enum _opcode, int),
-  code_one_op_w(enum _opcode, u2),
-*/
   pushConst(AST *),
   pushIntConst(int),
   pushDoubleConst(double),
@@ -4511,6 +4506,7 @@ expr_emit (AST * root)
             bytecode0(jvm_iconst_0);
             goto_node = bytecode0(jvm_goto);
             iconst_node = bytecode0(jvm_iconst_1);
+            cmp_node->branch_target = iconst_node;
 
             /* create a dummy instruction node following the iconst so that
              * we have a branch target for the goto statement.  it'll be
@@ -8324,11 +8320,12 @@ traverse_code(Dlist cgraph)
   val = (CodeGraphNode *) dl_val(dl_first(cgraph));
   val->stack_depth = 0;
 
+  calcOffsets(val);
+
+  /* now print the instructions */
   dl_traverse(tmp,cgraph) {
     val = (CodeGraphNode *) tmp->val;
-
-    calcOffsets(val);
-
+  
     if(jvm_opcode[val->op].width > 1)
       printf("%d: %s %d\n", val->pc, jvm_opcode[val->op].op, val->operand);
     else
@@ -8354,12 +8351,20 @@ calcOffsets(CodeGraphNode *val)
   int getStackIncrement(enum _opcode, u4),
       getStackDecrement(enum _opcode, u4);
 
+  /* if we already visited this node, then do not visit again. */
+  if(val->visited)
+    return;
+
+  val->visited = TRUE;
+
   printf("in calcoffsets, setting stack_Depth = %d\n",val->stack_depth);
 
   stacksize = val->stack_depth;
 
   dec_stack(getStackDecrement(val->op, val->operand));
   inc_stack(getStackIncrement(val->op, val->operand));
+
+  /* special handling for return instructions? */
 
   if((val->op == jvm_goto) || (val->op == jvm_goto_w)) {
     /* there's a lot of stuff to do/check for goto statements. 
@@ -8376,13 +8381,15 @@ calcOffsets(CodeGraphNode *val)
     }
     else {
       printf("goto branching to pc %d\n", val->branch_target->pc);
-      if(val->next != NULL) {
-        if(val->next->stack_depth == -1)
-          val->next->stack_depth = stacksize;
-        else if (val->next->stack_depth != stacksize)
-          fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
-                  val->next->pc);
-      }
+
+      if(val->branch_target->stack_depth == -1)
+        val->branch_target->stack_depth = stacksize;
+      else if (val->branch_target->stack_depth != stacksize)
+        fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
+                val->branch_target->pc);
+
+      val->operand = val->branch_target->pc - val->pc;
+      calcOffsets(val->branch_target);
     }
   }
   else if ( val->branch_target != NULL) {
@@ -8393,13 +8400,20 @@ calcOffsets(CodeGraphNode *val)
      */
     if(val->next != NULL)
       val->next->stack_depth = stacksize;
-    if(val->branch_target != NULL)
-      val->branch_target->stack_depth = stacksize;
+
+    val->branch_target->stack_depth = stacksize;
+    val->operand = val->branch_target->pc - val->pc;
+
+    if(val->next != NULL)
+      calcOffsets(val->next);
+    calcOffsets(val->branch_target);
   }
   else {
     /* null branch target, set stack depth for following instruction only. */
-    if(val->next != NULL)
+    if(val->next != NULL) {
       val->next->stack_depth = stacksize;
+      calcOffsets(val->next);
+    }
   }
 }
 
@@ -8898,6 +8912,7 @@ newGraphNode(enum _opcode op, u4 operand)
   tmp->optional_targets = NULL;
   tmp->branch_label = -1;
   tmp->stack_depth = -1;
+  tmp->visited = FALSE;
 
   return tmp;
 }
@@ -8925,6 +8940,7 @@ bytecode1(enum _opcode op, u4 operand)
   if((prev != NULL) && (prev->op == jvm_impdep1)) {
     prev->op = op;
     prev->operand = operand;
+    pc += jvm_opcode[op].width - jvm_opcode[jvm_impdep1].width;
     return prev;
   }
 

@@ -160,160 +160,173 @@ METHODTAB intrinsic_toks[]=
    *                                                                         */
 
   /* Type conversion intrinsics */
-  {"INT",    "(int)",             "Unused",           "Unused",           "Unused"},
-  {"IFIX",   "(int)",             "Unused",           "Unused",           "Unused"},
-  {"IDINT",  "(int)",             "Unused",           "Unused",           "Unused"},
-  {"REAL",   "(double)",          "Unused",           "Unused",           "Unused"},
-  {"FLOAT",  "(double)",          "Unused",           "Unused",           "Unused"},
-  {"SNGL",   "(double)",          "Unused",           "Unused",           "Unused"},
-  {"DBLE",   "(double)",          "Unused",           "Unused",           "Unused"},
-  {"CMPLX",  "(Complex)",         "Unused",           "Unused",           "Unused"},
-  {"ICHAR",  "(int)",             "Unused",           "Unused",           "Unused"},
-  {"CHAR",   "(char)",            "Unused",           "Unused",           "Unused"},
+  {"INT",    "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"IFIX",   "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"IDINT",  "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"REAL",   "(double)",          "Unused",           "Unused",           "Unused", Float},
+  {"FLOAT",  "(double)",          "Unused",           "Unused",           "Unused", Float},
+  {"SNGL",   "(double)",          "Unused",           "Unused",           "Unused", Float},
+  {"DBLE",   "(double)",          "Unused",           "Unused",           "Unused", Double},
+  {"CMPLX",  "(Complex)",         "Unused",           "Unused",           "Unused", Complex},
+  {"ICHAR",  "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"CHAR",   "(char)",            "Unused",           "Unused",           "Unused", Character},
 
   /* Truncation */
-  {"AINT",   "(int)",             "Unused",           "Unused",           "Unused"},
-  {"DINT",   "(int)",             "Unused",           "Unused",           "Unused"},
+  {"AINT",   "(int)",             "Unused",           "Unused",           "Unused", Double},
+  {"DINT",   "(int)",             "Unused",           "Unused",           "Unused", Double},
 
   /* Nearest Whole Number */
-  {"ANINT",  "(int)",             "Unused",           "Unused",           "Unused"},
-  {"DNINT",  "(int)",             "Unused",           "Unused",           "Unused"},
+  {"ANINT",  "(int)",             "Unused",           "Unused",           "Unused", Double},
+  {"DNINT",  "(int)",             "Unused",           "Unused",           "Unused", Double},
 
   /* Nearest Integer */
-  {"NINT",   "(int)",             "Unused",           "Unused",           "Unused"},
-  {"IDNINT", "(int)",             "Unused",           "Unused",           "Unused"},
+  {"NINT",   "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"IDNINT", "(int)",             "Unused",           "Unused",           "Unused", Integer},
 
   /* Absolute Value */
-  {"ABS",    "Math.abs",          "java/lang/Math",   "abs",              "(D)D"},
-  {"IABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D"},
-  {"DABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D"},
-  {"CABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D"},
+  {"ABS",    "Math.abs",          "java/lang/Math",   "abs",              "(D)D", Double},
+  {"IABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D", Integer},
+  {"DABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D", Double},
+  {"CABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D", Float},
 
   /* Remaindering */
-  {"MOD",    "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D"},
-  {"AMOD",   "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D"},
-  {"DMOD",   "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D"},
+  {"MOD",    "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D", Integer},
+  {"AMOD",   "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D", Float},
+  {"DMOD",   "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D", Double},
 
   /* Transfer of Sign */
-  {"SIGN",   "(int)",             "Unused",           "Unused",           "Unused"},
-  {"ISIGN",  "(int)",             "Unused",           "Unused",           "Unused"},
-  {"DSIGN",  "(int)",             "Unused",           "Unused",           "Unused"},
+  {"SIGN",   "(int)",             "Unused",           "Unused",           "Unused", Double},
+  {"ISIGN",  "(int)",             "Unused",           "Unused",           "Unused", Integer},
+  {"DSIGN",  "(int)",             "Unused",           "Unused",           "Unused", Double},
 
   /* Positive Difference */
-  {"DIM",    "????Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"IDIM",   "????Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"DDIM",   "????Math.min",          "java/lang/Math",   "min",              "(II)I"},
+  {"DIM",    "????Math.min",          "java/lang/Math",   "min",              "(II)I", Double},
+  {"IDIM",   "????Math.min",          "java/lang/Math",   "min",              "(II)I", Integer},
+  {"DDIM",   "????Math.min",          "java/lang/Math",   "min",              "(II)I", Double},
 
   /* Double Precision Product */
-  {"DPROD",  "????Math.min",          "java/lang/Math",   "min",              "(II)I"},
+  {"DPROD",  "????Math.min",          "java/lang/Math",   "min",              "(II)I", Double},
 
   /* Choosing Largest Value */
-  {"MAX",    "Math.max",          "java/lang/Math",   "max",              "(II)I"},
-  {"MAX0",   "Math.max",          "java/lang/Math",   "max",              "(II)I"},
-  {"AMAX1",  "Math.max",          "java/lang/Math",   "max",              "(DD)D"},
-  {"DMAX1",  "Math.max",          "java/lang/Math",   "max",              "(DD)D"},
-  {"AMAX0",  "Math.max",          "java/lang/Math",   "max",              "(DD)D"},
-  {"MAX1",   "Math.max",          "java/lang/Math",   "max",              "(DD)D"},
+  {"MAX",    "Math.max",          "java/lang/Math",   "max",              "(II)I", Double},
+  {"MAX0",   "Math.max",          "java/lang/Math",   "max",              "(II)I", Integer},
+  {"AMAX1",  "Math.max",          "java/lang/Math",   "max",              "(DD)D", Float},
+  {"DMAX1",  "Math.max",          "java/lang/Math",   "max",              "(DD)D", Double},
+  {"AMAX0",  "Math.max",          "java/lang/Math",   "max",              "(DD)D", Float},
+  {"MAX1",   "Math.max",          "java/lang/Math",   "max",              "(DD)D", Integer},
 
   /* Choosing Smallest Value */
-  {"MIN",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"MIN0",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"MIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"AMIN0",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"AMIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
-  {"DMIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I"},
+  {"MIN",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Double},
+  {"MIN0",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Integer},
+  {"MIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Integer},
+  {"AMIN0",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Float},
+  {"AMIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Float},
+  {"DMIN1",    "Math.min",          "java/lang/Math",   "min",              "(II)I", Double},
 
   /* Length of Character Entity */
-  {"LEN",    "(int)",             "Unused",           "Unused",           "Unused"},
+  {"LEN",    "(int)",             "Unused",           "Unused",           "Unused", Integer},
 
   /* Location of Substring a2 in String a1 */
-  {"INDEX",    "(int)",             "Unused",           "Unused",           "Unused"},
+  {"INDEX",    "(int)",             "Unused",           "Unused",           "Unused", Integer},
 
   /* Imaginary Part of Complex Arg */
-  {"AIMAG",    "(int)",             "Unused",           "Unused",           "Unused"},
+  {"AIMAG",    "(int)",             "Unused",           "Unused",           "Unused", Float},
 
   /* Conjuagate of Complex Argument */
-  {"CONJG",    "(int)",             "Unused",           "Unused",           "Unused"},
+  {"CONJG",    "(int)",             "Unused",           "Unused",           "Unused", Complex},
 
   /* Sqare Root */
-  {"SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D"},
-  {"DSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D"},
-  {"CSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D"},
+  {"SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", Double},
+  {"DSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", Double},
+  {"CSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", Complex},
 
   /* Exponential */
-  {"EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D"},
-  {"DEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D"},
-  {"CEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D"},
+  {"EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", Double},
+  {"DEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", Double},
+  {"CEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", Complex},
 
   /* Natural Logarithm */
-  {"LOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D"},
-  {"ALOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D"},
-  {"DLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D"},
-  {"CLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D"},
+  {"LOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", Double},
+  {"ALOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", Float},
+  {"DLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", Double},
+  {"CLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", Complex},
 
   /* Common Logarithm - use java's log function then divie by 2.30258509 */
-  {"LOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D"},
-  {"ALOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D"},
-  {"DLOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D"},
+  {"LOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D", Double},
+  {"ALOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D", Float},
+  {"DLOG10",  "Math.log",          "java/lang/Math",   "log",              "(D)D", Double},
 
   /* Sine */
-  {"SIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
-  {"DSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
-  {"CSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
+  {"SIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
+  {"DSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
+  {"CSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Complex},
 
   /* Cosine */
-  {"COS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"CCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"COS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"CCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Complex},
 
   /* Tangent */
-  {"TAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DTAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"TAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DTAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
 
   /* Arcsine */
-  {"ASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
-  {"DASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
+  {"ASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
+  {"DASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
 
   /* Arccosine */
-  {"ACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"ACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
 
   /* Arctangent */
-  {"ATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"ATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"ATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"ATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
 
   /* Hyperbolic Sine */
-  {"SINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
-  {"DSINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D"},
+  {"SINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
+  {"DSINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", Double},
 
   /* Hyperbolic Cosine */
-  {"COSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DCOSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"COSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DCOSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
 
   /* Hyperbolic Tangent */
-  {"TANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
-  {"DTANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"TANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
+  {"DTANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Double},
 
   /* Lexically Greater than or Equal to */
-  {"LGE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"LGE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Logical},
 
   /* Lexically Greater than */
-  {"LGT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"LGT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Logical},
 
   /* Lexically Less than or Equal to */
-  {"LLE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"LLE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Logical},
 
   /* Lexically Less than */
-  {"LLT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D"},
+  {"LLT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", Logical},
 
   /* LAPACK 'intrinsics' */
-  {"LSAME",  ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z"}, 
-  {"LSAMEN", ".regionMatches",    "java/lang/String", "regionMatches",    "(ZILjava/lang/String;II)Z"}, 
+  {"LSAME",  ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z", Logical}, 
+  {"LSAMEN", ".regionMatches",    "java/lang/String", "regionMatches",    "(ZILjava/lang/String;II)Z", Logical}, 
 
   /*  Ends a scanning loop.  See comment above. */
-  {NULL , NULL, NULL, NULL, NULL}    
+  {NULL , NULL, NULL, NULL, NULL, 0}    
+};
+
+/*****************************************************************************
+ * Fortran intrinsics have "generic" versions which can take several data    *
+ * types.  we search this list before generating code so that we know        *
+ * whether to set the return type based on the arguments.                    *
+ *****************************************************************************/
+
+char *generic_intrinsics[] =
+{
+   "INT", "REAL", "DBLE", "CMPLX", "AINT", "ANINT", "NINT", "ABS", "MOD",
+   "SIGN", "DIM", "MAX", "MIN", "SQRT", "EXP", "LOG", "LOG10", "SIN",
+   "COS", "TAN", "ASIN", "ACOS", "ATAN", "ATAN2", "SINH", "COSH", "TANH", 0
 };
 
 /*****************************************************************************

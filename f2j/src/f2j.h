@@ -102,7 +102,8 @@ SYMTABLE
   *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
-  *global_common_table;    /* Global COMMON table                            */
+  *global_common_table,    /* Global COMMON table                            */
+  *generic_table;          /* table of the generic intrinsic functions       */
 
 Dlist constants_table;     /* constants (for bytecode constant pool gen.)    */
 
@@ -534,6 +535,8 @@ typedef struct method_tab
   char *class_name;                 /* fully qualified Java class name       */
   char *method_name;                /* fully qualified Java class name       */
   char *descriptor;                 /* corresponding Java func descriptor    */
+
+  enum returntype ret;              /* return type of this intrinsic         */
 }
 METHODTAB;
 

@@ -38,6 +38,7 @@ main (int argc, char **argv)
   extern char *jasmin_reserved_words[];
   extern char *blas_routines[];
   extern char *optarg;
+  extern char *generic_intrinsics[];
 
   extern FILE *ifp;
 
@@ -191,6 +192,12 @@ will most likely not work for other code.\n";
 
   for(i=0;blas_routines[i] != NULL; i++)
     type_insert(blas_routine_table,temp,0,blas_routines[i]);
+
+  generic_table = (SYMTABLE *) new_symtable(211);
+  temp = addnode();
+
+  for(i=0;generic_intrinsics[i] != NULL; i++)
+    type_insert(generic_table,temp,0,generic_intrinsics[i]);
 
   fprintf(stderr,"%s:\n",inputfilename);
   yyparse ();

@@ -84,6 +84,8 @@
 #define THREEARG_MIN_FUNC "Util.min"
 
 #define CB_PREFIX "common_block/"
+#define CB_DELIMITER '|'
+#define CB_SEPARATOR ','
 
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
@@ -140,6 +142,10 @@ char
   * get_field_desc_from_ident(AST *),
   * get_desc_from_arglist(AST *),
   * get_adapter_desc(char *, AST *),
+  * getNameFromCommonDesc(char *, int),
+  * getFieldDescFromCommonDesc(char *, int),
+  * getMergedName(AST *),
+  * getMergedDescriptor(AST *, enum returntype),
   * getCommonVarName(AST *);
 
 METHODTAB
@@ -324,6 +330,7 @@ struct stack_info * calcStack(char *);
 
 METHODREF
   * get_methodref(AST *),
+  * find_commonblock(char *, Dlist),
   * find_method(char *, Dlist);
 
 BOOLEAN

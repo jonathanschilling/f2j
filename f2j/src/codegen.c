@@ -698,6 +698,13 @@ get_full_classname(char *thisclass)
 {
   char * pname, *t;
 
+  /* maybe this is already qualified.  if so, just return a dup of the
+   * class name.
+   */
+  for(t = thisclass; *t != '\0'; t++)
+    if( *t == '/' )
+      return strdup(thisclass);
+
   if(package_name != NULL) {
     pname = (char *)f2jalloc(strlen(thisclass) + strlen(package_name) + 2);
 
@@ -1317,6 +1324,32 @@ equiv_emit (AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * find_commonblock                                                          *
+ *                                                                           *
+ * finds a common block entry in the .f2j file.                              *
+ *                                                                           *
+ *****************************************************************************/
+
+METHODREF *
+find_commonblock(char *cblk_name, Dlist dt)
+{
+  char *temp_commonblockname;
+  METHODREF *mtmp;
+
+  temp_commonblockname = (char *) f2jalloc(strlen(cblk_name) +
+      strlen(CB_PREFIX) + 1);
+
+  sprintf(temp_commonblockname, "%s%s", CB_PREFIX, cblk_name);
+
+  mtmp = find_method(temp_commonblockname, dt);
+
+  f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
+
+  return mtmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
  *  common_emit                                                              *
  *                                                                           *
  *  This function emits common blocks as a static class containing           *
@@ -1345,7 +1378,6 @@ common_emit(AST *root)
   int save_stack, save_pc, save_handlers;
   char *save_filename;
   struct method_info *save_clinit;
-  char *temp_commonblockname;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1387,19 +1419,12 @@ common_emit(AST *root)
       printf("common_emit.2: lookin for common block '%s'\n", 
          Ctemp->astnode.common.name);
 
-      temp_commonblockname = (char *) f2jalloc(strlen(Ctemp->astnode.common.name) + 
-         strlen(CB_PREFIX) + 1);
-      sprintf(temp_commonblockname, "%s%s", CB_PREFIX, Ctemp->astnode.common.name);
-
-      mtmp = find_method(temp_commonblockname, descriptor_table);
+      mtmp = find_commonblock(Ctemp->astnode.common.name, descriptor_table);
       if(mtmp) {
         printf("common_emit.3: %s,%s,%s\n", mtmp->classname, mtmp->methodname,
            mtmp->descriptor);
-        f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
         continue;
       }
-
-      f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
 
       /* common block filename will be a concatenation of
        * the original input filename and the name of this
@@ -1475,7 +1500,8 @@ printf("common_emit.1: set curfp = %p\n", curfp);
 
         temp = hashtemp->variable;
 
-        fprintf(indexfp,"/%s,%s",getCommonVarName(Ntemp), getVarDescriptor(temp));
+        fprintf(indexfp,"%c%s,%s",CB_DELIMITER, getVarDescriptor(temp),
+            getCommonVarName(Ntemp));
 
         field_emit(temp);
 
@@ -1536,6 +1562,92 @@ printf("common_emit.1: set curfp = %p\n", curfp);
   stacksize = save_stack;
   cur_code = save_code;
   pc = save_pc;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getNameFromCommonDesc                                                     *
+ *                                                                           *
+ * given a common block 'descriptor' (as found in the .f2j file), we return  *
+ * the variable name  corresponding to the Nth variable in the common block. *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getNameFromCommonDesc(char *desc, int idx)
+{
+  int len = 0, del_count = 0;
+  char *p, *name;
+
+  /* skip initial delimiter */
+  p = desc + 1;
+
+  while(del_count < idx) {
+    p = skipToken(p);      /* skip the descriptor */
+    p++;                   /* skip the comma */
+
+    /* skip until next descriptor */
+    while((*p != CB_DELIMITER) && (*p != '\0'))
+      p++;
+
+    del_count++;
+    p++;                   /* skip the delimiter */
+  }
+
+  if(p == '\0')
+    return NULL;
+
+  p = skipToken(p);
+  p++;
+
+  while((*(p+len) != CB_DELIMITER) && (*(p+len) != '\0'))
+    len++;
+
+  name = (char *) f2jalloc(len+2);
+  strncpy(name, p, len+1);
+  name[len] = '\0';
+
+  return name;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getFieldDescFromCommonDesc                                                *
+ *                                                                           *
+ * given a common block 'descriptor' (as found in the .f2j file), we return  *
+ * the descriptor corresponding to the Nth variable in the common block.     *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getFieldDescFromCommonDesc(char *desc, int idx)
+{
+  int len = 0, del_count = 0;
+  char *p, *name;
+
+  /* skip initial delimiter */
+  p = desc + 1;
+
+  while(del_count < idx) {
+    /* skip until next descriptor */
+    while((*p != CB_DELIMITER) && (*p != '\0'))
+      p++;
+
+    del_count++;
+    p++;                   /* skip the delimiter */
+  }
+
+  if(p == '\0')
+    return NULL;
+
+  while((*(p+len) != CB_SEPARATOR) && (*(p+len) != '\0'))
+    len++;
+
+  name = (char *) f2jalloc(len+2);
+  strncpy(name, p, len+1);
+  name[len] = '\0';
+
+  return name;
 }
 
 /*****************************************************************************
@@ -1755,6 +1867,68 @@ newarray_emit(enum returntype vtype)
 
 /*****************************************************************************
  *                                                                           *
+ * getMergedName                                                             *
+ *                                                                           *
+ * given an ident, return the merged name.                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getMergedName(AST *root)
+{
+  HASHNODE *hashtemp, *ht2;
+  char *name = NULL;
+
+  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    name = ht2->variable->astnode.ident.merged_name;
+  }
+  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name)))
+    name = hashtemp->variable->astnode.ident.merged_name;
+  else
+    name = root->astnode.ident.name;
+
+  return name;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getMergedDescriptor                                                       *
+ *                                                                           *
+ * given an ident, return the descriptor.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getMergedDescriptor(AST *root, enum returntype returns)
+{
+  HASHNODE *hashtemp, *ht2;
+  char *desc = NULL;
+
+  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    desc = ht2->variable->astnode.ident.descriptor;
+  }
+  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+    desc = hashtemp->variable->astnode.ident.descriptor;
+  }
+  else {
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    if(ht2 && ht2->variable->astnode.ident.descriptor)
+      desc = ht2->variable->astnode.ident.descriptor;
+    else {
+      desc = field_descriptor[returns][root->astnode.ident.dim];
+    }
+  }
+
+  return desc;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * vardec_emit                                                               *
  *                                                                           *
  * the body of this function used to be in typedec_emit, but                 *
@@ -1771,7 +1945,7 @@ void
 vardec_emit(AST *root, enum returntype returns)
 {
   char *prefix, *name, *desc;
-  HASHNODE *hashtemp, *ht2;
+  HASHNODE *hashtemp;
   int count=0;
   AST *temp2;
   CPNODE *c;
@@ -1787,27 +1961,8 @@ vardec_emit(AST *root, enum returntype returns)
    * need to get the name/descriptor from the merged variable.
    */
 
-  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
-    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
-
-    name = ht2->variable->astnode.ident.merged_name;
-    desc = ht2->variable->astnode.ident.descriptor;
-  }
-  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
-    name = hashtemp->variable->astnode.ident.merged_name;
-    desc = hashtemp->variable->astnode.ident.descriptor;
-  }
-  else {
-    name = root->astnode.ident.name;
-
-    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
-
-    if(ht2 && ht2->variable->astnode.ident.descriptor)
-      desc = ht2->variable->astnode.ident.descriptor;
-    else {
-      desc = field_descriptor[returns][root->astnode.ident.dim];
-    }
-  }
+  name = getMergedName(root);
+  desc = getMergedDescriptor(root, returns);
 
   /* 
    * check to see if this is an array declaration or not. 
@@ -3329,6 +3484,8 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
       return TRUE;
     }
     else {
+      METHODREF * mtmp;
+
       /* otherwise, we look up the variable name in the table of
        * COMMON variables.
        */
@@ -3373,6 +3530,13 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
             blockName);
 
         return TRUE;
+      }
+      else if((mtmp=find_commonblock(name, descriptor_table)) != NULL) {
+        char * temp_desc;
+      
+        temp_desc = getFieldDescFromCommonDesc(mtmp->descriptor, pos);
+        
+        return isPassByRef_desc(temp_desc);
       }
       else {
         return FALSE;
@@ -3640,14 +3804,13 @@ get_common_prefix(char *varname)
   char * inf = strdup(inputfilename);
   char * prefix = strtok(inf,".");
   static char * cprefix;
+  METHODREF *mtmp;
 
   /* Look up this variable name in the table of COMMON variables */
 
   ht = type_lookup(cur_common_table, varname);
 
-  if(ht == NULL)
-    cprefix = strdup("");  /* dup so we can free() later */
-  else {
+  if(ht) {
     cprefix = (char *) f2jalloc(
        strlen(ht->variable->astnode.ident.commonBlockName) +
        strlen(prefix) + 3);
@@ -3655,6 +3818,13 @@ get_common_prefix(char *varname)
     sprintf(cprefix,"%s_%s.", prefix,
       ht->variable->astnode.ident.commonBlockName);
   }
+  else if((mtmp = find_commonblock(varname, descriptor_table)) != NULL) {
+    cprefix = (char *) f2jalloc( strlen(mtmp->classname) + 3);
+
+    sprintf(cprefix,"%s.", mtmp->classname);
+  }
+  else
+    cprefix = strdup("");  /* dup so we can free() later */
 
   f2jfree(inf, strlen(inf)+1);
   return(cprefix);

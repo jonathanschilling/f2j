@@ -137,6 +137,10 @@ Sourcecode :    Fprogram
 Fprogram:   Program  Specstmts  Statements End 
               {
                 $$ = addnode();
+	        $1->parent = $$; /* 9-4-97 - Keith */
+	        $2->parent = $$; /* 9-4-97 - Keith */
+	        $3->parent = $$; /* 9-4-97 - Keith */
+	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
@@ -167,6 +171,10 @@ Fprogram:   Program  Specstmts  Statements End
 Fsubroutine: Subroutine Specstmts Statements End 
               {
                 $$ = addnode();
+	        $1->parent = $$; /* 9-4-97 - Keith */
+	        $2->parent = $$; /* 9-4-97 - Keith */
+	        $3->parent = $$; /* 9-4-97 - Keith */
+	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
@@ -195,11 +203,16 @@ Ffunction:   Function Specstmts Statements  End
                 $2 = switchem($2);
 		type_hash($2);
                 $$ = addnode();
+	        $1->parent = $$; /* 9-4-97 - Keith */
+	        $2->parent = $$; /* 9-4-97 - Keith */
+	        $3->parent = $$; /* 9-4-97 - Keith */
+	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
                 $$->astnode.source.typedecs = $2;
 		$4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
+
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
@@ -219,6 +232,7 @@ Ffunction:   Function Specstmts Statements  End
 Program:      PROGRAM Name
               {
                  $$ = addnode();
+	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
 		 $$->astnode.source.name = $2;
               }
@@ -228,6 +242,8 @@ Program:      PROGRAM Name
 Subroutine:   SUBROUTINE Name Functionargs NL
               {
                  $$ = addnode();
+	         $2->parent = $$; /* 9-4-97 - Keith */
+	         $3->parent = $$; /* 9-4-97 - Keith */
                  lowercase($2->astnode.ident.name);
                  $$->astnode.source.name = $2; 
                  $$->nodetype = Subroutine;
@@ -239,9 +255,11 @@ Subroutine:   SUBROUTINE Name Functionargs NL
 Function:  Type FUNCTION Name Functionargs NL 
            {
              $$ = addnode();
+	     $3->parent = $$; /* 9-4-97 - Keith */
+	     $4->parent = $$; /* 9-4-97 - Keith */
              $$->astnode.source.name = $3;
              $$->nodetype = Function;
-	      $$->token = FUNCTION;
+	     $$->token = FUNCTION;
              $$->astnode.source.returns = $1;
              $$->astnode.source.args = switchem($4);
            }
@@ -281,6 +299,7 @@ Specstmt:  DIMENSION
 Save:   SAVE Namelist NL
 	   {
 	    $$ = addnode();
+	    $2->parent = $$; /* 9-4-97 - Keith */
 	    $$->nodetype = Unimplemented;
 	   }
 ;
@@ -309,6 +328,8 @@ Datalist:   Data {$$ = $1;}
 Data:       DATA Namelist DIV Constantlist DIV 
             { 
               $$ = addnode();
+	      $2->parent = $$; /* 9-4-97 - Keith */
+	      $4->parent = $$; /* 9-4-97 - Keith */
 	      $$->nodetype = Unimplemented;
             }
 ;
@@ -403,12 +424,13 @@ Namelist:   Name {$$=$1;}
 
 /* Somewhere in the actions associated with this production,
    I need to ship off the type and variable list to get hashed.
-Also need to pass `typevarlist' off to a procedure
+   Also need to pass `typevarlist' off to a procedure
    to load a local variable table for opcode generation.
    */
 Typestmt:      Types Typevarlist NL
               {
                  $$ = addnode();
+	         $2->parent = $$; /* 9-4-97 - Keith */
                  /* store_local_var($2);  */
                  $2 = switchem($2);
                  $$->nodetype = Typedec;
@@ -426,13 +448,25 @@ Types:       Type
 Type:  TYPE { $$ = yylval.type;   }
 ;
 
+/* Here I'm going to do the same thing I did with Explist.  That is,
+   each element in the list of typevars will have a parent link to a 
+   single node indicating that the context of the array is a
+   declaration.  --Keith */
+
 Typevarlist:     Typevar
              {
+               AST *temp;
+
+               temp = addnode();
+               temp->nodetype = Typedec;
+               $1->parent = temp;
+
                $$ = $1;
              }
           |  Typevarlist CM  Typevar
              {
                $3->prevstmt = $1;
+               $3->parent = $1->parent;
                $$ = $3;
              }
 ;
@@ -494,10 +528,16 @@ Arraydeclaration: Name OP Arraynamelist CP
 		    */
 		    $$ = $1;
 		    $$->astnode.ident.arraylist = switchem($3);
-		    $$->astnode.ident.leaddim = strdup ($$->astnode.ident.arraylist->astnode.ident.name);
+                  
+                    /* leaddim might be a constant, so check for that.  --keith */
+                    if($$->astnode.ident.arraylist->nodetype == Constant) {
+		      $$->astnode.ident.leaddim = 
+                          strdup ($$->astnode.ident.arraylist->astnode.constant.number);
+                    } else {
+		      $$->astnode.ident.leaddim = 
+                          strdup ($$->astnode.ident.arraylist->astnode.ident.name);
+                    }
 		    store_array_var($$);
-		    
-		    
                   }
 
 Arraynamelist:    Arrayname {$$=$1;}
@@ -529,6 +569,8 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
                            */
              { 
                 $$ = addnode();
+	        $1->parent = $$; /* 9-4-97 - Keith */
+	        $3->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Assignment;
                 $$->astnode.assignment.lhs = $1;
                 $$->astnode.assignment.rhs = $3;
@@ -540,6 +582,8 @@ Lhs:     Name {$$=$1;}
          {
 	   HASHNODE * hashtemp;  /* In case we need to switch index order. */
 	   $$ = addnode();
+	   $1->parent = $$; /* 9-4-97 - Keith */
+	   $3->parent = $$; /* 9-4-97 - Keith */
 	   $$->nodetype = Identifier;
 	   strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 	   /*  This is in case we want to switch index order later. */
@@ -578,6 +622,8 @@ Arrayindexop:  Arrayindex
              | Arrayindexop PLUS Arrayindexop
                {
 		  $$=addnode();
+	          $1->parent = $$; /* 9-4-97 - Keith */
+	          $3->parent = $$; /* 9-4-97 - Keith */
 		  $$->astnode.expression.lhs = $1;
 		  $$->astnode.expression.rhs = $3;
 		  $$->nodetype = Binaryop;
@@ -586,6 +632,8 @@ Arrayindexop:  Arrayindex
               | Arrayindexop MINUS Arrayindexop
               {
 		  $$=addnode();
+	          $1->parent = $$; /* 9-4-97 - Keith */
+	          $3->parent = $$; /* 9-4-97 - Keith */
 		  $$->astnode.expression.lhs = $1;
 		  $$->astnode.expression.rhs = $3;
 		  $$->nodetype = Binaryop;
@@ -594,6 +642,8 @@ Arrayindexop:  Arrayindex
               | Arrayindexop STAR Arrayindexop
               {
 		  $$=addnode();
+	          $1->parent = $$; /* 9-4-97 - Keith */
+	          $3->parent = $$; /* 9-4-97 - Keith */
 		  $$->astnode.expression.lhs = $1;
 		  $$->astnode.expression.rhs = $3;
 		  $$->nodetype = Binaryop;
@@ -632,6 +682,8 @@ Do_incr:  DO Integer
 Do_vals:  Assignment CM Exp   NL
           {
             $$ = addnode();
+	    $1->parent = $$; /* 9-4-97 - Keith */
+	    $3->parent = $$; /* 9-4-97 - Keith */
             $$->astnode.forloop.counter = $1->astnode.assignment.lhs;
             $$->astnode.forloop.start = $1;
             $$->astnode.forloop.stop = $3;
@@ -642,6 +694,9 @@ Do_vals:  Assignment CM Exp   NL
        | Assignment CM Exp CM Exp   NL
          {
            $$ = addnode();
+	   $1->parent = $$; /* 9-4-97 - Keith */
+	   $3->parent = $$; /* 9-4-97 - Keith */
+	   $5->parent = $$; /* 9-4-97 - Keith */
            $$->nodetype = Forloop;
            $$->astnode.forloop.start = $1;
            $$->astnode.forloop.stop = $3;
@@ -680,6 +735,8 @@ Do_statement:    Assignment NL {$$=$1; $$->nodetype = Assignment;}
 Label: Integer Doloop 
        {
          $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
 	 $$->nodetype = Label;
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
 	 $$->astnode.label.stmt = $2;
@@ -687,6 +744,8 @@ Label: Integer Doloop
       | Integer Assignment NL
        {
          $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
 	 $$->nodetype = Assignment;
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
 	 $$->astnode.label.stmt = $2;
@@ -696,6 +755,7 @@ Label: Integer Doloop
 Continue:  Integer CONTINUE NL
        {
          $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
 	 $$->nodetype = Label;
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
 	 $$->astnode.label.stmt = NULL;
@@ -704,10 +764,16 @@ Continue:  Integer CONTINUE NL
 /*  Got a problem when a Blockif opens with a Blockif.  The
     first statement of the second Blockif doesn't get into the
     tree.  Might be able to use do loop for example to fix this. */
+
 Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
            {
              $$ = addnode();
 	     $3->parent = $$;
+	     $7->parent = $$; /* 9-4-97 - Keith */
+             if($8 != NULL) 
+               $8->parent = $$; /* 9-4-97 - Keith */
+             if($9 != NULL)
+               $9->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Blockif;
 	     $$->astnode.blockif.conds = $3;
 	     if($7 != 0) $7 = switchem($7);
@@ -739,6 +805,7 @@ Elseif: ELSEIF OP Exp CP THEN NL Statements
         {
           $$=addnode();
 	  $3->parent = $$;  
+	  $7->parent = $$; /* 9-4-97 - Keith */
 	  $$->nodetype = Elseif;
 	  $$->astnode.blockif.conds = $3;
 	  $$->astnode.blockif.stmts = switchem($7);
@@ -750,6 +817,7 @@ Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
         | ELSE NL  Statements 
           {
              $$=addnode();
+	     $3->parent = $$; /* 9-4-97 - Keith */
 	     $$->nodetype = Else;
 	     $$->astnode.blockif.stmts = switchem($3);
           }
@@ -760,6 +828,7 @@ Logicalif: IF OP Exp CP Logicalifstmts
            {
              $$ = addnode();
 	     $3->parent = $$;
+	     $5->parent = $$; /* 9-4-97 - Keith */
              $$->astnode.logicalif.conds = $3;
              $$->astnode.logicalif.stmts = $5;
            }           
@@ -802,6 +871,10 @@ Subroutinecall:   Name OP Explist CP
                   {
 		    HASHNODE * hashtemp;/* In case we need to switch index order. */
                     $$ = addnode();
+                    $1->parent = $$;  /* 9-4-97 - Keith */
+                  /*  $3->parent = $$; */  /* 9-4-97 - Keith */
+                    strcpy($3->parent->astnode.ident.name, 
+                           $1->astnode.ident.name);
 		    $$->nodetype = Identifier;
 		    strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 		    /*  This is in case we want to switch index order later. */
@@ -817,16 +890,31 @@ Subroutinecall:   Name OP Explist CP
 ;
 
 
+/* Here what I'm going to try to do is have each element
+   of the list linked back to a single node through its
+   parent pointer.  This will allow the code generator
+   to check the array context (whether it is being used
+   as part of an external call or part of a call to an
+   intrinsic function or some other use). --Keith */
+
 Explist:   Exp
            {
-            $$ = $1;
+             AST *temp;
+
+             temp = addnode();
+             temp->nodetype = Call;
+             $1->parent = temp;
+
+             $$ = $1;
            }
          | Explist CM Exp
            {
-	       $3->prevstmt = $1;
-	       $$ = $3;
-	    }
-; 
+             $3->prevstmt = $1;
+                  /* $1->parent = $3; */  /* keith */
+             $3->parent = $1->parent;
+             $$ = $3;
+           }
+;
 
 
 Logicalop:  Exp AND Exp 
@@ -856,6 +944,7 @@ Logicalop:  Exp AND Exp
           | NOT Exp   
               {
                 $$=addnode();
+                $2->parent = $$;  /* 9-4-97 - Keith */
 		$$->token = NOT;
 		$$->nodetype = Logicalop;
 		$$->astnode.expression.lhs = 0;
@@ -990,6 +1079,7 @@ Exp:         Name {$$=$1;}
           |  OP Exp CP  
              {
                $$ = addnode();
+               $2->parent = $$;   /* 9-4-97 - Keith */
                $$->nodetype = Expression;
                $$->astnode.expression.parens = TRUE;
                $$->astnode.expression.rhs = $2;
@@ -999,6 +1089,8 @@ Exp:         Name {$$=$1;}
           |  Exp POW Exp
              {
                $$=addnode();
+               $1->parent = $$;   /* 9-4-97 - Keith */
+               $3->parent = $$;   /* 9-4-97 - Keith */
 	       $$->nodetype = Power;
 	       $$->astnode.expression.lhs = $1;
 	       $$->astnode.expression.rhs = $3;
@@ -1008,6 +1100,7 @@ Exp:         Name {$$=$1;}
           |  MINUS Exp %prec UMINUS
              {
                $$ = addnode();
+               $2->parent = $$;   /* 9-4-97 - Keith */
                $$->astnode.expression.rhs = $2;
                $$->astnode.expression.lhs = 0;
                $$->astnode.expression.minus = '-';   
@@ -1097,6 +1190,7 @@ Return:      RETURN NL
 Goto:   GOTO Integer  NL
         {
           $$ = addnode();
+          $2->parent = $$;   /* 9-4-97 - Keith */
           $$->nodetype = Goto;
 	  if(debug)printf("goto label: %d\n", atoi(yylval.lexeme)); 
           $$->astnode.go_to.label = atoi(yylval.lexeme);
@@ -1104,6 +1198,8 @@ Goto:   GOTO Integer  NL
     |   GOTO OP Intlist CP Name NL
         {
           $$ = addnode();
+          $3->parent = $$;   /* 9-4-97 - Keith */
+          $5->parent = $$;   /* 9-4-97 - Keith */
           $$->nodetype = Unimplemented;
 	  printf("Computed go to,\n");
         }    
@@ -1116,14 +1212,22 @@ Intlist:   Integer
 Parameter:   PARAMETER OP Pdecs CP NL 
              {
 	       $$ = addnode();
+               $3->parent = $$;   /* 9-4-97 - Keith */
 	       $$->nodetype = Specification;
 	       $$->astnode.typeunit.specification = Parameter;
                $$->astnode.typeunit.declist = switchem($3); 
              }
 ;
 
-Pdecs:    Pdec {$$=$1;}
-        | Pdecs CM Pdec {$3->prevstmt = $1; $$=$3;}
+Pdecs:    Pdec 
+          { 
+            $$=$1;
+          }
+        | Pdecs CM Pdec 
+          {
+            $3->prevstmt = $1; 
+            $$=$3;
+          }
 ;
 
 Pdec:     Assignment
@@ -1141,8 +1245,9 @@ Pdec:     Assignment
 External:  EXTERNAL Namelist NL
            {
              $$=addnode(); 
+             $2->parent = $$;  /* 9-3-97 - Keith */
              $$->nodetype = Specification;
-	      $$->token = EXTERNAL;
+	     $$->token = EXTERNAL;
              $$->astnode.typeunit.declist = switchem($2);
              $$->astnode.typeunit.specification = External;
            }
@@ -1151,6 +1256,7 @@ External:  EXTERNAL Namelist NL
 Intrinsic: INTRINSIC Namelist NL
            {
              $$=addnode(); 
+             $2->parent = $$;  /* 9-3-97 - Keith */
              $$->nodetype = Specification;
 	     $$->token = INTRINSIC;
              $$->astnode.typeunit.declist = switchem($2);

@@ -20,6 +20,7 @@
 #define TWOD 0
 
 char *strdup(const char *);
+char * print_nodetype (AST *); 
 
 char *progname;
 char *returnname;
@@ -186,6 +187,7 @@ int
 typedec_emit (AST * root)
 {
     AST *temp;
+    AST *temp2;
     HASHNODE *hashtemp;
     enum returntype returns;
 
@@ -213,19 +215,49 @@ typedec_emit (AST * root)
 	  if (hashtemp)
 	      continue;
 
-	  fprintf (javafp, "%s ", returnstring[returns]);
-	  if (gendebug)
-	      printf ("%s\n", returnstring[returns]);
-	  name_emit (temp);
-	  /*  initialize local variables to zero or
-	     false to keep the java compiler from
-	     squawking.  */
-	  if (returns == Integer || returns == Double)
-	      fprintf (javafp, "= 0");
-	  else if (returns == Logical)
-	      fprintf (javafp, "= false");
+          /* check to see if this is an array declaration or not. 
+             if so, we must generate the appropriate "new" statement.
+             otherwise, just declare & initialize in one statement. --keith */
 
-	  fprintf (javafp, ";\n");
+          if(temp->astnode.ident.arraylist != NULL) {
+            fprintf (javafp, "%s [] ", returnstring[returns]);
+            if (gendebug)
+              printf ("%s\n", returnstring[returns]);
+	    name_emit (temp);
+
+	    if (returns == Integer)
+	      fprintf (javafp, "= new int[");
+            else if (returns == Double)
+	      fprintf (javafp, "= new double[");
+	    else if (returns == Logical)
+	      fprintf (javafp, "= new boolean[");
+            else
+              fprintf(stderr,"typdec_emit():  Unknown type!\n");
+         
+            for(temp2=temp->astnode.ident.arraylist;temp2!=NULL;temp2=temp2->nextstmt) {
+              if(temp2 != temp->astnode.ident.arraylist)
+                fprintf(javafp, " * ");   /* if not the first iteration */
+              expr_emit(temp2);
+            }
+
+	    fprintf (javafp, "];\n");
+          } else {
+	     fprintf (javafp, "%s ", returnstring[returns]);
+	     if (gendebug)
+	       printf ("%s\n", returnstring[returns]);
+	     name_emit (temp);
+
+	     /*  initialize local variables to zero or
+	        false to keep the java compiler from
+	        squawking.  */
+
+	     if (returns == Integer || returns == Double)
+	       fprintf (javafp, "= 0");
+	     else if (returns == Logical)
+	       fprintf (javafp, "= false");
+
+	     fprintf (javafp, ";\n");
+          }
       }
 }				/* Close typedec_emit(). */
 
@@ -237,7 +269,10 @@ typedec_emit (AST * root)
    a procedure (i.e. Class.method) call, and whether
    the name is a STRING, CHAR, etc.  Frankly, this is
    a hideous procedure and really needs to
-   be rewritten.  */
+   be rewritten. 
+
+   ...and it's getting worse by the day  --Keith */
+
 int
 name_emit (AST * root)
 {
@@ -249,11 +284,15 @@ name_emit (AST * root)
 
     /*  Check to see whether name is in external table.  Names are
        loaded into the external table from the parser.   */
+
     hashtemp = type_lookup (external_table, root->astnode.ident.name);
+
     /* If the name is in the external table, then check to see if
        is an intrinsic function instead.  */
+
     if (hashtemp != NULL)
       {
+
 	  javaname = (char *) methodscan (intrinsic_toks, root->astnode.ident.name);
 	  /*  This block of code is only called if the identifier
 	     absolutely does not have an entry in any table,
@@ -268,6 +307,7 @@ name_emit (AST * root)
 		  }
 		return;
 	    }
+
 	  if (root->astnode.ident.arraylist != NULL)
 	    {
 		if (!strcmp (root->astnode.ident.name, "LSAME"))
@@ -284,11 +324,14 @@ name_emit (AST * root)
       }
 
     /*  Check to see whether name is in intrinsic table.  */
+
     /*
+
     hashtemp = type_lookup (intrinsic_table, root->astnode.ident.name);
     if (hashtemp != NULL)
       {
-      */
+
+    */
          
     tempname = strdup(root->astnode.ident.name);
     uppercase(tempname);
@@ -358,7 +401,8 @@ name_emit (AST * root)
 		      return;
 		  }
 
-		if (!strcmp (tempname, "DSQRT"))
+		if ( (!strcmp (tempname, "DSQRT")) ||
+                     (!strcmp (tempname, "SQRT")))
 		  {
 		      temp = root->astnode.ident.arraylist;
 		      fprintf (javafp, "%s(", javaname);
@@ -367,6 +411,16 @@ name_emit (AST * root)
 		      return;
 		  }
 	
+		if (!strcmp (tempname, "MOD"))
+		  {
+		      temp = root->astnode.ident.arraylist;
+		      fprintf (javafp, "%s(", javaname);
+		      expr_emit (temp);
+		      fprintf (javafp, ", ");
+		      expr_emit (temp->nextstmt);
+		      fprintf (javafp, ")");
+		      return;
+		  }
 	    }
 /* #endif	 */
 	  /*
@@ -390,56 +444,141 @@ name_emit (AST * root)
 	     token type check whether it is a variable or
 	     string or character literal. Also have to look up whether
 	     name is intrinsic or external.  */
-	  if (root->astnode.ident.arraylist == NULL)
+
+	  if (root->astnode.ident.arraylist == NULL) {
 	      fprintf (javafp, "%s", root->astnode.ident.name);
+          }
 	  else if (hashtemp != NULL)
 	    {
 		if (gendebug)
-		    printf ("Array... %s\n", root->astnode.ident.name);
-		fprintf (javafp, "%s", root->astnode.ident.name);
-		temp = root->astnode.ident.arraylist;
+		  printf ("Array... %s, My node type is %s\n", 
+                    root->astnode.ident.name,
+                    print_nodetype(root));
+
               /* Now, what needs to happen here is the context of the
                  array needs to be determined.  If the array is being
                  passed as a parameter to a method, then the array index
                  needs to be passed separately and the array passed as
                  itself.  If not, then an array value is being set,
                  so dereference with index arithmetic.  */
-#if ONED
-		fprintf (javafp, "[");
-		expr_emit (temp);
-		if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
-		    temp->nextstmt != NULL)
-                  {
-		temp = temp->nextstmt;
-		fprintf (javafp, "+");
-		expr_emit (temp);
-		fprintf (javafp, "*");
-		fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-		  }  /* Multi dimension.  */
-		fprintf(javafp, "]");
-#endif
-#if TWOD
-		for (temp; temp != NULL; temp = temp->prevstmt)
-		  {
-		      fprintf (javafp, "[");
-		      if (*temp->astnode.ident.name != '*')
-			  expr_emit (temp);
-		      fprintf (javafp, "]");
-		  }		/* Close for() loop. */
-#endif
-	    }
-	  /*  I think this code is redundant.  */
-	  else
-	    {
+
 		fprintf (javafp, "%s", root->astnode.ident.name);
 		temp = root->astnode.ident.arraylist;
+
+                if(root->parent == NULL) {
+                  /* Under normal circumstances, I dont think this should 
+                     be reached */
+		  printf ("Array... %s, NO PARENT - ", root->astnode.ident.name);
+		  printf ("This is not good!\n");
+                } else {
+		  printf ("Array... %s, Parent node type... %s\n", 
+                    root->astnode.ident.name,
+                    print_nodetype(root->parent));
+                  if((root->parent->nodetype == Call)) 
+                  {
+                    if((type_lookup(external_table, 
+                                    root->parent->astnode.ident.name) != NULL))
+                    {
+                      printf("Function name is: %s - ",
+                        root->parent->astnode.ident.name);
+                        /* This is an external function */
+#if ONED
+                        fprintf (javafp, ",");
+                        expr_emit (temp);
+                        if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
+                            temp->nextstmt != NULL)
+                        {
+                          temp = temp->nextstmt;
+                          fprintf (javafp, "+");
+                          expr_emit (temp);
+                          fprintf (javafp, "*");
+                          fprintf(javafp,  "%s", 
+                               hashtemp->variable->astnode.ident.leaddim);
+                        }  /* Multi dimension.  */
+#endif
+#if TWOD
+                        printf("TWOD not implemented yet!\n");
+#endif
+                    } else {
+                        /* I dont think this is an external function */
+#if ONED
+                        fprintf (javafp, "[");
+                        expr_emit (temp);
+                        if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
+                            temp->nextstmt != NULL)
+                        {
+                          temp = temp->nextstmt;
+                          fprintf (javafp, "+");
+                          expr_emit (temp);
+                          fprintf (javafp, "*");
+                          fprintf(javafp,  "%s", 
+                               hashtemp->variable->astnode.ident.leaddim);
+                        }  /* Multi dimension.  */
+                        fprintf(javafp, "]");
+#endif
+#if TWOD
+                        for (temp; temp != NULL; temp = temp->prevstmt)
+                        {
+                          fprintf (javafp, "[");
+                          if (*temp->astnode.ident.name != '*')
+                            expr_emit (temp);
+                          fprintf (javafp, "]");
+                        }           /* Close for() loop. */
+#endif
+                    } 
+                  } else if((root->parent->nodetype == Typedec)) {
+                     printf("I guess this is an array declaration\n");
+                  } else {
+#if ONED
+                      fprintf (javafp, "[");
+                      expr_emit (temp);
+                      if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
+                          temp->nextstmt != NULL)
+                      {
+                        temp = temp->nextstmt;
+                        fprintf (javafp, "+");
+                        expr_emit (temp);
+                        fprintf (javafp, "*");
+                        fprintf(javafp,  "%s", 
+                             hashtemp->variable->astnode.ident.leaddim);
+                      }  /* Multi dimension.  */
+                      fprintf(javafp, "]");
+#endif
+#if TWOD
+                      for (temp; temp != NULL; temp = temp->prevstmt)
+                      {
+                        fprintf (javafp, "[");
+                        if (*temp->astnode.ident.name != '*')
+                          expr_emit (temp);
+                        fprintf (javafp, "]");
+                      }           /* Close for() loop. */
+#endif
+                  }
+                }
+	    }
+	  /*  I think this code is redundant.  */
+                      /* possibly not -- keith */
+	  else
+	    {
+printf("hi\n");
+                /* else it's not in the array table? */
+
+		fprintf (javafp, "%s", root->astnode.ident.name);
+		temp = root->astnode.ident.arraylist;
+		fprintf (javafp, "(");
 		for (temp; temp != NULL; temp = temp->nextstmt)
 		  {
-		      fprintf (javafp, "[");
+		      /* fprintf (javafp, "["); */
+
+                      if(temp != root->astnode.ident.arraylist)
+		        fprintf (javafp, ",");  /* if not first iteration */
+                        
 		      if (*temp->astnode.ident.name != '*')
 			  expr_emit (temp);
-		      fprintf (javafp, "]");
+
+		      /* fprintf (javafp, "]"); */
 		  }		/* Close for() loop. */
+		fprintf (javafp, ")");
 	    }
 	  break;
       }				/* Close switch(). */
@@ -551,15 +690,13 @@ constructor (AST * root)
       {
 	  returns = root->astnode.source.returns;
 	  /* Test code.... */
-	  fprintf (javafp, "%s %s;\n\n", returnstring[returns],
+	  fprintf (javafp, "static %s %s;\n\n", returnstring[returns],
 		   root->astnode.source.name->astnode.ident.name);
 
 	  /* Define the constructor for the class. */
 	  fprintf (javafp, "\npublic static %s %s (",
 		   returnstring[returns],
 		   root->astnode.source.name->astnode.ident.name);
-
-
 
       }
     /* Else we have a subroutine, which returns void. */
@@ -581,7 +718,8 @@ constructor (AST * root)
 	  hashtemp = type_lookup (type_table, tempnode->astnode.ident.name);
 	  if (hashtemp == NULL)
 	    {
-		printf ("Type table is screwed (codegen.c).\n");
+		fprintf (stderr,"Type table is screwed (codegen.c).\n");
+		fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
 		exit (-1);
 	    }
 	  /* Since all of fortran is call-by-reference, we have to pass
@@ -612,6 +750,7 @@ constructor (AST * root)
 	  else
 	      /* Declare as array variables.  */
 	    {
+               char temp2[100];
 #if ONED
 	fprintf (javafp, "[]");
 #endif      
@@ -623,6 +762,13 @@ constructor (AST * root)
 		  }		/* Close for() loop. */
 #endif
 		fprintf (javafp, " %s", tempnode->astnode.ident.name);
+
+               /* for arrays, add a parameter representing the base 
+                  index.   -- Keith */
+                strcpy( temp2, "_");
+                strcat( temp2, tempnode->astnode.ident.name);
+                strcat( temp2, "idx");
+                fprintf(javafp, ", int %s",temp2);
 	    }
 	  /* Don't emit a comma on the last iteration. */
 	  if (tempnode->nextstmt)
@@ -738,6 +884,7 @@ call_emit (AST * root)
 
     assert (root != NULL);
 
+printf("HERE IN CALL_EMIT\n");
     lowercase (root->astnode.ident.name);
     tempname = strdup (root->astnode.ident.name);
     *tempname = toupper (*tempname);
@@ -811,4 +958,72 @@ assign_emit (AST * root)
     name_emit (root->astnode.assignment.lhs);
     fprintf (javafp, " = ");
     expr_emit (root->astnode.assignment.rhs);
+}
+
+char * print_nodetype (AST *root) 
+{
+  static char temp[100];
+
+  switch (root->nodetype)
+  {
+    case 0:
+      return("print_nodetype(): Bad Node");
+    case Source:
+      return("print_nodetype(): Source");
+    case Progunit:
+      return("print_nodetype(): Progunit");
+    case Subroutine:
+      return("print_nodetype(): Subroutine");
+    case Function:
+      return("print_nodetype(): Function");
+    case Specification:
+      return("print_nodetype(): Specification");
+    case Statement:
+      return("print_nodetype(): Statement");
+    case Assignment:
+      return("print_nodetype(): Assignment");
+    case Call:
+      return("print_nodetype(): Call");
+    case Forloop:
+      return("print_nodetype(): Forloop");
+    case Blockif:
+      return("print_nodetype(): Blockif");
+    case Elseif:
+      return("print_nodetype(): Elseif");
+    case Else:
+      return("print_nodetype(): Else");
+    case Identifier:
+      return("print_nodetype(): Identifier");
+    case Method:
+      return("print_nodetype(): Method");
+    case Expression:
+      return("print_nodetype(): Expression");
+    case Typedec:
+      return("print_nodetype(): Typedec");
+    case Logicalif:
+      return("print_nodetype(): Logicalif");
+    case Return:
+      return("print_nodetype(): Return");
+    case Goto:
+      return("print_nodetype(): Goto");
+    case Label:
+      return("print_nodetype(): Label");
+    case Relationalop:
+      return("print_nodetype(): Relationalop");
+    case Logicalop:
+      return("print_nodetype(): Logicalop");
+    case Binaryop:
+      return("print_nodetype(): Binaryop");
+    case Unaryop:
+      return("print_nodetype(): Unaryop");
+    case End:
+      return("print_nodetype(): End");
+    case Unimplemented:
+      return("print_nodetype(): Unimplemented");
+    case Constant:
+      return("print_nodetype(): Constant");
+    default:
+      sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
+      return(temp);
+  }
 }

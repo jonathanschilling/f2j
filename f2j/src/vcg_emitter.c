@@ -107,10 +107,10 @@ emit_vcg (AST * root, int parent)
       case 0:
 	  fprintf(stderr,"Bad node in emit_vcg()\n");
 	  emit_vcg (root->nextstmt,node_num);
-      case Source:
+      case Progunit:
           if(vcg_debug)
             printf("case Source\n");
-          print_vcg_node(node_num,"Source");
+          print_vcg_node(node_num,"Progunit");
 
           if(vcg_debug)
             printf("case Source: Going to emit PROGTYPE\n");

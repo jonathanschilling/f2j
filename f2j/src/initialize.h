@@ -122,6 +122,7 @@ KWDTAB tab_toks[] =
    routine calls in the lapack or blas source.
    This table may have to be extended to handle
    jasmin opcodes.  */
+
 METHODTAB intrinsic_toks[]=
 {
   {"LSAME", ".equalsIgnoreCase"}, 
@@ -131,9 +132,9 @@ METHODTAB intrinsic_toks[]=
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
   {"DSQRT", "Math.sqrt"},
+  {"MOD", "Math.IEEEremainder"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
-
 
 METHODTAB java_toks[]=
 {
@@ -142,6 +143,7 @@ METHODTAB java_toks[]=
   {"ABS", "Math.abs"},
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
+  {"MOD", "Math.IEEEremainder"},
   { NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 

@@ -74,7 +74,8 @@ typedef union {
 #define	IMPLICIT	325
 #define	SAVE	326
 #define	DATA	327
-#define	UMINUS	328
+#define	COMMENT	328
+#define	UMINUS	329
 
 
 extern YYSTYPE yylval;

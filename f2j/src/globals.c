@@ -305,10 +305,6 @@ METHODTAB intrinsic_toks[]=
   /* Lexically Less than */
   {ifunc_LLT, "LLT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
-  /* LAPACK 'intrinsics' */
-  {ifunc_LSAME, "LSAME",  ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z", CS_ARGS, Logical}, 
-  {ifunc_LSAMEN, "LSAMEN", ".regionMatches",    "java/lang/String", "regionMatches",    "(ZILjava/lang/String;II)Z", CS_ARGS, Logical}, 
-
   /* fortran pseudo intrinsic */
   {ifunc_ETIME, "ETIME", ".etime",    "org/netlib/util/Etime", "etime",    "([DI)D", IRDC_ARGS, Double}, 
 
@@ -339,8 +335,6 @@ char *generic_intrinsics[] =
 
 METHODTAB jasmin_intrinsic_toks[]=
 {
-  {ifunc_LSAME, "LSAME", 
-      "invokevirtual java/lang/String/equalsIgnoreCase(Ljava/lang/String;)Z"}, 
   {ifunc_MAX, "MAX", 
       "invokestatic java/lang/Math/max(II)I"},
   {ifunc_MIN, "MIN", 

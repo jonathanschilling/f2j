@@ -479,7 +479,6 @@ vcg_name_emit (AST * root, int parent)
   HASHNODE *hashtemp;
   char *javaname, * tempname;
   int my_node = node_num;
-  int temp_num;
   METHODTAB *entry;
 
   if(vcg_debug)
@@ -511,15 +510,6 @@ vcg_name_emit (AST * root, int parent)
         return my_node;
       }
       return my_node;
-    }
-
-    if (root->astnode.ident.arraylist != NULL) {
-      if (!strcmp (root->astnode.ident.name, "LSAME")) {
-        temp = root->astnode.ident.arraylist;
-        temp_num = vcg_name_emit (temp->nextstmt, my_node);
-        print_vcg_edge(vcgfp, my_node,temp_num);
-        return my_node;
-       }
     }
   }
 

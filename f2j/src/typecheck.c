@@ -776,7 +776,7 @@ name_check (AST * root)
   {
     if (checkdebug)
       printf("going to external_check\n");
-    external_check(root);  /* handles LSAME, LSAMEN */
+    external_check(root);
   }
   else if(( methodscan (intrinsic_toks, tempname) != NULL) 
     &&   ((type_lookup(chk_intrinsic_table,root->astnode.ident.name) != NULL)
@@ -955,15 +955,14 @@ array_check(AST *root, HASHNODE *hashtemp)
  *                                                                           *
  * external_check                                                            *
  *                                                                           *
- * Check an external variable.  If it is LSAME or LSAMEN, go ahead and       *
- * set the type to Logical.  else, go to call_check().
+ * Check an external variable.                                               *
  *                                                                           *
  *****************************************************************************/
+
 void
 external_check(AST *root)
 {
   char *tempname;
-  AST *temp;
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -980,34 +979,13 @@ external_check(AST *root)
 
   if (root->astnode.ident.arraylist != NULL)
   {
-    /* this is some sort of intrinsic.  maybe it's LSAME or LSAMEN, which
+    /* this is some sort of intrinsic.  maybe it's ETIME or SECOND, which
      * are declared EXTERNAL since they really aren't intrinsics, but we
      * treat them as such since there is a corresponding Java function to
      * handle them.
      */
 
-    if (!strcmp (tempname, "LSAME"))
-    {
-      temp = root->astnode.ident.arraylist;
-      root->vartype = Logical;
-      f2jfree(tempname,strlen(tempname)+1);
-      return;
-    }
-    else if (!strcmp (tempname, "LSAMEN"))
-    {
-      temp = root->astnode.ident.arraylist;
-
-      name_check (temp->nextstmt->nextstmt);
-
-      if(temp == NULL)
-        fprintf(stderr,"external_check: calling expr_check with null pointer!\n");
-
-      expr_check (temp);
-      root->vartype = Logical;
-      f2jfree(tempname,strlen(tempname)+1);
-      return;
-    }
-    else if( !strcmp(tempname, "ETIME") ) {
+    if( !strcmp(tempname, "ETIME") ) {
       expr_check (root->astnode.ident.arraylist);
       root->vartype = Double;
     }

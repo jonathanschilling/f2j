@@ -378,21 +378,8 @@ spec_optimize(AST *root, AST *rptr)
             printf("going to optimize external %s\n",temp->astnode.ident.name);
 
           ht = type_lookup(global_func_table,temp->astnode.ident.name);
-          if(!ht) {
-            if(!find_method(temp->astnode.ident.name, descriptor_table)) {
-
-              /* dont expect to find LSAME/LSAMEN so don't print a
-               * warning for those.  remember strcmp returns non-zero
-               * if the strings differ, so the if stmt here really
-               * means:  if((name != lsame) AND (name != lsamen))
-               */
-              if( strcmp(temp->astnode.ident.name, "lsame") &&
-                  strcmp(temp->astnode.ident.name, "lsamen"))
-                fprintf(stderr,"Cant locate %s, not optimizing.\n",
-                  temp->astnode.ident.name);
-            }
+          if(!ht)
             continue;
-          }
 
           optScalar(ht->variable);
         }

@@ -3042,7 +3042,7 @@ name_emit (AST * root)
    */
 
   if (type_lookup (cur_external_table, root->astnode.ident.name) != NULL)
-    external_emit(root);  /* handles LSAME, LSAMEN */
+    external_emit(root);
   else if(( methodscan (intrinsic_toks, tempname) != NULL) 
      && ( (type_lookup(cur_intrinsic_table, root->astnode.ident.name) != NULL)
        || (type_lookup(cur_type_table, root->astnode.ident.name) == NULL)))
@@ -3583,14 +3583,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
     if((root->parent->nodetype == Call)) 
     {
-      /* following is a LAPACK specific hack.  we dont want to treat
-       * calls to LSAME or LSAMEN as real external calls since we
-       * translate them to inline expressions.    3-9-98 -- Keith
-       */
-
-      if((type_lookup(cur_external_table, root->parent->astnode.ident.name) 
-       && strcmp(root->parent->astnode.ident.name,"lsame") 
-       && strcmp(root->parent->astnode.ident.name,"lsamen"))
+      if(type_lookup(cur_external_table, root->parent->astnode.ident.name) 
        && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
       {
         func_array_emit(temp, hashtemp, root->astnode.ident.name, 
@@ -4308,15 +4301,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
  * external_emit                                                             *
  *                                                                           *
  * This function translates calls to external functions.  First,             *
- * check whether we are translating a call to LSAME or LSAMEN.               *
- * LSAME is from BLAS and LSAMEN is from LAPACK.  Instead of translating     *
- * the actual files lsame.f and lsamen.f to java, we just translate          *
- * the calls to equivalent java method calls (String.equalsIgnoreCase        *
- * and String.regionMatches respectively).   If we're not translating        *
- * a call to LSAME or LSAMEN, use the function call_emit().  --Keith         *
- *                                                                           *
- * changing equalsIgnoreCase() to a character comparison since the           *
- * LAPACK routine only compares the first character.  12/4/97 --Keith        *
+ * check whether we are translating a call to ETIME or SECOND.               *
+ * We have implemented java versions of these pseduo intrinsics.             *
+ * If we're not translating  a call to ETIME or SECOND, use the              *
+ * function call_emit().  --Keith                                            *
  *                                                                           *
  *****************************************************************************/
 
@@ -4417,129 +4405,9 @@ printf("args = %p\n", (void*)root->astnode.ident.arraylist);
 
   if (root->astnode.ident.arraylist != NULL)
   {
-    CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
-
     temp = root->astnode.ident.arraylist;
 
-    if (!strcmp (tempname, "LSAME"))
-    {
-      /* LSAME should return TRUE if the two character arguments are
-       * the same letter, regardless of case.
-       */ 
-
-      if(gendebug)
-        printf("emitting a call to LSAME...first nodetype = %s, next = %s\n",
-          print_nodetype(temp), print_nodetype(temp->nextstmt));
-
-      if(temp == NULL) {
-        fprintf(stderr,"No args to LSAME\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      } 
-      else if(temp->nextstmt == NULL) {
-        fprintf(stderr,"Not enough args to LSAME\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      }
-
-      fprintf(curfp, "(");
-      expr_emit(temp);
-
-      if((temp->vartype != String) && (temp->vartype != Character)) {
-        fprintf(stderr,"WARNING: non-string arg to LSAME");
-        fprintf(stderr," -- typecast not yet implemented.\n");
-      }
-      fprintf(curfp, ".toLowerCase().charAt(0) == ");
-
-      c = newMethodref(cur_const_table,JL_STRING,
-             "toLowerCase", TOLOWER_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
-
-      bytecode0(jvm_iconst_0);
-
-      c = newMethodref(cur_const_table,JL_STRING,
-             "charAt", CHARAT_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
-
-      expr_emit(temp->nextstmt);
-
-      if((temp->nextstmt->vartype != String)  &&
-         (temp->nextstmt->vartype != Character))
-      {
-        fprintf(stderr,"WARNING: non-string arg to LSAME");
-        fprintf(stderr," -- typecast not yet implemented.\n");
-      }
-      fprintf(curfp, ".toLowerCase().charAt(0))");
-
-      c = newMethodref(cur_const_table,JL_STRING,
-             "toLowerCase", TOLOWER_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
-
-      bytecode0(jvm_iconst_0);
-
-      c = newMethodref(cur_const_table,JL_STRING,
-             "charAt", CHARAT_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
-
-      cmp_node = bytecode0(jvm_if_icmpeq);
-      bytecode0(jvm_iconst_0);
-      goto_node = bytecode0(jvm_goto);
-      iconst_node = bytecode0(jvm_iconst_1);
-      cmp_node->branch_target = iconst_node;
-
-      /* create a dummy instruction node following the iconst so that
-       * we have a branch target for the goto statement.  it'll be
-       * removed later.
-       */
-      next_node = bytecode0(jvm_impdep1);
-      goto_node->branch_target = next_node;
-
-      f2jfree(tempname, strlen(tempname)+1);
-      return;
-    }
-    else if (!strcmp (tempname, "LSAMEN"))
-    {
-      /* LSAMEN should return TRUE if the first N characters of the
-       * two arguments are the same, regardless of case.  Currently
-       * this is mapped to java.lang.String.regionMatches().
-       */
-
-      /* first, make sure there are enough args to work with */
-      if(temp == NULL) {
-        fprintf(stderr,"No args to LSAMEN\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      } 
-      else if(temp->nextstmt == NULL) {
-        fprintf(stderr,"Not enough args to LSAMEN\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      }
-      else if(temp->nextstmt->nextstmt == NULL) {
-        fprintf(stderr,"Not enough args to LSAMEN\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      }
-
-      expr_emit(temp->nextstmt);
-      fprintf (curfp, "%s(true,0,", javaname);
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_iconst_0);
-      expr_emit (temp->nextstmt->nextstmt);
-      fprintf (curfp, ",0,");
-      bytecode0(jvm_iconst_0);
-      expr_emit (temp);
-      fprintf (curfp, ")");
-
-      c = newMethodref(cur_const_table,entry->class_name, 
-                        entry->method_name, entry->descriptor);
-
-      bytecode1(jvm_invokevirtual, c->index);
-
-      f2jfree(tempname, strlen(tempname)+1);
-      return;
-    }
-    else if(!strcmp(tempname, "ETIME")) {
+    if(!strcmp(tempname, "ETIME")) {
       /* first, make sure there are enough args to work with */
       if(temp == NULL) {
         fprintf(stderr,"No args to ETIME\n");

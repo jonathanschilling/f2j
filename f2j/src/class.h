@@ -34,6 +34,12 @@
 #define ACC_ABSTRACT     0x0400
 #define ACC_STRICT       0x0800
 
+#define F2J_CLASS_ACC (ACC_PUBLIC | ACC_FINAL | ACC_SUPER)
+#define F2J_NORMAL_ACC (ACC_PUBLIC | ACC_STATIC)
+#define F2J_STRICT_ACC (ACC_STRICT | ACC_PUBLIC | ACC_STATIC)
+#define F2J_ADAPTER_ACC (ACC_PRIVATE | ACC_STATIC)
+#define F2J_INIT_ACC (ACC_PUBLIC)
+
 /*
  * array data types for newarray opcode.
  */

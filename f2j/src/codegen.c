@@ -228,7 +228,7 @@ emit (AST * root)
            * nothing.
            */
 
-          clinit_method = beginNewMethod((u2)(ACC_PUBLIC | ACC_STATIC)); 
+          clinit_method = beginNewMethod(F2J_NORMAL_ACC);
           
           emit (root->astnode.source.typedecs);
  
@@ -247,7 +247,7 @@ emit (AST * root)
             free_code_attribute(cur_code, NULL);
           }
 
-          main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
+          main_method = beginNewMethod(F2J_NORMAL_ACC);
 
           /* If this program unit does any reading, we declare an instance of
            * the EasyIn class.   grab a local var for this, but dont worry about
@@ -1083,7 +1083,7 @@ addField(char *name, char *desc)
   printf("addField() creating new field for %s - %s\n",name,desc);
 
   tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
-  tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
+  tmpfield->access_flags = F2J_NORMAL_ACC;
 
   c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, name);
   tmpfield->name_index = c->index;
@@ -1568,7 +1568,7 @@ common_emit(AST *root)
 
       cur_const_table = make_dl();
       cur_class_file = newClassFile(common_classname,inputfilename);
-      clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
+      clinit_method = beginNewMethod(F2J_NORMAL_ACC);
 
       if(gendebug)
         printf("## going to open file: '%s'\n", filename);
@@ -10538,7 +10538,7 @@ emit_adapters()
     strcpy(cur_name, cval->astnode.ident.name);
     strcat(cur_name, "_adapter");
 
-    adapter_method = beginNewMethod(ACC_PRIVATE | ACC_STATIC);
+    adapter_method = beginNewMethod(F2J_ADAPTER_ACC);
 
     hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
@@ -11271,7 +11271,7 @@ emit_invocations(AST *root)
     
     temp = (AST *) dl_val(dl_first(tmplist));
 
-    inv_method = beginNewMethod(ACC_PRIVATE | ACC_STATIC);
+    inv_method = beginNewMethod(F2J_ADAPTER_ACC);
 
     /* allocate enough space for the name + "_methcall" and null-term */
 
@@ -11723,7 +11723,7 @@ newClassFile(char *name, char *srcFile)
   tmp->fields_count = 0;
   tmp->fields = make_dl();
 
-  tmp->access_flags = ACC_PUBLIC | ACC_FINAL | ACC_SUPER;
+  tmp->access_flags = F2J_CLASS_ACC;
 
   /* first create an entry for 'this'.  the class file variable this_class
    * points to a CONSTANT_Class_info entry in the constant pool, which in
@@ -11786,7 +11786,7 @@ printf("##creating new entry, this -> %s\n",fullclassname);
   tmp->methods_count = 0;
   tmp->methods = make_dl();
 
-  meth_tmp = beginNewMethod(ACC_PUBLIC);
+  meth_tmp = beginNewMethod(F2J_INIT_ACC);
 
   c = newMethodref(cur_const_table,"java/lang/Object", "<init>", "()V");
 

@@ -2827,6 +2827,7 @@ Pdec:     Assignment
             $$->nodetype = Assignment;
 
             constant_eval = eval_const_expr($$->astnode.assignment.rhs);
+printf("### constant_eval is %20.80g\n", constant_eval);
             
             temp = addnode();
             temp->nodetype = Constant;
@@ -2850,7 +2851,8 @@ Pdec:     Assignment
               case Float:
               case Double:
                 temp->token = DOUBLE;
-                sprintf(temp->astnode.constant.number,"%#g",constant_eval);
+                /*sprintf(temp->astnode.constant.number,"%#g",constant_eval);*/
+                sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
                 break;
               case Integer:
                 temp->token = INTEGER;

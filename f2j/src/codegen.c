@@ -359,6 +359,8 @@ common_emit(AST *root)
   
       curfp = commonfp;
 
+      fprintf(curfp,"import org.netlib.util.*;\n\n");
+
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"public class %s_%s\n{\n",prefix,
           Ctemp->astnode.common.name);

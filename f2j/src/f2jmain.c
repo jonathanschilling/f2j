@@ -286,7 +286,8 @@ javaheader (FILE * fp, char *classname)
 #if BLAS
     fprintf (fp, "// package blas;\n");
 #endif
-    fprintf (fp, "import java.lang.*;\n\n");
+    fprintf (fp, "import java.lang.*;\n");
+    fprintf (fp, "import org.netlib.util.*;\n\n");
     fprintf (fp, "public class %s {\n\n", classname);
 }
 

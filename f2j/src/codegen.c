@@ -890,15 +890,22 @@ common_emit(AST *root)
   /* extern char *returnstring[];  3/23/00 kgs */
   HASHNODE *hashtemp;
   AST *Ctemp, *Ntemp, *temp;
-  char filename[100];
+  char *common_classname=NULL, *filename=NULL;
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),"."), * com_prefix, * mname;
   int needs_dec = FALSE;
   void vardec_emit(AST *, enum returntype);
   Dlist save_const_table;
+  struct ClassFile *save_class_file;
+  struct attribute_info *save_code;
+  int save_stack, save_pc;
   char *get_common_prefix(char *);
 
   save_const_table = cur_const_table;
+  save_class_file = cur_class_file; 
+  save_code = cur_code;
+  save_stack = stacksize;
+  save_pc = pc;
 
   /*
    * Ctemp loops through each common block name specified
@@ -914,9 +921,15 @@ common_emit(AST *root)
        * the original input filename and the name of this
        * common block.
        */
-      sprintf(filename,"%s_%s.java", prefix,
-         Ctemp->astnode.common.name);
+      common_classname = (char *)f2jrealloc(common_classname,
+         strlen(prefix) + strlen(Ctemp->astnode.common.name) + 2);
+      sprintf(common_classname,"%s_%s",prefix,Ctemp->astnode.common.name);
 
+      filename = (char *)f2jrealloc(filename,
+                                    strlen(common_classname) + 6);
+      sprintf(filename,"%s.java", common_classname);
+
+      cur_class_file = newClassFile(common_classname,inputfilename);
       cur_const_table = make_dl();
 
       if((commonfp = fopen(filename,"w"))==NULL) 
@@ -1008,8 +1021,13 @@ common_emit(AST *root)
       fclose(curfp);
     }
   }
+
   curfp = javafp;
   cur_const_table = save_const_table;
+  cur_class_file = save_class_file;
+  cur_code = save_code;
+  stacksize = save_stack;
+  pc = save_pc;
 }
 
 /*****************************************************************************
@@ -1702,16 +1720,18 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   void data_scalar_emit(enum returntype, AST *, AST *, int);
   int determine_var_length(HASHNODE *);
 
+  if(gendebug)
+    printf("VAR here we are emitting data for %s\n",
+      Ntemp->astnode.ident.name);
+
   /* check to see whether we're going to be assigning to
    * an array element.  If so, the declaration for the array
    * would have already been emitted, so we dont need a
    * declaration here - just assign the value.  Otherwise,
    * we do need a declaration. 
+   * (my gut feeling is that for bytecode generation, needs_dec
+   *  is irrelevant.  we shall see.)
    */
-
-  if(gendebug)
-    printf("VAR here we are emitting data for %s\n",
-      Ntemp->astnode.ident.name);
 
   if(Ntemp->astnode.ident.arraylist == NULL)
     needs_dec = FALSE;

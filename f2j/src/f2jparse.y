@@ -1590,9 +1590,9 @@ Label: Integer Statement
          HASHNODE *newnode;
          char *tmpLabel;
 
-         tmpLabel = (char *) malloc(10); /* plenty of space for a f77 label num */
+         tmpLabel = (char *) f2jalloc(10); /* plenty of space for a f77 label num */
 
-         newnode = (HASHNODE *) malloc(sizeof(HASHNODE));
+         newnode = (HASHNODE *) f2jalloc(sizeof(HASHNODE));
 
          $$ = addnode();
          $1->parent = $$;
@@ -2710,15 +2710,7 @@ yyerror(char *s)
 AST * 
 addnode() 
 {
-  AST * newnode;
-
-  if ((newnode = (AST*)calloc(1,sizeof(AST))) == NULL) 
-  {
-    perror("calloc\n");
-    exit(1);
-  }
-
-  return newnode;
+  return (AST*)f2jcalloc(1,sizeof(AST));
 }
 
 
@@ -3170,20 +3162,12 @@ merge_common_blocks(AST *root)
               temp!=NULL; temp=temp->nextstmt) 
       count++;
 
-    name_array = (char **) malloc( count * sizeof(name_array) );
-    if(name_array == NULL) {
-      perror("Unsuccessful malloc");
-      exit(1);
-    }
+    name_array = (char **) f2jalloc( count * sizeof(name_array) );
 
     for(temp=Clist->astnode.common.nlist, count = 0;
               temp!=NULL; temp=temp->nextstmt, count++)
     {
-      name_array[count] = (char *) malloc( 80 );
-      if(name_array[count] == NULL) {
-        perror("Unsuccessful malloc");
-        exit(1);
-      }
+      name_array[count] = (char *) f2jalloc( 80 );
     }
 
     /* foreach COMMON variable */
@@ -3220,13 +3204,8 @@ merge_common_blocks(AST *root)
           name_array[count] = strdup(comvar);
         }
         else {
-          name_array[count] = (char *) malloc(strlen(temp->astnode.ident.name) 
+          name_array[count] = (char *) f2jalloc(strlen(temp->astnode.ident.name) 
              + strlen(((char **)ht->variable)[count]) + 2);
-  
-          if(name_array[count] == NULL) {
-             perror("Unsuccessful malloc");
-             exit(1);
-          }
   
           strcpy(name_array[count],temp->astnode.ident.name);
           strcat(name_array[count],"_");
@@ -3452,7 +3431,7 @@ prepend_minus(char *num) {
   char * tempstr;
 
   /* allocate enough for the number, minus sign, and null char */
-  tempstr = (char *)malloc(strlen(num) + 2);
+  tempstr = (char *)f2jalloc(strlen(num) + 2);
 
   strcpy(tempstr,"-");
   strcat(tempstr,num);

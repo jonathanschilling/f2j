@@ -603,9 +603,7 @@ forloop_optimize (AST * root, AST *rptr)
   void name_optimize (AST *, AST *);
   void assign_optimize (AST *, AST *);
 
-  tmp_int = (int*)malloc(sizeof(int));
-
-  if(!tmp_int) { perror("malloc"); exit(1); }
+  tmp_int = (int*)f2jalloc(sizeof(int));
 
   *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
 
@@ -778,9 +776,7 @@ blockif_optimize (AST * root, AST *rptr)
    * while detection code.  It isn't really necessary here.
    */
 
-  tmp_int = (int*)malloc(sizeof(int));
-
-  if(!tmp_int) { perror("malloc"); exit(1); }
+  tmp_int = (int*)f2jalloc(sizeof(int));
 
   /* if the previous node was a label, this could be a simulated
    * while loop.

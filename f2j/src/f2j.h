@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 #include<assert.h>
+#include<stdlib.h>
 #include"symtab.h"
 #include"dlist.h"
 #include"class.h"
@@ -568,7 +569,9 @@ void
   store_array_var(AST *),
   initialize(),
   uppercase(char *),
-  while_emit(AST *);
+  while_emit(AST *),
+  * f2jalloc(size_t),
+  * f2jcalloc(size_t, size_t);
 
 AST *format_item_emit(AST *, AST**);
 

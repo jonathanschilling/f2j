@@ -10,6 +10,7 @@
 #include <stdio.h>    /* Basic includes and definitions */
 #include <stdlib.h>
 #include "dlist.h"
+#include "f2j.h"
 
 #define boolean int
 #define TRUE 1
@@ -27,7 +28,7 @@ Dlist make_dl()
 {
   Dlist d;
 
-  d = (Dlist) malloc (sizeof(struct dlist));
+  d = (Dlist) f2jalloc (sizeof(struct dlist));
   d->flink = d;
   d->blink = d;
   d->val = (void *) 0;
@@ -41,7 +42,7 @@ void *val;
 {
   Dlist last_node, new;
 
-  new = (Dlist) malloc (sizeof(struct dlist));
+  new = (Dlist) f2jalloc (sizeof(struct dlist));
   new->val = val;
 
   last_node = node->blink;

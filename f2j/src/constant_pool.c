@@ -304,7 +304,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
 
       temp = cp_find_or_insert(list,CONSTANT_Utf8,value);
       
-      newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+      newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
       newnode->tag = CONSTANT_Class;
       newnode->cpnode.Class.name_index = temp->index;
 
@@ -319,7 +319,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
         if(cp_debug)
           printf("&& ok.. going to find/insert a method reference...\n");
 
-        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = tag;
 
         if(cp_debug)
@@ -344,7 +344,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
         if(cp_debug)
           printf("&& find/insert NameAndType...\n");
 
-        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_NameAndType;
 
         temp = cp_find_or_insert(list,CONSTANT_Utf8,mref->methodname);
@@ -357,10 +357,10 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
       }
       break;
     case CONSTANT_Utf8:
-      newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+      newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
       newnode->tag = CONSTANT_Utf8;
       newnode->cpnode.Utf8.length = strlen(value);
-      newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
+      newnode->cpnode.Utf8.bytes = (u1 *) f2jalloc(newnode->cpnode.Utf8.length);
       strncpy((char*)newnode->cpnode.Utf8.bytes,value,newnode->cpnode.Utf8.length);
 
       return cp_insert(list, newnode, 1);
@@ -445,7 +445,7 @@ insert_constant(Dlist list, int tok, char * tag)
         if( !cp_lookup(list, CONSTANT_Integer, (void *)&intVal)
           && (intVal < -1 || intVal > 5) )
         {
-            newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+            newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
             newnode->tag = CONSTANT_Integer;
             newnode->cpnode.Integer.bytes = u4BigEndian(intVal);
 
@@ -466,7 +466,7 @@ insert_constant(Dlist list, int tok, char * tag)
         if( !cp_lookup(list, CONSTANT_Double, (void *)&doubleVal)
           && ( doubleVal != 0.0 && doubleVal != 1.0 ) ) 
         {
-          newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+          newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
           newnode->tag = CONSTANT_Double;
           memcpy(&tmp1,&doubleVal,sizeof(tmp1));
           memcpy(&tmp2,(char*)&doubleVal+4,sizeof(tmp2));
@@ -503,15 +503,15 @@ insert_constant(Dlist list, int tok, char * tag)
         if(cp_debug)
           printf("&& in insert_constant, inserting '%s'\n",tag);
 
-        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_Utf8;
         newnode->cpnode.Utf8.length = strlen(tag);
-        newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
+        newnode->cpnode.Utf8.bytes = (u1 *) f2jalloc(newnode->cpnode.Utf8.length);
         strncpy((char *)newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
 
         idx = cp_insert(list, newnode, 1)->index;
 
-        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_String;
         newnode->cpnode.String.string_index = idx;
 
@@ -545,7 +545,7 @@ cp_insert(Dlist list, struct cp_info *node, char width) {
   if(cp_debug)
     printf("&& in cp_insert, inserting node w/tag = %s\n", constant_tags[node->tag]);
 
-  n = (CPNODE *)malloc(sizeof(CPNODE));
+  n = (CPNODE *)f2jalloc(sizeof(CPNODE));
 
   n->val = node;
   n->index = dl_empty(list) ? 1 : ((CPNODE *) dl_last(list)->val)->next_idx;
@@ -714,7 +714,7 @@ cp_dump(Dlist list)
 char *
 null_term(u1 * str, int len)
 {
-  char * temp = (char *)malloc(len + 1);
+  char * temp = (char *)f2jalloc(len + 1);
 
   strncpy(temp,(char *)str,len);
   temp[len] = '\0';
@@ -761,7 +761,7 @@ newMethodref(Dlist list, char *cname, char *mname, char *dname)
 {
   METHODREF *methodref;
 
-  methodref = (METHODREF *)malloc(sizeof(METHODREF));
+  methodref = (METHODREF *)f2jalloc(sizeof(METHODREF));
   methodref->classname = cname;
   methodref->methodname = mname;
   methodref->descriptor = dname;

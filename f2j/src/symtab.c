@@ -47,25 +47,11 @@ SYMTABLE *
 new_symtable (int numentries)
 {
   SYMTABLE *newtable;
-  newtable = (SYMTABLE *) malloc (sizeof (SYMTABLE));
-
-  /* Handle out-of-mem. */
-  if (newtable == NULL)
-  {
-    perror ("malloc error creating new symboltable");
-    exit (-1);
-  }
+  newtable = (SYMTABLE *) f2jalloc (sizeof (SYMTABLE));
 
   newtable->num_entries = numentries;
   newtable->num_items = 0;
-  newtable->entry = (HASHNODE **) calloc (numentries, sizeof (HASHNODE *));
-
-  /* Handle out-of-mem. */
-  if (newtable->entry == NULL)
-  {
-    perror ("calloc error creating new symbol table");
-    exit (-1);
-  }
+  newtable->entry = (HASHNODE **) f2jcalloc (numentries, sizeof (HASHNODE *));
 
   return (newtable);
 }				/*  Close new_symtable().  */
@@ -90,12 +76,7 @@ type_insert (SYMTABLE * table, AST * node_val, int returntype, char *tag)
 
   idx = HASH(tag) % table->num_entries;
 
-  newnode = (HASHNODE *) malloc (sizeof (HASHNODE));
-
-  if(newnode == NULL) {
-    perror("malloc error creating new hashnode");
-    exit(-1);
-  }
+  newnode = (HASHNODE *) f2jalloc (sizeof (HASHNODE));
 
   newnode->ident = tag;
   newnode->type = returntype;

@@ -499,7 +499,6 @@ merge_names(AST *root)
   AST *temp;
   char *newName;
   int len = 0, num = 0;
-  char * malloc(int);
 
   /* determine how long the merged name will be */
 
@@ -513,12 +512,7 @@ merge_names(AST *root)
    *  - one
    */
 
-  newName = (char *)malloc(len + num + 1);
-
-  if(!newName) {
-    fprintf(stderr,"Unsuccessful malloc.\n");
-    exit(-1);
-  }
+  newName = (char *)f2jalloc(len + num + 1);
 
   newName[0] = 0;
 

@@ -14,6 +14,15 @@
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
 
+
+/*****************************************************************************
+ * write_class                                                               *
+ *                                                                           *
+ * Given a pointer to a classfile structure, this function writes the class  *
+ * file to disk.                                                             *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 write_class(struct ClassFile *class)
 {
@@ -132,6 +141,9 @@ write_constant_pool(struct ClassFile *class, FILE *out)
 void
 write_interfaces(struct ClassFile *class, FILE *out)
 {
+
+  /* intentionally empty */
+
 }
 
 /*****************************************************************************
@@ -172,6 +184,13 @@ write_fields(struct ClassFile *class, FILE *out)
      */
   }
 }
+
+/*****************************************************************************
+ * write_methods                                                             *
+ *                                                                           *
+ * This function writes the all the methods to disk.                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 write_methods(struct ClassFile *class, FILE *out)
@@ -236,6 +255,15 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
   }
 }
 
+/*****************************************************************************
+ * open_output_classfile                                                     *
+ *                                                                           *
+ * This function opens the file to which we write the bytecode.              *
+ * We derive the name of the class by looking at the "this_class" entry      *
+ * in the classfile structure.                                               *
+ *                                                                           *
+ *****************************************************************************/
+
 FILE *
 open_output_classfile(struct ClassFile *class)
 {
@@ -260,7 +288,7 @@ open_output_classfile(struct ClassFile *class)
    *  - plus 1 char for the null terminator
    */
 
-  filename = (char *)malloc(c->val->cpnode.Utf8.length +  7);
+  filename = (char *)f2jalloc(c->val->cpnode.Utf8.length +  7);
   strncpy(filename, (char *)c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
   filename[c->val->cpnode.Utf8.length] = '\0';
   strcat(filename,".class");

@@ -595,7 +595,7 @@ insert_fields(AST *root)
           if(type_lookup(cur_param_table, dec->astnode.ident.name))
             continue;
 
-          tmpfield = (struct field_info *) malloc(sizeof(struct field_info));
+          tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
           tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
 
           c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
@@ -1317,7 +1317,7 @@ print_string_initializer(AST *root)
 
     char * buf;
 
-    buf = (char *)malloc( ht->variable->astnode.ident.len + 3);
+    buf = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
 
     sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
 
@@ -2540,7 +2540,7 @@ get_common_prefix(char *varname)
   if(ht == NULL)
     cprefix = "";
   else {
-    cprefix = (char *) malloc(
+    cprefix = (char *) f2jalloc(
        strlen(ht->variable->astnode.ident.commonBlockName) +
        strlen(prefix) + 3);
 
@@ -3815,13 +3815,7 @@ open_output_file(AST *root)
   /* allocate some space for the filename */
 
   filename = (char *)
-     malloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
-
-  if(filename == NULL)
-  {
-    perror("Unsuccessful malloc()");
-    exit(1);
-  }
+     f2jalloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
 
   strcpy(filename,lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
   *filename = toupper (*filename);
@@ -4101,7 +4095,7 @@ emit_interface(AST *root)
   rest = make_dl();
 
   classname = strdup(root->astnode.source.name->astnode.ident.name);
-  intfilename = malloc( strlen(classname) + 6 );
+  intfilename = f2jalloc( strlen(classname) + 6 );
   uppercase(classname);
   strcpy(intfilename,classname);
   strcat(intfilename,".java");
@@ -4237,7 +4231,7 @@ emit_interface(AST *root)
       /* Total             45 + (2 * strlen(name)) + strlen(tempstring)     */
 
       if(hashtemp->variable->astnode.ident.dim > 1) {
-        decstr = (char *) malloc(45 + (2 * strlen(tempnode->astnode.ident.name)) 
+        decstr = (char *) f2jalloc(45 + (2 * strlen(tempnode->astnode.ident.name)) 
           + strlen(tempstring));
         sprintf(decstr,"%s [] _%s_copy = MatConv.%sTwoDtoOneD(%s);",
           tempstring, tempnode->astnode.ident.name, 
@@ -4267,7 +4261,7 @@ emit_interface(AST *root)
       fprintf(intfp, " %s", tempnode->astnode.ident.name);
 
       if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
-        char * temp2 = (char *) malloc(strlen(tempnode->astnode.ident.name) + 9);
+        char * temp2 = (char *) f2jalloc(strlen(tempnode->astnode.ident.name) + 9);
                 
         strcpy( temp2, "_");
         strcat( temp2, tempnode->astnode.ident.name);
@@ -4398,7 +4392,7 @@ emit_methcall(FILE *intfp, AST *root)
         fprintf(intfp, " _%s_copy", tempnode->astnode.ident.name);
 
       if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
-        char * temp2 = (char *) malloc(strlen(tempnode->astnode.ident.name) + 9);
+        char * temp2 = (char *) f2jalloc(strlen(tempnode->astnode.ident.name) + 9);
                 
         strcpy( temp2, "_");
         strcat( temp2, tempnode->astnode.ident.name);
@@ -4446,9 +4440,7 @@ forloop_emit (AST * root)
   void name_emit (AST *);
   void assign_emit (AST *);
 
-  tmp_int = (int*)malloc(sizeof(int));
-
-  if(!tmp_int) { perror("malloc"); exit(1); }
+  tmp_int = (int*)f2jalloc(sizeof(int));
 
   *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
 
@@ -5253,9 +5245,7 @@ blockif_emit (AST * root)
   AST *temp;
   int *tmp_int;
 
-  tmp_int = (int*)malloc(sizeof(int));
-
-  if(!tmp_int) { perror("malloc"); exit(1); }
+  tmp_int = (int*)f2jalloc(sizeof(int));
 
   /* if the previous node was a label, this could be a simulated
    * while loop.
@@ -6844,7 +6834,7 @@ newClassFile(char *name, char *srcFile)
   char *strdup(const char *), *lowercase(char *);
   void cp_dump(Dlist);
  
-  tmp = (struct ClassFile *)malloc(sizeof(struct ClassFile));
+  tmp = (struct ClassFile *)f2jalloc(sizeof(struct ClassFile));
  
   tmp->magic = JVM_MAGIC;
   tmp->minor_version = JVM_MINOR_VER;
@@ -6867,15 +6857,15 @@ newClassFile(char *name, char *srcFile)
   lowercase(thisname);
   thisname[0] = toupper(thisname[0]);
 
-  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+  newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Utf8;
   newnode->cpnode.Utf8.length = strlen(thisname);
-  newnode->cpnode.Utf8.bytes = (u1 *)malloc(newnode->cpnode.Utf8.length);
+  newnode->cpnode.Utf8.bytes = (u1 *)f2jalloc(newnode->cpnode.Utf8.length);
   strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
 
   c = cp_insert(cur_const_table,newnode,1);
 
-  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+  newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Class;
   newnode->cpnode.Class.name_index = c->index;
 
@@ -6898,7 +6888,7 @@ newClassFile(char *name, char *srcFile)
   tmp->attributes_count = 1;
   tmp->attributes = make_dl();
  
-  attr_temp = (struct attribute_info *)malloc(sizeof(struct attribute_info));
+  attr_temp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
 
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, "SourceFile");
   attr_temp->attribute_name_index = c->index;
@@ -6916,7 +6906,7 @@ newClassFile(char *name, char *srcFile)
   tmp->methods_count = 1;
   tmp->methods = make_dl();
 
-  meth_tmp = (struct method_info *)malloc(sizeof(struct method_info));
+  meth_tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
   meth_tmp->access_flags = ACC_PUBLIC;
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"<init>");
   meth_tmp->name_index = c->index;
@@ -6944,7 +6934,7 @@ newMethod(u2 flags, char * name, char * desc)
   struct method_info *tmp;
   CPNODE *c;
 
-  tmp = (struct method_info *)malloc(sizeof(struct method_info));
+  tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
   tmp->access_flags = flags;
 
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, name);

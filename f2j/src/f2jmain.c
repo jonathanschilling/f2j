@@ -411,3 +411,57 @@ char isBigEndian()
   else
     return TRUE;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * f2jalloc                                                                  *
+ *                                                                           *
+ * Error-checking memory allocation routine for f2java.  we can't recover    *
+ * from an out of memory condition, so we'll just call exit() which will     *
+ * close all open streams for us.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void *
+f2jalloc(size_t numbytes)
+{
+  void * mem;
+
+  mem = malloc(numbytes);
+
+  if(mem == NULL) {
+    fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
+       (int)numbytes);
+    perror("Reason:");
+    exit(1);
+  }
+
+  return mem;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * f2jcalloc                                                                 *
+ *                                                                           *
+ * Error-checking memory allocation routine for f2java.  we can't recover    *
+ * from an out of memory condition, so we'll just call exit() which will     *
+ * close all open streams for us.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void *
+f2jcalloc(size_t numitems, size_t numbytes)
+{
+  void * mem;
+
+  mem = calloc(numitems, numbytes);
+
+  if(mem == NULL) {
+    fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
+       (int)numbytes);
+    perror("Reason:");
+    exit(1);
+  }
+
+  return mem;
+}

@@ -49,7 +49,7 @@ dlist.o: dlist.c dlist.h
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 
-codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h codegen.h
+codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h codegen.h graph.h opcodes.h
 
 constant_pool.o:	constant_pool.c constant_pool.h
 
@@ -67,7 +67,7 @@ typecheck.o: typecheck.c f2j.h f2jparse.tab.h
 
 optimize.o: optimize.c f2j.h f2jparse.tab.h
 
-class.o:	class.c class.h constant_pool.h f2jparse.tab.h
+class.o:	class.c class.h constant_pool.h f2jparse.tab.h graph.h
 
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 

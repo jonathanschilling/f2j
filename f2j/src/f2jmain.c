@@ -21,22 +21,11 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
-/*
-extern char *inputfilename;
-extern char *package_name;
-extern FILE *ifp;
-extern BOOLEAN bigEndian;
-extern int lineno;
-extern SYMTABLE *array_table;
-*/
 extern char *java_reserved_words[];
 extern char *jasmin_reserved_words[];
 extern char *blas_routines[];
 extern char *generic_intrinsics[];
-
-extern char * unit_name;
-
-
+extern char *unit_name;
 extern char *optarg;
 
 BOOLEAN isBigEndian(void);
@@ -49,7 +38,6 @@ extern int getopt(int, char *const *, const char *);
 void type_insert (SYMTABLE *, AST *, enum returntype, char *);
 void handle_segfault(int);
 
-
 /*****************************************************************************
  * main                                                                      *
  *                                                                           *
@@ -61,7 +49,6 @@ void handle_segfault(int);
 int
 main (int argc, char **argv)
 {
-
   char classname[130];
   char *truncfilename;
   char sourcename[130];

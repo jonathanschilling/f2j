@@ -640,13 +640,6 @@ yylex ()
 int
 prelex (BUFFER * bufstruct)
 {
-  /*
-  extern FILE *ifp;
-  extern int lineno;
-  extern int statementno;
-  extern int func_stmt_num;
-  */
-
   if(lexdebug)
     printf("entering prelex()\n");
 

@@ -41,17 +41,11 @@ Dlist
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
 
-/*extern char 
-  *inputfilename; */      /* name of the fortran input file                    */
-
 FILE 
   *javafp,              /* the class file currently generating               */
   *curfp,               /* the file currently being written to               */
   *savefp,              /* temp var for saving the current file pointer      */
   *devnull;             /* pointer to the file /dev/null                     */
-
-/*extern FILE
-  *indexfp;  */           /* index of methods & descriptors for all prog units */
 
 SYMTABLE                /* Symbol tables containing...                       */
   *cur_type_table,      /* type information                                  */
@@ -102,7 +96,6 @@ ExceptionTableEntry
   * reflect_entry,      /* exception table entry for reflection exceptions.  */
   * access_entry;       /* exception table entry for access exceptions.      */
 
-/*extern int locals; */
 extern METHODTAB intrinsic_toks[];
 
 /*****************************************************************************

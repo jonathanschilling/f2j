@@ -569,6 +569,55 @@ emit (AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * field_emit                                                                *
+ *                                                                           *
+ * This function is called by insert_fields to create a new field_info       *
+ * structure for the given variable.                                         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+field_emit(AST *root)
+{
+  struct field_info * tmpfield;
+  char * desc, * name;
+  HASHNODE *ht;
+  CPNODE * c;
+
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)) != NULL)
+    name = ht->variable->astnode.ident.merged_name;
+  else
+    name = root->astnode.ident.name;
+
+  if(omitWrappers) {
+    if(root->astnode.ident.passByRef)
+      desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+    else
+      desc = field_descriptor[root->vartype][root->astnode.ident.dim];
+  }
+  else
+    desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+
+  tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
+  tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, name);
+  tmpfield->name_index = c->index;
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, desc);
+  tmpfield->descriptor_index = c->index;
+
+  tmpfield->attributes_count = 0;
+  tmpfield->attributes = NULL;
+
+  dl_insert_b(cur_class_file->fields, tmpfield);
+
+  cur_class_file->fields_count++;
+
+}
+
+/*****************************************************************************
+ *                                                                           *
  * insert_fields                                                             *
  *                                                                           *
  * Each variable in the program unit is generated as a static field in the   *
@@ -584,12 +633,9 @@ emit (AST * root)
 void
 insert_fields(AST *root)
 {
-  struct field_info * tmpfield;
-  AST *temp, *dec;
-  HASHNODE *ht;
-  char * desc;
+  AST *temp, *dec, *etmp;
+  HASHNODE *hashtemp;
   int returns;
-  CPNODE * c;
  
   for(temp = root; temp; temp = temp->nextstmt) {
     returns = temp->astnode.typeunit.returns;
@@ -600,44 +646,32 @@ insert_fields(AST *root)
           && ! type_lookup (cur_intrinsic_table, dec->astnode.ident.name)
           && ! type_lookup (cur_args_table, dec->astnode.ident.name)
           && ! type_lookup (cur_param_table, dec->astnode.ident.name)
+          && ! type_lookup (cur_equiv_table, dec->astnode.ident.name)
           && ! type_lookup (cur_common_table, dec->astnode.ident.name))
         {
-          if(omitWrappers) {
-            if(dec->astnode.ident.passByRef)
-              desc = wrapped_field_descriptor[dec->vartype][dec->astnode.ident.dim];
-            else
-              desc = field_descriptor[dec->vartype][dec->astnode.ident.dim];
-          }
-          else
-            desc = wrapped_field_descriptor[dec->vartype][dec->astnode.ident.dim];
-
-          tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
-          tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
-
-          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
-                  dec->astnode.ident.name);
-          tmpfield->name_index = c->index;
- 
-          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, desc);
-          tmpfield->descriptor_index = c->index;
-  
-          tmpfield->attributes_count = 0;
-          tmpfield->attributes = NULL;
-          
-          dl_insert_b(cur_class_file->fields, tmpfield);
-
-          ht=type_lookup(cur_type_table,dec->astnode.ident.name);
-
-          if(ht != NULL)
-            ht->variable->astnode.ident.fieldnum = cur_class_file->fields_count;
-          else
-            fprintf(stderr,"WARNING: can't set field num for '%s'\n",
-                dec->astnode.ident.name);
-
-          cur_class_file->fields_count++;
+          field_emit(dec);
         }
       }
     } 
+    else if(temp->nodetype == Equivalence) {
+      /* for each group of equivalenced variables... */
+
+      for(etmp = temp->astnode.equiv.nlist; etmp != NULL; etmp = etmp->nextstmt)
+      {
+        /* only generate a field for the first node. */
+
+        if(etmp->astnode.equiv.clist != NULL) {
+          hashtemp = type_lookup(cur_type_table,
+                   etmp->astnode.equiv.clist->astnode.ident.name);
+
+          if(hashtemp)
+            field_emit(hashtemp->variable);
+          else
+            fprintf(stderr,"insert_fields(): can't find data type for %s\n" ,
+               etmp->astnode.equiv.clist->astnode.ident.name);
+        }
+      }
+    }
   }
 }
 
@@ -2619,8 +2653,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
    * always merged.
    */
 
-  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
     name = ht->variable->astnode.ident.merged_name;
+    printf("%s -> %s\n",root->astnode.ident.name,name);
+  }
 
   if (name == NULL)
   {

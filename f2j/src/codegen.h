@@ -269,42 +269,47 @@ char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
   "Object"
 };
 
+/* you'll notice that both the 1D and 2D descriptors are both actually
+ * declared 1D.  if we want to implement 'real' 2D arrays, then this
+ * matrix (and the following wrapped_field_descriptor) should be updated.
+ */
+
 char *field_descriptor[MAX_RETURNS+1][3] = {
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[[Ljava/lang/String;"},
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[[Ljava/lang/String;"},
-  {"D", "[D", "[[D"},
-  {"D", "[D", "[[D"},
-  {"F", "[F", "[[F"},
-  {"I", "[I", "[[I"},
-  {"Z", "[Z", "[[Z"},
-  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[[Ljava/lang/Object;"}
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
+  {"D", "[D", "[D"},
+  {"D", "[D", "[D"},
+  {"F", "[F", "[F"},
+  {"I", "[I", "[I"},
+  {"Z", "[Z", "[Z"},
+  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object;"}
 };
 
 char *wrapped_field_descriptor[MAX_RETURNS+1][3] = {
   {"Lorg/netlib/util/StringW;",
    "[Lorg/netlib/util/StringW;",
-   "[[Lorg/netlib/util/StringW;"},
+   "[Lorg/netlib/util/StringW;"},
   {"Lorg/netlib/util/StringW;",
    "[Lorg/netlib/util/StringW;",
-   "[[Lorg/netlib/util/StringW;"},
+   "[Lorg/netlib/util/StringW;"},
   {"Lorg/netlib/util/doubleW;",
    "[Lorg/netlib/util/doubleW;",
-   "[[Lorg/netlib/util/doubleW;"},
+   "[Lorg/netlib/util/doubleW;"},
   {"Lorg/netlib/util/doubleW;",
    "[Lorg/netlib/util/doubleW;",
-   "[[Lorg/netlib/util/doubleW;"},
+   "[Lorg/netlib/util/doubleW;"},
   {"Lorg/netlib/util/floatW;",
    "[Lorg/netlib/util/floatW;",
-   "[[Lorg/netlib/util/floatW;"},
+   "[Lorg/netlib/util/floatW;"},
   {"Lorg/netlib/util/integerW;",
    "[Lorg/netlib/util/integerW;",
-   "[[Lorg/netlib/util/integerW;"},
+   "[Lorg/netlib/util/integerW;"},
   {"Lorg/netlib/util/booleanW;",
    "[Lorg/netlib/util/booleanW;",
-   "[[Lorg/netlib/util/booleanW;"},
+   "[Lorg/netlib/util/booleanW;"},
   {"Ljava/lang/Object;",
    "[Ljava/lang/Object;",
-   "[[Ljava/lang/Object;"}
+   "[Ljava/lang/Object;"}
 };
 
 char *wrapper_returns[MAX_RETURNS+1] =  /* types for pass by ref scalars     */

@@ -1509,7 +1509,8 @@ print_string_initializer(AST *root)
   strncpy(bytecode_initializer, src_initializer + 1, strlen(src_initializer) -2);
   bytecode_initializer[strlen(src_initializer) - 2] = '\0';
 
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, bytecode_initializer);
+  /* c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, bytecode_initializer); */
+  c = cp_find_or_insert(cur_const_table, CONSTANT_String, bytecode_initializer);
 
   if(c->index > CPIDX_MAX)
     code_one_op_w(jvm_ldc_w, c->index);
@@ -7054,10 +7055,15 @@ code_one_op_w(enum _opcode op, u2 index)
   struct stack_info * calcStack(char *), *stackinf;
   int stack_increment, stack_decrement;
 
-  /* now we need to determine how many parameters are sitting on the stack */
+  /* unfortunately, must first check some special cases to determine proper
+   * stack increment and decrement.
+   */
+
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
    || (op == jvm_invokestatic))
   {
+    /* now we need to determine how many parameters are sitting on the stack */
+
     c = cp_entry_by_index(cur_const_table, index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.Methodref.name_and_type_index);
@@ -7077,6 +7083,30 @@ code_one_op_w(enum _opcode op, u2 index)
       stack_decrement = stackinf->arg_len + 1;
 
     stack_increment = stackinf->ret_len;
+  }
+  else if((op == jvm_putstatic) || (op == jvm_getstatic)) {
+    int tmpsize;
+
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+
+    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
+      tmpsize = 2;
+    else 
+      tmpsize = 1;
+
+    if(op == jvm_getstatic) {
+      stack_increment = tmpsize;
+      stack_decrement = 0;
+    }
+    else {
+      stack_increment = 0;
+      stack_decrement = tmpsize;
+    }
   }
   else {
     /* else we can determine the stack decrement from a table.  */

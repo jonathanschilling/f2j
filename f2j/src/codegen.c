@@ -3447,7 +3447,8 @@ get_common_prefix(char *varname)
 char *
 getVarDescriptor(AST *root)
 {
-  if(omitWrappers && !root->astnode.ident.passByRef)
+
+  if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
     return field_descriptor[root->vartype][root->astnode.ident.dim];
   else
     return wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];

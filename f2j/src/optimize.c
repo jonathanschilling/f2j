@@ -726,6 +726,7 @@ read_optimize (AST * root, AST *rptr)
 {
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
   HASHNODE *ht;
   AST *temp;
 
@@ -745,7 +746,8 @@ read_optimize (AST * root, AST *rptr)
       ht = type_lookup(opt_type_table,temp->astnode.ident.name);
       if(ht) {
         if(type_lookup(opt_args_table, temp->astnode.ident.name) != NULL)
-          ht->variable->astnode.ident.passByRef = TRUE;
+          if(type_lookup(opt_common_table, temp->astnode.ident.name) == NULL)
+            ht->variable->astnode.ident.passByRef = TRUE;
       }
     }
     else

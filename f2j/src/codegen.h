@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 #define MAX_RETURNS 7
+#define MAX_DIMS    3
 #define OBJECT_TYPE 7
 #define CPIDX_MAX 255
 
@@ -269,45 +270,58 @@ char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
   "Object"
 };
 
+/* Mapping between f2java data types and array data types. */
+u2 jvm_array_type[MAX_RETURNS+1] = {
+  T_UNUSED, T_UNUSED, T_DOUBLE, T_DOUBLE, T_FLOAT, T_INT, T_BOOLEAN, T_UNUSED
+};
+
 /* you'll notice that both the 1D and 2D descriptors are both actually
  * declared 1D.  if we want to implement 'real' 2D arrays, then this
  * matrix (and the following wrapped_field_descriptor) should be updated.
  */
 
-char *field_descriptor[MAX_RETURNS+1][3] = {
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
-  {"D", "[D", "[D"},
-  {"D", "[D", "[D"},
-  {"F", "[F", "[F"},
-  {"I", "[I", "[I"},
-  {"Z", "[Z", "[Z"},
-  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object;"}
+char *field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
+  {"D", "[D", "[D", "[D"},
+  {"D", "[D", "[D", "[D"},
+  {"F", "[F", "[F", "[F"},
+  {"I", "[I", "[I", "[I"},
+  {"Z", "[Z", "[Z", "[Z"},
+  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object"}
 };
 
-char *wrapped_field_descriptor[MAX_RETURNS+1][3] = {
+char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
   {"Lorg/netlib/util/StringW;",
-   "[Lorg/netlib/util/StringW;",
-   "[Lorg/netlib/util/StringW;"},
+   "[Ljava/lang/String;",
+   "[Ljava/lang/String;",
+   "[Ljava/lang/String;"},
   {"Lorg/netlib/util/StringW;",
-   "[Lorg/netlib/util/StringW;",
-   "[Lorg/netlib/util/StringW;"},
+   "[Ljava/lang/String;",
+   "[Ljava/lang/String;",
+   "[Ljava/lang/String;"},
+  {"Lorg/netlib/util/complexW;",
+   "[Lorg/netlib/util/complexW;",
+   "[Lorg/netlib/util/complexW;",
+   "[Lorg/netlib/util/complexW;"},
   {"Lorg/netlib/util/doubleW;",
-   "[Lorg/netlib/util/doubleW;",
-   "[Lorg/netlib/util/doubleW;"},
-  {"Lorg/netlib/util/doubleW;",
-   "[Lorg/netlib/util/doubleW;",
-   "[Lorg/netlib/util/doubleW;"},
+   "[D",
+   "[D",
+   "[D"},
   {"Lorg/netlib/util/floatW;",
-   "[Lorg/netlib/util/floatW;",
-   "[Lorg/netlib/util/floatW;"},
+   "[F",
+   "[F",
+   "[F"},
   {"Lorg/netlib/util/integerW;",
-   "[Lorg/netlib/util/integerW;",
-   "[Lorg/netlib/util/integerW;"},
+   "[I",
+   "[I",
+   "[I"},
   {"Lorg/netlib/util/booleanW;",
-   "[Lorg/netlib/util/booleanW;",
-   "[Lorg/netlib/util/booleanW;"},
+   "[Z",
+   "[Z",
+   "[Z"},
   {"Ljava/lang/Object;",
+   "[Ljava/lang/Object;",
    "[Ljava/lang/Object;",
    "[Ljava/lang/Object;"}
 };
@@ -495,10 +509,10 @@ enum _opcode typeconv_matrix[MAX_RETURNS+1][MAX_RETURNS+1] =
 };
 
 typedef struct _jvm_opcode {
-  char *op;
-  u1 width;
-  u1 stack_pre;
-  u1 stack_post;
+  char *op;                   /* character representation of opcode       */
+  u1 width;                   /* width in bytes of the opcode + operands  */
+  u1 stack_pre;               /* stack before the operation               */
+  u1 stack_post;              /* stack after the operation                */
 } JVM_OPCODE;
 
 JVM_OPCODE jvm_opcode[] = {

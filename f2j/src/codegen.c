@@ -43,6 +43,8 @@ int  isPassByRef(char *);
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
 struct ClassFile * newClassFile(char *,char *);
+struct method_info * beginNewMethod(u2);
+void endNewMethod(struct method_info *, char *,char *);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -94,7 +96,7 @@ Dlist cur_const_table;  /* constants designated to go into the constant pool */
 struct ClassFile
   *cur_class_file;      /* class file for the current program unit           */
 
-struct Code_attribute
+struct attribute_info
   *cur_code;            /* current code attr. to which f2j writes code       */
 
 AST 
@@ -107,7 +109,8 @@ BOOLEAN
 int pc;                 /* current program counter                           */
 
 struct method_info
-  *clinit_method;       /* special class initialization method <clinit>      */
+  *clinit_method,       /* special class initialization method <clinit>      */
+  *main_method;         /* the primary method for this fortran program unit  */
 
 /*****************************************************************************
  *                                                                           *
@@ -150,22 +153,21 @@ emit (AST * root)
        emit_javadoc_comments(AST *),
        insert_fields(AST *);
 
-    struct attribute_info * newCodeAttribute(),
-                          * clinit_attr;
+    struct attribute_info * newCodeAttribute();
     char * tok2str(int);
 
     switch (root->nodetype)
     {
       case 0:
-	  if (gendebug)
-            fprintf (stderr,"Bad node\n");
+        if (gendebug)
+          fprintf (stderr,"Bad node\n");
 
-	  emit (root->nextstmt);
+        emit (root->nextstmt);
       case Progunit:
         {
           char *tmpname;
 
-	  if (gendebug)
+          if (gendebug)
             printf ("Source.\n");
 
           tmpname = root->astnode.source.progtype->
@@ -221,11 +223,6 @@ emit (AST * root)
 
           insert_fields(root->astnode.source.typedecs);
 
-          /* make sure that stacksize and pc are reset before starting
-           * to generate the next method. 
-           */
-          stacksize = pc = 0;
-
           /* as part of creating a new classfile structure, we have 
            * already created an <init> method, the default constructor.
            * the class may also need a <clinit> method, the class
@@ -239,12 +236,21 @@ emit (AST * root)
            * nothing.
            */
 
-          clinit_attr = newCodeAttribute();
-          cur_code = clinit_attr->attr.Code;
+          clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
           
           emit (root->astnode.source.typedecs);
           
-          /* check - was any code generated? */
+          /* check whether any clinit code was generated.  if so,
+           * finish initializing the method and insert it into this
+           * class.
+           */
+          if(pc > 0) {
+            endNewMethod(clinit_method, "<clinit>", "()V");
+            cur_class_file->methods_count++;
+            dl_insert_b(cur_class_file->methods, clinit_method);
+          }
+
+          main_method = beginNewMethod(ACC_PUBLIC);
 
           emit (root->astnode.source.progtype);
 
@@ -274,213 +280,213 @@ emit (AST * root)
           cur_class_file->constant_pool = cur_const_table;
 
           write_class(cur_class_file);
-	  break;
+          break;
         }
       case Subroutine:
-	  if (gendebug)
-	      printf ("Subroutine.\n");
+        if (gendebug)
+	        printf ("Subroutine.\n");
 
-	  returnname = NULL;	/* Subroutines return void. */
-          unit_name = root->astnode.source.name->astnode.ident.name;
-	  constructor (root);
-	  break;
+        returnname = NULL;	/* Subroutines return void. */
+        unit_name = root->astnode.source.name->astnode.ident.name;
+        constructor (root);
+        break;
       case Function:
-	  if (gendebug)
-	      printf ("Function.\n");
+        if (gendebug)
+          printf ("Function.\n");
 
-	  returnname = root->astnode.source.name->astnode.ident.name;
-          unit_name = root->astnode.source.name->astnode.ident.name;
+        returnname = root->astnode.source.name->astnode.ident.name;
+        unit_name = root->astnode.source.name->astnode.ident.name;
 
-          if(gendebug)
-            printf ("Function name: %s\n", 
-              root->astnode.source.name->astnode.ident.name);
+        if(gendebug)
+          printf ("Function name: %s\n", 
+        root->astnode.source.name->astnode.ident.name);
 
-	  constructor (root);
-	  break;
+        constructor (root);
+        break;
       case Program:
-	  if (gendebug)
-	      printf ("Program.\n");
+        if (gendebug)
+          printf ("Program.\n");
 
-	  returnname = NULL;	/* programs return void. */
-          unit_name = root->astnode.source.name->astnode.ident.name;
+        returnname = NULL;	/* programs return void. */
+        unit_name = root->astnode.source.name->astnode.ident.name;
 
-	  if (gendebug)
-	    printf ("Program name: %s\n", 
-              root->astnode.source.name->astnode.ident.name);
+        if (gendebug)
+          printf ("Program name: %s\n", 
+             root->astnode.source.name->astnode.ident.name);
 
           constructor(root);
           break;
       case Typedec:
-	  if (gendebug)
-	      printf ("Typedec.\n");
+        if (gendebug)
+          printf ("Typedec.\n");
 
-	  typedec_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        typedec_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case DataList:
-	  if (gendebug)
-	      printf ("Data.\n");
+        if (gendebug)
+          printf ("Data.\n");
 
-	  data_emit (root);
-	  if (root->nextstmt != NULL)	/* End of data list. */
-	      emit (root->nextstmt);
-	  break;
+        data_emit (root);
+        if (root->nextstmt != NULL)	/* End of data list. */
+          emit (root->nextstmt);
+        break;
       case Specification:
-	  if (gendebug)
-	      printf ("Specification.\n");
+        if (gendebug)
+          printf ("Specification.\n");
 
-	  spec_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        spec_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Equivalence:
-	  if (gendebug)
-	      printf ("Equivalence.\n");
+        if (gendebug)
+          printf ("Equivalence.\n");
 
-	  equiv_emit (root);
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        equiv_emit (root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Statement:
-	  if (gendebug)
-	      printf ("Statement.\n");
+        if (gendebug)
+          printf ("Statement.\n");
 
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Assignment:
-	  if (gendebug)
-	      printf ("Assignment.\n");
+        if (gendebug)
+          printf ("Assignment.\n");
 
-	  assign_emit (root);
-	  fprintf (curfp, ";\n");
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        assign_emit (root);
+        fprintf (curfp, ";\n");
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Call:
-	  if (gendebug)
-	      printf ("Call.\n");
+        if (gendebug)
+          printf ("Call.\n");
 
-	  call_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        call_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Forloop:
-	  if (gendebug)
-	      printf ("Forloop.\n");
+        if (gendebug)
+          printf ("Forloop.\n");
 
-	  forloop_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        forloop_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Blockif:
-	  if (gendebug)
-	      printf ("Blockif.\n");
+        if (gendebug)
+          printf ("Blockif.\n");
 
-	  blockif_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        blockif_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Elseif:
-	  if (gendebug)
-	      printf ("Elseif.\n");
+        if (gendebug)
+          printf ("Elseif.\n");
 
-	  elseif_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        elseif_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Else:
-	  if (gendebug)
-	      printf ("Else.\n");
+        if (gendebug)
+          printf ("Else.\n");
 
-	  else_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        else_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Logicalif:
-	  if (gendebug)
-	      printf ("Logicalif.\n");
+        if (gendebug)
+          printf ("Logicalif.\n");
 
-	  logicalif_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        logicalif_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Arithmeticif:
-	  if (gendebug)
-	      printf ("Arithmeticif.\n");
+        if (gendebug)
+          printf ("Arithmeticif.\n");
 
-	  arithmeticif_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        arithmeticif_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Return:
-	  if (gendebug)
-          {
-            if(returnname != NULL)
-	      printf ("Return: %s.\n", returnname);
-            else
-	      printf ("Return.\n");
-          }
+        if (gendebug)
+        {
+          if(returnname != NULL)
+            printf ("Return: %s.\n", returnname);
+          else
+            printf ("Return.\n");
+        }
             
-          /*
-           * According to the f77 spec, labels cannot contain more
-           * than five digits, so we use six nines as the label
-           * for the final return statement to avoid conflicts with
-           * labels that already exist in the program.
-           */
+        /*
+         * According to the f77 spec, labels cannot contain more
+         * than five digits, so we use six nines as the label
+         * for the final return statement to avoid conflicts with
+         * labels that already exist in the program.
+         */
 
-          fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
+        fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
 
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Goto:
-	  if (gendebug)
-	      printf ("Goto.\n");
+        if (gendebug)
+          printf ("Goto.\n");
 
-	  goto_emit (root);
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        goto_emit (root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case ComputedGoto:
-	  if (gendebug)
-	      printf ("Goto.\n");
+        if (gendebug)
+          printf ("Goto.\n");
 
-	  computed_goto_emit (root);
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        computed_goto_emit (root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Label:
-	  if (gendebug)
-	      printf ("Label.\n");
+        if (gendebug)
+          printf ("Label.\n");
 
-          label_emit (root);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit (root->nextstmt);
-	  break;
+        label_emit (root);
+        if (root->nextstmt != NULL)	/* End of typestmt list. */
+          emit (root->nextstmt);
+        break;
       case Write:
-	  if (gendebug)
-	      printf ("Write statement.\n");
+        if (gendebug)
+          printf ("Write statement.\n");
 
-	  write_emit (root);
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        write_emit (root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Read:
-	  if (gendebug)
-	      printf ("Read statement.\n");
+        if (gendebug)
+          printf ("Read statement.\n");
 
-	  read_emit (root);
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        read_emit (root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Format:
-	  if (gendebug)
-            printf("skipping format statement\n");
+        if (gendebug)
+          printf("skipping format statement\n");
 
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
           break;
       case Stop:
           if (gendebug)
@@ -490,96 +496,96 @@ emit (AST * root)
 
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
-	  break;
+        break;
       case End:
-	  if (gendebug)
-	      printf ("End.\n");
+        if (gendebug)
+          printf ("End.\n");
 
-          /*
-           * We only generate one real return statement.  The
-           * other return statements are emitted as gotos to
-           * the end of the code.  See the tech report for the
-           * reasoning behind this decision.  Anyway, here at 
-           * the end, we emit the real return statement.
-           * We use six nines as the label to avoid conflicts 
-           * with other labels.  See comment above in the Return 
-           * case.
-           */
+        /*
+         * We only generate one real return statement.  The
+         * other return statements are emitted as gotos to
+         * the end of the code.  See the tech report for the
+         * reasoning behind this decision.  Anyway, here at 
+         * the end, we emit the real return statement.
+         * We use six nines as the label to avoid conflicts 
+         * with other labels.  See comment above in the Return 
+         * case.
+         */
 
-          fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
+        fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
 
-          if (returnname != NULL) {
-            if(omitWrappers) {
-              if(isPassByRef(returnname))
-                fprintf (curfp, "return %s.val;\n", returnname);
-              else
-                fprintf (curfp, "return %s;\n", returnname);
-            }
-            else
-            {
+        if (returnname != NULL) {
+          if(omitWrappers) {
+            if(isPassByRef(returnname))
               fprintf (curfp, "return %s.val;\n", returnname);
-            }
+            else
+              fprintf (curfp, "return %s;\n", returnname);
           }
           else
-            fprintf (curfp, "return;\n");
-
-          if(import_reflection) {
-            fprintf(curfp, "%s%s%s%s%s%s%s",
-               "} catch (java.lang.reflect.InvocationTargetException e) {\n",
-               "   System.err.println(\"Error calling method.", 
-               "  \"+ e.getMessage());\n",
-               "} catch (java.lang.IllegalAccessException e2) {\n",
-               "   System.err.println(\"Error calling method.",
-               "  \"+ e2.getMessage());\n",
-               "}\n");
+          {
+            fprintf (curfp, "return %s.val;\n", returnname);
           }
+        }
+        else
+          fprintf (curfp, "return;\n");
 
-	  fprintf (curfp, "   }\n");
-	  break;
+        if(import_reflection) {
+          fprintf(curfp, "%s%s%s%s%s%s%s",
+             "} catch (java.lang.reflect.InvocationTargetException e) {\n",
+             "   System.err.println(\"Error calling method.", 
+             "  \"+ e.getMessage());\n",
+             "} catch (java.lang.IllegalAccessException e2) {\n",
+             "   System.err.println(\"Error calling method.",
+             "  \"+ e2.getMessage());\n",
+             "}\n");
+        }
+
+        fprintf (curfp, "   }\n");
+        break;
       case Save:
-	  if (gendebug)
-	      printf ("Save (ignoring).\n");
+        if (gendebug)
+          printf ("Save (ignoring).\n");
 
-          if (root->nextstmt != NULL)
-            emit (root->nextstmt);
-          break;
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Common:
-          fprintf(stderr,"Warning: hit case Common in emit()\n");
+        fprintf(stderr,"Warning: hit case Common in emit()\n");
       case CommonList:
-          if (gendebug)
-            printf ("Common.\n");
+        if (gendebug)
+          printf ("Common.\n");
 
-          common_emit(root);
-          if (root->nextstmt != NULL)
-            emit (root->nextstmt);
-          break;
+        common_emit(root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case MainComment:
-          while(root->nextstmt != NULL && root->nextstmt->nodetype == Comment)
-            root = root->nextstmt;
+        while(root->nextstmt != NULL && root->nextstmt->nodetype == Comment)
+          root = root->nextstmt;
 
-          if (root->nextstmt != NULL)
-            emit (root->nextstmt);
-          break;
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Comment:
-          if (gendebug)
-            printf ("Comment.\n");
+        if (gendebug)
+          printf ("Comment.\n");
 
-          if(curfp != NULL)
-            fprintf(curfp,"// %s", root->astnode.ident.name);
+        if(curfp != NULL)
+          fprintf(curfp,"// %s", root->astnode.ident.name);
 
-          if (root->nextstmt != NULL)
-            emit (root->nextstmt);
-          break;
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Unimplemented:
-	  fprintf (curfp, 
-            " ; // WARNING: Unimplemented statement in Fortran source.\n");
-	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
-	  break;
+        fprintf (curfp, 
+           " ; // WARNING: Unimplemented statement in Fortran source.\n");
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Constant:
       default:
-          fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
-            print_nodetype(root));
+        fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
+          print_nodetype(root));
     }				/* switch on nodetype.  */
 }
 
@@ -619,6 +625,11 @@ field_emit(AST *root)
   }
   else
     desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+
+  printf("going to emit field %s\n",name);
+  printf("\ttype: %s (%d)\n",returnstring[root->vartype], root->vartype);
+  printf("\t dim: %d\n",root->astnode.ident.dim);
+  printf("\tdesc: %s\n",desc);
 
   /* the rest of this code creates the field_info structure, assigns the
    * appropriate values into it, and inserts it into the field list.
@@ -884,7 +895,6 @@ common_emit(AST *root)
   char * prefix = strtok(strdup(inputfilename),"."), * com_prefix, * mname;
   int needs_dec = FALSE;
   void vardec_emit(AST *, enum returntype);
-  struct ClassFile *tmpclass;
   Dlist save_const_table;
   char *get_common_prefix(char *);
 
@@ -908,8 +918,6 @@ common_emit(AST *root)
          Ctemp->astnode.common.name);
 
       cur_const_table = make_dl();
-
-      tmpclass = newClassFile(strtok(strdup(filename),"."), inputfilename);
 
       if((commonfp = fopen(filename,"w"))==NULL) 
       {
@@ -1178,9 +1186,10 @@ void
 vardec_emit(AST *root, enum returntype returns)
 {
   HASHNODE *hashtemp;
-  AST *temp2;
   char *prefix;
   int count=0;
+  AST *temp2;
+
   void name_emit (AST *);
   void expr_emit (AST *);
   void print_string_initializer(AST *);
@@ -1239,9 +1248,23 @@ vardec_emit(AST *root, enum returntype returns)
           fprintf(curfp," - ");
           expr_emit(temp2->astnode.expression.lhs);
           fprintf(curfp," + 1");
+
+          /* at this point, we've pushed the end and start onto the
+           * stack, so now we just subtract start from end and increment
+           * by one as described above.
+           */
+          code_zero_op(jvm_isub);
+          code_zero_op(jvm_iconst_1);
+          code_zero_op(jvm_iadd);
         }
         else
           expr_emit(temp2);
+
+        /* if this isn't the first iteration, then we must multiply
+         * the dimensions to get the total size of the array.
+         */
+        if(temp2 != root->astnode.ident.arraylist)
+          code_zero_op(jvm_imul);
 
         fprintf(curfp,")");
       }
@@ -1251,6 +1274,41 @@ vardec_emit(AST *root, enum returntype returns)
          root->astnode.ident.name);
 
     fprintf (curfp, "];\n");
+
+    /* now the stack contains the number of elements for this
+     * array, so now we issue a newarray instruction to create the
+     * new array.  we have to distinguish between arrays of
+     * primitives and arrays of references because there are
+     * different opcodes for creating these arrays.
+     */
+
+    switch(root->vartype) {
+      case String:
+      case Character:
+        {
+          CPNODE *c;
+
+          c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
+          code_one_op_w(jvm_anewarray, c->index);
+        }
+        break;
+      case Complex:
+      case Double:
+      case Float:
+      case Integer:
+      case Logical:
+        code_one_op(jvm_newarray, jvm_array_type[root->vartype]);
+        break;
+      default:
+        fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
+    }
+
+    /* the top of the stack now contains the array we just created.
+     * now issue the putstatic instruction to store the array reference
+     * into the static variable.
+     */
+
+    /* c = newMethodref(cur_const_table,"class", "field", "descriptor"); */
 
   } else {    /* this is not an array declaration */
 
@@ -6812,8 +6870,8 @@ inc_stack(int inc)
 {
   stacksize += inc;
   
-  if(stacksize > cur_code->max_stack)
-    cur_code->max_stack = stacksize;
+  if(stacksize > cur_code->attr.Code->max_stack)
+    cur_code->attr.Code->max_stack = stacksize;
 }
 
 /*****************************************************************************
@@ -6848,15 +6906,16 @@ check_code_size(int width)
    * and after generating all the code for this method, we will replace the
    * code_length variable with the correct number.  --kgs 4/26/00
    */
-  if(cur_code->code == NULL) {
-    cur_code->code = (u1 *)f2jalloc(CODE_ALLOC_INIT * sizeof(u1));
-    cur_code->code_length = CODE_ALLOC_INIT;
+  if(cur_code->attr.Code->code == NULL) {
+    cur_code->attr.Code->code = (u1 *)f2jalloc(CODE_ALLOC_INIT * sizeof(u1));
+    cur_code->attr.Code->code_length = CODE_ALLOC_INIT;
     return;
   }
 
-  if(pc+width > cur_code->code_length) {
-    cur_code->code_length += CODE_ALLOC_CHUNK;
-    cur_code->code = (u1 *)f2jrealloc(cur_code->code, cur_code->code_length);
+  if(pc+width > cur_code->attr.Code->code_length) {
+    cur_code->attr.Code->code_length += CODE_ALLOC_CHUNK;
+    cur_code->attr.Code->code = (u1 *)f2jrealloc(cur_code->attr.Code->code,
+                  cur_code->attr.Code->code_length);
   }
 }
 
@@ -6875,7 +6934,7 @@ code_zero_op(enum _opcode op)
 
   dec_stack(jvm_opcode[op].stack_pre);
   check_code_size(jvm_opcode[op].width);
-  memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
+  memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   printf("%d %s\n", pc, jvm_opcode[op].op);
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
@@ -6903,8 +6962,8 @@ code_one_op(enum _opcode op, u1 opval)
   else {
     dec_stack(jvm_opcode[op].stack_pre);
     check_code_size(jvm_opcode[op].width);
-    memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
-    memcpy(cur_code->code + pc + 1, &opval, sizeof(opval));
+    memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
+    memcpy(cur_code->attr.Code->code + pc + 1, &opval, sizeof(opval));
     printf("%d %s %d\n",pc, jvm_opcode[op].op, opval);
     pc += jvm_opcode[op].width;
     inc_stack(jvm_opcode[op].stack_post);
@@ -6928,8 +6987,8 @@ code_one_op_w(enum _opcode op, u2 index)
   u2 this_operand = u2BigEndian(index);
 
   dec_stack(jvm_opcode[op].stack_pre);
-  memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
-  memcpy(cur_code->code + pc + 1, &this_operand, sizeof(this_operand));
+  memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
+  memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));
   printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
@@ -7066,20 +7125,7 @@ newClassFile(char *name, char *srcFile)
   tmp->methods_count = 1;
   tmp->methods = make_dl();
 
-  meth_tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
-  meth_tmp->access_flags = ACC_PUBLIC;
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"<init>");
-  meth_tmp->name_index = c->index;
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"()V");
-  meth_tmp->descriptor_index = c->index;
-
-  meth_tmp->attributes_count = 1;
-  meth_tmp->attributes = make_dl();
-
-  attr_temp = newCodeAttribute();
-
-  cur_code = attr_temp->attr.Code;
-  stacksize = pc = 0;
+  meth_tmp = beginNewMethod(ACC_PUBLIC);
 
   c = newMethodref(cur_const_table,"java/lang/Object", "<init>", "()V");
 
@@ -7087,6 +7133,67 @@ newClassFile(char *name, char *srcFile)
   code_one_op_w(jvm_invokespecial, c->index);
   code_zero_op(jvm_return);
   
+  endNewMethod(meth_tmp, "<init>", "()V");
+
+  dl_insert_b(tmp->methods, meth_tmp);
+
+  return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * beginNewMethod                                                            *
+ *                                                                           *
+ * Creates a new method structure with the given access flags.               *
+ *                                                                           *
+ *****************************************************************************/
+
+struct method_info *
+beginNewMethod(u2 flags)
+{
+  struct method_info *tmp;
+
+  tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
+  tmp->access_flags = flags;
+
+  tmp->attributes_count = 1;
+  tmp->attributes = make_dl();
+
+  cur_code = newCodeAttribute();
+
+  stacksize = pc = 0;
+
+  return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * endNewMethod                                                              *
+ *                                                                           *
+ * Finishes initialization of the new method structure.                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+endNewMethod(struct method_info * meth, char * name, char * desc)
+{
+  CPNODE *c;
+
+  /* here we insert the name and descriptor of this method.  the reason that
+   * we didn't insert this into the constant pool in the beginNewMethod()
+   * function is for the <clinit> case.  we dont always need a <clinit> 
+   * method because we might not have any array, object, or other static
+   * initialization to do.  in that case, there's no need to put these
+   * entries into the constant pool.
+   */
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, name);
+
+  meth->name_index = c->index;
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, desc);
+
+  meth->descriptor_index = c->index;
+
   /* attribute_length is calculated as follows:
    *   max_stack               2 bytes
    *   max_locals              2 bytes
@@ -7099,43 +7206,11 @@ newClassFile(char *name, char *srcFile)
    *  ---------------------------------
    *   total             pc + 12 bytes
    */
-  attr_temp->attribute_length = pc + 12;
-  cur_code->max_locals = 1;
-  cur_code->code_length = pc;
+  cur_code->attribute_length = pc + 12;
+  cur_code->attr.Code->max_locals = 1;
+  cur_code->attr.Code->code_length = pc;
 
-  dl_insert_b(meth_tmp->attributes, attr_temp);
-
-  dl_insert_b(tmp->methods, meth_tmp);
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * newMethod                                                                 *
- *                                                                           *
- * Creates a new method structure with the given access flags.               *
- *                                                                           *
- *****************************************************************************/
-
-struct method_info *
-newMethod(u2 flags, char * name, char * desc)
-{
-  struct method_info *tmp;
-  CPNODE *c;
-
-  tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
-  tmp->access_flags = flags;
-
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, name);
-
-  tmp->name_index = c->index;
-
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, desc);
-
-  tmp->descriptor_index = c->index;
-
-  return tmp;
+  dl_insert_b(meth->attributes, cur_code);
 }
 
 /*****************************************************************************

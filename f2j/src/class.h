@@ -27,6 +27,19 @@
 #define ACC_ABSTRACT     0x0400
 #define ACC_STRICT       0x0800
 
+/*
+ * array data types for newarray opcode.
+ */
+#define T_UNUSED  0
+#define T_BOOLEAN 4
+#define T_CHAR    5
+#define T_FLOAT   6
+#define T_DOUBLE  7
+#define T_BYTE    8
+#define T_SHORT   9
+#define T_INT    10
+#define T_LONG   11
+
 #define JVM_MAGIC 0xCAFEBABE
 #define JVM_MINOR_VER 3
 #define JVM_MAJOR_VER 45

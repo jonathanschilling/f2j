@@ -6682,8 +6682,12 @@ forloop_emit (AST * root)
 
    /* print out a label for this for loop */
 
-  fprintf(curfp, "forloop%s:\n",
-     root->astnode.forloop.Label->astnode.constant.number);
+  /* commented out the forloop label since it is not used anymore.
+   * see the comment in goto_emit().  --keith
+   *
+   *  fprintf(curfp, "forloop%s:\n",
+   *    root->astnode.forloop.Label->astnode.constant.number);
+   */
    
    /* This block writes out the loop parameters.  */
 

@@ -138,6 +138,7 @@ void
   maxmin_intrinsic_emit(AST *, char *, METHODTAB *, char *, char *),
   max_intrinsic_emit (AST *, char *, METHODTAB *),
   min_intrinsic_emit (AST *, char *, METHODTAB *),
+  arg_assignment_emit(int, int, int, BOOLEAN, enum returntype),
   calcOffsets(CodeGraphNode *),
   traverse_code(Dlist),
   while_emit(AST *),
@@ -213,7 +214,7 @@ void
   invoke_constructor(char *, AST *, char *),
   set_bytecode_status(int),
   inline_format_emit(AST *, BOOLEAN),
-  endNewMethod(struct method_info *, char *, char *, unsigned int, Dlist),
+  endNewMethod(struct ClassFile *, struct method_info *, char *, char *, unsigned int, Dlist),
   releaseLocal(enum returntype),
   assign_emit (AST *),
   expr_emit(AST *),
@@ -226,7 +227,7 @@ void
   invocation_exception_handler_emit(ExceptionTableEntry *),
   data_scalar_emit(enum returntype, AST *, AST *, int),
   func_array_emit(AST *, HASHNODE *, char *, int, int),
-  methcall_obj_array_emit(AST *),
+  methcall_obj_array_emit(AST *, int),
   inc_stack(int);
 
 int
@@ -241,6 +242,7 @@ int
   method_name_emit (AST *, BOOLEAN),
   data_repeat_emit(AST *, unsigned int),
   methcall_arglist_emit(AST *),
+  num_locals_in_descriptor(char *),
   determine_var_length(HASHNODE *);
 
 double

@@ -240,9 +240,7 @@ emit (AST * root)
            */
           if(pc > 0) {
             bytecode0(jvm_return);
-            endNewMethod(clinit_method, "<clinit>", "()V", 1, NULL);
-            cur_class_file->methods_count++;
-            dl_insert_b(cur_class_file->methods, clinit_method);
+            endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
           }
 
           main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
@@ -310,9 +308,7 @@ emit (AST * root)
            */
 
           if(pc > 0) {
-            endNewMethod(main_method,methodname,method_desc,num_locals,NULL);
-            cur_class_file->methods_count++;
-            dl_insert_b(cur_class_file->methods, main_method);
+            endNewMethod(cur_class_file, main_method,methodname,method_desc,num_locals,NULL);
           }
 
           emit_invocations(root->astnode.source.progtype);
@@ -1361,9 +1357,7 @@ common_emit(AST *root)
        */
       if(pc > 0) {
         bytecode0(jvm_return);
-        endNewMethod(clinit_method, "<clinit>", "()V", 1, NULL);
-        cur_class_file->methods_count++;
-        dl_insert_b(cur_class_file->methods, clinit_method);
+        endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
       }
 
       cur_class_file->constant_pool_count = 
@@ -9461,8 +9455,9 @@ emit_invocations(AST *root)
 {
   struct method_info *inv_method;
   Dlist p, tmplist, exc_list;
-  int count = 0;
-  char *cur_name;
+  int count = 0, obj_array_varnum=0;
+  char *cur_name=NULL, *cur_desc=NULL, *tmpdesc=NULL;
+  CPNODE *c;
   AST *temp;
 
   exc_list = make_dl();
@@ -9481,12 +9476,28 @@ emit_invocations(AST *root)
     cur_name = (char *)f2jrealloc(cur_name,
       strlen(temp->astnode.ident.name) + 10);
     strcpy(cur_name, temp->astnode.ident.name);
+    strcat(cur_name, "_methcall");
 
     fprintf(curfp,"// reflective method invocation for %s\n",
        temp->astnode.ident.name);
     fprintf(curfp,"private static %s %s(",
        returnstring[temp->vartype], cur_name);
     fprintf(curfp,"java.lang.reflect.Method _funcptr");
+
+    tmpdesc = get_desc_from_arglist(temp->astnode.ident.arraylist);
+    cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
+      strlen(METHOD_CLASS) + strlen(field_descriptor[temp->vartype][0]) + 10);
+
+    strcpy(cur_desc, "(");
+    strcat(cur_desc, "L");
+    strcat(cur_desc, METHOD_CLASS);
+    strcat(cur_desc, ";");
+    strcat(cur_desc, tmpdesc);
+    strcat(cur_desc, ")");
+    strcat(cur_desc, field_descriptor[temp->vartype][0]);
+
+    /* set global variables */
+    num_locals = cur_local = num_locals_in_descriptor(cur_desc);
 
     count = methcall_arglist_emit(temp);
 
@@ -9496,19 +9507,45 @@ emit_invocations(AST *root)
     fprintf(curfp,"Object [] _funcargs = new Object [%d];\n", count);
     fprintf(curfp,"%s _retval;\n", returnstring[temp->vartype]);
 
-    methcall_obj_array_emit(temp);
+    /* create a new object array and store it in the first local var */
+    pushIntConst(count);
+    c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/Object");
+    bytecode1(jvm_anewarray, c->index);
+    obj_array_varnum = getNextLocal(Object);
+    gen_store_op(obj_array_varnum, Object);
+
+    methcall_obj_array_emit(temp, obj_array_varnum);
 
     fprintf(curfp,
       "_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",
       java_wrapper[temp->vartype], returnstring[temp->vartype]);
 
+    /* load _funcptr, which should always be local var 0 */
+    gen_load_op(0, Object);
+    bytecode0(jvm_aconst_null);
+    gen_load_op(obj_array_varnum, Object);
+
+    c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+          INVOKE_DESC);
+    bytecode1(jvm_invokevirtual, c->index);
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+          numeric_wrapper[temp->vartype]);
+    bytecode1(jvm_checkcast, c->index);
+
+    c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype], 
+                     numericValue_method[temp->vartype],
+                    numericValue_descriptor[temp->vartype]);
+
+    bytecode1(jvm_invokevirtual, c->index);
+
+    bytecode0(return_opcodes[temp->vartype]);
+
     fprintf(curfp,"return _retval;\n");
     fprintf(curfp,"}\n"); 
 
-    endNewMethod(inv_method, cur_name, 
-       get_desc_from_arglist(temp->astnode.ident.arraylist), 
-       temp->vartype == Double ? 3 : 2, exc_list );
-  } 
+    endNewMethod(cur_class_file, inv_method, cur_name, cur_desc, num_locals , exc_list );
+  }
 }
 
 /*****************************************************************************
@@ -9525,49 +9562,64 @@ methcall_arglist_emit(AST *temp)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int count = 0;
+  int count = 0, dim = 0;
   AST *arg;
 
   for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
     fprintf(curfp,",");
 
+    dim = arg->astnode.ident.dim;
+
     if(omitWrappers) {
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
 
-        if(ht)
+        if(ht) {
           rtype = ht->variable->vartype;
+          dim = ht->variable->astnode.ident.dim;
+        }
         else
           rtype = arg->vartype;
-
-        fprintf(curfp," %s _arg%d ", returnstring[rtype], count);
       }
       else if( arg->nodetype == Constant )
-        fprintf(curfp," %s _arg%d ", 
-          returnstring[get_type(arg->astnode.constant.number)], count);
+        rtype = get_type(arg->astnode.constant.number);
       else
-        fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
+        rtype = arg->vartype;
+
+      if(dim >0)
+        fprintf(curfp," %s [] _arg%d ", returnstring[rtype], count);
+      else
+        fprintf(curfp," %s _arg%d ", returnstring[rtype], count);
     }
     else
     {
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
 
-        if(ht)
+        if(ht) {
           rtype = ht->variable->vartype;
+          dim = ht->variable->astnode.ident.dim;
+        }
         else
           rtype = arg->vartype;
-
-        fprintf(curfp," %s _arg%d ", wrapper_returns[rtype], count);
       }
       else if( arg->nodetype == Constant )
-        fprintf(curfp," %s _arg%d ", 
-          wrapper_returns[get_type(arg->astnode.constant.number)], count);
+        rtype = get_type(arg->astnode.constant.number);
       else
-        fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
+        rtype = arg->vartype;
+
+      if(dim >0)
+        fprintf(curfp," %s [] _arg%d ", wrapper_returns[rtype], count);
+      else
+        fprintf(curfp," %s _arg%d ", wrapper_returns[rtype], count);
     }
 
-    count++;
+    if(dim > 0) {
+      fprintf(curfp,", int _arg%d_offset ", count);
+      count += 2;
+    }
+    else
+      count++;
   }
 
   return count;
@@ -9583,39 +9635,101 @@ methcall_arglist_emit(AST *temp)
  *****************************************************************************/
 
 void
-methcall_obj_array_emit(AST *temp)
+methcall_obj_array_emit(AST *temp, int lv)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int i = 0;
+  int i = 0, dim = 0;
   AST *arg;
 
   for(arg=temp->astnode.ident.arraylist;arg != NULL;arg=arg->nextstmt, i++)
   {
+    dim = arg->astnode.ident.dim;
+
     if(omitWrappers) {
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
 
-        if(ht)
+        if(ht) {
           rtype = ht->variable->vartype;
+          dim = ht->variable->astnode.ident.dim;
+        }
         else
           rtype = arg->vartype;
-
-        fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-          i,java_wrapper[rtype], i);
       }
       else if( arg->nodetype == Constant )
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[get_type(arg->astnode.constant.number)], i);
+        rtype = get_type(arg->astnode.constant.number);
       else
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[arg->vartype], i);
+        rtype = arg->vartype;
+
+
+      if(dim > 0) {
+        fprintf(curfp," _funcargs[%d] = _arg%d;\n", i, i);
+        fprintf(curfp," _funcargs[%d] = new Integer(_arg%d_offset);\n",i+1,i);
+
+        arg_assignment_emit(lv, i, i, FALSE, Object);
+        arg_assignment_emit(lv, i+1, i+1, TRUE, Integer);
+        i++;
+      }
+      else {
+        fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+          i,java_wrapper[rtype], i);
+        arg_assignment_emit(lv, i, i, TRUE, rtype);
+      }
     }
     else
     {
       fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
+
+      if(dim > 0) {
+        arg_assignment_emit(lv, i, i, FALSE, Object);
+
+        fprintf(curfp," _funcargs[%d] = _arg%d_offset;\n",i+1,i);
+        arg_assignment_emit(lv, i+1, i+1, FALSE, Integer);
+        i++;
+      }
+      else {
+        arg_assignment_emit(lv, i, i, FALSE, rtype);
+      }
     }
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * arg_assignment_emit                                                       *
+ *                                                                           *
+ * this function emits the bytecode for an assignment of an argument to the  *
+ * object array (e.g. _funcargs[%d] = _arg%d).                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+arg_assignment_emit(int array_vnum, int array_idx, int arg_vnum, BOOLEAN wrap,
+  enum returntype argtype)
+{
+  CPNODE *c;
+
+  gen_load_op(array_vnum, Object);
+  pushIntConst(array_idx);
+
+  if(wrap) {
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, 
+            numeric_wrapper[argtype]);
+
+    bytecode1(jvm_new,c->index);
+    bytecode0(jvm_dup);
+    gen_load_op(arg_vnum, argtype);
+
+    c = newMethodref(cur_const_table, numeric_wrapper[argtype],
+             "<init>", wrapper_descriptor[argtype]);
+
+    bytecode1(jvm_invokespecial, c->index);
+  }
+  else
+    gen_load_op(arg_vnum, argtype);
+
+  bytecode0(jvm_aastore);
 }
 
 /*****************************************************************************
@@ -9824,7 +9938,7 @@ printf("##creating new entry, this -> %s\n",fullclassname);
    * a method entry for the default constructor.
    */
 
-  tmp->methods_count = 1;
+  tmp->methods_count = 0;
   tmp->methods = make_dl();
 
   meth_tmp = beginNewMethod(ACC_PUBLIC);
@@ -9835,9 +9949,7 @@ printf("##creating new entry, this -> %s\n",fullclassname);
   bytecode1(jvm_invokespecial, c->index);
   bytecode0(jvm_return);
   
-  endNewMethod(meth_tmp, "<init>", "()V", 1, NULL);
-
-  dl_insert_b(tmp->methods, meth_tmp);
+  endNewMethod(tmp, meth_tmp, "<init>", "()V", 1, NULL);
 
   return tmp;
 }
@@ -9907,7 +10019,7 @@ beginNewMethod(unsigned int flags)
  *****************************************************************************/
 
 void
-endNewMethod(struct method_info * meth, char * name, char * desc,
+endNewMethod(struct ClassFile *cclass, struct method_info * meth, char * name, char * desc,
   unsigned int mloc, Dlist exceptions)
 {
   ExceptionTableEntry *et_entry;
@@ -9991,6 +10103,9 @@ endNewMethod(struct method_info * meth, char * name, char * desc,
   printf("Code: set code_length = %d\n",pc);
 
   dl_insert_b(meth->attributes, cur_code);
+
+  cclass->methods_count++;
+  dl_insert_b(cclass->methods, meth);
 }
 
 /*****************************************************************************
@@ -10490,13 +10605,41 @@ skipToken(char *str)
       return NULL;
 
     default:
-      fprintf(stderr,"WARNING: skipToken() unrecognized character in descriptor\n");
+      fprintf(stderr,"WARNING: skipToken() unrecognized char in desc:%s\n",
+        str);
       return NULL;
   }
 
   /* should never reach here */
   return NULL;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * num_locals_in_descriptor                                                  *
+ *                                                                           *
+ * given a method descriptor, this function returns the number of local      *
+ * variables needed to hold the arguments.  doubles and longs use 2 local    *
+ * vars, while every other data type only uses 1 local.                      *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+num_locals_in_descriptor(char *d)
+{
+  int vlen = 0;
+
+  d = skipToken(d);
+  while( (d = skipToken(d)) != NULL) {
+    if(d[0] == 'D')
+      vlen += 2;
+    else
+      vlen++;
+  }
+
+  return vlen;
+}
+
 
 /*****************************************************************************
  *                                                                           *

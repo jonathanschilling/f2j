@@ -29,29 +29,38 @@
  *****************************************************************************/
 
 char 
-  *strdup ( const char * ),
-  *print_nodetype ( AST * ),
-  *lowercase ( char * ),
-  *methodscan (METHODTAB * , char * ),
-  *getVarDescriptor(AST *);
+  * strdup ( const char * ),
+  * print_nodetype ( AST * ),
+  * lowercase ( char * ),
+  * methodscan (METHODTAB * , char * ),
+  * getVarDescriptor(AST *);
 
-void code_zero_op(enum _opcode),
-     code_one_op(enum _opcode, int),
-     code_one_op_w(enum _opcode, u2);
+void 
+  code_zero_op(enum _opcode),
+  code_one_op(enum _opcode, int),
+  code_one_op_w(enum _opcode, u2);
 
-int  isPassByRef(char *);
+int
+  isPassByRef(char *);
 
-HASHNODE * format_lookup(SYMTABLE *, char *);
+HASHNODE 
+  * format_lookup(SYMTABLE *, char *);
 
-struct ClassFile * newClassFile(char *,char *);
-struct method_info * beginNewMethod(u2);
-void endNewMethod(struct method_info *, char *,char *, u2);
+struct ClassFile 
+  * newClassFile(char *,char *);
+
+struct method_info 
+  * beginNewMethod(u2);
+
+void
+  endNewMethod(struct method_info *, char *,char *, u2);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
  *****************************************************************************/
 
-int gendebug = FALSE;  /* set to TRUE to generate debugging output           */
+int
+  gendebug = FALSE;  /* set to TRUE to generate debugging output           */
 
 extern int 
   ignored_formatting,  /* number of FORMAT statements ignored                */
@@ -92,7 +101,8 @@ SYMTABLE                /* Symbol tables containing...                       */
   *cur_param_table,     /* variables which are parameters                    */
   *cur_equiv_table;     /* variables which are equivalenced                  */
 
-Dlist cur_const_table;  /* constants designated to go into the constant pool */
+Dlist
+  cur_const_table;      /* constants designated to go into the constant pool */
 
 struct ClassFile
   *cur_class_file;      /* class file for the current program unit           */
@@ -231,7 +241,7 @@ emit (AST * root)
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
 
-          insert_fields(root->astnode.source.typedecs);
+          insert_fields(root);
 
           /* as part of creating a new classfile structure, we have 
            * already created an <init> method, the default constructor.
@@ -250,6 +260,8 @@ emit (AST * root)
           
           emit (root->astnode.source.typedecs);
           
+          emit (root->astnode.source.progtype);
+
           /* check whether any class initialization code was generated.
            * if so, finish initializing the method and insert it into this
            * class.
@@ -263,8 +275,6 @@ emit (AST * root)
 
           main_method = beginNewMethod(ACC_PUBLIC);
 
-          emit (root->astnode.source.progtype);
-
           /* The 'catch' corresponding to the following try is generated
            * in case End. 
            */
@@ -273,6 +283,18 @@ emit (AST * root)
             fprintf(curfp,"try {\n");
 
           emit(root->astnode.source.statements);
+
+          if(pc > 0) {
+            /*code_zero_op(jvm_return);*/
+            /*
+            endNewMethod(main_method, "<clinit>", "()V", 1);
+            cur_class_file->methods_count++;
+            dl_insert_b(cur_class_file->methods, clinit_method);
+            */
+          }
+
+          /* following line is only temporary... */
+          main_method = beginNewMethod(ACC_PUBLIC);
 
           emit_invocations(root->astnode.source.progtype);
 
@@ -606,10 +628,9 @@ emit (AST * root)
 void
 field_emit(AST *root)
 {
-  struct field_info * tmpfield;
+  void addField(char *, char *);
   char * desc, * name;
   HASHNODE *ht;
-  CPNODE * c;
 
   /* check if this variable has a merged name.  if so,
    * use that name instead.
@@ -645,9 +666,24 @@ field_emit(AST *root)
     printf("\tdesc: %s\n",desc);
   }
 
-  /* the rest of this code creates the field_info structure, assigns the
-   * appropriate values into it, and inserts it into the field list.
-   */
+  addField(name,desc);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * addField                                                                  *
+ *                                                                           *
+ * this code creates the field_info structure, assigns the                   *
+ * appropriate values into it, and inserts it into the field list.           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+addField(char *name, char *desc)
+{
+  struct field_info * tmpfield;
+  CPNODE *c;
+
   tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
   tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
 
@@ -684,12 +720,9 @@ insert_fields(AST *root)
 {
   AST *temp, *dec, *etmp;
   HASHNODE *hashtemp;
-  int returns;
- 
-  /* for every spec statement */
-  for(temp = root; temp; temp = temp->nextstmt) {
-    returns = temp->astnode.typeunit.returns;
 
+  /* for every spec statement */
+  for(temp = root->astnode.source.typedecs; temp; temp = temp->nextstmt) {
     if(temp->nodetype == Typedec) {
       /* for every variable in this specification stmt */
       for(dec = temp->astnode.typeunit.declist; dec; dec = dec->nextstmt) {
@@ -1466,7 +1499,7 @@ print_string_initializer(AST *root)
   ht = type_lookup(cur_type_table,root->astnode.ident.name);
   if(ht == NULL)
   {
-    fprintf(stderr,"Weird...can't find %s in type_table\n",
+    fprintf(stderr,"Weird...can't find '%s' in type_table\n",
       root->astnode.ident.name);
 
     /* We can't find this variable in the hash table, 
@@ -2766,11 +2799,15 @@ pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc,
 
   if(gendebug) {
     printf("in pushvar, vartype is %s\n", returnstring[root->vartype]);
+    printf("               desc is %s\n", desc);
     printf("       local varnum is %d\n", lv);
   }
+  printf("in pushvar, vartype is %s\n", returnstring[root->vartype]);
+  printf("               desc is %s\n", desc);
+  printf("       local varnum is %d\n", lv);
 
   if(isArg) {
-    if(desc[0] == 'L') {
+    if((desc[0] == 'L') || (desc[0] == '[')) {
       /* this is a reference type, so always use aload */
       if(lv > 3)
         code_one_op(jvm_aload, lv);
@@ -3006,6 +3043,23 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         else
           fprintf (curfp, "%s%s.val", com_prefix, name);
       }
+      else if((root->parent->nodetype == Assignment) &&
+              (root->parent->astnode.assignment.lhs == root)) {
+        /* this is the LHS of some assignment.  this is only an
+         * issue for bytecode generation since we don't want to
+         * generate a load instruction for the LHS of an assignment.
+         */
+
+        if((global_sub.name != NULL) && 
+            !strcmp(global_sub.name, name))
+          fprintf (curfp, " %d ", global_sub.val);
+        else {
+          if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+            fprintf (curfp, "%s%s", com_prefix, name);
+          else
+            fprintf (curfp, "%s%s.val", com_prefix, name);
+        }
+      }
       else {
        
         /* General case - just generate the name, with the 
@@ -3024,11 +3078,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           
           c=cp_find_or_insert(cur_const_table,CONSTANT_Integer,
                               (void*)&global_sub.val);
-          if(c) {
+          if(c) 
             code_one_op(get_iconst_opcode(c, global_sub.val),c->index);
-          } else {
+          else
             code_zero_op(get_iconst_opcode(c, global_sub.val));
-          }
         }
         else {
           if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
@@ -3082,6 +3135,11 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
              typenode->variable->astnode.ident.localvnum, FALSE);
           code_zero_op(jvm_iconst_0);
         }
+      }
+      else if((root->parent->nodetype == Assignment) &&
+              (root->parent->astnode.assignment.lhs == root)) {
+        /* LHS of assignment.  do not generate any bytecode. */
+        fprintf (curfp, "%s", name);
       }
       else {
         fprintf (curfp, "%s", name);
@@ -4133,8 +4191,8 @@ open_output_file(AST *root)
  *                                                                           *
  * constructor                                                               *
  *                                                                           *
- * This function generates the method header for the current 
- * function or subroutine.
+ * This function generates the method header for the current                 *
+ * function or subroutine.                                                   *
  *                                                                           *
  *****************************************************************************/
 
@@ -4160,11 +4218,53 @@ constructor (AST * root)
   {
     returns = root->astnode.source.returns;
 
+    printf("this is a Function, needs implicit variable\n");
+    printf("method name = %s\n", 
+      root->astnode.source.name->astnode.ident.name);
+    printf("desc = %s\n",
+      field_descriptor[root->astnode.source.returns][0]);
+    if(omitWrappers && !isPassByRef(root->astnode.source.name->astnode.ident.name)) {
+      addField(
+        root->astnode.source.name->astnode.ident.name,
+        field_descriptor[returns][0]);
+    }
+    else {
+      addField(
+        root->astnode.source.name->astnode.ident.name,
+        wrapped_field_descriptor[returns][0]);
+    }
+
     /* Test code.... */
     if ((returns == String) || (returns == Character))
     {
-       print_string_initializer(root);
-       fprintf(curfp, ";\n\n");
+      char *name, *desc;
+      CPNODE *c;
+
+      name = root->astnode.source.name->astnode.ident.name;
+
+      if(omitWrappers && !isPassByRef(name)) {
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                JL_STRING);
+        desc = field_descriptor[returns][0];
+      }
+      else {
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                full_wrappername[returns]);
+        desc = wrapped_field_descriptor[returns][0];
+      }
+
+      code_one_op_w(jvm_new,c->index);
+      code_zero_op(jvm_dup);
+
+      fprintf(curfp, "static %s %s ", 
+           returnstring[returns], name);
+
+      print_string_initializer(root->astnode.source.name);
+
+      fprintf(curfp, ";\n\n");
+
+      c = newFieldref(cur_const_table,cur_filename, name, desc);
+      code_one_op_w(jvm_putstatic, c->index);
     }
     else
     {

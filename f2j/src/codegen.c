@@ -18,17 +18,21 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+/* Define ONED as 1 if two-dimensional arrays should be linearized.    */
+/* Define TWOD as 1 if they should be generated as Java 2D arrays.     */
+/* The latter option is not currently implemented.                     */
+
 #define ONED 1
 #define TWOD 0
 
-#define NONSTATIC 0
-#define STATIC_NODATA 1
-#define STATIC_WITHDATA 2
+/* MAX_RETURNS represents the number of elements in the returnstring   */
+/* array (see below).  OBJECT_TYPE identifies the type Object, which   */
+/* is not contained in the array.                                      */
 
-int gendebug = TRUE;
+#define MAX_RETURNS 7
+#define OBJECT_TYPE 7
 
-extern int ignored_formatting;
-extern int bad_format_count;
+/* Function prototypes:                                                */
 
 char * strdup ( const char * );
 char * print_nodetype ( AST * ); 
@@ -36,46 +40,58 @@ char * lowercase ( char * );
 HASHNODE * format_lookup(SYMTABLE *, char *);
 char * methodscan (METHODTAB * , char * );
 
+int gendebug = TRUE;   /* set to TRUE to generate debugging output     */
+
 /*  
  *   Global variables, a necessary evil when working with
  * yacc. 
  */
 
-char *unit_name;
-char *returnname;
-char *cur_filename;
-int cur_idx = 0;
-Dlist doloop = NULL;
-Dlist while_list = NULL;
-Dlist adapter_list = NULL;
-Dlist methcall_list = NULL;
+extern int 
+  ignored_formatting,  /* number of FORMAT statements ignored          */
+  bad_format_count;    /* number of bad FORMAT statements encountered  */
 
-SUBSTITUTION global_sub = { NULL, 0 };
+char 
+  *unit_name,          /* name of this function/subroutine             */
+  *returnname,         /* return type of this prog. unit               */
+  *cur_filename;       /* name of the class file currently writing     */
 
-extern char *inputfilename;
+Dlist 
+  doloop = NULL,        /* stack of do loop labels                     */
+  while_list = NULL,    /* stack of while loop labels                  */
+  adapter_list = NULL,  /* list of adapter functions (see tech report) */
+  methcall_list = NULL; /* list of methods to be called by reflection  */
 
-FILE *javafp;
-FILE *curfp;
+SUBSTITUTION 
+  global_sub={NULL,0};  /* substitution used for implied loops         */
 
-SYMTABLE *cur_type_table;
-SYMTABLE *cur_external_table;
-SYMTABLE *cur_intrinsic_table;
-SYMTABLE *cur_args_table;
-SYMTABLE *cur_array_table; 
-SYMTABLE *cur_format_table; 
-SYMTABLE *cur_data_table; 
-SYMTABLE *cur_save_table; 
-SYMTABLE *cur_common_table; 
-SYMTABLE *cur_param_table; 
-SYMTABLE *cur_equiv_table; 
-AST *cur_dataList;
-AST *cur_equivList;
+extern char 
+  *inputfilename;       /* name of the fortran input file              */
 
-int import_reflection;
-int import_blas;
+FILE 
+  *javafp,              /* the class file currently generating         */
+  *curfp;               /* the file currently being written to         */
 
-#define MAX_RETURNS 7
-#define OBJECT_TYPE 7
+SYMTABLE                /* Symbol tables containing...                 */
+  *cur_type_table,      /* type information                            */
+  *cur_external_table,  /* external functions                          */
+  *cur_intrinsic_table, /* intrinsic functions                         */
+  *cur_args_table,      /* variables which are arguments               */
+  *cur_array_table,     /* variables which are arrays                  */
+  *cur_format_table,    /* format statements                           */
+  *cur_data_table,      /* variables contained in DATA stmts           */
+  *cur_save_table,      /* variables contained in SAVE stmts           */
+  *cur_common_table,    /* variables contained in COMMON stmts         */
+  *cur_param_table,     /* variables which are parameters              */
+  *cur_equiv_table;     /* variables which are equivalenced            */
+
+AST 
+  *cur_dataList,
+  *cur_equivList;
+
+int 
+  import_reflection,
+  import_blas;
 
 /* data types for arrays */
 

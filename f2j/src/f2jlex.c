@@ -99,6 +99,7 @@ int
   string_or_char_scan (BUFFER *);
 
 void
+  truncate_bang_comments(BUFFER *),
   check_continued_lines (FILE *, char *),
   collapse_white_space (BUFFER *);
 
@@ -828,6 +829,7 @@ prelex (BUFFER * bufstruct)
   
       check_continued_lines (ifp, bufstruct->stmt);
       collapse_white_space (bufstruct);
+      truncate_bang_comments(bufstruct);
 
       if(bufstruct->stmt[0] == '\n') {
         lineno++;
@@ -912,6 +914,46 @@ prelex (BUFFER * bufstruct)
   return 0;
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * truncate_bang_comments                                                    *
+ *                                                                           *
+ * This routine takes the buffer after it has had all continued lines        *
+ * appended and removes "!" style comments.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+truncate_bang_comments(BUFFER * bufstruct)
+{
+  BOOL in_string = FALSE;
+  char *cp;
+
+  for (cp = bufstruct->stmt; *cp; cp++)
+  {
+    /* if we see a '!' and we're not in the middle of a string, then
+     * truncate the remaining comment.
+     */
+
+    if(*cp == '!' && !in_string) {
+      *cp = '\n';
+      *(cp+1) = '\0';
+      break;
+    }
+
+    if(*cp == '\'') {
+      if(in_string) {
+        if(*(cp+1) != '\'')
+          in_string = FALSE;
+        else
+          cp++;
+      }
+      else {
+        in_string = TRUE;
+      }
+    }
+  }
+}
 
 /*****************************************************************************
  *                                                                           *
@@ -1551,11 +1593,16 @@ string_or_char_scan (BUFFER * bufstruct)
        * tick.  If it's an escape, substitute a backslash
        * for the first tick.  that is,  '' -> \'
        * 9/30/97 --Keith 
+       *
+       * I'm not sure why I was using backslash here, but
+       * it wasn't necessary, so changing it to just blank
+       * the first tick.
+       * 7/5/04 --keith
        */
 
       if( *(scp + 1) == '\'' )
       {
-        *(textcp + tokenlength) = '\\';
+        *(textcp + tokenlength) = ' ';
         scp+=2;
         tokenlength+=2;
       }

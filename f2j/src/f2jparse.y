@@ -783,7 +783,7 @@ CommonList: CommonSpec
             }
 ;
 
-CommonSpec: DIV UndeclaredName DIV Namelist
+CommonSpec: DIV UndeclaredName DIV Typevarlist
            {
               AST *temp;
               int pos;
@@ -819,7 +819,7 @@ CommonSpec: DIV UndeclaredName DIV Namelist
               type_insert(global_common_table, $$, Float, $$->astnode.common.name);
               free_ast_node($2);
            }
-         | CAT Namelist     /* CAT is // */
+         | CAT Typevarlist     /* CAT is // */
            {
               AST *temp;
 
@@ -3407,6 +3407,78 @@ switchem(AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * assign_array_dims                                                         *
+ *                                                                           *
+ * This is used by DIMENSION and COMMON to set the specified array           *
+ * dimensions, possibly in the absence of a type declaration.  If we         *
+ * haven't seen a delcaration for this variable yet, create a new node.      *
+ * Otherwise, assign the array dimensions to the existing node.              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_array_dims(AST *var)
+{
+  HASHNODE *hash_entry;
+  AST *node;
+  int i;
+
+  hash_entry = type_lookup(type_table, var->astnode.ident.name);
+  if(hash_entry)
+    node = hash_entry->variable;
+  else {
+    if(debug){
+      printf("Calling initalize name from assign_array_dims\n");
+    }
+
+    node = initialize_name(var->astnode.ident.name);
+
+    /* if it's an intrinsic_named array */
+    if(node->astnode.ident.which_implicit == INTRIN_NAMED_ARRAY_OR_FUNC_CALL){
+       node->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
+       type_insert(type_table, node, node->vartype, var->astnode.ident.name);
+    }
+
+    if(debug)
+      printf("assign_array_dims: %s\n", var->astnode.ident.name);
+  }
+
+  node->astnode.ident.localvnum = -1;
+  node->astnode.ident.arraylist = var->astnode.ident.arraylist;
+  node->astnode.ident.dim = var->astnode.ident.dim;
+  node->astnode.ident.leaddim = var->astnode.ident.leaddim;
+  for(i=0;i<MAX_ARRAY_DIM;i++) {
+    node->astnode.ident.startDim[i] = var->astnode.ident.startDim[i];
+    node->astnode.ident.endDim[i] = var->astnode.ident.endDim[i];
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * assign_common_array_dims                                                  *
+ *                                                                           *
+ * For arrays declared in COMMON blocks, we go ahead and assign the          *
+ * dimensions in case they aren't dimensioned anywhere else.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_common_array_dims(AST *root)
+{
+  AST *Clist, *temp;
+
+  for(Clist = root->astnode.common.nlist; Clist != NULL; Clist = Clist->nextstmt)
+  {
+    for(temp=Clist->astnode.common.nlist; temp!=NULL; temp=temp->nextstmt)
+    {
+      if(temp->astnode.ident.arraylist)
+        assign_array_dims(temp);
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * type_hash                                                                 *
  *                                                                           *
  * For now, type_hash takes a tree (linked list) of type                     *
@@ -3439,6 +3511,11 @@ type_hash(AST * types)
     if(debug)
       printf("type_hash(): type dec is %s\n", print_nodetype(temptypes));
 
+    if(temptypes->nodetype == CommonList) {
+      assign_common_array_dims(temptypes);
+      continue;
+    }
+
     /* skip parameter statements and data statements */
     if(( (temptypes->nodetype == Specification) &&
          (temptypes->astnode.typeunit.specification == Parameter)) 
@@ -3459,42 +3536,8 @@ type_hash(AST * types)
         printf("Type hash: '%s' (%s)\n", tempnames->astnode.ident.name,
           print_nodetype(tempnames));
         
-      if(temptypes->nodetype == Dimension){
-        /* looking at a Dimension spec.  check whether the ident is already
-         * in the hash table.  if so, we want to assign the array dimensions
-         * to that node.  if not, we will create a new node and assign the
-         * dimensions to it.
-         */
-        AST *node;
-
-        hash_entry = type_lookup(type_table, tempnames->astnode.ident.name);
-        if(hash_entry)
-          node = hash_entry->variable;
-        else {
-          if(debug){
-               printf("Calling initalize name from type_hash\n");
-          }
-          node = initialize_name(tempnames->astnode.ident.name );
-
-          /* if it's an intrinsic_named array */
-          if(node->astnode.ident.which_implicit == INTRIN_NAMED_ARRAY_OR_FUNC_CALL){ 
-             node->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
-             type_insert(type_table, node, node->vartype, tempnames->astnode.ident.name);  
-          }
-          
-        if(debug)
-            printf("Type hash (DIM): %s\n", tempnames->astnode.ident.name);
-        }
-
-        node->astnode.ident.localvnum = -1;
-        node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
-        node->astnode.ident.dim = tempnames->astnode.ident.dim;
-        node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
-        for(i=0;i<MAX_ARRAY_DIM;i++) {
-          node->astnode.ident.startDim[i] = tempnames->astnode.ident.startDim[i];
-          node->astnode.ident.endDim[i] = tempnames->astnode.ident.endDim[i];
-        }
-      }
+      if(temptypes->nodetype == Dimension)
+        assign_array_dims(tempnames);
       else {
         /* check whether there is already an array declaration for this ident.
          * this would be true in case of a normal type declaration with array

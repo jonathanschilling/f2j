@@ -1505,8 +1505,9 @@ print_string_initializer(AST *root)
    * here we remove them and create a bytecode initializer. 
    */
 
-  bytecode_initializer = (char *)f2jalloc(strlen(src_initializer - 2));
+  bytecode_initializer = (char *)f2jalloc(strlen(src_initializer) - 1);
   strncpy(bytecode_initializer, src_initializer + 1, strlen(src_initializer) -2);
+  bytecode_initializer[strlen(src_initializer) - 2] = '\0';
 
   c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, bytecode_initializer);
 

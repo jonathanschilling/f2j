@@ -3317,6 +3317,10 @@ push_array_var(AST *root)
         ainf->desc, ainf->localvar, FALSE);
   }
 
+  if(gendebug)
+    printf("push_array_var(%s) - '%s' -> %d\n", cur_filename,
+       root->astnode.ident.name, ainf->localvar);
+
   return ainf;
 }
 
@@ -11608,7 +11612,7 @@ assign_local_vars(AST * root)
   for (locallist = root ; locallist; locallist = locallist->nextstmt)
   {
     if(gendebug)
-      printf("assign_local_vars(): arg list name: %s, local varnum: %d\n", 
+      printf("assign_local_vars(%s): arg list name: %s, local varnum: %d\n",cur_filename, 
          locallist->astnode.ident.name, localnum);
 
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
@@ -11635,7 +11639,7 @@ assign_local_vars(AST * root)
      * also check whether this is pass by reference, because objects
      * always occupy 1 stack entry, even if the data type is double.
      */
-printf("assign_local_vars(): name: %s, pass by ref: %s\n", 
+printf("assign_local_vars(%s): name: %s, pass by ref: %s\n", cur_filename,
  locallist->astnode.ident.name, hashtemp->variable->astnode.ident.passByRef ? "yes" : "no");
 
     if((hashtemp->type == Double ||

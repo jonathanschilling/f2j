@@ -1022,7 +1022,8 @@ args_optimize(AST *root, AST *rptr)
              printf("call_optimize(): '%s' is pass by ref.\n",
                     temp->astnode.ident.name);
 
-           set_passByRef(temp, rptr);
+           if(!temp->astnode.ident.arraylist)
+             set_passByRef(temp, rptr);
          }
          else {
            if(optdebug)
@@ -1064,7 +1065,8 @@ args_optimize(AST *root, AST *rptr)
           */
 
          if(isPassByRef_desc(p))
-           set_passByRef(temp, rptr);
+           if(!temp->astnode.ident.arraylist)
+             set_passByRef(temp, rptr);
        }
 
        /* skip extra element to compensate for array offset arg */

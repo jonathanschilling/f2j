@@ -449,11 +449,8 @@ isBigEndian()
 void
 f2jfree(void *p)
 {
-  int size;
-
 #ifdef DEBUG_MEM
-  memcpy(&size, (char *)p-4, sizeof(size));
-  memset(p, 0xA, size-8);
+  /* do something here eventually */
 #endif
 
   free(p);

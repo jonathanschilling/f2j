@@ -3635,7 +3635,8 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
     return FALSE;
   }
   else {
-    fprintf(stderr,"isPassByRef(): variable %s not found.\n", name);
+    fprintf(stderr,"isPassByRef(): variable %s not found (unit: %s)\n", 
+          name, unit_name);
     return TRUE;
   }
 

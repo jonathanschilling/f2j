@@ -736,7 +736,7 @@ enum _opcode init_opcodes[MAX_RETURNS+1] =
   jvm_fconst_0,
   jvm_iconst_0,
   jvm_iconst_0,
-  jvm_nop
+  jvm_aconst_null
 };
 
 /* opcodes to store local variables:         */

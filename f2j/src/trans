@@ -7,7 +7,7 @@
 # Dummy.label() into jasmin gotos and jasmin labels (see
 # Dummy.java).  There are several patterns that we look for:
 #   ldc "asdf"
-#   bipush 10, or sipush 10, or iconst_10
+#   bipush 10, or sipush 10, or iconst_10, or ldc 10
 #   invokestatic Dummy/go_to(Ljava/lang/String;I)V
 # These three lines would be translated to:
 #   goto dlabel10   
@@ -24,8 +24,10 @@ $_ = <STDIN>;
 s/\s*ldc.*\n\s*bipush\s+(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
 s/\s*ldc.*\n\s*sipush\s+(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
 s/\s*ldc.*\n\s*iconst_(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
+s/\s*ldc.*\n\s*ldc (\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
 s/\s*ldc.*\n\s*bipush\s+(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
 s/\s*ldc.*\n\s*sipush\s+(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
 s/\s*ldc.*\n\s*iconst_(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
+s/\s*ldc.*\n\s*ldc (\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
 
 print $_;

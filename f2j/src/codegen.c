@@ -242,11 +242,11 @@ emit (AST * root)
           clinit_attr = newCodeAttribute();
           cur_code = clinit_attr->attr.Code;
           
-	  emit (root->astnode.source.typedecs);
+          emit (root->astnode.source.typedecs);
           
           /* check - was any code generated? */
 
-	  emit (root->astnode.source.progtype);
+          emit (root->astnode.source.progtype);
 
           /* The 'catch' corresponding to the following try is generated
            * in case End. 
@@ -662,10 +662,12 @@ insert_fields(AST *root)
   HASHNODE *hashtemp;
   int returns;
  
+  /* for every spec statement */
   for(temp = root; temp; temp = temp->nextstmt) {
     returns = temp->astnode.typeunit.returns;
 
     if(temp->nodetype == Typedec) {
+      /* for every variable in this specification stmt */
       for(dec = temp->astnode.typeunit.declist; dec; dec = dec->nextstmt) {
         if(  ! type_lookup (cur_external_table, dec->astnode.ident.name)
           && ! type_lookup (cur_intrinsic_table, dec->astnode.ident.name)

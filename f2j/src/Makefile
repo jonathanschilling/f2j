@@ -76,7 +76,7 @@ clean: goto
               tmp f2j core a.out *.output *~  *.vcg
 
 goto:
-	cd goto_trans; $(MAKE) clean
+	cd goto_trans; $(MAKE) realclean
 
 realclean: clean
-	rm -f f2java puref2j
+	rm -f ../bin/f2java ../bin/puref2j

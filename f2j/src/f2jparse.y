@@ -57,7 +57,7 @@ int
   yylex();
 
 double
-  eval_const_expr(AST *, double);
+  eval_const_expr(AST *, int);
 
 char 
   * strdup(const char *),
@@ -2554,11 +2554,15 @@ Intlist:   Integer
 
 Parameter:   PARAMETER OP Pdecs CP NL 
              {
+AST *dtmp;
 	       $$ = addnode();
                $3->parent = $$;   /* 9-4-97 - Keith */
 	       $$->nodetype = Specification;
 	       $$->astnode.typeunit.specification = Parameter;
                $$->astnode.typeunit.declist = switchem($3); 
+for(dtmp=$$->astnode.typeunit.declist;dtmp;dtmp=dtmp->nextstmt)
+  printf("evaluation of rhs = %d\n",(int)eval_const_expr(
+
              }
 ;
 
@@ -3230,10 +3234,10 @@ addEquiv(AST *node)
  *****************************************************************************/
 
 double
-eval_const_expr(AST *root, double dims)
+eval_const_expr(AST *root, int dims)
 {
   HASHNODE *p;
-  int result1, result2;
+  double result1, result2;
 
   switch (root->nodetype)
   {

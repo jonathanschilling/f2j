@@ -43,7 +43,8 @@ void
   pushIntConst(int),
   pushDoubleConst(double),
   pushStringConst(char *),
-  pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int);
+  pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
+  dec_stack(int);
 
 int
   isPassByRef(char *);
@@ -4307,6 +4308,12 @@ expr_emit (AST * root)
           code_one_op_w(jvm_goto, jvm_opcode[jvm_goto].width +
                         jvm_opcode[jvm_iconst_0].width);
           code_zero_op(jvm_iconst_1);
+          /* decrement the stack by one to compensate for the
+           * skipped instruction.  this is a hack and should be fixed
+           * with a more general solution.
+           */
+          dec_stack(1);
+
           break;
         case Integer: 
           code_one_op_w(icmp_opcode[root->token], 
@@ -4317,6 +4324,13 @@ expr_emit (AST * root)
           code_one_op_w(jvm_goto, jvm_opcode[jvm_goto].width +
                         jvm_opcode[jvm_iconst_1].width);
           code_zero_op(jvm_iconst_1);
+
+          /* decrement the stack by one to compensate for the
+           * skipped instruction.  this is a hack and should be fixed
+           * with a more general solution.
+           */
+          dec_stack(1);
+
           break;
         default:
           fprintf(stderr,"WARNING: hit default, relop .eq.\n");
@@ -6776,6 +6790,12 @@ assign_emit (AST * root)
         code_zero_op(jvm_iconst_0);
         code_one_op_w(jvm_goto, 4);
         code_zero_op(jvm_iconst_1);
+
+        /* decrement the stack by one to compensate for the
+         * skipped instruction.  this is a hack and should be fixed
+         * with a more general solution.
+         */
+        dec_stack(1);
       }
       else if(rtype == Double) {
         code_zero_op(jvm_dconst_0);
@@ -6784,6 +6804,12 @@ assign_emit (AST * root)
         code_zero_op(jvm_iconst_1);
         code_one_op_w(jvm_goto, 4);
         code_zero_op(jvm_iconst_0);
+
+        /* decrement the stack by one to compensate for the
+         * skipped instruction.  this is a hack and should be fixed
+         * with a more general solution.
+         */
+        dec_stack(1);
       }
       else
         fprintf(stderr,"WARNING: unsupported cast.\n");

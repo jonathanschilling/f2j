@@ -516,16 +516,10 @@ emit (AST * root)
         fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
 
         if (returnname != NULL) {
-          if(omitWrappers) {
-            if(isPassByRef(returnname))
-              fprintf (curfp, "return %s.val;\n", returnname);
-            else
-              fprintf (curfp, "return %s;\n", returnname);
-          }
+          if(omitWrappers && !isPassByRef(returnname))
+            fprintf (curfp, "return %s;\n", returnname);
           else
-          {
             fprintf (curfp, "return %s.val;\n", returnname);
-          }
         }
         else
           fprintf (curfp, "return;\n");
@@ -618,12 +612,8 @@ field_emit(AST *root)
   /* figure out which variable descriptor we need based on the variable's
    * type and # of dimensions.
    */
-  if(omitWrappers) {
-    if(root->astnode.ident.passByRef)
-      desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
-    else
-      desc = field_descriptor[root->vartype][root->astnode.ident.dim];
-  }
+  if(omitWrappers && !root->astnode.ident.passByRef)
+    desc = field_descriptor[root->vartype][root->astnode.ident.dim];
   else
     desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
 
@@ -1383,16 +1373,10 @@ vardec_emit(AST *root, enum returntype returns)
     }
     else
     {
-      if(omitWrappers) {
-        if(isPassByRef(root->astnode.ident.name))
-          fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-        else
-          fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
-      }
+      if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+        fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
       else
-      {
         fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-      }
 
       if (gendebug)
         printf ("%s\n", returnstring[returns]);
@@ -1549,7 +1533,6 @@ print_string_initializer(AST *root)
 void
 data_emit(AST *root)
 {
-  enum returntype returnval;
   AST * Dtemp, *Ntemp, *Ctemp;
   AST * data_var_emit(AST *, AST *, HASHNODE *);
   AST * data_implied_loop_emit(AST * , AST *);
@@ -1581,8 +1564,6 @@ data_emit(AST *root)
           Ntemp->astnode.ident.name);
         continue;
       }
-
-      returnval = hashtemp->type;
 
       if(hashtemp->variable == NULL)
       {
@@ -1796,16 +1777,10 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
           *   fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
           * else
           */
-      if(omitWrappers) {
-        if(isPassByRef(Ntemp->astnode.ident.name))
-          fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
-        else
-          fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
-      }
+      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
+        fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
       else
-      {
         fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
-      }
 
       data_scalar_emit(hashtemp->type, Ctemp, Ntemp, needs_dec);
     }
@@ -2012,22 +1987,14 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-      if(omitWrappers) {
-        if(isPassByRef(Ntemp->astnode.ident.name))
-          fprintf(curfp,"%s = new StringW(\"%*s\");\n",
-            Ntemp->astnode.ident.name, len,
-            Ctemp->astnode.constant.number);
-        else
-          fprintf(curfp,"%s = new String(\"%*s\");\n",
-            Ntemp->astnode.ident.name, len,
-            Ctemp->astnode.constant.number);
-      }
+      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
+        fprintf(curfp,"%s = new String(\"%*s\");\n",
+          Ntemp->astnode.ident.name, len,
+          Ctemp->astnode.constant.number);
       else
-      {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
-      }
     }
     else
     {
@@ -2043,19 +2010,12 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-      if(omitWrappers) {
-        if(isPassByRef(Ntemp->astnode.ident.name))
-          fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
-            wrapper_returns[ type], Ctemp->astnode.constant.number);
-        else
-          fprintf(curfp,"%s = %s;\n",Ntemp->astnode.ident.name,
-            Ctemp->astnode.constant.number);
-      }
+      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
+        fprintf(curfp,"%s = %s;\n",Ntemp->astnode.ident.name,
+          Ctemp->astnode.constant.number);
       else
-      {
         fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
           wrapper_returns[ type], Ctemp->astnode.constant.number);
-      }
     }
     else
     {
@@ -2196,16 +2156,10 @@ subcall_emit(AST *root)
   if(root->nodetype == Substring) {
     fprintf(curfp,"%s",root->astnode.ident.name);
 
-    if(omitWrappers) {
-      if(isPassByRef(root->astnode.ident.name))
-      fprintf(curfp,".val.substring((");
-    else
+    if(omitWrappers && !isPassByRef(root->astnode.ident.name))
       fprintf(curfp,".substring((");
-    }
     else
-    {
       fprintf(curfp,".val.substring((");
-    }
 
     return;
   }
@@ -2464,16 +2418,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
 
       if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
-        if(omitWrappers) {
-          if(isPassByRef(hashtemp->variable->astnode.ident.leaddim))
-            fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
-          else
-            fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-        }
+        if(omitWrappers && !isPassByRef(hashtemp->variable->astnode.ident.leaddim))
+          fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
         else
-        {
           fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
-        }
       }
       else
         fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
@@ -2872,16 +2820,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             printf("found %s in intrinsics or array table\n",
                root->parent->astnode.ident.name);
 
-          if(omitWrappers) {
-            if(isPassByRef(root->astnode.ident.name))
-              fprintf (curfp, "%s%s.val", com_prefix,name);
-            else
-              fprintf (curfp, "%s%s", com_prefix,name);
-          }
+          if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+            fprintf (curfp, "%s%s", com_prefix,name);
           else
-          {
             fprintf (curfp, "%s%s.val", com_prefix,name);
-          }
         }
       }
       else if(root->parent->nodetype == Typedec) {
@@ -2910,16 +2852,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
          * be the size of the array.
          */
 
-        if(omitWrappers) {
-          if(isPassByRef(root->astnode.ident.name))
-            fprintf (curfp, "%s%s.val", com_prefix, name);
-          else
-            fprintf (curfp, "%s%s", com_prefix, name);
-        }
+        if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+          fprintf (curfp, "%s%s", com_prefix, name);
         else
-        {
           fprintf (curfp, "%s%s.val", com_prefix, name);
-        }
       }
       else {
        
@@ -2931,16 +2867,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             !strcmp(global_sub.name, name))
           fprintf (curfp, " %d ", global_sub.val);
         else {
-          if(omitWrappers) {
-            if(isPassByRef(root->astnode.ident.name))
-              fprintf (curfp, "%s%s.val", com_prefix, name);
-            else
-              fprintf (curfp, "%s%s", com_prefix, name);
-          }
+          if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+            fprintf (curfp, "%s%s", com_prefix, name);
           else
-          {
             fprintf (curfp, "%s%s.val", com_prefix, name);
-          }
         }
       }
     }
@@ -4091,27 +4021,18 @@ constructor (AST * root)
     }
     else
     {
-      if(omitWrappers) {
-        if(isPassByRef(root->astnode.source.name->astnode.ident.name))
-          fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-            wrapper_returns[returns],
-            root->astnode.source.name->astnode.ident.name,
-            wrapper_returns[returns],
-            init_vals[returns]);
-        else
+      if(omitWrappers && 
+        !isPassByRef(root->astnode.source.name->astnode.ident.name))
           fprintf (curfp, "static %s %s = %s;\n\n", 
             returnstring[returns],
             root->astnode.source.name->astnode.ident.name,
             init_vals[returns]);
-      }
       else
-      {
         fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
           wrapper_returns[returns],
           root->astnode.source.name->astnode.ident.name,
           wrapper_returns[returns],
           init_vals[returns]);
-      }
     }
 
     /* Define the constructor for the class. */
@@ -5826,15 +5747,8 @@ call_emit (AST * root)
            if(gendebug)
              printf("NOT expecting array\n");
 
-           if(omitWrappers) {
-             if(t2->astnode.ident.passByRef) {
-               fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-               fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
-               fprintf(curfp,")");
-             }
-             else {
-               fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
-             }
+           if(omitWrappers && !t2->astnode.ident.passByRef) {
+             fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
            }
            else
            {
@@ -6376,16 +6290,10 @@ substring_assign_emit(AST *root)
     fprintf(curfp,").substring(0,E2-E1+1) + ");
   }
 
-  if(omitWrappers) {
-    if(isPassByRef(lname))
-      fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
-    else
-      fprintf(curfp,"%s.substring(E2,%s.length())",lname,lname);
-  }
+  if(omitWrappers && !isPassByRef(lname))
+    fprintf(curfp,"%s.substring(E2,%s.length())",lname,lname);
   else
-  {
     fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
-  }
 
   fprintf(curfp,");\n");
 
@@ -6657,18 +6565,11 @@ emit_adapters()
                 (arg->astnode.ident.arraylist != NULL) &&
                 type_lookup(cur_array_table,arg->astnode.ident.name) )
       {
-        if(omitWrappers) {
-          if(temp->astnode.ident.passByRef)
-            fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
-              returnstring[temp->vartype], i, i);
-          else
-            fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        }
+        if(omitWrappers && !temp->astnode.ident.passByRef)
+          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
         else
-        {
           fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
             returnstring[temp->vartype], i, i);
-        }
       }
       else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
       {
@@ -6676,16 +6577,10 @@ emit_adapters()
       }
       else
       {
-        if(omitWrappers) {
-          if(temp->astnode.ident.passByRef)
-            fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
-          else
-            fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        }
+        if(omitWrappers && !temp->astnode.ident.passByRef)
+          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
         else
-        {
           fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
-        }
       }
 
       if(temp != NULL)
@@ -6753,16 +6648,10 @@ emit_adapters()
             type_lookup(cur_array_table,arg->astnode.ident.name) &&
             !temp->astnode.ident.arraylist)
       {
-        if(omitWrappers) {
-          if(temp->astnode.ident.passByRef)
-            fprintf(curfp,"_f2j_tmp%d",i);
-          else
-            fprintf(curfp,"arg%d",i);
-        }
+        if(omitWrappers && !temp->astnode.ident.passByRef)
+          fprintf(curfp,"arg%d",i);
         else
-        {
           fprintf(curfp,"_f2j_tmp%d",i);
-        }
       }
       else if((arg->nodetype == Identifier) &&
             type_lookup(cur_array_table,arg->astnode.ident.name) &&

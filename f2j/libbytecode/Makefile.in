@@ -1,0 +1,31 @@
+include make.def
+
+default: libbytecode.a
+
+libbytecode.a: globals.o constant_pool.o api.o class.o dlist.o
+	$(AR) -r libbytecode.a dlist.o constant_pool.o \
+		api.o class.o globals.o 
+
+api.o: api.h bytecode.h globals.c api.c
+
+class.o: bytecode.h class.h class.c
+
+constant_pool.o: dlist.o bytecode.h constant_pool.c 
+
+globals.o: globals.c
+
+dlist.o: dlist.h dlist.c
+
+test:
+	cd testing; $(MAKE) test
+
+docs:
+	$(DOXYGEN)
+
+configclean: clean
+	/bin/rm -f configure Makefile config.cache config.log \
+		config.status make.def testing/Makefile bytecode.h
+
+clean:
+	/bin/rm -rf *.o *.a latex html
+	cd testing; $(MAKE) clean

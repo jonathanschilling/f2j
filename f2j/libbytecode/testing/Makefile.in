@@ -1,0 +1,40 @@
+
+BYTECODE_LIBDIR=..
+
+include $(BYTECODE_LIBDIR)/make.def
+
+LIB=-lbytecode
+JAVAP=javap -c
+
+CFLAGS=-g -I$(BYTECODE_LIBDIR) -L$(BYTECODE_LIBDIR)
+LDFLAGS=-lbytecode
+
+PURECOV=purecov
+
+.c:
+	$(PURIFY) $(CC) $(CFLAGS) $@.c $(LDFLAGS) -o $@
+
+default:
+	@for testcase in *.correct ; do \
+		$(MAKE) PURIFY=$(PURIFY) `echo $$testcase | sed s/\.correct//` ; \
+	done
+
+test: default
+	@for testcase in *.correct ; do \
+		tc=`echo $$testcase | sed s/\.correct//` ; \
+		if ./runtest $$tc > /dev/null 2>&1 ; then \
+			echo "$$tc 		OK"; \
+		else \
+			echo "$$tc 		Failed"; \
+		fi ;\
+	done
+
+coverage_test: coverage_test.c
+	$(PURECOV) $(CC) $(CFLAGS) coverage_test.c $(LDFLAGS) -o coverage_test
+
+clean:
+	/bin/rm -f *.o *.f2j *.class *.pcv coverage_test
+	/bin/rm -rf coverage
+	@for testcase in *.correct ; do \
+		/bin/rm -f `echo $$testcase | sed s/\.correct//` ; \
+	done

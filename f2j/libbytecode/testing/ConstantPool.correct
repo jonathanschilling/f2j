@@ -1,0 +1,37 @@
+Compiled from asdf.f
+public class ConstantPool extends java.lang.Object {
+    public ConstantPool();
+    public static void main(java.lang.String[]);
+    public static void test(java.util.Enumeration);
+}
+
+Method ConstantPool()
+   0 aload_0
+   1 invokespecial #41 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 ldc2_w #7 <Double 2.2>
+   3 pop2
+   4 ldc2_w #11 <Long 123456>
+   7 pop2
+   8 new #15 <Class java.lang.String>
+  11 pop
+  12 ldc #9 <Real 1.1>
+  14 pop
+  15 ldc #10 <Integer 666>
+  17 pop
+  18 ldc #17 <String "hello world">
+  20 pop
+  21 getstatic #23 <Field java.lang.Boolean TRUE>
+  24 pop
+  25 ldc #17 <String "hello world">
+  27 invokestatic #27 <Method boolean getBoolean(java.lang.String)>
+  30 pop
+  31 return
+
+Method void test(java.util.Enumeration)
+   0 aload_0
+   1 invokeinterface (args 1) #33 <InterfaceMethod boolean hasMoreElements()>
+   6 pop
+   7 return

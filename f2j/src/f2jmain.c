@@ -5,6 +5,7 @@
  * $Author$
  */
 
+
 /*****************************************************************************
  * f2jmain.c                                                                 *
  *                                                                           *
@@ -24,7 +25,6 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 #include"dlist.h"
-#include"constant_pool.h"
 #include"f2jmem.h"
 #include"f2j_externs.h"
 
@@ -45,16 +45,12 @@ extern Dlist include_paths;
 
 FILE *devnull;             /* pointer to the file /dev/null                  */
 
-BOOL
-  isBigEndian(void);
-
 AST
   *addnode(void);
 
 char
   *strdup(const char *),
-  *f2j_fgets(char *, int, FILE *),
-  *get_full_classname(char *);
+  *f2j_fgets(char *, int, FILE *);
 
 SYMTABLE
   *new_symtable (int);
@@ -171,7 +167,6 @@ will most likely not work for other code.\n\n";
   genJavadoc        = FALSE;
   noOffset          = FALSE;
   package_name      = NULL;
-  bigEndian         = isBigEndian();
   output_dir        = NULL; 
   search_path       = NULL; 
   save_all_override = FALSE;
@@ -297,7 +292,7 @@ will most likely not work for other code.\n\n";
   strcpy(indexname, truncfilename);
   strcat(indexname, ".f2j");
 
-  if((indexfp = fopen_fullpath(indexname,"w")) == NULL) {
+  if((indexfp = bc_fopen_fullpath(indexname,"w", output_dir)) == NULL) {
     fprintf(stderr,"Error opening index file: '%s'\n", indexname);
     exit(EXIT_FAILURE);
   }
@@ -527,29 +522,6 @@ void handle_segfault(int x)
 
 /*****************************************************************************
  *                                                                           *
- * isBigEndian                                                               *
- *                                                                           *
- * This function determines the endianness of the machine we're running on.  *
- * Such information is used during bytecode generation since the numerical   *
- * constants are always stored in big endian format.                         *
- *                                                                           *
- * returns TRUE if this machine is big endian, FALSE otherwise.              *
- *                                                                           *
- *****************************************************************************/
-
-BOOL
-isBigEndian()
-{
-  int x = 1;
-
-  if (*((char *)&x)== 1)
-    return FALSE;
-  else
-    return TRUE;
-}
-
-/*****************************************************************************
- *                                                                           *
  * build_method_table                                                        *
  *                                                                           *
  * this function searches through all the .f2j files found in directories    *
@@ -628,14 +600,14 @@ build_method_table(char *path)
  *                                                                           *
  *****************************************************************************/
 
-METHODREF *
+JVM_METHODREF *
 find_method(char *meth, Dlist methtab)
 {
   Dlist tmp;
-  METHODREF * entry;
+  JVM_METHODREF * entry;
 
   dl_traverse(tmp, methtab) {
-    entry = (METHODREF *) tmp->val;
+    entry = (JVM_METHODREF *) tmp->val;
 
     if( !strcmp(entry->methodname, meth) )
       return entry;
@@ -673,7 +645,7 @@ insert_entries(char *path, Dlist methtab)
     if(!class || !method || !desc)
       continue;
 
-    dl_insert_b(methtab, newMethodNode(class,method,desc));
+    dl_insert_b(methtab, bc_new_method_node(class,method,desc));
   }
 
   return;

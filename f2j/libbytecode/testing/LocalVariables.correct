@@ -1,0 +1,52 @@
+Compiled from asdf.f
+public class LocalVariables extends java.lang.Object {
+    public LocalVariables();
+    public static void main(java.lang.String[]);
+}
+
+Method LocalVariables()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 bipush 12
+   2 istore_1
+   3 bipush 34
+   5 istore_2
+   6 bipush 56
+   8 istore_3
+   9 bipush 78
+  11 istore 4
+  13 iload 4
+  15 istore_3
+  16 iload_1
+  17 iload_2
+  18 imul
+  19 iload_3
+  20 iconst_2
+  21 isub
+  22 iadd
+  23 istore_3
+  24 iload_3
+  25 sipush 666
+  28 iadd
+  29 istore_3
+  30 return
+
+Line numbers for method void main(java.lang.String[])
+   line 13: 0
+   line 14: 3
+   line 15: 6
+   line 18: 9
+   line 19: 15
+   line 21: 16
+   line 21: 24
+   line 23: 30
+
+Local variables for method void main(java.lang.String[])
+   java.lang.String args  pc=0, length=31, slot=0
+   int x  pc=3, length=28, slot=1
+   int y  pc=6, length=25, slot=2
+   int z  pc=9, length=22, slot=3
+   int a  pc=13, length=3, slot=4

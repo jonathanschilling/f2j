@@ -1,0 +1,58 @@
+Compiled from asdf.f
+public class TypeConversion extends java.lang.Object {
+    public TypeConversion();
+    public static void main(java.lang.String[]);
+}
+
+Method TypeConversion()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 bipush 10
+   2 i2l
+   3 lstore_2
+   4 bipush 10
+   6 i2f
+   7 fstore 4
+   9 bipush 10
+  11 i2d
+  12 dstore 5
+  14 ldc2_w #14 <Long 10>
+  17 l2f
+  18 fstore 4
+  20 ldc2_w #14 <Long 10>
+  23 l2d
+  24 dstore 5
+  26 ldc #16 <Real 10.0>
+  28 f2d
+  29 dstore 5
+  31 bipush 10
+  33 i2b
+  34 istore 8
+  36 bipush 10
+  38 i2c
+  39 istore 7
+  41 bipush 10
+  43 i2s
+  44 istore 9
+  46 ldc2_w #14 <Long 10>
+  49 l2i
+  50 istore_1
+  51 ldc #16 <Real 10.0>
+  53 f2i
+  54 istore_1
+  55 ldc #16 <Real 10.0>
+  57 f2l
+  58 lstore_2
+  59 ldc2_w #17 <Double 10.0>
+  62 d2i
+  63 istore_1
+  64 ldc2_w #17 <Double 10.0>
+  67 d2l
+  68 lstore_2
+  69 ldc2_w #17 <Double 10.0>
+  72 d2f
+  73 fstore 4
+  75 return

@@ -1,0 +1,38 @@
+Compiled from asdf.f
+public class Synchronization extends java.lang.Object {
+    public Synchronization();
+    public void foo();
+    public static void main(java.lang.String[]);
+}
+
+Method Synchronization()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void foo()
+   0 aload_0
+   1 monitorenter
+   2 getstatic #18 <Field java.io.PrintStream out>
+   5 ldc #20 <String "hello...">
+   7 invokevirtual #26 <Method void println(java.lang.String)>
+  10 aload_0
+  11 monitorexit
+  12 return
+  13 astore_1
+  14 aload_0
+  15 monitorexit
+  16 aload_1
+  17 athrow
+  18 return
+Exception table:
+   from   to  target type
+     2    12    13   any
+    13    16    13   any
+
+Method void main(java.lang.String[])
+   0 new #2 <Class Synchronization>
+   3 dup
+   4 invokespecial #29 <Method Synchronization()>
+   7 invokevirtual #31 <Method void foo()>
+  10 return

@@ -1,0 +1,22 @@
+Compiled from asdf.f
+public class ClassWithInterfaces extends java.lang.Thread implements java.lang.Runnable, java.lang.Cloneable, java.lang.Comparable {
+    public ClassWithInterfaces();
+    public void run();
+    public int compareTo(java.lang.Object);
+    public static void main(java.lang.String[]);
+}
+
+Method ClassWithInterfaces()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Thread()>
+   4 return
+
+Method void run()
+   0 return
+
+Method int compareTo(java.lang.Object)
+   0 iconst_0
+   1 ireturn
+
+Method void main(java.lang.String[])
+   0 return

@@ -1,0 +1,12 @@
+No sourcepublic class ClassNoSourceFile extends java.lang.Object {
+    public ClassNoSourceFile();
+    public static void main(java.lang.String[]);
+}
+
+Method ClassNoSourceFile()
+   0 aload_0
+   1 invokespecial #9 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 return

@@ -5,6 +5,7 @@
  * $Author$
  */
 
+
 #ifndef _F2J_H
 #define _F2J_H
 
@@ -19,14 +20,17 @@
 #include<stdlib.h>
 #include"symtab.h"
 #include"dlist.h"
-#include"class.h"
-
-typedef int BOOL;
-
-#include"graph.h"
+#include"bytecode.h"
+#include"opcodes.h"
 
 #define FALSE 0
 #define TRUE  1
+
+#define F2J_CLASS_ACC (JVM_ACC_PUBLIC | JVM_ACC_FINAL | JVM_ACC_SUPER)
+#define F2J_NORMAL_ACC (JVM_ACC_PUBLIC | JVM_ACC_STATIC)
+#define F2J_STRICT_ACC (JVM_ACC_STRICT | JVM_ACC_PUBLIC | JVM_ACC_STATIC)
+#define F2J_ADAPTER_ACC (JVM_ACC_PRIVATE | JVM_ACC_STATIC)
+#define F2J_INIT_ACC (JVM_ACC_PUBLIC)
 
 #define MIN(x,y) ((x)<(y)?(x):(y))       /* the minimum of two numbers       */
 
@@ -92,18 +96,6 @@ struct var_info {
   int localvar;      /* local variable num of this variable, if appropriate  */
   BOOL is_arg;       /* is this variable an arg to the current prog unit?    */
 };
-
-/*****************************************************************************
- * this structure holds information about a method reference, including the  *
- * name of the class which contains the method, the name of the method, and  *
- * the method descriptor.                                                    *
- *****************************************************************************/
-
-typedef struct _methodref {
-  char *classname,
-       *methodname,
-       *descriptor;
-} METHODREF;
 
 /*****************************************************************************
  * This struct retains information about included files that are on the      *
@@ -294,7 +286,7 @@ struct _source
     scalarOptStatus,                /* status of optimization on this unit   */
     save_all;                       /* is there a SAVE stmt without var list */
 
-  struct ClassFile
+  JVM_CLASS
     *class;                         /* class file for this program unit      */
 
   char * descriptor;                /* method descriptor for this prog unit  */
@@ -354,7 +346,7 @@ struct _forloop
     *iter_expr,                     /* expression to calc # of iterations    */
     *incr_expr;                     /* expression to calc increment          */
 
-  CodeGraphNode
+  JVM_CODE_GRAPH_NODE
     *goto_node;                     /* graph node of initial loop goto op    */
 };
 
@@ -379,8 +371,10 @@ struct _constant
 struct _label
 {
   int 
-    number,                         /* the label number                      */
-    pc;                             /* pc of this instruction                */
+    number;                         /* the label number                      */
+
+  JVM_CODE_GRAPH_NODE
+    *instr;                         /* bytecode instruction with this label  */
 
   struct ast_node *stmt;            /* the statement after this label        */
 };

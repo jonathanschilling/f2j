@@ -5,6 +5,7 @@
  * $Author$
  */
 
+
 /*****************************************************************************
  * globals.c                                                                 *
  *                                                                           *
@@ -22,16 +23,13 @@
 
 #include"f2j.h"
 #include"f2jparse.tab.h" 
-#include"opcodes.h"
 
 int 
   lineno,                  /* current line number                            */
   statementno,             /* current statement number                       */
   func_stmt_num,           /* current statement number within this function  */
   ignored_formatting,      /* number of format statements ignored            */
-  bad_format_count,        /* number of invalid format stmts encountered     */
-  locals,                  /* number of local variables in current unit      */
-  stacksize;               /* size of stack for current unit                 */
+  bad_format_count;        /* number of invalid format stmts encountered     */
 
 FILE 
   *ifp,                    /* input file pointer                             */
@@ -49,7 +47,6 @@ BOOL
   genInterfaces,           /* should we generate simplified interfaces       */
   genJavadoc,              /* should we generate javadoc-compatible comments */
   noOffset,                /* should we generate offset args in interfaces   */
-  bigEndian,               /* byte order (1 = big, 0 = little)               */
   f2j_arrays_static,       /* force all arrays to be declared static.        */
   save_all_override;       /* force all variables to be declared static.     */
 
@@ -480,26 +477,28 @@ char *returnstring[MAX_RETURNS+1] =
 /* issuing the newarray opcode:                                              */
 
 u2 jvm_array_type[MAX_RETURNS+1] = {
-  T_UNUSED, 
-  T_UNUSED, 
-  T_DOUBLE, 
-  T_DOUBLE, 
-  T_FLOAT, 
-  T_INT, 
-  T_BOOLEAN, 
-  T_UNUSED
+  JVM_T_UNUSED, 
+  JVM_T_UNUSED, 
+  JVM_T_DOUBLE, 
+  JVM_T_DOUBLE, 
+  JVM_T_FLOAT, 
+  JVM_T_INT, 
+  JVM_T_BOOLEAN, 
+  JVM_T_UNUSED
 };
 
-/* table of Java's wrapper classes.  we only expect to use the numeric ones  */
-char * numeric_wrapper[MAX_RETURNS+1] = {
-  "java/lang/String",
-  "java/lang/String",
-  "java/lang/Double",
-  "java/lang/Double",
-  "java/lang/Float",
-  "java/lang/Integer",
-  "java/lang/Boolean",
-  "java/lang/Object"
+/* The jvm_data_types array maps from the f2j data types to the Java Virtual */
+/* Machine data types.                                                       */
+
+enum jvm_data_type jvm_data_types[MAX_RETURNS+1] = {
+  jvm_Object,   /* String      */
+  jvm_Object,   /* Character   */
+  jvm_Object,   /* Complex     */
+  jvm_Double,   /* Double      */
+  jvm_Float,    /* Float       */
+  jvm_Int,      /* Integer     */
+  jvm_Byte,     /* Logical     */
+  jvm_Object    /* Object      */
 };
 
 /* descriptors for the valueOf() method for the various wrapper classes.     */
@@ -668,6 +667,19 @@ char *val_descriptor[MAX_RETURNS+1] =
   "Ljava/lang/Object;"
 };
 
+/* names of the standard Java wrappers:  */
+char *java_wrapper[MAX_RETURNS+1] =
+{
+  "String",
+  "String",
+  "Complex",
+  "Double",
+  "Float",
+  "Integer",
+  "Boolean",
+  "Object"
+};
+
 /* descriptors for the wrapper classes' constructors:         */
 char *wrapper_descriptor[MAX_RETURNS+1] =
 {
@@ -681,17 +693,16 @@ char *wrapper_descriptor[MAX_RETURNS+1] =
   "(Ljava/lang/Object;)V",
 };
 
-/* names of the standard Java wrappers:  */
-char *java_wrapper[MAX_RETURNS+1] =
-{
-  "String",
-  "String",
-  "Complex",
-  "Double",
-  "Float",
-  "Integer",
-  "Boolean",
-  "Object"
+/* table of Java's wrapper classes.  we only expect to use the numeric ones  */
+char * numeric_wrapper[MAX_RETURNS+1] = {
+  "java/lang/String",
+  "java/lang/String",
+  "java/lang/Double",
+  "java/lang/Double",
+  "java/lang/Float",
+  "java/lang/Integer",
+  "java/lang/Boolean",
+  "java/lang/Object"
 };
 
 /* opcodes to push initial primitive values:   */
@@ -707,58 +718,6 @@ enum _opcode init_opcodes[MAX_RETURNS+1] =
   jvm_aconst_null
 };
 
-/* opcodes to store local variables:         */
-enum _opcode store_opcodes[MAX_RETURNS+1] =
-{
-  jvm_astore,
-  jvm_astore,
-  jvm_dstore,
-  jvm_dstore,
-  jvm_fstore,
-  jvm_istore,
-  jvm_istore,
-  jvm_astore
-};
-
-/* opcodes to load local variables:         */
-enum _opcode load_opcodes[MAX_RETURNS+1] =
-{
-  jvm_aload,
-  jvm_aload,
-  jvm_dload,
-  jvm_dload,
-  jvm_fload,
-  jvm_iload,
-  jvm_iload,
-  jvm_aload
-};
-
-/* opcodes to load array elements:  */
-enum _opcode array_load_opcodes[MAX_RETURNS+1] =
-{
-  jvm_aaload,
-  jvm_aaload,
-  jvm_daload,
-  jvm_daload,
-  jvm_faload,
-  jvm_iaload,
-  jvm_baload,
-  jvm_aaload
-};
-
-/* opcodes to store array elements:  */
-enum _opcode array_store_opcodes[MAX_RETURNS+1] =
-{
-  jvm_aastore,
-  jvm_aastore,
-  jvm_dastore,
-  jvm_dastore,
-  jvm_fastore,
-  jvm_iastore,
-  jvm_bastore,
-  jvm_aastore
-};
-
 /* opcodes to return a value from a function:  */
 enum _opcode return_opcodes[MAX_RETURNS+1] =
 {
@@ -770,44 +729,6 @@ enum _opcode return_opcodes[MAX_RETURNS+1] =
   jvm_ireturn,
   jvm_ireturn,
   jvm_areturn
-};
-
-/* shorthand opcodes for storing local variables:  */
-enum _opcode short_store_opcodes[MAX_RETURNS+1][4] =
-{
-  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3},
-  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3},
-  {jvm_dstore_0, jvm_dstore_1, jvm_dstore_2, jvm_dstore_3},
-  {jvm_dstore_0, jvm_dstore_1, jvm_dstore_2, jvm_dstore_3},
-  {jvm_fstore_0, jvm_fstore_1, jvm_fstore_2, jvm_fstore_3},
-  {jvm_istore_0, jvm_istore_1, jvm_istore_2, jvm_istore_3},
-  {jvm_istore_0, jvm_istore_1, jvm_istore_2, jvm_istore_3},
-  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3}
-};
-
-/* shorthand opcodes for loading local variables:  */
-enum _opcode short_load_opcodes[MAX_RETURNS+1][4] =
-{
-  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
-  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
-  {jvm_dload_0, jvm_dload_1, jvm_dload_2, jvm_dload_3},
-  {jvm_dload_0, jvm_dload_1, jvm_dload_2, jvm_dload_3},
-  {jvm_fload_0, jvm_fload_1, jvm_fload_2, jvm_fload_3},
-  {jvm_iload_0, jvm_iload_1, jvm_iload_2, jvm_iload_3},
-  {jvm_iload_0, jvm_iload_1, jvm_iload_2, jvm_iload_3},
-  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3}
-};
-
-/* shorthand opcodes for loading integer constants:  */
-enum _opcode iconst_opcodes[7] =
-{
-  jvm_iconst_m1,
-  jvm_iconst_0,
-  jvm_iconst_1,
-  jvm_iconst_2,
-  jvm_iconst_3,
-  jvm_iconst_4,
-  jvm_iconst_5
 };
 
 /* initial values for above data types:  */
@@ -966,263 +887,4 @@ enum _opcode typeconv_matrix[MAX_RETURNS+1][MAX_RETURNS+1] =
 /* logical */ {jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop},
 /* object  */ {jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop,jvm_nop}
 
-};
-
-JVM_OPCODE jvm_opcode[] = {
-  {"nop",            1,  0,  0},
-  {"aconst_null",    1,  0,  1},
-  {"iconst_m1",      1,  0,  1},
-  {"iconst_0",       1,  0,  1},
-  {"iconst_1",       1,  0,  1},
-  {"iconst_2",       1,  0,  1},
-  {"iconst_3",       1,  0,  1},
-  {"iconst_4",       1,  0,  1},
-  {"iconst_5",       1,  0,  1},
-  {"lconst_0",       1,  0,  2},
-  {"lconst_1",       1,  0,  2},
-  {"fconst_0",       1,  0,  1},
-  {"fconst_1",       1,  0,  1},
-  {"fconst_2",       1,  0,  1},
-  {"dconst_0",       1,  0,  2},
-  {"dconst_1",       1,  0,  2},
-  {"bipush",         2,  0,  1},
-  {"sipush",         3,  0,  1},
-  {"ldc",            2,  0,  1},
-  {"ldc_w",          3,  0,  1},
-  {"ldc2_w",         3,  0,  2},
-  {"iload",          2,  0,  1},
-  {"lload",          2,  0,  2},
-  {"fload",          2,  0,  1},
-  {"dload",          2,  0,  2},
-  {"aload",          2,  0,  1},
-  {"iload_0",        1,  0,  1},
-  {"iload_1",        1,  0,  1},
-  {"iload_2",        1,  0,  1},
-  {"iload_3",        1,  0,  1},
-  {"lload_0",        1,  0,  2},
-  {"lload_1",        1,  0,  2},
-  {"lload_2",        1,  0,  2},
-  {"lload_3",        1,  0,  2},
-  {"fload_0",        1,  0,  1},
-  {"fload_1",        1,  0,  1},
-  {"fload_2",        1,  0,  1},
-  {"fload_3",        1,  0,  1},
-  {"dload_0",        1,  0,  2},
-  {"dload_1",        1,  0,  2},
-  {"dload_2",        1,  0,  2},
-  {"dload_3",        1,  0,  2},
-  {"aload_0",        1,  0,  1},
-  {"aload_1",        1,  0,  1},
-  {"aload_2",        1,  0,  1},
-  {"aload_3",        1,  0,  1},
-  {"iaload",         1,  2,  1},
-  {"laload",         1,  2,  2},
-  {"faload",         1,  2,  1},
-  {"daload",         1,  2,  2},
-  {"aaload",         1,  2,  1},
-  {"baload",         1,  2,  1},
-  {"caload",         1,  2,  1},
-  {"saload",         1,  2,  1},
-  {"istore",         2,  1,  0},
-  {"lstore",         2,  2,  0},
-  {"fstore",         2,  1,  0},
-  {"dstore",         2,  2,  0},
-  {"astore",         2,  1,  0},
-  {"istore_0",       1,  1,  0},
-  {"istore_1",       1,  1,  0},
-  {"istore_2",       1,  1,  0},
-  {"istore_3",       1,  1,  0},
-  {"lstore_0",       1,  2,  0},
-  {"lstore_1",       1,  2,  0},
-  {"lstore_2",       1,  2,  0},
-  {"lstore_3",       1,  2,  0},
-  {"fstore_0",       1,  1,  0},
-  {"fstore_1",       1,  1,  0},
-  {"fstore_2",       1,  1,  0},
-  {"fstore_3",       1,  1,  0},
-  {"dstore_0",       1,  2,  0},
-  {"dstore_1",       1,  2,  0},
-  {"dstore_2",       1,  2,  0},
-  {"dstore_3",       1,  2,  0},
-  {"astore_0",       1,  1,  0},
-  {"astore_1",       1,  1,  0},
-  {"astore_2",       1,  1,  0},
-  {"astore_3",       1,  1,  0},
-  {"iastore",        1,  3,  0},
-  {"lastore",        1,  4,  0},
-  {"fastore",        1,  3,  0},
-  {"dastore",        1,  4,  0},
-  {"aastore",        1,  3,  0},
-  {"bastore",        1,  3,  0},
-  {"castore",        1,  3,  0},
-  {"sastore",        1,  3,  0},
-  {"pop",            1,  1,  0},
-  {"pop2",           1,  2,  0},
-  {"dup",            1,  1,  2},
-  {"dup_x1",         1,  2,  3},
-  {"dup_x2",         1,  3,  4},
-  {"dup2",           1,  2,  4},
-  {"dup2_x1",        1,  3,  5},
-  {"dup2_x2",        1,  4,  6},
-  {"swap",           1,  2,  2},
-  {"iadd",           1,  2,  1},
-  {"ladd",           1,  4,  2},
-  {"fadd",           1,  2,  1},
-  {"dadd",           1,  4,  2},
-  {"isub",           1,  2,  1},
-  {"lsub",           1,  4,  2},
-  {"fsub",           1,  2,  1},
-  {"dsub",           1,  4,  2},
-  {"imul",           1,  2,  1},
-  {"lmul",           1,  4,  2},
-  {"fmul",           1,  2,  1},
-  {"dmul",           1,  4,  2},
-  {"idiv",           1,  2,  1},
-  {"ldiv",           1,  4,  2},
-  {"fdiv",           1,  2,  1},
-  {"ddiv",           1,  4,  2},
-  {"irem",           1,  2,  1},
-  {"lrem",           1,  4,  2},
-  {"frem",           1,  2,  1},
-  {"drem",           1,  4,  2},
-  {"ineg",           1,  1,  1},
-  {"lneg",           1,  2,  2},
-  {"fneg",           1,  1,  1},
-  {"dneg",           1,  2,  2},
-  {"ishl",           1,  2,  1},
-  {"lshl",           1,  3,  2},
-  {"ishr",           1,  2,  1},
-  {"lshr",           1,  3,  2},
-  {"iushr",          1,  2,  1},
-  {"lushr",          1,  3,  2},
-  {"iand",           1,  2,  1},
-  {"land",           1,  4,  2},
-  {"ior",            1,  2,  1},
-  {"lor",            1,  4,  2},
-  {"ixor",           1,  2,  1},
-  {"lxor",           1,  4,  2},
-  {"iinc",           3,  0,  0},
-  {"i2l",            1,  1,  2},
-  {"i2f",            1,  1,  1},
-  {"i2d",            1,  1,  2},
-  {"l2i",            1,  2,  1},
-  {"l2f",            1,  2,  1},
-  {"l2d",            1,  2,  2},
-  {"f2i",            1,  1,  1},
-  {"f2l",            1,  1,  2},
-  {"f2d",            1,  1,  2},
-  {"d2i",            1,  2,  1},
-  {"d2l",            1,  2,  2},
-  {"d2f",            1,  2,  1},
-  {"i2b",            1,  1,  1},
-  {"i2c",            1,  1,  1},
-  {"i2s",            1,  1,  1},
-  {"lcmp",           1,  4,  1},
-  {"fcmpl",          1,  2,  1},
-  {"fcmpg",          1,  2,  1},
-  {"dcmpl",          1,  4,  1},
-  {"dcmpg",          1,  4,  1},
-  {"ifeq",           3,  1,  0},
-  {"ifne",           3,  1,  0},
-  {"iflt",           3,  1,  0},
-  {"ifge",           3,  1,  0},
-  {"ifgt",           3,  1,  0},
-  {"ifle",           3,  1,  0},
-  {"if_icmpeq",      3,  2,  0},
-  {"if_icmpne",      3,  2,  0},
-  {"if_icmplt",      3,  2,  0},
-  {"if_icmpge",      3,  2,  0},
-  {"if_icmpgt",      3,  2,  0},
-  {"if_icmple",      3,  2,  0},
-  {"if_acmpeq",      3,  2,  0},
-  {"if_acmpne",      3,  2,  0},
-  {"goto",           3,  0,  0},
-  {"jsr",            3,  0,  1},
-  {"ret",            2,  0,  0},
-  {"tableswitch",   10,  1,  0},
-  {"lookupswitch",  10,  1,  0},
-  {"ireturn",        1,  1,  0},
-  {"lreturn",        1,  2,  0},
-  {"freturn",        1,  1,  0},
-  {"dreturn",        1,  2,  0},
-  {"areturn",        1,  1,  0},
-  {"return",         1,  0,  0},
-  {"getstatic",      3,  0,  1},
-  {"putstatic",      3,  1,  0},
-  {"getfield",       3,  1,  9},
-  {"putfield",       3,  9,  0},
-  {"invokevirtual",  3,  9,  0},
-  {"invokespecial",  3,  9,  0},
-  {"invokestatic",   3,  9,  0},
-  {"invokeinterface",5,  9,  0},
-  {"UNUSED",         1,  0,  0},
-  {"new",            3,  0,  1},
-  {"newarray",       2,  1,  1},
-  {"anewarray",      3,  1,  1},
-  {"arraylength",    1,  1,  1},
-  {"athrow",         1,  1,  0},
-  {"checkcast",      3,  1,  1},
-  {"instanceof",     3,  1,  1},
-  {"monitorenter",   1,  1,  0},
-  {"monitorexit",    1,  1,  0},
-  {"wide",           1,  0,  0},
-  {"multianewarray", 4,  9,  1},
-  {"ifnull",         3,  1,  0},
-  {"ifnonnull",      3,  1,  0},
-  {"goto_w",         5,  0,  0},
-  {"jsr_w",          5,  0,  1},
-  {"UNUSED",         1,  0,  0},   
-  {"UNUSED",         1,  0,  0},  
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},  
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},
-  {"UNUSED",         1,  0,  0},  
-  {"UNUSED",         1,  0,  0}
 };

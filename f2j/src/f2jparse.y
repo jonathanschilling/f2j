@@ -20,10 +20,8 @@
 #include<ctype.h>
 #include<string.h>
 #include"f2j.h"
-#include"class.h"
-#include"constant_pool.h"
-#include"f2jmem.h"
 #include"f2j_externs.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
@@ -48,9 +46,6 @@ char
 AST 
   * equivList = NULL;             /* list to keep track of equivalences      */
 
-CPNODE
-  * lastConstant;                 /* last constant inserted into the c.pool  */
-
 Dlist subroutine_names;           /* holds the names of subroutines          */
 
 /*****************************************************************************
@@ -62,7 +57,8 @@ METHODTAB
 
 int 
   yylex(void),
-  intrinsic_or_implicit(char *);
+  intrinsic_or_implicit(char *),
+  in_dlist(Dlist, char *);
 
 double
   eval_const_expr(AST *);
@@ -4564,4 +4560,25 @@ clone_ident(AST *ast){
 
  
   return new_node;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * in_dlist                                                                  *
+ *                                                                           *
+ * returns 1 if it is in the list 0 otherwise                                *
+ *                                                                           *
+ *****************************************************************************/
+int
+in_dlist(Dlist list, char *name){
+   Dlist ptr;
+   char *list_name;
+
+   dl_traverse(ptr, list){
+      list_name = (char *)dl_val(ptr);
+      if(!strcmp(list_name, name))
+         return 1;
+   }
+
+   return 0;
 }

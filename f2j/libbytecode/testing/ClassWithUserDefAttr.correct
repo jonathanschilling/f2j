@@ -1,0 +1,12 @@
+No sourcepublic class ClassWithUserDefAttr extends java.lang.Object {
+    public ClassWithUserDefAttr();
+    public static void main(java.lang.String[]);
+}
+
+Method ClassWithUserDefAttr()
+   0 aload_0
+   1 invokespecial #10 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 return

@@ -5,6 +5,7 @@
  * $Author$
  */
 
+
 /*****************************************************************************
  * optimize.c                                                                *
  *                                                                           *
@@ -1007,7 +1008,7 @@ args_optimize(AST *root, AST *rptr)
 {
   SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
   HASHNODE *hashtemp;
-  METHODREF *mref;
+  JVM_METHODREF *mref;
   AST *temp;
 
   if((hashtemp=type_lookup(global_func_table,root->astnode.ident.name))!=NULL)
@@ -1083,7 +1084,7 @@ args_optimize(AST *root, AST *rptr)
     {
        expr_optimize(temp, rptr);
 
-       p = skipToken(p);
+       p = bc_next_desc_token(p);
 
        if(optdebug)
          printf("call_optimize() - p = %s\n",p);
@@ -1107,7 +1108,7 @@ args_optimize(AST *root, AST *rptr)
          if(!type_lookup(opt_array_table, temp->astnode.ident.name))
            set_passByRef(temp, rptr);
 
-         p = skipToken(p);
+         p = bc_next_desc_token(p);
        }
     }
   }
@@ -1152,7 +1153,7 @@ isPassByRef_desc(char *desc)
 
   /* copy the descriptor and chop off the remainder. */
   desc_copy = strdup(desc);
-  dptr = skipToken(desc_copy);
+  dptr = bc_next_desc_token(desc_copy);
   if(dptr != NULL)
     *dptr = '\0';
 

@@ -1,0 +1,13 @@
+Compiled from asdf.f
+public abstract class ClassAbstract extends java.lang.Object {
+    public ClassAbstract();
+    public static void main(java.lang.String[]);
+}
+
+Method ClassAbstract()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 return

@@ -1,0 +1,15 @@
+Compiled from asdf.f
+class ClassNoAccFlags extends java.lang.Object 
+    /* ACC_SUPER bit NOT set */
+{
+    public ClassNoAccFlags();
+    public static void main(java.lang.String[]);
+}
+
+Method ClassNoAccFlags()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 return

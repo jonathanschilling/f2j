@@ -1,0 +1,51 @@
+Compiled from asdf.f
+public class ObjectCreation extends java.lang.Object {
+    public int x;
+    public static int y;
+    public ObjectCreation();
+    public void foo();
+    public static void main(java.lang.String[]);
+}
+
+Method ObjectCreation()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void foo()
+   0 return
+
+Method void main(java.lang.String[])
+   0 new #2 <Class ObjectCreation>
+   3 dup
+   4 invokespecial #18 <Method ObjectCreation()>
+   7 astore_1
+   8 aload_1
+   9 invokevirtual #20 <Method void foo()>
+  12 bipush 6
+  14 iconst_2
+  15 multianewarray #22 dim #2 <Class [[I>
+  19 astore_2
+  20 aload_2
+  21 iconst_3
+  22 aaload
+  23 iconst_1
+  24 iconst_5
+  25 iastore
+  26 aload_2
+  27 arraylength
+  28 aload_1
+  29 aload_1
+  30 getfield #24 <Field int x>
+  33 sipush 666
+  36 iadd
+  37 putfield #24 <Field int x>
+  40 getstatic #26 <Field int y>
+  43 sipush 666
+  46 iadd
+  47 putstatic #26 <Field int y>
+  50 aload_1
+  51 instanceof #27 <Class java.lang.Object>
+  54 aload_1
+  55 checkcast #28 <Class java.lang.Object>
+  58 return

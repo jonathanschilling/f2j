@@ -28,7 +28,6 @@ char
   *unit_name,           /* name of this function/subroutine                  */
   *returnname,          /* return type of this prog. unit                    */
   *cur_filename,        /* name of the class file currently writing          */
-  *method_desc = NULL,  /* descriptor for method representing this prog unit */
   **funcname=input_func;/* input functions, EOF-detecting or non-detecting   */
 
 Dlist 
@@ -36,9 +35,7 @@ Dlist
   doloop = NULL,        /* stack of do loop labels                           */
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
-  methcall_list = NULL, /* list of methods to be called by reflection        */
-  label_list = NULL,    /* list of statements with label numbers             */
-  exc_table = NULL;     /* list of exception table entries                   */
+  methcall_list = NULL; /* list of methods to be called by reflection        */
 
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
@@ -61,14 +58,8 @@ SYMTABLE                /* Symbol tables containing...                       */
   *cur_param_table,     /* variables which are parameters                    */
   *cur_equiv_table;     /* variables which are equivalenced                  */
 
-Dlist
-  cur_const_table;      /* constants designated to go into the constant pool */
-
-struct ClassFile
+JVM_CLASS
   *cur_class_file;      /* class file for the current program unit           */
-
-struct attribute_info
-  *cur_code;            /* current code attr. to which f2j writes code       */
 
 AST 
   *cur_equivList,       /* list of equivalences                              */
@@ -79,28 +70,21 @@ BOOL
   import_reflection,    /* does this class need to import reflection         */
   import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE,    /* is bytecode generation currently enabled          */
-  reCalcAddr,           /* do instruction PCs need to be recalculated?       */
   save_all_locals;      /* should all locals be declared static?             */
 
 unsigned int 
-  pc,                   /* current program counter                           */
-  cur_local,            /* current local variable number                     */
-  num_locals,           /* number of locals needed for this method           */
-  stdin_lvar,           /* local var number of the EasyIn object             */
-  num_handlers;         /* number of exception handlers in this method       */
+  stdin_lvar;           /* local var number of the EasyIn object             */
 
-struct method_info
-  *clinit_method,       /* special class initialization method <clinit>      */
-  *main_method;         /* the primary method for this fortran program unit  */
+JVM_METHOD
+  *main_method,         /* the primary method for this fortran program unit  */
+  *cur_method;
 
-enum _opcode
-  lastOp = jvm_nop;     /* the last opcode emitted (avoids dup return stmt)  */
-
-ExceptionTableEntry
+JVM_EXCEPTION_TABLE_ENTRY
   * reflect_entry,      /* exception table entry for reflection exceptions.  */
   * access_entry;       /* exception table entry for access exceptions.      */
 
-extern METHODTAB intrinsic_toks[];
+extern METHODTAB 
+  intrinsic_toks[];     /* Fortran intrinsic function names.                 */
 
 extern FILE *devnull;   /* file pointer to /dev/null, opened in f2jmain.c    */
 
@@ -118,7 +102,8 @@ extern FILE *devnull;   /* file pointer to /dev/null, opened in f2jmain.c    */
 void
 emit (AST * root)
 {
-    CPNODE *c;
+    int c;
+    int locals;
 
     switch (root->nodetype)
     {
@@ -130,9 +115,12 @@ emit (AST * root)
         break;
       case Progunit:
         {
-          char *tmpname;
-          char *classname;
+          JVM_METHOD *clinit_method;
+          HASHNODE *hashtemp;
+          char *tmp_method_desc;
           char *methodname;
+          char *classname;
+          char *tmpname;
 
           if (gendebug)
             printf ("Source.\n");
@@ -146,26 +134,21 @@ emit (AST * root)
           lowercase(classname);
 
           /* check if this program unit is a PROGRAM.  if so, the
-           * method name is "main" and we have to set the max. locals
-           * to 1 because Java's main always takes a string array arg.
+           * method name is "main".
            */
            
           if(root->astnode.source.progtype->nodetype == Program) {
-            /* dup so that we can free() later & 
-             * not try to free non-heap memory
+            /* dup constant "main" so that we can free() later & won't
+             * be trying to free non-heap memory
              */
             methodname = strdup("main");
-            locals = 1;
           }
           else
             methodname = strdup(classname);
 
           classname[0] = toupper(classname[0]);
 
-          cur_filename = get_full_classname(classname);
-
-          /* needs initializing before creating the <init> method */
-          exc_table = make_dl();
+          cur_filename = bc_get_full_classname(classname, package_name);
 
           /* First set up the local hash tables. */
 
@@ -181,19 +164,23 @@ emit (AST * root)
           cur_param_table = root->astnode.source.parameter_table;
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
-          cur_const_table = root->astnode.source.constants_table;
           cur_class_file = root->astnode.source.class = 
-                newClassFile(classname,inputfilename);
+            bc_new_class(classname,inputfilename, "java.lang.Object",
+                         package_name, F2J_CLASS_ACC); 
+
+          bc_add_default_constructor(cur_class_file, F2J_INIT_ACC);
        
           if(gendebug)
             print_equivalences(cur_equivList);
 
           initialize_lists();
 
-          assign_varnums_to_arguments(
-             root->astnode.source.progtype->astnode.source.args); 
+          clinit_method = bc_new_method(cur_class_file, "<clinit>", "()V", 
+             F2J_NORMAL_ACC);
+          cur_method = clinit_method;
 
-          num_locals = cur_local = locals;
+          locals = assign_varnums_to_arguments(
+              root->astnode.source.progtype->astnode.source.args); 
 
           /* needs_reflection is determined during typecheck */
 
@@ -213,13 +200,23 @@ emit (AST * root)
           open_output_file(root->astnode.source.progtype, classname);
 
           savefp = curfp;
-          set_bytecode_status(JAVA_AND_JVM);
+          set_bytecode_status(cur_method, JAVA_AND_JVM);
 
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
 
+          if((hashtemp=type_lookup(function_table, tmpname)) != NULL)
+            tmp_method_desc = hashtemp->variable->astnode.source.descriptor;
+          else
+            tmp_method_desc = MAIN_DESCRIPTOR;
+
+          main_method = bc_new_method(cur_class_file, methodname, 
+            tmp_method_desc, F2J_NORMAL_ACC);
+
           if(!save_all_override)
-            assign_varnums_to_locals(root->astnode.source.typedecs);
+            assign_varnums_to_locals(main_method, 
+              root->astnode.source.typedecs);
+
           insert_fields(root);
 
           /* as part of creating a new classfile structure, we have 
@@ -230,39 +227,48 @@ emit (AST * root)
            * be created, etc.  here we create an empty CodeAttribute
            * structure and then emit the typedecs.  afterwards, we
            * check to see if any code was generated for <clinit>.
-           * if so, we must create a method_info structure and add
+           * if so, we must create a method structure and add
            * that to the current classfile structure.  if not, we do
            * nothing.
            */
 
-          clinit_method = beginNewMethod(F2J_NORMAL_ACC);
-
           /* save pointer for local vars in local_emit */
           local_list = root->astnode.source.typedecs;
-          
+         
           emit (root->astnode.source.typedecs);
- 
           emit (root->astnode.source.progtype);
 
           /* check whether any class initialization code was generated.
            * if so, finish initializing the method and insert it into this
            * class.
            */
-          if(pc > 0) {
-            bytecode0(jvm_return);
-            endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V",
-              1, NULL);
+
+          if(bc_get_code_length(cur_method) > 0) {
+            bc_append(cur_method, jvm_return);
+            fprintf(indexfp,"%s:%s:%s\n",cur_filename, "<clinit>", "()V");
           }
           else {
-            free_method_info(clinit_method);
-            free_code_attribute(cur_code, NULL);
+            bc_remove_method(cur_method);
+            bc_free_method(cur_method);
           }
 
-          main_method = beginNewMethod(F2J_NORMAL_ACC);
-          
+          /* if this program unit is a function, then assign a local 
+           * variable number to the implicit return variable.
+           */
+
+          if(root->astnode.source.progtype->nodetype == Function) {
+            hashtemp=type_lookup(cur_type_table, unit_name);
+            if(hashtemp)
+              hashtemp->variable->astnode.ident.localvnum =
+                bc_get_next_local(main_method, 
+                   jvm_data_types[root->astnode.source.returns]);
+          }
+
+          cur_method = main_method;
+
           /* return stuff */
           if(!save_all_override)
-            local_emit(root->astnode.source.typedecs);
+            local_emit(cur_method, root->astnode.source.typedecs);
 
           /* If this program unit does any reading, we declare an instance of
            * the EasyIn class.   grab a local var for this, but dont worry
@@ -272,26 +278,26 @@ emit (AST * root)
 
           if(root->astnode.source.progtype->astnode.source.needs_input) {
             fprintf(curfp,"  EasyIn _f2j_stdin = new EasyIn();\n");
-            stdin_lvar = getNextLocal(Object);
+            stdin_lvar = bc_get_next_local(cur_method, jvm_Object);
 
-            c = cp_find_or_insert(cur_const_table,CONSTANT_Class, EASYIN_CLASS);
-            bytecode1(jvm_new,c->index);
-            bytecode0(jvm_dup);
+            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, EASYIN_CLASS);
+            bc_append(cur_method, jvm_new,c);
+            bc_append(cur_method, jvm_dup);
 
-            c = newMethodref(cur_const_table, EASYIN_CLASS, "<init>", 
+            c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "<init>", 
                    EASYIN_DESC);
-            bytecode1(jvm_invokespecial, c->index);
-            gen_store_op(stdin_lvar, Object);
+            bc_append(cur_method, jvm_invokespecial, c);
+            bc_gen_store_op(cur_method, stdin_lvar, jvm_Object);
           }
 
           if(type_lookup(cur_external_table,"etime") != NULL)
           {
             fprintf(curfp, "  Etime.etime();\n");
 
-            c = newMethodref(cur_const_table, ETIME_CLASS, 
-                        "etime",ETIME_DESC);
+            c = bc_new_methodref(cur_class_file, ETIME_CLASS, 
+                        "etime", ETIME_DESC);
  
-            bytecode1(jvm_invokestatic, c->index);
+            bc_append(cur_method, jvm_invokestatic, c);
           }
 
           /* if one of the arguments is a function, we must use the
@@ -299,7 +305,7 @@ emit (AST * root)
            */
 
           if(import_reflection) {
-            reflect_declarations_emit(
+            reflect_declarations_emit(cur_method, 
                root->astnode.source.progtype->astnode.source.args);
 
             /* The 'catch' corresponding to the following try is generated
@@ -309,12 +315,12 @@ emit (AST * root)
             fprintf(curfp,"try {\n");
 
             /* start the exception handler from the next opcode */
-            reflect_entry = (ExceptionTableEntry *) 
-                 f2jalloc(sizeof(ExceptionTableEntry));
-            reflect_entry->from = bytecode0(jvm_impdep1);
+            reflect_entry = (JVM_EXCEPTION_TABLE_ENTRY *) 
+                 f2jalloc(sizeof(JVM_EXCEPTION_TABLE_ENTRY));
+            reflect_entry->from = bc_append(cur_method, jvm_xxxunusedxxx);
 
-            access_entry = (ExceptionTableEntry *) 
-                 f2jalloc(sizeof(ExceptionTableEntry));
+            access_entry = (JVM_EXCEPTION_TABLE_ENTRY *) 
+                 f2jalloc(sizeof(JVM_EXCEPTION_TABLE_ENTRY));
             access_entry->from = reflect_entry->from;
           }
 
@@ -325,10 +331,9 @@ emit (AST * root)
            * class.
            */
 
-          if(pc > 0) {
-            endNewMethod(cur_class_file, main_method,methodname,
-              method_desc,num_locals,NULL);
-          }
+          if(bc_get_code_length(cur_method) > 0)
+            fprintf(indexfp,"%s:%s:%s\n",cur_filename, methodname, 
+                tmp_method_desc);
 
           f2jfree(methodname, strlen(methodname)+1);
 
@@ -339,18 +344,12 @@ emit (AST * root)
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
 
-          cur_class_file->constant_pool_count = 
-             (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
-          cur_class_file->constant_pool = cur_const_table;
-
-          write_class(cur_class_file);
+          bc_write_class(cur_class_file, output_dir);
  
           if(gendebug)
-            cp_dump(cur_const_table);
-
-          free_class(cur_class_file);
-          cur_class_file = NULL;
-          cur_const_table = NULL;
+            cp_dump(cur_class_file);
+          
+          bc_free_class(cur_class_file);
 
           free_lists();
 
@@ -380,15 +379,6 @@ emit (AST * root)
         cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
-        /* assign a local var num to the implicit return variable */
-        {
-          HASHNODE *hash_temp;
-          hash_temp=type_lookup(cur_type_table, unit_name);
-          if(hash_temp)
-            hash_temp->variable->astnode.ident.localvnum =
-               getNextLocal(root->astnode.source.returns);
-        }
-
         if(gendebug)
           printf ("Function name: %s\n",  unit_name);
 
@@ -412,9 +402,9 @@ emit (AST * root)
           printf ("Typedec.\n");
 
         if(save_all_override)
-          typedec_emit_all_static (root);
+          typedec_emit_all_static (cur_method, root);
         else
-          typedec_emit (root);
+          typedec_emit (cur_method, root);
 
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
@@ -423,7 +413,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Data.\n");
 
-        data_emit (root);
+        data_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of data list. */
           emit (root->nextstmt);
         break;
@@ -438,7 +428,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Equivalence.\n");
 
-        equiv_emit (root);
+        equiv_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -453,7 +443,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Assignment.\n");
 
-        assign_emit (root);
+        assign_emit (cur_method, root);
         fprintf (curfp, ";\n");
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
@@ -462,7 +452,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Call.\n");
 
-        call_emit (root);
+        call_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -470,7 +460,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Forloop.\n");
 
-        forloop_emit (root);
+        forloop_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -478,7 +468,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Blockif.\n");
 
-        blockif_emit (root);
+        blockif_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -486,7 +476,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Elseif.\n");
 
-        elseif_emit (root);
+        elseif_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -502,7 +492,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Logicalif.\n");
 
-        logicalif_emit (root);
+        logicalif_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -510,7 +500,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Arithmeticif.\n");
 
-        arithmeticif_emit (root);
+        arithmeticif_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -527,7 +517,7 @@ emit (AST * root)
 
         fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
 
-        return_emit();
+        return_emit(cur_method);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -535,7 +525,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Goto.\n");
 
-        goto_emit (root);
+        goto_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -543,7 +533,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Goto.\n");
 
-        computed_goto_emit (root);
+        computed_goto_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -551,7 +541,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Label.\n");
 
-        label_emit (root);
+        label_emit (cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -559,7 +549,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Write statement.\n");
 
-        write_emit (root);
+        write_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -567,7 +557,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Read statement.\n");
 
-        read_emit (root);
+        read_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -582,7 +572,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Stop.\n");
 
-        stop_emit(root);
+        stop_emit(cur_method, root);
 
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
@@ -591,7 +581,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Pause.\n");
 
-        pause_emit(root);
+        pause_emit(cur_method, root);
 
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
@@ -599,7 +589,7 @@ emit (AST * root)
       case End:
         if (gendebug)
           printf ("End.\n");
-        end_emit();
+        end_emit(cur_method);
         break;
       case Save:
         if (gendebug)
@@ -683,7 +673,6 @@ initialize_lists()
   doloop = make_dl();
   adapter_list = make_dl();
   methcall_list = make_dl();
-  label_list = make_dl();
 }
 
 /*****************************************************************************
@@ -695,7 +684,7 @@ initialize_lists()
  *****************************************************************************/
 
 void
-free_lists()
+free_lists(JVM_METHOD *meth)
 {
   Dlist tmp;
 
@@ -703,7 +692,7 @@ free_lists()
 
   if(dummy_nodes) {
     dl_traverse(tmp, dummy_nodes)
-      f2jfree(dl_val(tmp), sizeof(CodeGraphNode));
+      f2jfree(dl_val(tmp), sizeof(JVM_CODE_GRAPH_NODE));
     dl_delete_list(dummy_nodes);
   }
 
@@ -721,48 +710,6 @@ free_lists()
       dl_delete_list((Dlist)dl_val(tmp));
     dl_delete_list(methcall_list);
   }
-
-  dl_delete_list(label_list);
-}
-
-/*****************************************************************************
- *                                                                           *
- * get_full_classname                                                        *
- *                                                                           *
- * returns the fully-qualified class name for the given class.               *
- *                                                                           *
- *****************************************************************************/
-
-char *
-get_full_classname(char *thisclass)
-{
-  char * pname, *t;
-
-  /* maybe this is already qualified.  if so, just return a dup of the
-   * class name.
-   */
-  for(t = thisclass; *t != '\0'; t++)
-    if( *t == '/' )
-      return strdup(thisclass);
-
-  if(package_name != NULL) {
-    pname = (char *)f2jalloc(strlen(thisclass) + strlen(package_name) + 2);
-
-    /* issue a warning if the package name has some trailing junk. */
-    if(!isalnum((int)*(package_name + (strlen(package_name)-1))))
-      fprintf(stderr,"WARNING: last char of package name not alphanumeric.\n");
-
-    t = char_substitution(package_name, '.', '/');
-
-    strcpy(pname, t);
-    strcat(pname, "/");
-    strcat(pname, thisclass);
-
-    f2jfree(t, strlen(t)+1);
-    return pname;
-  }
-  else
-    return strdup(thisclass);
 }
 
 /*****************************************************************************
@@ -777,20 +724,21 @@ get_full_classname(char *thisclass)
  *****************************************************************************/
 
 void
-set_bytecode_status(int mode)
+set_bytecode_status(JVM_METHOD *meth, int mode)
 {
   switch(mode) {
     case JVM_ONLY:
-      bytecode_gen=TRUE;
+      bc_set_gen_status(meth, TRUE);
       savefp = curfp;
       curfp = devnull;
       break;
     case JAVA_ONLY:
-      bytecode_gen=FALSE;
+      bc_set_gen_status(meth, FALSE);
       curfp = savefp;
       break;
     case JAVA_AND_JVM:
     default:
+      bc_set_gen_status(meth, TRUE);
       bytecode_gen=TRUE;
       curfp = savefp;
       break;
@@ -809,11 +757,11 @@ set_bytecode_status(int mode)
  *****************************************************************************/
 
 void
-reflect_declarations_emit(AST *root)
+reflect_declarations_emit(JVM_METHOD *meth, AST *root)
 {
   HASHNODE *hashtemp, *ht2;
   AST *tempnode;
-  CPNODE *c;
+  int c;
   int meth_var_num = 0;
 
   for(tempnode = root; tempnode != NULL; tempnode = tempnode->nextstmt)
@@ -821,7 +769,8 @@ reflect_declarations_emit(AST *root)
     hashtemp = type_lookup(cur_external_table, tempnode->astnode.ident.name);
     if(hashtemp)
     {
-      hashtemp->variable->astnode.ident.localvnum = getNextLocal(Object);
+      hashtemp->variable->astnode.ident.localvnum = 
+          bc_get_next_local(meth, jvm_Object);
 
       fprintf(curfp,"  java.lang.reflect.Method _%s_meth ", 
         tempnode->astnode.ident.name);
@@ -853,19 +802,20 @@ reflect_declarations_emit(AST *root)
         }
       }
 
-      gen_load_op(meth_var_num, Object);
+      bc_gen_load_op(meth, meth_var_num, jvm_Object);
 
-      c = newMethodref(cur_const_table, JL_OBJECT, "getClass",
+      c = bc_new_methodref(cur_class_file, JL_OBJECT, "getClass",
             GETCLASS_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
-      c = newMethodref(cur_const_table, JL_CLASS, "getDeclaredMethods",
+      c = bc_new_methodref(cur_class_file, JL_CLASS, "getDeclaredMethods",
             GETMETHODS_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
-      pushIntConst(0);
-      bytecode0(jvm_aaload);
-      gen_store_op(hashtemp->variable->astnode.ident.localvnum, Object);
+      bc_push_int_const(meth, 0);
+      bc_append(meth, jvm_aaload);
+      bc_gen_store_op(meth, hashtemp->variable->astnode.ident.localvnum, 
+         jvm_Object);
     }
   }
 }
@@ -880,52 +830,51 @@ reflect_declarations_emit(AST *root)
  *****************************************************************************/
 
 void
-invocation_exception_handler_emit(ExceptionTableEntry *et)
+invocation_exception_handler_emit(JVM_CLASS *cclass, 
+  JVM_METHOD *meth, JVM_EXCEPTION_TABLE_ENTRY *et)
 {
-  CPNODE *c;
+  int c;
   unsigned int vnum;
 
-  vnum = getNextLocal(Object);
+  vnum = bc_get_next_local(meth, jvm_Object);
 
   /* emit handler for InvocationTargetException */
-  et->target = gen_store_op(vnum, Object);
+  et->target = bc_gen_store_op(meth, vnum, jvm_Object);
 
-  c = newFieldref(cur_const_table, JL_SYSTEM, "err", OUT_DESC);
-  bytecode1(jvm_getstatic, c->index);
+  c = bc_new_fieldref(cclass, JL_SYSTEM, "err", OUT_DESC);
+  bc_append(meth, jvm_getstatic, c);
 
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
+  c = cp_find_or_insert(cclass, CONSTANT_Class, STRINGBUFFER);
+  bc_append(meth, jvm_new,c);
+  bc_append(meth, jvm_dup);
 
-  pushStringConst("Error Calling Method: ");
+  bc_push_string_const(meth, "Error Calling Method: ");
 
-  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-  bytecode1(jvm_invokespecial, c->index);
+  c = bc_new_methodref(cclass, STRINGBUFFER, "<init>", STRBUF_DESC);
+  bc_append(meth, jvm_invokespecial, c);
 
-  gen_load_op(vnum,Object);
+  bc_gen_load_op(meth, vnum,jvm_Object);
 
-  c = newMethodref(cur_const_table,THROWABLE_CLASS,
-           "getMessage", GETMSG_DESC);
-  bytecode1(jvm_invokevirtual, c->index);
+  c = bc_new_methodref(cclass, THROWABLE_CLASS, "getMessage", GETMSG_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
 
-  c = newMethodref(cur_const_table,STRINGBUFFER,
-           "append", append_descriptor[String]);
-  bytecode1(jvm_invokevirtual, c->index);
+  c = bc_new_methodref(cclass, STRINGBUFFER, "append", 
+        append_descriptor[String]);
+  bc_append(meth, jvm_invokevirtual, c);
 
-  c = newMethodref(cur_const_table,STRINGBUFFER,
-           "toString", TOSTRING_DESC);
-  bytecode1(jvm_invokevirtual, c->index);
+  c = bc_new_methodref(cclass, STRINGBUFFER, "toString", TOSTRING_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
 
-  c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+  c = bc_new_methodref(cclass, PRINTSTREAM, "println",
         println_descriptor[String]);
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_append(meth, jvm_invokevirtual, c);
 
   /* artificially set stack depth at beginning of exception
    * handler to 1.
    */
-  et->target->stack_depth = 1;
+  bc_set_stack_depth(et->target, 1);
 
-  releaseLocal(Object);
+  bc_release_local(meth, jvm_Object);
 }
 
 /*****************************************************************************
@@ -940,25 +889,24 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
  *****************************************************************************/
 
 void
-pause_emit(AST *root)
+pause_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE *c;
+  int c;
 
   if(root->astnode.constant.number[0] != 0) {
     fprintf(curfp,"org.netlib.util.Util.pause(\"%s\");\n",
        root->astnode.constant.number);
 
-    pushStringConst(root->astnode.constant.number);
-    c = newMethodref(cur_const_table, UTIL_CLASS, "pause",
-       PAUSE_DESC);
-    bytecode1(jvm_invokestatic, c->index);
+    bc_push_string_const(meth, root->astnode.constant.number);
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "pause", PAUSE_DESC);
+    bc_append(meth, jvm_invokestatic, c);
   }
   else {
     fprintf(curfp,"org.netlib.util.Util.pause();\n");
 
-    c = newMethodref(cur_const_table, UTIL_CLASS, "pause",
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "pause",
        PAUSE_NOARG_DESC);
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
   }
 }
 
@@ -972,9 +920,9 @@ pause_emit(AST *root)
  *****************************************************************************/
 
 void
-stop_emit(AST *root)
+stop_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE *c;
+  int c;
 
   if(root->astnode.constant.number[0] != 0) {
     char stop_msg[MAX_CONST_LEN + 6];
@@ -982,23 +930,23 @@ stop_emit(AST *root)
     strcpy(stop_msg, "STOP: ");
     strncat(stop_msg, root->astnode.constant.number, MAX_CONST_LEN);
 
-    c = newFieldref(cur_const_table, JL_SYSTEM, "err", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "err", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
 
-    pushStringConst(stop_msg);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+    bc_push_string_const(meth, stop_msg);
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
           println_descriptor[String]);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
     fprintf(curfp, "System.err.println(\"STOP: %s\");\n",
        root->astnode.constant.number);
   }
 
   fprintf (curfp, "System.exit(0);\n");
-  bytecode0(jvm_iconst_0);
-  c = newMethodref(cur_const_table, JL_SYSTEM, "exit",
+  bc_append(meth, jvm_iconst_0);
+  c = bc_new_methodref(cur_class_file, JL_SYSTEM, "exit",
        EXIT_DESC);
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 }
 
 /*****************************************************************************
@@ -1014,34 +962,34 @@ stop_emit(AST *root)
  *****************************************************************************/
 
 void
-end_emit()
+end_emit(JVM_METHOD *meth)
 {
-  CodeGraphNode *goto_node, *goto_node2;
-  CPNODE *c;
+  JVM_CODE_GRAPH_NODE *goto_node, *goto_node2;
+  int c;
 
   if(import_reflection) {
     /* this goto skips the execption handlers under normal execution */
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bc_append(meth, jvm_goto);
 
     /* set the end point for the exception handlers. */
     reflect_entry->to = goto_node;
     access_entry->to = goto_node;
 
-    invocation_exception_handler_emit(reflect_entry);
-    goto_node2 = bytecode0(jvm_goto);
-    invocation_exception_handler_emit(access_entry);
+    invocation_exception_handler_emit(cur_class_file, meth, reflect_entry);
+    goto_node2 = bc_append(meth, jvm_goto);
+    invocation_exception_handler_emit(cur_class_file, meth, access_entry);
 
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, INVOKE_EXCEPTION);
-    reflect_entry->catch_type = c->index;
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, INVOKE_EXCEPTION);
+    reflect_entry->catch_type = c;
 
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, ACCESS_EXCEPTION);
-    access_entry->catch_type = c->index;
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, ACCESS_EXCEPTION);
+    access_entry->catch_type = c;
 
-    dl_insert_b(exc_table, reflect_entry);
-    dl_insert_b(exc_table, access_entry);
+    bc_add_exception_handler(meth, reflect_entry);
+    bc_add_exception_handler(meth, access_entry);
 
-    goto_node->branch_target = bytecode0(jvm_impdep1);
-    goto_node2->branch_target = bytecode0(jvm_impdep1);
+    bc_set_branch_target(goto_node, bc_append(meth, jvm_xxxunusedxxx));
+    bc_set_branch_target(goto_node2, bc_append(meth, jvm_xxxunusedxxx));
 
     fprintf(curfp, "%s%s%s%s%s%s%s",
        "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
@@ -1077,7 +1025,7 @@ end_emit()
    * to avoid duplicates, check whether the last opcode generated was
    * a return.  if so, do not generate another one here. 
    */
-  switch(lastOp) {
+  switch(bc_get_last_opcode(meth)) {
     case jvm_ireturn:
     case jvm_lreturn:
     case jvm_freturn:
@@ -1087,7 +1035,7 @@ end_emit()
       /* do nothing */
       break;
     default:
-      return_emit();
+      return_emit(meth);
       break;  /* ansi compliance */
   }
 }
@@ -1103,7 +1051,7 @@ end_emit()
  *****************************************************************************/
 
 void
-return_emit()
+return_emit(JVM_METHOD *meth)
 {
   /* for bytecode, check if the current program unit is a
    * Function.  if so, we push the implicit return value
@@ -1124,17 +1072,17 @@ return_emit()
       rlv = ht->variable->astnode.ident.localvnum;
 
     if(omitWrappers && !cgPassByRef(returnname))
-      pushVar(cur_unit->vartype, FALSE, cur_filename,
+      pushVar(cur_class_file, meth, cur_unit->vartype, FALSE, cur_filename,
               returnname, field_descriptor[cur_unit->vartype][0],
               rlv, FALSE);
     else
-      pushVar(cur_unit->vartype, FALSE, cur_filename,
+      pushVar(cur_class_file, meth, cur_unit->vartype, FALSE, cur_filename,
               returnname, wrapped_field_descriptor[cur_unit->vartype][0],
               rlv, TRUE);
-    bytecode0(return_opcodes[cur_unit->vartype]);
+    bc_append(meth, return_opcodes[cur_unit->vartype]);
   }
   else
-    bytecode0(jvm_return);
+    bc_append(meth, jvm_return);
 }
 
 /*****************************************************************************
@@ -1198,42 +1146,7 @@ field_emit(AST *root)
     printf("\tdesc: %s\n",desc);
   }
 
-  addField(name,desc);
-}
-
-/*****************************************************************************
- *                                                                           *
- * addField                                                                  *
- *                                                                           *
- * this code creates the field_info structure, assigns the                   *
- * appropriate values into it, and inserts it into the field list.           *
- *                                                                           *
- *****************************************************************************/
-
-void
-addField(char *name, char *desc)
-{
-  struct field_info * tmpfield;
-  CPNODE *c;
-
-  if(gendebug)
-    printf("addField() creating new field for %s - %s\n",name,desc);
-
-  tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
-  tmpfield->access_flags = F2J_NORMAL_ACC;
-
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, name);
-  tmpfield->name_index = c->index;
-
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, desc);
-  tmpfield->descriptor_index = c->index;
-
-  tmpfield->attributes_count = 0;
-  tmpfield->attributes = NULL;
-
-  dl_insert_b(cur_class_file->fields, tmpfield);
-
-  cur_class_file->fields_count++;
+  bc_add_field(cur_class_file, name, desc, F2J_NORMAL_ACC);
 }
 
 /*****************************************************************************
@@ -1420,7 +1333,7 @@ emit_javadoc_comments(AST *root)
 
 
 void 
-equiv_emit (AST *root)
+equiv_emit (JVM_METHOD *meth, AST *root)
 {
   HASHNODE *ht;
   AST *temp;
@@ -1456,7 +1369,7 @@ equiv_emit (AST *root)
       /* now emit the declaration as with any other variable.  */
 
       if(temp->astnode.equiv.clist->astnode.ident.merged_name != NULL)
-        vardec_emit(ht->variable, curType, "public static ");
+        vardec_emit(meth, ht->variable, curType, "public static ");
     }
   }
 }
@@ -1469,11 +1382,11 @@ equiv_emit (AST *root)
  *                                                                           *
  *****************************************************************************/
 
-METHODREF *
+JVM_METHODREF *
 find_commonblock(char *cblk_name, Dlist dt)
 {
   char *temp_commonblockname;
-  METHODREF *mtmp;
+  JVM_METHODREF *mtmp;
 
   temp_commonblockname = (char *) f2jalloc(strlen(cblk_name) +
       strlen(CB_PREFIX) + 1);
@@ -1584,7 +1497,7 @@ getVarNameFromCommonEntry(const char *p)
  *****************************************************************************/
 
 void
-assign_merged_names(AST *Ctemp, METHODREF *mtmp)
+assign_merged_names(AST *Ctemp, JVM_METHODREF *mtmp)
 {
   HASHNODE *hashtemp;
   AST *Ntemp;
@@ -1629,18 +1542,15 @@ assign_merged_names(AST *Ctemp, METHODREF *mtmp)
 void
 common_emit(AST *root)
 {
+  JVM_METHOD *clinit_method;
   HASHNODE *hashtemp;
-  METHODREF *mtmp;
+  JVM_METHODREF *mtmp;
   AST *Ctemp, *Ntemp, *temp;
   char *common_classname=NULL, *filename=NULL;
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
-  Dlist save_const_table, save_exc_table;
-  struct ClassFile *save_class_file;
-  struct attribute_info *save_code;
-  int save_stack, save_pc, save_handlers;
+  JVM_CLASS *save_class_file;
   char *save_filename;
-  struct method_info *save_clinit;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1648,26 +1558,14 @@ common_emit(AST *root)
    * classes to hold COMMON blocks and we dont want to alter the pc, stack,
    * etc for the current class.
    */
-  save_const_table = cur_const_table;
   save_class_file = cur_class_file; 
-  save_handlers = num_handlers;
   save_filename = cur_filename; 
-  save_clinit = clinit_method;
-  save_code = cur_code;
-  save_stack = stacksize;
-  save_pc = pc;
-  save_exc_table = exc_table;
 
-  /* set stuff to NULL in case we decide not to reset them here and
-   * end up trying to free them later.  then we don't blow away the
+  /* set cur_filename to NULL in case we decide not to reset it here and
+   * end up trying to free it later.  then we don't blow away the
    * original memory.
    */
   cur_filename = NULL;
-  cur_class_file = NULL;
-  cur_const_table = NULL;
-  clinit_method = NULL;
-  cur_code = NULL;
-  exc_table = NULL;
 
   /*
    * Ctemp loops through each common block name specified
@@ -1707,20 +1605,24 @@ common_emit(AST *root)
       if(gendebug)
         printf("emitting common block '%s'\n",common_classname);
 
-      cur_filename = get_full_classname(common_classname);
+      cur_filename = bc_get_full_classname(common_classname, package_name);
 
       filename = (char *)f2jrealloc(filename,
                                     strlen(cur_filename) + 6);
       sprintf(filename,"%s.java", cur_filename);
+     
+      cur_class_file = bc_new_class(common_classname,inputfilename, 
+          "java.lang.Object", package_name, F2J_CLASS_ACC); 
 
-      cur_const_table = make_dl();
-      cur_class_file = newClassFile(common_classname,inputfilename);
-      clinit_method = beginNewMethod(F2J_NORMAL_ACC);
+      bc_add_default_constructor(cur_class_file, F2J_INIT_ACC);
+      
+      clinit_method = bc_new_method(cur_class_file, "<clinit>", "()V", 
+         F2J_NORMAL_ACC);
 
       if(gendebug)
         printf("## going to open file: '%s'\n", filename);
 
-      if((commonfp = fopen_fullpath(filename,"w"))==NULL) 
+      if((commonfp = bc_fopen_fullpath(filename,"w", output_dir))==NULL) 
       {
         fprintf(stderr,"Cannot open output file '%s'.\n",filename);
         perror("Reason");
@@ -1783,7 +1685,7 @@ common_emit(AST *root)
          * other variable.
          */
 
-        vardec_emit(temp, temp->vartype, "public static ");
+        vardec_emit(clinit_method, temp, temp->vartype, "public static ");
       }
       fprintf(indexfp,"\n");
 
@@ -1796,23 +1698,17 @@ common_emit(AST *root)
        * if so, finish initializing the method and insert it into this
        * class.
        */
-      if(pc > 0) {
-        bytecode0(jvm_return);
-        endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V",
-          1, NULL);
+      if(bc_get_code_length(clinit_method) > 0) {
+        bc_append(clinit_method, jvm_return);
+        fprintf(indexfp,"%s:%s:%s\n",cur_filename, "<clinit>", "()V");
       }
       else {
-        free_method_info(clinit_method);
-        free_code_attribute(cur_code, NULL);
-        dl_delete_list(exc_table);
+        bc_remove_method(clinit_method);
+        bc_free_method(clinit_method);
       }
 
-      cur_class_file->constant_pool_count = 
-         (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
-      cur_class_file->constant_pool = cur_const_table;
-
-      write_class(cur_class_file);
-      free_class(cur_class_file);
+      bc_write_class(cur_class_file, output_dir);
+      bc_free_class(cur_class_file);
     }
   }
 
@@ -1824,16 +1720,8 @@ common_emit(AST *root)
   if(cur_filename) f2jfree(cur_filename,strlen(cur_filename)+1);
 
   /* restore previously saved globals */
-
-  cur_const_table = save_const_table;
   cur_class_file = save_class_file;
-  num_handlers = save_handlers;
   cur_filename = save_filename; 
-  clinit_method = save_clinit;
-  exc_table = save_exc_table;
-  stacksize = save_stack;
-  cur_code = save_code;
-  pc = save_pc;
 }
 
 /*****************************************************************************
@@ -1855,7 +1743,7 @@ getNameFromCommonDesc(char *desc, int idx)
   p = desc + 1;
 
   while(del_count < idx) {
-    p = skipToken(p);      /* skip the descriptor */
+    p = bc_next_desc_token(p);      /* skip the descriptor */
     p++;                   /* skip the comma */
 
     /* skip until next descriptor */
@@ -1869,7 +1757,7 @@ getNameFromCommonDesc(char *desc, int idx)
   if(p == '\0')
     return NULL;
 
-  p = skipToken(p);
+  p = bc_next_desc_token(p);
   p++;
 
   while((*(p+len) != CB_DELIMITER) && (*(p+len) != '\0'))
@@ -1955,7 +1843,7 @@ getCommonVarName(AST *root)
  *****************************************************************************/
 
 void
-typedec_emit (AST * root)
+typedec_emit (JVM_METHOD *meth, AST * root)
 {
   AST *temp;
   HASHNODE *ht;
@@ -1980,7 +1868,7 @@ typedec_emit (AST * root)
     }
 
     if(is_static(temp))
-      vardec_emit(temp, returns, "public static ");
+      vardec_emit(meth, temp, returns, "public static ");
   }
 }                               /* Close typedec_emit(). */
 
@@ -2174,7 +2062,7 @@ is_local(AST *root){
  *****************************************************************************/
 
 void
-local_emit(AST *root)
+local_emit(JVM_METHOD *meth, AST *root)
 {
   AST *temp, *temp2;
   HASHNODE *ht;
@@ -2210,7 +2098,7 @@ local_emit(AST *root)
 
         if(gendebug)
           printf("Emitting local variable %s\n", temp->astnode.ident.name);
-        vardec_emit(temp, returns, "");
+        vardec_emit(meth, temp, returns, "");
       }
     }
 
@@ -2228,7 +2116,7 @@ local_emit(AST *root)
  *****************************************************************************/
 
 void
-assign_varnums_to_locals(AST *root)
+assign_varnums_to_locals(JVM_METHOD *meth, AST *root)
 {
   AST *temp, *temp2;
   HASHNODE *ht;
@@ -2255,7 +2143,8 @@ assign_varnums_to_locals(AST *root)
         /* might want to check whether it's a double precision array & only 
          * grab one register in that case... kgs
          */
-        ht->variable->astnode.ident.localvnum = getNextLocal(temp->vartype);
+        ht->variable->astnode.ident.localvnum = 
+           bc_get_next_local(meth, jvm_data_types[temp->vartype]);
         temp->astnode.ident.localvnum = ht->variable->astnode.ident.localvnum;
 
         if(gendebug)
@@ -2281,7 +2170,7 @@ assign_varnums_to_locals(AST *root)
  *****************************************************************************/
 
 void
-typedec_emit_all_static (AST * root)
+typedec_emit_all_static (JVM_METHOD *meth, AST * root)
 {
   AST *temp;
   HASHNODE *hashtemp, *ht;
@@ -2425,7 +2314,7 @@ typedec_emit_all_static (AST * root)
     if(gendebug)
       printf("### calling vardec_emit on %s\n",temp->astnode.ident.name);
 
-    vardec_emit(temp, returns, "public static ");
+    vardec_emit(meth, temp, returns, "public static ");
   }
 }				/* Close typedec_emit(). */
 
@@ -2439,23 +2328,22 @@ typedec_emit_all_static (AST * root)
  *****************************************************************************/
 
 void
-newarray_emit(enum returntype vtype)
+newarray_emit(JVM_METHOD *meth, enum returntype vtype)
 {
-  CPNODE *c;
+  int c;
 
   switch(vtype) {
     case String:
     case Character:
-      c = cp_find_or_insert(cur_const_table, CONSTANT_Class,
-            "java/lang/String");
-      bytecode1(jvm_anewarray, c->index);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, "java/lang/String");
+      bc_append(meth, jvm_anewarray, c);
       break;
     case Complex:
     case Double:
     case Float:
     case Integer:
     case Logical:
-      bytecode1(jvm_newarray, jvm_array_type[vtype]);
+      bc_append(meth, jvm_newarray, jvm_array_type[vtype]);
       break;
     default:
       fprintf(stderr,"WARNING: newarray_emit() unknown vartype\n");
@@ -2549,13 +2437,14 @@ getMergedDescriptor(AST *root, enum returntype returns)
  *****************************************************************************/
 
 void
-vardec_emit(AST *root, enum returntype returns, char *prefix)
+vardec_emit(JVM_METHOD *meth, AST *root, enum returntype returns, 
+    char *prefix)
 {
   char *name, *desc;
   HASHNODE *hashtemp;
   int count;
   AST *temp2;
-  CPNODE *c;
+  int c;
   struct var_info *ainf;
 
   if(type_lookup(cur_external_table, root->astnode.ident.name))
@@ -2591,7 +2480,7 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
 
     if (gendebug)
       printf ("found array %s, calling name_emit\n", returnstring[returns]); 
-    name_emit (root); 
+    name_emit (meth, root); 
 
     if (returns == Integer)
       fprintf (curfp, "= new int[");
@@ -2625,27 +2514,27 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
            * then we must allocate (end - start + 1) elements. 
            */
 
-          expr_emit(temp2->astnode.expression.rhs);
+          expr_emit(meth, temp2->astnode.expression.rhs);
           fprintf(curfp," - ");
-          expr_emit(temp2->astnode.expression.lhs);
+          expr_emit(meth, temp2->astnode.expression.lhs);
           fprintf(curfp," + 1");
 
           /* at this point, we've pushed the end and start onto the
            * stack, so now we just subtract start from end and increment
            * by one as described above.
            */
-          bytecode0(jvm_isub);
-          bytecode0(jvm_iconst_1);
-          bytecode0(jvm_iadd);
+          bc_append(meth, jvm_isub);
+          bc_append(meth, jvm_iconst_1);
+          bc_append(meth, jvm_iadd);
         }
         else
-          expr_emit(temp2);
+          expr_emit(meth, temp2);
 
         /* if this isn't the first iteration, then we must multiply
          * the dimensions to get the total size of the array.
          */
         if(temp2 != root->astnode.ident.arraylist)
-          bytecode0(jvm_imul);
+          bc_append(meth, jvm_imul);
 
         fprintf(curfp,")");
       }
@@ -2663,9 +2552,9 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
      * different opcodes for creating these arrays.
      */
 
-    newarray_emit(root->vartype);
+    newarray_emit(meth, root->vartype);
 
-    storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+    storeVar(cur_class_file, meth, root->vartype, ainf->is_arg, ainf->class, ainf->name,
       ainf->desc, ainf->localvar, FALSE);
   } else {    /* this is not an array declaration */
 
@@ -2680,7 +2569,7 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
       if (gendebug)
         printf ("%s\n", returnstring[returns]);
 
-      name_emit (root);
+      name_emit (meth, root);
 
       /* this variable is not declared as a parameter, so
        * initialize it with an initial value depending on
@@ -2689,7 +2578,7 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
 
       if ((returns == String) || (returns == Character))
       {
-        print_string_initializer(root);
+        print_string_initializer(meth, root);
         fprintf(curfp,";\n");
 
         if(gendebug) {
@@ -2699,32 +2588,32 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
           printf("\tdesc:  %s\n", desc ? desc : "NULL");
         }
 
-        storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+        storeVar(cur_class_file, meth, root->vartype, ainf->is_arg, ainf->class, ainf->name,
           ainf->desc, ainf->localvar, FALSE);
       }
       else {
         if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
           fprintf(curfp,"= %s;\n", init_vals[returns]);
-          bytecode0(init_opcodes[returns]);
-          storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+          bc_append(meth, init_opcodes[returns]);
+          storeVar(cur_class_file, meth, root->vartype, ainf->is_arg, ainf->class, ainf->name,
              ainf->desc, ainf->localvar, FALSE);
         }
         else
         {
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+          c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
                     full_wrappername[returns]);
 
-          bytecode1(jvm_new,c->index);
-          bytecode0(jvm_dup);
+          bc_append(meth, jvm_new,c);
+          bc_append(meth, jvm_dup);
 
-          bytecode0(init_opcodes[returns]);
+          bc_append(meth, init_opcodes[returns]);
 
-          c = newMethodref(cur_const_table,full_wrappername[returns],
+          c = bc_new_methodref(cur_class_file,full_wrappername[returns],
                  "<init>", wrapper_descriptor[returns]);
 
-          bytecode1(jvm_invokespecial, c->index);
+          bc_append(meth, jvm_invokespecial, c);
 
-          storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+          storeVar(cur_class_file, meth, root->vartype, ainf->is_arg, ainf->class, ainf->name,
              ainf->desc, ainf->localvar, FALSE);
 
           fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
@@ -2748,7 +2637,7 @@ vardec_emit(AST *root, enum returntype returns, char *prefix)
  *****************************************************************************/
 
 void
-print_string_initializer(AST *root)
+print_string_initializer(JVM_METHOD *meth, AST *root)
 {
   char *src_initializer, *bytecode_initializer;
   AST *tempnode;
@@ -2809,11 +2698,11 @@ print_string_initializer(AST *root)
 
   if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
     fprintf(curfp,"= new String(%s)", src_initializer);
-    invoke_constructor(JL_STRING, tempnode, STR_CONST_DESC);
+    invoke_constructor(meth, JL_STRING, tempnode, STR_CONST_DESC);
   }
   else {
     fprintf(curfp,"= new StringW(%s)", src_initializer);
-    invoke_constructor(full_wrappername[String], tempnode,
+    invoke_constructor(meth, full_wrappername[String], tempnode,
        wrapper_descriptor[String]);
   }
 
@@ -2836,7 +2725,7 @@ print_string_initializer(AST *root)
  *****************************************************************************/
 
 void
-data_emit(AST *root)
+data_emit(JVM_METHOD *meth, AST *root)
 {
   AST * Dtemp, *Ntemp, *Ctemp;
   HASHNODE *hashtemp;
@@ -2853,7 +2742,7 @@ data_emit(AST *root)
 
       if(Ntemp->nodetype == DataImpliedLoop) 
       {
-        data_implied_loop_emit(Ntemp, Ctemp);
+        data_implied_loop_emit(meth, Ntemp, Ctemp);
         continue;
       }
 
@@ -2883,7 +2772,7 @@ data_emit(AST *root)
         continue;
       }
 
-      Ctemp = data_var_emit(Ntemp,Ctemp,hashtemp);
+      Ctemp = data_var_emit(meth, Ntemp,Ctemp,hashtemp);
     }
   }
 }
@@ -2912,7 +2801,7 @@ data_emit(AST *root)
  *****************************************************************************/
 
 AST *
-data_implied_loop_emit(AST * root, AST *Clist)
+data_implied_loop_emit(JVM_METHOD *meth, AST * root, AST *Clist)
 {
   AST * loop_var, * lhs;
   int start, stop, incr, i;
@@ -2978,12 +2867,12 @@ data_implied_loop_emit(AST * root, AST *Clist)
   for(i = start; i <= stop; i += incr)
   {
     global_sub.val = i;
-    name_emit(lhs);
+    name_emit(meth, lhs);
     fprintf(curfp, " = ");
-    expr_emit(Clist);
+    expr_emit(meth, Clist);
     fprintf(curfp, ";\n");
     Clist = Clist->nextstmt;
-    bytecode0(array_store_opcodes[ht->variable->vartype]);
+    bc_gen_array_store_op(meth, jvm_data_types[ht->variable->vartype]);
   }
   fprintf(curfp,"}\n");
 
@@ -3005,7 +2894,7 @@ data_implied_loop_emit(AST * root, AST *Clist)
  *****************************************************************************/
 
 AST *
-data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
+data_var_emit(JVM_METHOD *meth, AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 {
   int length, is_array, needs_dec;
 
@@ -3074,7 +2963,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
     if(gendebug)
       printf("VAR going to data_array_emit\n");
 
-    Ctemp = data_array_emit(length, Ctemp, Ntemp);
+    Ctemp = data_array_emit(meth, length, Ctemp, Ntemp);
   }
   else 
   {
@@ -3085,12 +2974,12 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
       else
         fprintf(curfp,"public static %s ", wrapper_returns[ hashtemp->variable->vartype]);
 
-      data_scalar_emit(hashtemp->variable->vartype, Ctemp, Ntemp, needs_dec);
+      data_scalar_emit(meth, hashtemp->variable->vartype, Ctemp, Ntemp, needs_dec);
     }
     else 
     {
       fprintf(curfp,"static {\n");
-      data_scalar_emit(hashtemp->variable->vartype, Ctemp, Ntemp, needs_dec);
+      data_scalar_emit(meth, hashtemp->variable->vartype, Ctemp, Ntemp, needs_dec);
       fprintf(curfp,"}\n");
     }
 
@@ -3162,7 +3051,7 @@ determine_var_length(HASHNODE *var)
  *****************************************************************************/
 
 AST *
-data_array_emit(int length, AST *Ctemp, AST *Ntemp)
+data_array_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
 {
   unsigned int count, size = 0;
   HASHNODE *ht;
@@ -3210,27 +3099,27 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp)
   else
     size = length;
   
-  pushIntConst(size);
-  newarray_emit(ht->variable->vartype);
+  bc_push_int_const(meth, size);
+  newarray_emit(meth, ht->variable->vartype);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++) {
 
     if(Ctemp->nodetype == Binaryop) 
-      count = data_repeat_emit(Ctemp, Ntemp, count);
+      count = data_repeat_emit(meth, Ctemp, Ntemp, count);
     else {
-      bytecode0(jvm_dup);
-      pushIntConst(count++);
+      bc_append(meth, jvm_dup);
+      bc_push_int_const(meth, count++);
 
       if(Ctemp->token == STRING) {
         fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
-        invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
+        invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
       }
       else {
         fprintf(curfp,"%s ", Ctemp->astnode.constant.number);
-        pushConst(Ctemp);
+        pushConst(meth, Ctemp);
       }
 
-      bytecode0(array_store_opcodes[ht->variable->vartype]);
+      bc_gen_array_store_op(meth, jvm_data_types[ht->variable->vartype]);
 
       /* 
        * Every now and then, emit a newline for readability.
@@ -3257,7 +3146,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp)
    
   fprintf(curfp,"};\n");
 
-  storeVar(Ntemp->vartype, ainf->is_arg, ainf->class, ainf->name,
+  storeVar(cur_class_file, meth, Ntemp->vartype, ainf->is_arg, ainf->class, ainf->name,
     ainf->desc, ainf->localvar, FALSE);
 
   return Ctemp;
@@ -3277,7 +3166,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp)
  *****************************************************************************/
 
 int
-data_repeat_emit(AST *root, AST *Ntemp, unsigned int idx)
+data_repeat_emit(JVM_METHOD *meth, AST *root, AST *Ntemp, unsigned int idx)
 {
   int j, repeat;
   char *ditem;
@@ -3315,10 +3204,10 @@ data_repeat_emit(AST *root, AST *Ntemp, unsigned int idx)
        keep_going = TRUE;    /* Used because the vartype is the same now */
     }
     fprintf(curfp,"%s, ", ditem);
-    bytecode0(jvm_dup);
-    pushIntConst(idx++);
-    pushConst(root->astnode.expression.rhs);
-    bytecode0(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+    bc_append(meth, jvm_dup);
+    bc_push_int_const(meth, idx++);
+    pushConst(meth, root->astnode.expression.rhs);
+    bc_gen_array_store_op(meth, jvm_data_types[root->astnode.expression.rhs->vartype]);
  }
  if((Ntemp->vartype != root->astnode.expression.rhs->vartype)||(keep_going)){
      root->astnode.expression.rhs->token = cast_data_stmt(Ntemp,
@@ -3326,10 +3215,10 @@ data_repeat_emit(AST *root, AST *Ntemp, unsigned int idx)
      root->astnode.expression.rhs->vartype = Ntemp->vartype;
  }
  fprintf(curfp,"%s ", ditem);
- bytecode0(jvm_dup);
- pushIntConst(idx++);
- pushConst(root->astnode.expression.rhs);
- bytecode0(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+ bc_append(meth, jvm_dup);
+ bc_push_int_const(meth, idx++);
+ pushConst(meth, root->astnode.expression.rhs);
+ bc_gen_array_store_op(meth, jvm_data_types[root->astnode.expression.rhs->vartype]);
 
  return idx;
 }
@@ -3344,9 +3233,10 @@ data_repeat_emit(AST *root, AST *Ntemp, unsigned int idx)
  *****************************************************************************/
 
 void
-data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
+data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp, 
+                                                                             int needs_dec)
 {
-  CPNODE *c;
+  int c;
 
   if(Ctemp->nodetype == Binaryop)
   {
@@ -3394,8 +3284,8 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
 
-        invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
-        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+        invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
+        c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
               field_descriptor[String][0]);
       }
       else {
@@ -3403,12 +3293,12 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
 
-        invoke_constructor(full_wrappername[type], Ctemp, STR_CONST_DESC);
-        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+        invoke_constructor(meth, full_wrappername[type], Ctemp, STR_CONST_DESC);
+        c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
               wrapped_field_descriptor[String][0]);
       }
 
-      bytecode1(jvm_putstatic, c->index);
+      bc_append(meth, jvm_putstatic, c);
     }
     else
     {
@@ -3419,12 +3309,12 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
        * string into the array element.
        */
 
-      expr_emit(Ntemp);
+      expr_emit(meth, Ntemp);
       fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.constant.number);
 
-      invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
+      invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
 
-      bytecode0(array_store_opcodes[Ntemp->vartype]);
+      bc_gen_array_store_op(meth, jvm_data_types[Ntemp->vartype]);
     }
   }
   else 
@@ -3448,20 +3338,20 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
            Ctemp->vartype = Ntemp->vartype;
         }
         fprintf(curfp, "%s;\n", Ctemp->astnode.constant.number);
-        pushConst(Ctemp);
-        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+        pushConst(meth, Ctemp);
+        c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
               field_descriptor[type][0]);
       }
       else {
         fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
           wrapper_returns[ type], Ctemp->astnode.constant.number);
-        invoke_constructor(full_wrappername[type], Ctemp,
+        invoke_constructor(meth, full_wrappername[type], Ctemp,
           wrapper_descriptor[type]);
-        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+        c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
               wrapped_field_descriptor[type][0]);
       }
 
-      bytecode1(jvm_putstatic, c->index);
+      bc_append(meth, jvm_putstatic, c);
     }
     else
     {
@@ -3470,15 +3360,15 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
        * just push the constant onto the stack and issue an array store
        * instruction.
        */
-      expr_emit(Ntemp);
+      expr_emit(meth, Ntemp);
       fprintf(curfp, " = ");
       if(Ntemp->vartype != Ctemp->vartype){
          Ctemp->token = cast_data_stmt(Ntemp, Ctemp->token);  
          Ctemp->vartype = Ntemp->vartype;
       }
       fprintf(curfp,"%s;\n", Ctemp->astnode.constant.number);
-      pushConst(Ctemp);
-      bytecode0(array_store_opcodes[type]);
+      pushConst(meth, Ctemp);
+      bc_gen_array_store_op(meth, jvm_data_types[type]);
     }
   }
 }
@@ -3494,23 +3384,23 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
  *****************************************************************************/
 
 void
-invoke_constructor(char *classname, AST *constant, char *desc)
+invoke_constructor(JVM_METHOD *meth, char *classname, AST *constant, char *desc)
 {
-  CPNODE *c;
+  int c;
 
   if(gendebug)
     printf("invoke_constructor(): classname = %s, constant = '%s'\n", 
            classname, constant->astnode.constant.number);
 
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
+  c = cp_find_or_insert(cur_class_file,CONSTANT_Class, classname);
 
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
-  pushConst(constant);
+  bc_append(meth, jvm_new,c);
+  bc_append(meth, jvm_dup);
+  pushConst(meth, constant);
 
-  c = newMethodref(cur_const_table, classname, "<init>", desc);
+  c = bc_new_methodref(cur_class_file, classname, "<init>", desc);
 
-  bytecode1(jvm_invokespecial, c->index);
+  bc_append(meth, jvm_invokespecial, c);
 }
 
 /*****************************************************************************
@@ -3537,7 +3427,7 @@ invoke_constructor(char *classname, AST *constant, char *desc)
 
 
 void
-name_emit (AST * root)
+name_emit (JVM_METHOD *meth, AST * root)
 {
   HASHNODE *hashtemp;
   char * tempname;
@@ -3569,11 +3459,11 @@ name_emit (AST * root)
   hashtemp = type_lookup (cur_array_table, root->astnode.ident.name); 
   if((root->astnode.ident.arraylist == NULL)
     &&(!type_lookup(cur_external_table, root->astnode.ident.name))){
-      scalar_emit(root, hashtemp);
+      scalar_emit(meth, root, hashtemp);
       return;
   }
   else if(hashtemp){
-      array_emit(root);
+      array_emit(meth, root);
       return;
   }
   
@@ -3589,14 +3479,14 @@ name_emit (AST * root)
             if(hashtemp){
               root->vartype = hashtemp->variable->vartype;
             }
-            external_emit(root);
+            external_emit(meth, root);
   }
   else if((type_lookup(function_table, root->astnode.ident.name) == NULL)
          && (find_method(root->astnode.ident.name, descriptor_table) == NULL)
          && (type_lookup(cur_type_table, root->astnode.ident.name) == NULL)
          && (methodscan(intrinsic_toks, tempname) != NULL)){
          if(gendebug)printf("calling intrinsic emit %s\n", root->astnode.ident.name);
-         intrinsic_emit(root);
+         intrinsic_emit(meth, root);
   } 
   else
     switch (root->token)
@@ -3621,9 +3511,9 @@ name_emit (AST * root)
       case NAME:
       default:
         if (root->nodetype == Substring)
-          substring_emit(root);
+          substring_emit(meth, root);
         else{
-          subcall_emit(root);    
+          subcall_emit(meth, root);    
         }
         break;
   }
@@ -3641,7 +3531,7 @@ name_emit (AST * root)
  *****************************************************************************/
 
 void
-substring_emit(AST *root)
+substring_emit(JVM_METHOD *meth, AST *root)
 {
   HASHNODE *hashtemp;
 
@@ -3650,7 +3540,7 @@ substring_emit(AST *root)
   if(hashtemp)
     fprintf(stderr,"WARNING: substring on array element not supported.\n");
 
-  scalar_emit(root, hashtemp);
+  scalar_emit(meth, root, hashtemp);
 
   if((root->parent->nodetype == Assignment) && 
      (root->parent->astnode.assignment.lhs == root))
@@ -3680,14 +3570,14 @@ substring_emit(AST *root)
  *****************************************************************************/
 
 void 
-subcall_emit(AST *root)
+subcall_emit(JVM_METHOD *meth, AST *root)
 {
-  METHODREF *mref;
+  JVM_METHODREF *mref;
   AST *temp;
   char *tempstr, *t;
   char *desc;
   HASHNODE *ht;
-  CPNODE *c;
+  int c;
 
   fprintf(stderr,"WARNING: undeclared function call: %s",
     root->astnode.ident.name);
@@ -3726,7 +3616,8 @@ subcall_emit(AST *root)
   ht = type_lookup(cur_type_table, root->astnode.ident.name);
 
   if(gendebug){
-     printf("codegen: function return type: %s\n", returnstring[ht->variable->vartype]);
+    printf("codegen: function return type: %s\n", 
+       returnstring[ht->variable->vartype]);
   }
 
   /* Loop through the argument list and emit each one. */
@@ -3739,17 +3630,18 @@ subcall_emit(AST *root)
         fprintf (curfp, ",");  /* if not first iteration */
                         
       if (*temp->astnode.ident.name != '*')
-        expr_emit (temp);
+        expr_emit (meth, temp);
     }
 
-  c = newMethodref(cur_const_table, get_full_classname(tempstr),
-                   root->astnode.ident.name, desc);
+  c = bc_new_methodref(cur_class_file, 
+         bc_get_full_classname(tempstr, package_name),
+         root->astnode.ident.name, desc);
 
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 
   fprintf (curfp, ")");
 
-  free_fieldref(mref);
+  bc_free_fieldref(mref);
 }
 
 /*****************************************************************************
@@ -3810,7 +3702,7 @@ idxNeedsDecr(AST *alist)
  *****************************************************************************/
 
 void
-func_array_emit(AST *root, char *arrayname, int is_arg, 
+func_array_emit(JVM_METHOD *meth, AST *root, char *arrayname, int is_arg, 
   int is_ext)
 {
   int needs_cast;
@@ -3868,24 +3760,24 @@ func_array_emit(AST *root, char *arrayname, int is_arg,
         fprintf(curfp,"+");
 
       fprintf(curfp,"(");
-      expr_emit(tmp);
+      expr_emit(meth, tmp);
       if(tmp->vartype != Integer)
-        bytecode0(typeconv_matrix[tmp->vartype][Integer]);
+        bc_append(meth, typeconv_matrix[tmp->vartype][Integer]);
       fprintf(curfp,"-(");
 
       start = ht->variable->astnode.ident.startDim[i];
 
       if(start != NULL) {
-        expr_emit(start);
+        expr_emit(meth, start);
         if(start->vartype != Integer)
-          bytecode0(typeconv_matrix[start->vartype][Integer]);
+          bc_append(meth, typeconv_matrix[start->vartype][Integer]);
       }
       else {
         fprintf(curfp,"1");
-        pushIntConst(1);
+        bc_push_int_const(meth, 1);
       }
       fprintf(curfp,"))");
-      bytecode0(jvm_isub);
+      bc_append(meth, jvm_isub);
 
       for(j=i-1;j>=0;j--) {
         fprintf(curfp," * ");
@@ -3895,29 +3787,29 @@ func_array_emit(AST *root, char *arrayname, int is_arg,
         end = ht->variable->astnode.ident.endDim[j];
 
         if(start != NULL) {
-          expr_emit(end);
+          expr_emit(meth, end);
           if(end->vartype != Integer)
-            bytecode0(typeconv_matrix[end->vartype][Integer]);
+            bc_append(meth, typeconv_matrix[end->vartype][Integer]);
           fprintf(curfp," - ");
-          expr_emit(start);
+          expr_emit(meth, start);
           if(start->vartype != Integer)
-            bytecode0(typeconv_matrix[start->vartype][Integer]);
-          bytecode0(jvm_isub);
+            bc_append(meth, typeconv_matrix[start->vartype][Integer]);
+          bc_append(meth, jvm_isub);
           fprintf(curfp," + 1");
-          pushIntConst(1);
-          bytecode0(jvm_iadd);
+          bc_push_int_const(meth, 1);
+          bc_append(meth, jvm_iadd);
         }
         else {
-          expr_emit(end);
+          expr_emit(meth, end);
           if(end->vartype != Integer)
-            bytecode0(typeconv_matrix[end->vartype][Integer]);
+            bc_append(meth, typeconv_matrix[end->vartype][Integer]);
         }
         fprintf(curfp,")");
-        bytecode0(jvm_imul);
+        bc_append(meth, jvm_imul);
       }
 
       if(tmp != root)
-        bytecode0(jvm_iadd);
+        bc_append(meth, jvm_iadd);
       tmp = tmp->nextstmt;
     }
   }
@@ -3940,10 +3832,10 @@ func_array_emit(AST *root, char *arrayname, int is_arg,
     else
       varnum = ht->variable->astnode.ident.localvnum + 1;
 
-    pushVar(Integer,is_arg,cur_filename,
+    pushVar(cur_class_file, meth, Integer,is_arg,cur_filename,
             "dummy string...is this significant?",
             "I", varnum , FALSE);
-    bytecode0(jvm_iadd);
+    bc_append(meth, jvm_iadd);
   }
 
   if(needs_cast)
@@ -4015,7 +3907,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
       return TRUE;
     }
     else {
-      METHODREF * mtmp;
+      JVM_METHODREF * mtmp;
 
       /* otherwise, we look up the variable name in the table of
        * COMMON variables.
@@ -4103,7 +3995,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
  *****************************************************************************/
 
 void
-array_emit(AST *root)
+array_emit(JVM_METHOD *meth, AST *root)
 {
   AST *temp;
   struct var_info *arrayinf;
@@ -4113,7 +4005,7 @@ array_emit(AST *root)
       root->astnode.ident.name,
       print_nodetype(root));
 
-  arrayinf = push_array_var(root);
+  arrayinf = push_array_var(meth, root);
 
   temp = root->astnode.ident.arraylist;
 
@@ -4135,13 +4027,13 @@ array_emit(AST *root)
       if(type_lookup(cur_external_table, root->parent->astnode.ident.name) 
        && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
       {
-        func_array_emit(temp, root->astnode.ident.name, 
+        func_array_emit(meth, temp, root->astnode.ident.name, 
            arrayinf->is_arg, TRUE);
       }
       else {
-        func_array_emit(temp, root->astnode.ident.name, 
+        func_array_emit(meth, temp, root->astnode.ident.name, 
            arrayinf->is_arg,FALSE);
-        bytecode0(array_load_opcodes[root->vartype]);
+        bc_gen_array_load_op(meth, jvm_data_types[root->vartype]);
       }
     }
     else if(((root->parent->nodetype == Assignment) &&
@@ -4149,7 +4041,7 @@ array_emit(AST *root)
             (root->parent->nodetype == DataStmt) ||
             (root->parent->nodetype == DataImpliedLoop))
     {
-      func_array_emit(temp, root->astnode.ident.name, 
+      func_array_emit(meth, temp, root->astnode.ident.name, 
          arrayinf->is_arg, FALSE);
     }
     else if((root->parent->nodetype == Typedec)) 
@@ -4159,9 +4051,9 @@ array_emit(AST *root)
         printf("I guess this is just an array declaration\n");
     }
     else {
-      func_array_emit(temp, root->astnode.ident.name, 
+      func_array_emit(meth, temp, root->astnode.ident.name, 
          arrayinf->is_arg, FALSE);
-      bytecode0(array_load_opcodes[root->vartype]);
+      bc_gen_array_load_op(meth, jvm_data_types[root->vartype]);
     }
   }
 
@@ -4177,7 +4069,7 @@ array_emit(AST *root)
  *****************************************************************************/
 
 struct var_info *
-push_array_var(AST *root)
+push_array_var(JVM_METHOD *meth, AST *root)
 {
   struct var_info *ainf;
 
@@ -4201,7 +4093,7 @@ push_array_var(AST *root)
     com_prefix = get_common_prefix(root->astnode.ident.name);
 
     fprintf (curfp, "%s%s", com_prefix, ainf->name);
-    pushVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+    pushVar(cur_class_file, meth, root->vartype, ainf->is_arg, ainf->class, ainf->name,
         ainf->desc, ainf->localvar, FALSE);
 
     f2jfree(com_prefix, strlen(com_prefix)+1);
@@ -4334,7 +4226,7 @@ get_common_prefix(char *varname)
   char * inf = strdup(inputfilename);
   char * prefix = strtok(inf,".");
   static char * cprefix;
-  METHODREF *mtmp;
+  JVM_METHODREF *mtmp;
   char * idx;
 
   /* Look up this variable name in the table of COMMON variables */
@@ -4357,7 +4249,7 @@ get_common_prefix(char *varname)
       sprintf(cprefix,"%s.", mtmp->classname);
     }
     else {
-      char * full_prefix = get_full_classname(prefix);
+      char * full_prefix = bc_get_full_classname(prefix, package_name);
 
       cprefix = (char *) f2jalloc(
          strlen(ht->variable->astnode.ident.commonBlockName) +
@@ -4410,184 +4302,26 @@ getVarDescriptor(AST *root)
  *****************************************************************************/
 
 void
-pushConst(AST *root) {
+pushConst(JVM_METHOD *meth, AST *root) {
   switch(root->token) {
     case INTEGER:
-      pushIntConst(atoi(root->astnode.constant.number));
+      bc_push_int_const(meth, atoi(root->astnode.constant.number));
       break;
     case EXPONENTIAL:
     case DOUBLE:
-      pushDoubleConst(atof(root->astnode.constant.number));
+      bc_push_double_const(meth, atof(root->astnode.constant.number));
       break;
     case TrUE:   /* dont expect to find booleans anyway, so dont try */
-      bytecode0(jvm_iconst_1);
+      bc_append(meth, jvm_iconst_1);
       break;
     case FaLSE:
-      bytecode0(jvm_iconst_0);
+      bc_append(meth, jvm_iconst_0);
       break;
     case STRING:
-      pushStringConst(root->astnode.constant.number);
+      bc_push_string_const(meth, root->astnode.constant.number);
       break;
     default:
       break;
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * pushIntConst                                                              *
- *                                                                           *
- * pushes an integer constant onto the stack.                                *
- *                                                                           *
- *****************************************************************************/
-
-void
-pushIntConst(int ival)
-{
-  CPNODE *ct;
-
-  ct=cp_find_or_insert(cur_const_table,CONSTANT_Integer,(void*)&ival);
-
-  if(ct) {
-    if(ct->index > CPIDX_MAX)
-      bytecode1(jvm_ldc_w,ct->index);
-    else
-      bytecode1(jvm_ldc,ct->index);
-  } else {   /* not found, use literal */
-    if((ival < JVM_SHORT_MIN) || (ival > JVM_SHORT_MAX)) {
-      fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n", ival);
-      return;
-    }
-    else if((ival < JVM_BYTE_MIN) || (ival > JVM_BYTE_MAX))
-      bytecode1(jvm_sipush, ival);
-    else if((ival < JVM_ICONST_MIN) || (ival > JVM_ICONST_MAX))
-      bytecode1(jvm_bipush, ival);
-    else
-      bytecode0(iconst_opcodes[ival+1]);
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * pushDoubleConst                                                           *
- *                                                                           *
- * pushes a double constant onto the stack.                                  *
- *                                                                           *
- *****************************************************************************/
-
-void
-pushDoubleConst(double dval)
-{
-  CPNODE *ct;
-
-  ct=cp_find_or_insert(cur_const_table,CONSTANT_Double,(void*)&dval);
-
-  if(ct)
-    bytecode1(jvm_ldc2_w, ct->index);
-  else if(dval == 0.0)
-    bytecode0(jvm_dconst_0);
-  else if(dval == 1.0)
-    bytecode0(jvm_dconst_1);
-  else
-    fprintf(stderr,"WARNING: bad double-prec literal in expr_emit()\n");
-}
-
-/*****************************************************************************
- *                                                                           *
- * pushStringConst                                                           *
- *                                                                           *
- * pushes a string constant onto the stack.                                  *
- *                                                                           *
- *****************************************************************************/
-
-void
-pushStringConst(char *str)
-{
-  CPNODE *ct;
-
-  ct=cp_find_or_insert(cur_const_table,CONSTANT_String, (void*)str);
-
-  if(ct->index > CPIDX_MAX)
-    bytecode1(jvm_ldc_w, ct->index);
-  else
-    bytecode1(jvm_ldc, ct->index);
-}
-
-/*****************************************************************************
- *                                                                           *
- * pushVar                                                                   *
- *                                                                           *
- * pushes a local variable or field onto the stack.                          *
- *                                                                           *
- *****************************************************************************/
-
-void
-pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
-   char *desc, int lv, BOOL deref)
-{
-  CPNODE *c;
-
-  if(gendebug) {
-    printf("in pushvar, vartype is %s\n", returnstring[vt]);
-    printf("               desc is %s\n", desc);
-    printf("       local varnum is %d\n", lv);
-  }
-
-  if(isArg || (lv != -1)) {
-    /* for reference types, always use aload */
-    if((desc[0] == 'L') || (desc[0] == '['))
-      gen_load_op(lv, Object);
-    else
-      gen_load_op(lv, vt);
-  }
-  else {
-    c = newFieldref(cur_const_table, class, name, desc);
-    bytecode1(jvm_getstatic, c->index);
-  }
-
-  if(deref) {
-    c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
-           val_descriptor[vt]);
-    bytecode1(jvm_getfield, c->index);
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * storeVar                                                                  *
- *                                                                           *
- * stores a value from the stack to a local variable.                        *
- *                                                                           *
- *****************************************************************************/
-
-void
-storeVar(enum returntype vt, BOOL isArg, char *class, char *name,
-   char *desc, int lv, BOOL deref)
-{
-  CPNODE *c;
-
-  if(gendebug) {
-    printf("in store, vartype is %s\n", returnstring[vt]);
-    printf("             desc is %s\n", desc);
-    printf("     local varnum is %d\n", lv);
-  }
-
-  if(isArg || (lv != -1)) {
-    /* for reference types, always use aload */
-    if((desc[0] == 'L') || (desc[0] == '['))
-      gen_store_op(lv, Object);
-    else
-      gen_store_op(lv, vt);
-  }
-  else {
-    c = newFieldref(cur_const_table, class, name, desc);
-    bytecode1(jvm_putstatic, c->index);
-  }
-
-  if(deref) {
-    c = newFieldref(cur_const_table, full_wrappername[vt], "val",
-           val_descriptor[vt]);
-    bytecode1(jvm_putfield, c->index);
   }
 }
 
@@ -4610,7 +4344,7 @@ storeVar(enum returntype vt, BOOL isArg, char *class, char *name,
  *****************************************************************************/
 
 void
-scalar_emit(AST *root, HASHNODE *hashtemp)
+scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
 {
   char *com_prefix, *desc, *name, *scalar_class;
   HASHNODE *ht, *isArg, *typenode;
@@ -4735,7 +4469,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
           fprintf (curfp, "%s%s", com_prefix, name);
 
-          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+          pushVar(cur_class_file, meth,  root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
         }
         else
@@ -4746,12 +4480,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
           if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix,name);
-            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+            pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
           }
           else {
             fprintf (curfp, "%s%s.val", com_prefix,name);
-            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+            pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, TRUE);
           }
         }
@@ -4813,7 +4547,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             fprintf (curfp, "%s%s", com_prefix, name);
           else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
-            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+            pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
           }
         }
@@ -4832,17 +4566,17 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         {
           fprintf (curfp, " %d ", global_sub.val);
           
-          pushIntConst(global_sub.val);
+          bc_push_int_const(meth, global_sub.val);
         }
         else {
           if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix, name);
-            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+            pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
           }
           else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
-            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+            pushVar(cur_class_file,  meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, TRUE);
           }
         }
@@ -4879,20 +4613,20 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
            * then we do not append the offset.
            */
           fprintf (curfp, "%s%s", com_prefix, name);
-          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
         }
         else if(type_lookup(cur_args_table,root->astnode.ident.name)) {
           fprintf (curfp, "%s%s,_%s_offset", com_prefix, name, name);
-          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
-          gen_load_op(typenode->variable->astnode.ident.localvnum+1,Integer);
+          bc_gen_load_op(meth, typenode->variable->astnode.ident.localvnum+1, jvm_Int);
         }
         else {
           fprintf (curfp, "%s%s,0", com_prefix, name);
-          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
-          bytecode0(jvm_iconst_0);
+          bc_append(meth, jvm_iconst_0);
         }
       }
       else if((root->parent->nodetype == Assignment) &&
@@ -4902,7 +4636,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       }
       else {
         fprintf (curfp, "%s%s", com_prefix, name);
-        pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+        pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
            typenode->variable->astnode.ident.localvnum, FALSE);
       }
     }
@@ -4925,12 +4659,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
  *****************************************************************************/
 
 void
-external_emit(AST *root)
+external_emit(JVM_METHOD *meth, AST *root)
 {
   char *tempname, *javaname;
   METHODTAB *entry;
   AST *temp;
-  CPNODE *c;
+  int c;
 
   if(gendebug) {
     printf("here we are in external_emit (%s)\n", root->astnode.ident.name);
@@ -4967,26 +4701,26 @@ external_emit(AST *root)
       ht=type_lookup(cur_type_table,root->astnode.ident.name);
 
       if(ht)
-        gen_load_op(ht->variable->astnode.ident.localvnum, Object);
+        bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum,  jvm_Object);
       else
-        gen_load_op(0, Object);
+        bc_gen_load_op(meth, 0,  jvm_Object);
 
       fprintf(curfp,"%s", root->astnode.ident.name);
     }
     else {
-      CPNODE *c;
+      int c;
       char *fc;
 
       fprintf(curfp," new %s() ",tempname);
 
-      fc = get_full_classname(tempname);
+      fc = bc_get_full_classname(tempname, package_name);
 
-      c = cp_find_or_insert(cur_const_table,CONSTANT_Class, fc);
-      bytecode1(jvm_new,c->index);
-      bytecode0(jvm_dup);
+      c = cp_find_or_insert(cur_class_file,CONSTANT_Class, fc);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
 
-      c = newMethodref(cur_const_table,fc, "<init>", "()V");
-      bytecode1(jvm_invokespecial, c->index);
+      c = bc_new_methodref(cur_class_file,fc, "<init>", "()V");
+      bc_append(meth, jvm_invokespecial, c);
     }
 
     return;
@@ -5007,7 +4741,7 @@ external_emit(AST *root)
   if (entry == NULL)
   {
     if (root->astnode.ident.arraylist != NULL)
-      call_emit (root);
+      call_emit (meth, root);
     f2jfree(tempname, strlen(tempname)+1);
     return;
   }
@@ -5038,24 +4772,24 @@ external_emit(AST *root)
         printf("emitting ETIME...\n");
 
       fprintf (curfp, "Etime.etime(");
-      expr_emit(temp);
+      expr_emit(meth, temp);
       fprintf (curfp, ")");
 
-      c = newMethodref(cur_const_table,entry->class_name, 
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
     }
     else if(!strcmp(tempname, "SECOND")) {
       fprintf(curfp, "(System.currentTimeMillis() / 1000.0)");
 
-      c = newMethodref(cur_const_table,entry->class_name, 
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
-      bytecode1(jvm_invokestatic, c->index);
-      bytecode0(jvm_l2d);
-      pushDoubleConst(1000.0);
-      bytecode0(jvm_ddiv);
+      bc_append(meth, jvm_invokestatic, c);
+      bc_append(meth, jvm_l2d);
+      bc_push_double_const(meth, 1000.0);
+      bc_append(meth, jvm_ddiv);
     }
   }
 
@@ -5079,11 +4813,11 @@ external_emit(AST *root)
  *****************************************************************************/
 
 void
-intrinsic_emit(AST *root)
+intrinsic_emit(JVM_METHOD *meth, AST *root)
 {
   AST *temp;
   HASHNODE *ht;
-  CPNODE *c;
+  int c;
   METHODTAB *entry;
   char *tempname, *javaname;
   enum _intrinsics id;
@@ -5118,12 +4852,12 @@ intrinsic_emit(AST *root)
 
        /* for Java source, we just emit a cast.  */
       fprintf (curfp, "%s(", javaname);
-      expr_emit (temp);
+      expr_emit (meth, temp);
       fprintf (curfp, ")");
 
       /* for bytecode, we emit the appropriate conversion opcode.  */
       if(temp->vartype != root->vartype)
-        bytecode0(typeconv_matrix[temp->vartype][root->vartype]);
+        bc_append(meth, typeconv_matrix[temp->vartype][root->vartype]);
 
       break;
 
@@ -5131,21 +4865,21 @@ intrinsic_emit(AST *root)
     case ifunc_ICHAR:
       temp = root->astnode.ident.arraylist;
       fprintf (curfp, "%s(", javaname);
-      expr_emit (temp);
+      expr_emit (meth, temp);
       fprintf (curfp, ".charAt(0))");
 
-      bytecode0(jvm_iconst_0);
-      c = newMethodref(cur_const_table,JL_STRING,
+      bc_append(meth, jvm_iconst_0);
+      c = bc_new_methodref(cur_class_file,JL_STRING,
              "charAt", CHARAT_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
       break;
 
       /* conversion to character */
     case ifunc_CHAR:
-      c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+      c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
                 JL_CHAR);
-      bytecode1(jvm_new,c->index);
-      bytecode0(jvm_dup);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
 
       temp = root->astnode.ident.arraylist;
 /*
@@ -5155,15 +4889,15 @@ intrinsic_emit(AST *root)
  */
 
       fprintf (curfp, "new Character( %s(", javaname);
-      expr_emit (temp);
+      expr_emit (meth, temp);
       fprintf (curfp, ") ).toString()");
 
-      c = newMethodref(cur_const_table,JL_CHAR,
+      c = bc_new_methodref(cur_class_file,JL_CHAR,
              "<init>", "(C)V");
-      bytecode1(jvm_invokespecial, c->index);
-      c = newMethodref(cur_const_table, JL_CHAR, "toString", 
+      bc_append(meth, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, JL_CHAR, "toString", 
              TOSTRING_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
       break;
 
       /* truncation */
@@ -5171,9 +4905,9 @@ intrinsic_emit(AST *root)
     case ifunc_DINT:
       if((root->astnode.ident.arraylist->vartype == Float) &&
          (id==ifunc_AINT))
-        aint_intrinsic_emit(root, entry);
+        aint_intrinsic_emit(meth, root, entry);
       else
-        dint_intrinsic_emit(root, entry);
+        dint_intrinsic_emit(meth, root, entry);
       break;
 
       /* nearest whole number */
@@ -5186,18 +4920,18 @@ intrinsic_emit(AST *root)
       else
         fprintf (curfp, "(float)%s(", entry->java_method);
 
-      expr_emit (root->astnode.ident.arraylist);
+      expr_emit (meth, root->astnode.ident.arraylist);
       fprintf (curfp, ")");
 
-      c = newMethodref(cur_const_table,entry->class_name, 
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
 
       if(root->astnode.ident.arraylist->vartype == Double)
-        bytecode0(jvm_i2d);
+        bc_append(meth, jvm_i2d);
       else
-        bytecode0(jvm_i2f);
+        bc_append(meth, jvm_i2f);
 
       break;
 
@@ -5208,13 +4942,13 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_IDNINT];
 
       fprintf (curfp, "%s(", entry->java_method);
-      expr_emit (root->astnode.ident.arraylist);
+      expr_emit (meth, root->astnode.ident.arraylist);
       fprintf (curfp, ")");
 
-      c = newMethodref(cur_const_table,entry->class_name, 
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
 
       break;
 
@@ -5232,13 +4966,13 @@ intrinsic_emit(AST *root)
       temp = root->astnode.ident.arraylist;
 
       fprintf (curfp, "%s(", entry->java_method);
-      expr_emit (temp);
+      expr_emit (meth, temp);
       fprintf (curfp, ")");
 
-      c = newMethodref(cur_const_table,entry->class_name, 
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                         entry->method_name, entry->descriptor);
 
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
       break;
 
       /* remainder */
@@ -5247,26 +4981,26 @@ intrinsic_emit(AST *root)
     case ifunc_DMOD:
       temp = root->astnode.ident.arraylist;
       fprintf(curfp,"(");
-      expr_emit (temp);
+      expr_emit (meth, temp);
       fprintf(curfp,")%%("); 
 
       if(temp->vartype > root->vartype)
-        bytecode0(
+        bc_append(meth, 
           typeconv_matrix[temp->vartype][root->vartype]);
       
-      expr_emit (temp->nextstmt);
+      expr_emit (meth, temp->nextstmt);
       fprintf(curfp,")");
       
       if(temp->nextstmt->vartype > root->vartype)
-        bytecode0(
+        bc_append(meth, 
           typeconv_matrix[temp->nextstmt->vartype][root->vartype]);
       
       if(root->vartype == Float)
-        bytecode0(jvm_frem);
+        bc_append(meth, jvm_frem);
       else if(root->vartype == Integer)
-        bytecode0(jvm_irem);
+        bc_append(meth, jvm_irem);
       else
-        bytecode0(jvm_drem);
+        bc_append(meth, jvm_drem);
 
       break;
       
@@ -5278,7 +5012,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_DSIGN];
     case ifunc_ISIGN:
     case ifunc_DSIGN:
-      intrinsic2_call_emit(root,entry, root->vartype);
+      intrinsic2_call_emit(meth, root,entry, root->vartype);
       break;
 
       /* positive difference */
@@ -5289,7 +5023,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_DDIM];
     case ifunc_IDIM:
     case ifunc_DDIM:
-      intrinsic2_call_emit(root,entry, root->vartype);
+      intrinsic2_call_emit(meth, root,entry, root->vartype);
       break;
       
       /* double precision product of two reals */
@@ -5297,29 +5031,29 @@ intrinsic_emit(AST *root)
       temp = root->astnode.ident.arraylist;
 
       fprintf(curfp, "((double)(");
-      expr_emit (temp);
-      bytecode0(jvm_f2d);
+      expr_emit (meth, temp);
+      bc_append(meth, jvm_f2d);
       fprintf(curfp, ") * (double)(");
-      expr_emit (temp->nextstmt);
-      bytecode0(jvm_f2d);
+      expr_emit (meth, temp->nextstmt);
+      bc_append(meth, jvm_f2d);
       fprintf(curfp, "))");
-      bytecode0(jvm_dmul);
+      bc_append(meth, jvm_dmul);
       break;
 
       /* real AMAX0(integer) */
     case ifunc_AMAX0:
       fprintf(curfp,"(float)(");
-      max_intrinsic_emit(root, entry);
+      max_intrinsic_emit(meth, root, entry);
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[Integer][Float]);
+      bc_append(meth, typeconv_matrix[Integer][Float]);
       break;
 
       /* integer MAX1(real) */
     case ifunc_MAX1:
       fprintf(curfp,"(int)(");
-      max_intrinsic_emit(root, entry);
+      max_intrinsic_emit(meth, root, entry);
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[Float][Integer]);
+      bc_append(meth, typeconv_matrix[Float][Integer]);
       break;
 
       /* generic maximum or MAX that returns same type as args */
@@ -5327,23 +5061,23 @@ intrinsic_emit(AST *root)
     case ifunc_MAX0:
     case ifunc_AMAX1:
     case ifunc_DMAX1:
-      max_intrinsic_emit(root, entry);
+      max_intrinsic_emit(meth, root, entry);
       break;
 
       /* real AMIN0(integer) */
     case ifunc_AMIN0: 
       fprintf(curfp,"(float)(");
-      min_intrinsic_emit(root, entry);
+      min_intrinsic_emit(meth, root, entry);
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[Integer][Float]);
+      bc_append(meth, typeconv_matrix[Integer][Float]);
       break;
 
       /* integer MIN1(real) */
     case ifunc_MIN1:
       fprintf(curfp,"(int)(");
-      min_intrinsic_emit(root, entry);
+      min_intrinsic_emit(meth, root, entry);
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[Float][Integer]);
+      bc_append(meth, typeconv_matrix[Float][Integer]);
       break;
 
       /* generic minimum or MIN that returns same type as args */
@@ -5351,7 +5085,7 @@ intrinsic_emit(AST *root)
     case ifunc_MIN0:
     case ifunc_AMIN1:
     case ifunc_DMIN1:
-      min_intrinsic_emit(root, entry);
+      min_intrinsic_emit(meth, root, entry);
       break;
       
       /* length of a character entity */
@@ -5375,28 +5109,28 @@ intrinsic_emit(AST *root)
           if(ht->variable->astnode.ident.len > 0) {
             fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
 
-            pushIntConst(ht->variable->astnode.ident.len);
+            bc_push_int_const(meth, ht->variable->astnode.ident.len);
 
             if(gendebug)
               printf("LEN(%s) = %d\n",temp->astnode.ident.name,
                 ht->variable->astnode.ident.len);
           }
           else {
-            CPNODE *c;
+            int c;
 
-            expr_emit(temp);
+            expr_emit(meth, temp);
             fprintf(curfp,".length()");
 
-            c = newMethodref(cur_const_table,JL_STRING,
+            c = bc_new_methodref(cur_class_file,JL_STRING,
                  "length", STRLEN_DESC);
-            bytecode1(jvm_invokevirtual, c->index);
+            bc_append(meth, jvm_invokevirtual, c);
           }
         }
         else
         {
           fprintf (curfp, " 1 ");
 
-          bytecode0(jvm_iconst_1);
+          bc_append(meth, jvm_iconst_1);
 
           if(gendebug)
             printf("LEN(%s) = 1\n",temp->astnode.ident.name);
@@ -5431,7 +5165,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_CSQRT];
     case ifunc_DSQRT:
     case ifunc_CSQRT:
-      intrinsic_call_emit(root,entry,Double);
+      intrinsic_call_emit(meth, root,entry,Double);
       break;
 
       /* exponential */
@@ -5442,7 +5176,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_CEXP];
     case ifunc_DEXP:
     case ifunc_CEXP:
-      intrinsic_call_emit(root,entry,Double);
+      intrinsic_call_emit(meth, root,entry,Double);
       break;
 
       /* natural logarithm */
@@ -5456,7 +5190,7 @@ intrinsic_emit(AST *root)
     case ifunc_ALOG:
     case ifunc_DLOG:
     case ifunc_CLOG:
-      intrinsic_call_emit(root,entry,Double);
+      intrinsic_call_emit(meth, root,entry,Double);
       break;
 
       /* common logarithm */
@@ -5467,7 +5201,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_ALOG10];
     case ifunc_ALOG10:
     case ifunc_DLOG10:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* sine */
@@ -5478,7 +5212,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_CSIN];
     case ifunc_DSIN:
     case ifunc_CSIN:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* cosine */
@@ -5489,7 +5223,7 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_CCOS];
     case ifunc_DCOS:
     case ifunc_CCOS:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* tangent */
@@ -5497,7 +5231,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DTAN];
     case ifunc_DTAN:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* arcsine */
@@ -5505,7 +5239,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DASIN];
     case ifunc_DASIN:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* arccosine */
@@ -5513,7 +5247,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DACOS];
     case ifunc_DACOS:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* arctangent */
@@ -5521,7 +5255,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DATAN];
     case ifunc_DATAN:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* arctangent (2 arg) */
@@ -5529,7 +5263,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DATAN2];
     case ifunc_DATAN2:
-      intrinsic2_call_emit(root, entry, Double);
+      intrinsic2_call_emit(meth, root, entry, Double);
       break;
 
       /* Hyperbolic sine */
@@ -5537,7 +5271,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DSINH];
     case ifunc_DSINH:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* Hyperbolic cosine */
@@ -5545,7 +5279,7 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DCOSH];
     case ifunc_DCOSH:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
       /* Hyperbolic tangent */
@@ -5553,14 +5287,14 @@ intrinsic_emit(AST *root)
       if(root->vartype == Double)
         entry = &intrinsic_toks[ifunc_DTANH];
     case ifunc_DTANH:
-      intrinsic_call_emit(root, entry, Double);
+      intrinsic_call_emit(meth, root, entry, Double);
       break;
 
     case ifunc_LGE: /* lexically greater than/equal */
     case ifunc_LGT: /* lexically greater than */
     case ifunc_LLE: /* lexically less than/equal */
     case ifunc_LLT: /* lexically less than */
-      intrinsic_lexical_compare_emit(root, entry);
+      intrinsic_lexical_compare_emit(meth, root, entry);
       break;
 
     default:
@@ -5586,49 +5320,49 @@ intrinsic_emit(AST *root)
  *****************************************************************************/
 
 void
-intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
+intrinsic_lexical_compare_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
-  CodeGraphNode *goto_node, *if_node;
+  JVM_CODE_GRAPH_NODE *goto_node, *if_node;
   AST *temp;
-  CPNODE *c;
+  int c;
 
   temp = root->astnode.ident.arraylist;
   fprintf(curfp,"((");
-  expr_emit(temp);
+  expr_emit(meth, temp);
   fprintf(curfp,").compareTo(");
-  expr_emit(temp->nextstmt);
+  expr_emit(meth, temp->nextstmt);
 
-  c = newMethodref(cur_const_table, JL_STRING, "compareTo", COMPARE_DESC);
-  bytecode1(jvm_invokevirtual, c->index);
+  c = bc_new_methodref(cur_class_file, JL_STRING, "compareTo", COMPARE_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
 
   if(entry->intrinsic == ifunc_LGE) {
     fprintf(curfp,") >= 0 ? true : false)");
-    if_node = bytecode0(jvm_ifge);
+    if_node = bc_append(meth, jvm_ifge);
   }
   else if(entry->intrinsic == ifunc_LGT) {
     fprintf(curfp,") > 0 ? true : false)");
-    if_node = bytecode0(jvm_ifgt);
+    if_node = bc_append(meth, jvm_ifgt);
   }
   else if(entry->intrinsic == ifunc_LLE) {
     fprintf(curfp,") <= 0 ? true : false)");
-    if_node = bytecode0(jvm_ifle);
+    if_node = bc_append(meth, jvm_ifle);
   }
   else if(entry->intrinsic == ifunc_LLT) {
     fprintf(curfp,") < 0 ? true : false)");
-    if_node = bytecode0(jvm_iflt);
+    if_node = bc_append(meth, jvm_iflt);
   }
   else
     fprintf(stderr,"intrinsic_lexical_compare_emit(): bad tag!\n");
 
-  bytecode0(jvm_iconst_0);
-  goto_node = bytecode0(jvm_goto);
-  if_node->branch_target = bytecode0(jvm_iconst_1);
+  bc_append(meth, jvm_iconst_0);
+  goto_node = bc_append(meth, jvm_goto);
+  bc_set_branch_target(if_node, bc_append(meth, jvm_iconst_1));
 
   /* create a dummy instruction node following the stmts so that
    * we have a branch target for the goto statement.  it'll be
    * removed later.
    */
-  goto_node->branch_target = bytecode0(jvm_impdep1);
+  bc_set_branch_target(goto_node, bc_append(meth, jvm_xxxunusedxxx));
 }
 
 
@@ -5641,22 +5375,22 @@ intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
  *****************************************************************************/
 
 void
-intrinsic0_call_emit(AST *root, METHODTAB *entry)
+intrinsic0_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
-  CPNODE *c;
+  int c;
 
   if(entry->ret != root->vartype)
     fprintf(curfp, "(%s)", returnstring[root->vartype]);
 
   fprintf (curfp, "%s()", entry->java_method);
 
-  c = newMethodref(cur_const_table,entry->class_name, 
+  c = bc_new_methodref(cur_class_file,entry->class_name, 
                     entry->method_name, entry->descriptor);
 
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 
   if(entry->ret != root->vartype)
-    bytecode0(typeconv_matrix[entry->ret][root->vartype]);
+    bc_append(meth, typeconv_matrix[entry->ret][root->vartype]);
 }
 
 /*****************************************************************************
@@ -5668,9 +5402,10 @@ intrinsic0_call_emit(AST *root, METHODTAB *entry)
  *****************************************************************************/
 
 void
-intrinsic_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
+intrinsic_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry, 
+                                                         enum returntype argtype)
 {
-  CPNODE *c;
+  int c;
 
   /* entry->ret should represent the return type of the equivalent JAva
    * function, while root->vartype should represent the return type of
@@ -5681,16 +5416,16 @@ intrinsic_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
     fprintf(curfp, "(%s)", returnstring[root->vartype]);
 
   fprintf (curfp, "%s(", entry->java_method);
-  intrinsic_arg_emit(root->astnode.ident.arraylist, argtype);
+  intrinsic_arg_emit(meth, root->astnode.ident.arraylist, argtype);
   fprintf (curfp, ")");
 
-  c = newMethodref(cur_const_table,entry->class_name, 
+  c = bc_new_methodref(cur_class_file,entry->class_name, 
                     entry->method_name, entry->descriptor);
 
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 
   if(entry->ret != root->vartype)
-    bytecode0(typeconv_matrix[entry->ret][root->vartype]);
+    bc_append(meth, typeconv_matrix[entry->ret][root->vartype]);
 }
 
 /*****************************************************************************
@@ -5702,21 +5437,22 @@ intrinsic_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
  *****************************************************************************/
 
 void
-intrinsic2_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
+intrinsic2_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry, 
+                                                          enum returntype argtype)
 {
   AST * temp = root->astnode.ident.arraylist;
-  CPNODE *c;
+  int c;
 
   fprintf (curfp, "%s(", entry->java_method);
-  intrinsic_arg_emit (temp, argtype);
+  intrinsic_arg_emit (meth, temp, argtype);
   fprintf (curfp, ",");
-  intrinsic_arg_emit (temp->nextstmt, argtype);
+  intrinsic_arg_emit (meth, temp->nextstmt, argtype);
   fprintf (curfp, ")");
 
-  c = newMethodref(cur_const_table,entry->class_name, 
+  c = bc_new_methodref(cur_class_file,entry->class_name, 
                     entry->method_name, entry->descriptor);
 
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 }
 
 /*****************************************************************************
@@ -5729,17 +5465,17 @@ intrinsic2_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
  *****************************************************************************/
 
 void
-aint_intrinsic_emit(AST *root, METHODTAB * entry)
+aint_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB * entry)
 {
   fprintf(curfp,"(float)(%s(",entry->java_method);
 
-  expr_emit(root->astnode.ident.arraylist);
+  expr_emit(meth, root->astnode.ident.arraylist);
 
   fprintf(curfp,"))");
 
   /* convert to integer to truncate, then back to float */
-  bytecode0(jvm_f2i);
-  bytecode0(jvm_i2f);
+  bc_append(meth, jvm_f2i);
+  bc_append(meth, jvm_i2f);
 }
 
 /*****************************************************************************
@@ -5752,15 +5488,15 @@ aint_intrinsic_emit(AST *root, METHODTAB * entry)
  *****************************************************************************/
 
 void
-dint_intrinsic_emit(AST *root, METHODTAB *entry)
+dint_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
   fprintf(curfp,"(double)(%s(",entry->java_method);
-  expr_emit(root->astnode.ident.arraylist);
+  expr_emit(meth, root->astnode.ident.arraylist);
   fprintf(curfp,"))");
 
   /* convert to integer to truncate, then back to double */
-  bytecode0(jvm_d2i);  
-  bytecode0(jvm_i2d);
+  bc_append(meth, jvm_d2i);  
+  bc_append(meth, jvm_i2d);
 }
 
 /*****************************************************************************
@@ -5773,7 +5509,7 @@ dint_intrinsic_emit(AST *root, METHODTAB *entry)
  *****************************************************************************/
 
 void
-intrinsic_arg_emit(AST *node, enum returntype this_type)
+intrinsic_arg_emit(JVM_METHOD *meth, AST *node, enum returntype this_type)
 {
   
   if(gendebug){
@@ -5783,11 +5519,11 @@ intrinsic_arg_emit(AST *node, enum returntype this_type)
  
   if(node->vartype > this_type) {
     fprintf(curfp," (%s)",returnstring[this_type]);
-    expr_emit (node);
-    bytecode0(typeconv_matrix[node->vartype][this_type]);
+    expr_emit (meth, node);
+    bc_append(meth, typeconv_matrix[node->vartype][this_type]);
   }
   else
-    expr_emit(node);
+    expr_emit(meth, node);
 }
 
 /*****************************************************************************
@@ -5800,7 +5536,7 @@ intrinsic_arg_emit(AST *node, enum returntype this_type)
  *****************************************************************************/
 
 void
-max_intrinsic_emit(AST *root, METHODTAB *entry)
+max_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
@@ -5833,7 +5569,7 @@ max_intrinsic_emit(AST *root, METHODTAB *entry)
   else
     fprintf(stderr,"WARNING: bad intrinsic tag in max_intrinsic_emit()\n");
 
-  maxmin_intrinsic_emit(root,tmpentry,THREEARG_MAX_FUNC, desc);
+  maxmin_intrinsic_emit(meth, root,tmpentry,THREEARG_MAX_FUNC, desc);
 }
 
 /*****************************************************************************
@@ -5846,7 +5582,7 @@ max_intrinsic_emit(AST *root, METHODTAB *entry)
  *****************************************************************************/
 
 void
-min_intrinsic_emit(AST *root, METHODTAB *entry)
+min_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
@@ -5883,7 +5619,7 @@ min_intrinsic_emit(AST *root, METHODTAB *entry)
     printf("MIN vartype = %s, %s %s %s\n", returnstring[root->vartype], 
          entry->class_name, entry->method_name, entry->descriptor);
 
-  maxmin_intrinsic_emit(root,tmpentry,THREEARG_MIN_FUNC, desc);
+  maxmin_intrinsic_emit(meth, root,tmpentry,THREEARG_MIN_FUNC, desc);
 }
 
 /*****************************************************************************
@@ -5898,12 +5634,12 @@ min_intrinsic_emit(AST *root, METHODTAB *entry)
  *****************************************************************************/
 
 void
-maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
+maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
                       char *threearg, char *three_desc)
 {
   int ii, arg_count = 0;
   char *javaname = entry->java_method, *method;
-  CPNODE *c;
+  int c;
   AST *temp;
 
   /* figure out how many args we need to handle */
@@ -5918,7 +5654,7 @@ maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
     temp = root->astnode.ident.arraylist;
 
     fprintf (curfp, "(");
-    intrinsic_arg_emit(temp,entry->ret);
+    intrinsic_arg_emit(meth, temp,entry->ret);
     fprintf (curfp, ")");
   }
 
@@ -5927,14 +5663,14 @@ maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
   else if(arg_count == 2) {
     temp = root->astnode.ident.arraylist;
     fprintf(curfp, "%s(", javaname);
-    intrinsic_arg_emit(temp,entry->ret);
+    intrinsic_arg_emit(meth, temp,entry->ret);
     fprintf (curfp, ", ");
-    intrinsic_arg_emit(temp->nextstmt,entry->ret);
+    intrinsic_arg_emit(meth, temp->nextstmt,entry->ret);
     fprintf (curfp, ")");
-    c = newMethodref(cur_const_table,entry->class_name, 
+    c = bc_new_methodref(cur_class_file,entry->class_name, 
                       entry->method_name, entry->descriptor);
 
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
   }
 
   /* special handling of situation in which MAX or MIN has three args */
@@ -5944,20 +5680,20 @@ maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
 
     temp = root->astnode.ident.arraylist;
     fprintf(curfp, "%s(", threearg);
-    intrinsic_arg_emit(temp,entry->ret);
+    intrinsic_arg_emit(meth, temp,entry->ret);
     fprintf (curfp, ", ");
-    intrinsic_arg_emit(temp->nextstmt,entry->ret);
+    intrinsic_arg_emit(meth, temp->nextstmt,entry->ret);
     fprintf (curfp, ", ");
-    intrinsic_arg_emit(temp->nextstmt->nextstmt,entry->ret);
+    intrinsic_arg_emit(meth, temp->nextstmt->nextstmt,entry->ret);
     fprintf (curfp, ")");
 
     ta_tmp = strdup(threearg);
 
     strtok(ta_tmp,".");
     method = strtok(NULL,".");
-    c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
+    c = bc_new_methodref(cur_class_file,UTIL_CLASS, method, three_desc);
 
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
 
     f2jfree(ta_tmp, strlen(ta_tmp)+1);
   }
@@ -5982,33 +5718,33 @@ maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
     fprintf(curfp,"%s(",threearg);
 
     temp = root->astnode.ident.arraylist;
-    intrinsic_arg_emit(temp, entry->ret);
+    intrinsic_arg_emit(meth, temp, entry->ret);
     fprintf (curfp, ", ");
     temp = temp->nextstmt;
-    intrinsic_arg_emit(temp, entry->ret);
+    intrinsic_arg_emit(meth, temp, entry->ret);
     fprintf (curfp, ", ");
     temp = temp->nextstmt;
-    intrinsic_arg_emit(temp, entry->ret);
+    intrinsic_arg_emit(meth, temp, entry->ret);
     fprintf (curfp, "), ");
 
     ta_tmp = strdup(threearg);
 
     strtok(ta_tmp,".");
     method = strtok(NULL,".");
-    c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
+    c = bc_new_methodref(cur_class_file,UTIL_CLASS, method, three_desc);
 
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
 
-    c = newMethodref(cur_const_table,entry->class_name, 
+    c = bc_new_methodref(cur_class_file,entry->class_name, 
                       entry->method_name, entry->descriptor);
 
     for(temp = temp->nextstmt; temp != NULL; temp = temp->nextstmt) {
-      intrinsic_arg_emit(temp, entry->ret);
+      intrinsic_arg_emit(meth, temp, entry->ret);
       if(temp->nextstmt != NULL)
         fprintf (curfp, "), ");
       else
         fprintf (curfp, ") ");
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
     }
 
     f2jfree(ta_tmp, strlen(ta_tmp)+1);
@@ -6055,7 +5791,7 @@ get_type(char *num)
  *****************************************************************************/
 
 void
-expr_emit (AST * root)
+expr_emit (JVM_METHOD *meth, AST * root)
 {
   if(root == NULL)
   {
@@ -6074,31 +5810,31 @@ expr_emit (AST * root)
   switch (root->nodetype)
   {
     case Identifier:
-      name_emit (root);
+      name_emit (meth, root);
       break;
     case Expression:
-      parenthesized_expr_emit(root);
+      parenthesized_expr_emit(meth, root);
       break;
     case Power:
-      power_emit(root);
+      power_emit(meth, root);
       break;
     case Binaryop:
-      binaryop_emit(root);
+      binaryop_emit(meth, root);
       break;
     case Unaryop:
-      unaryop_emit(root);
+      unaryop_emit(meth, root);
       break;
     case Constant:
-      constant_expr_emit(root);
+      constant_expr_emit(meth, root);
       break;
     case Logicalop:
-      logicalop_emit(root);
+      logicalop_emit(meth, root);
       break;
     case Relationalop:
-      relationalop_emit(root);
+      relationalop_emit(meth, root);
       break;
     case Substring:
-      substring_expr_emit(root);
+      substring_expr_emit(meth, root);
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",
@@ -6120,7 +5856,7 @@ expr_emit (AST * root)
  *****************************************************************************/
 
 void
-parenthesized_expr_emit(AST *root)
+parenthesized_expr_emit(JVM_METHOD *meth, AST *root)
 {
   if (root->astnode.expression.parens)
     fprintf (curfp, "(");
@@ -6131,9 +5867,9 @@ parenthesized_expr_emit(AST *root)
    */
 
   if (root->astnode.expression.lhs != NULL)
-    expr_emit (root->astnode.expression.lhs);
+    expr_emit (meth, root->astnode.expression.lhs);
 
-  expr_emit (root->astnode.expression.rhs);
+  expr_emit (meth, root->astnode.expression.rhs);
 
   if (root->astnode.expression.parens)
     fprintf (curfp, ")");
@@ -6151,9 +5887,9 @@ parenthesized_expr_emit(AST *root)
  *****************************************************************************/
 
 void
-power_emit(AST *root)
+power_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE * ct;
+  int ct;
 
   /* hack alert: determine whether this expression is used as the size
    *   in an array declaration.  if so, it must be integer, but java's
@@ -6168,26 +5904,26 @@ power_emit(AST *root)
 
   /* the args to pow must be doubles, so cast if necessary */
 
-  expr_emit (root->astnode.expression.lhs);
+  expr_emit (meth, root->astnode.expression.lhs);
 
   if(root->astnode.expression.lhs->vartype != Double)
-    bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype]
+    bc_append(meth, typeconv_matrix[root->astnode.expression.lhs->vartype]
                              [Double]);
   fprintf (curfp, ", ");
-  expr_emit (root->astnode.expression.rhs);
+  expr_emit (meth, root->astnode.expression.rhs);
   if(root->astnode.expression.rhs->vartype != Double)
-    bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype]
+    bc_append(meth, typeconv_matrix[root->astnode.expression.rhs->vartype]
                              [Double]);
   fprintf (curfp, ")");
 
-  ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
+  ct = bc_new_methodref(cur_class_file,"java/lang/Math", "pow", "(DD)D");
 
-  bytecode1(jvm_invokestatic, ct->index);
+  bc_append(meth, jvm_invokestatic, ct);
 
   if(gencast)
-    bytecode0(jvm_d2i);
+    bc_append(meth, jvm_d2i);
   else if(root->vartype != Double)
-    bytecode0(typeconv_matrix[root->vartype][Double]);
+    bc_append(meth, typeconv_matrix[root->vartype][Double]);
 
   return;
 }
@@ -6201,9 +5937,9 @@ power_emit(AST *root)
  *****************************************************************************/
 
 void
-binaryop_emit(AST *root)
+binaryop_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE * ct;
+  int ct;
 
   /* handle special case for string concatenation in bytecode..   we
    * must create a new StringBuffer which contains the LHS and append
@@ -6211,63 +5947,63 @@ binaryop_emit(AST *root)
    */
   if(root->token == CAT)
   {
-    ct = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+    ct = cp_find_or_insert(cur_class_file,CONSTANT_Class,
               STRINGBUFFER);
 
-    bytecode1(jvm_new,ct->index);
-    bytecode0(jvm_dup);
-    expr_emit (root->astnode.expression.lhs);
+    bc_append(meth, jvm_new,ct);
+    bc_append(meth, jvm_dup);
+    expr_emit (meth, root->astnode.expression.lhs);
     if((root->astnode.expression.lhs->vartype != String) &&
        (root->astnode.expression.lhs->vartype != Character) )
     {
       fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
     }
-    ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
+    ct = bc_new_methodref(cur_class_file,STRINGBUFFER, "<init>", STRBUF_DESC);
 
     fprintf (curfp, "%c", root->astnode.expression.optype);
 
-    bytecode1(jvm_invokespecial, ct->index);
-    expr_emit (root->astnode.expression.rhs);
+    bc_append(meth, jvm_invokespecial, ct);
+    expr_emit (meth, root->astnode.expression.rhs);
     if((root->astnode.expression.rhs->vartype != String) &&
        (root->astnode.expression.rhs->vartype != Character) )
     {
       fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
     }
-    ct = newMethodref(cur_const_table,STRINGBUFFER, "append",
+    ct = bc_new_methodref(cur_class_file,STRINGBUFFER, "append",
                       append_descriptor[String]);
-    bytecode1(jvm_invokevirtual, ct->index);
-    ct = newMethodref(cur_const_table,STRINGBUFFER, "toString",
+    bc_append(meth, jvm_invokevirtual, ct);
+    ct = bc_new_methodref(cur_class_file,STRINGBUFFER, "toString",
                       TOSTRING_DESC);
-    bytecode1(jvm_invokevirtual, ct->index);
+    bc_append(meth, jvm_invokevirtual, ct);
   }
   else {
-    expr_emit (root->astnode.expression.lhs);
+    expr_emit (meth, root->astnode.expression.lhs);
 
     if(root->astnode.expression.lhs->vartype > root->vartype)
-      bytecode0(
+      bc_append(meth,
         typeconv_matrix[root->astnode.expression.lhs->vartype]
                        [root->vartype]);
 
     fprintf (curfp, "%c", root->astnode.expression.optype);
-    expr_emit (root->astnode.expression.rhs);
+    expr_emit (meth, root->astnode.expression.rhs);
 
     if(root->astnode.expression.rhs->vartype > root->vartype)
-      bytecode0(
+      bc_append(meth, 
         typeconv_matrix[root->astnode.expression.rhs->vartype]
                        [root->vartype]);
 
     switch(root->astnode.expression.optype) {
       case '+':
-        bytecode0(add_opcode[root->vartype]);
+        bc_append(meth, add_opcode[root->vartype]);
         break;
       case '-':
-        bytecode0(sub_opcode[root->vartype]);
+        bc_append(meth, sub_opcode[root->vartype]);
         break;
       case '/':
-        bytecode0(div_opcode[root->vartype]);
+        bc_append(meth, div_opcode[root->vartype]);
         break;
       case '*':
-        bytecode0(mul_opcode[root->vartype]);
+        bc_append(meth, mul_opcode[root->vartype]);
         break;
       default:
         fprintf(stderr,"WARNING: unsupported optype\n");
@@ -6289,14 +6025,14 @@ binaryop_emit(AST *root)
  *****************************************************************************/
 
 void
-unaryop_emit(AST *root)
+unaryop_emit(JVM_METHOD *meth, AST *root)
 {
   fprintf (curfp, "%c(", root->astnode.expression.minus);
-  expr_emit (root->astnode.expression.rhs);
+  expr_emit (meth, root->astnode.expression.rhs);
   fprintf (curfp, ")");
 
   if(root->astnode.expression.minus == '-')
-    bytecode0(neg_opcode[root->vartype]);
+    bc_append(meth, neg_opcode[root->vartype]);
 
   return;
 }
@@ -6310,7 +6046,7 @@ unaryop_emit(AST *root)
  *****************************************************************************/
 
 void
-constant_expr_emit(AST *root)
+constant_expr_emit(JVM_METHOD *meth, AST *root)
 {
   char *tempname = NULL;
 
@@ -6336,13 +6072,13 @@ constant_expr_emit(AST *root)
     if(root->token == STRING) {
       if(omitWrappers) {
 
-        pushConst(root);
+        pushConst(meth, root);
 
         fprintf (curfp, "\"%s\"", root->astnode.constant.number);
       }
       else
       {
-        invoke_constructor(full_wrappername[root->vartype], root,
+        invoke_constructor(meth, full_wrappername[root->vartype], root,
           wrapper_descriptor[root->vartype]);
 
         fprintf (curfp, "new StringW(\"%s\")",
@@ -6351,13 +6087,13 @@ constant_expr_emit(AST *root)
     }
     else {     /* non-string constant argument to a function call */
       if(omitWrappers) {
-        pushConst(root);
+        pushConst(meth, root);
 
         fprintf (curfp, "%s", root->astnode.constant.number);
       }
       else
       {
-        invoke_constructor(full_wrappername[root->vartype], root,
+        invoke_constructor(meth, full_wrappername[root->vartype], root,
           wrapper_descriptor[root->vartype]);
 
         fprintf (curfp, "new %s(%s)",
@@ -6369,7 +6105,7 @@ constant_expr_emit(AST *root)
   else  /* this constant is not an argument to a function call */
   {
 
-    pushConst(root);
+    pushConst(meth, root);
 
     if(root->token == STRING)
       fprintf (curfp, "\"%s\"", root->astnode.constant.number);
@@ -6392,58 +6128,58 @@ constant_expr_emit(AST *root)
  *****************************************************************************/
 
 void
-logicalop_emit(AST *root)
+logicalop_emit(JVM_METHOD *meth, AST *root)
 {
-  CodeGraphNode *if_node1, *if_node2, *goto_node, *next_node;
+  JVM_CODE_GRAPH_NODE *if_node1, *if_node2, *goto_node, *next_node;
 
   switch(root->token) {
     case NOT:
       fprintf (curfp, "!");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
 
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_ixor);
+      bc_append(meth, jvm_iconst_1);
+      bc_append(meth, jvm_ixor);
       break;
     case AND:
-      expr_emit (root->astnode.expression.lhs);
-      if_node1 = bytecode0(jvm_ifeq);
+      expr_emit (meth, root->astnode.expression.lhs);
+      if_node1 = bc_append(meth, jvm_ifeq);
 
       fprintf (curfp, " && ");
 
-      expr_emit (root->astnode.expression.rhs);
-      if_node2 = bytecode0(jvm_ifeq);
+      expr_emit (meth, root->astnode.expression.rhs);
+      if_node2 = bc_append(meth, jvm_ifeq);
 
-      bytecode0(jvm_iconst_1);
-      goto_node = bytecode0(jvm_goto);
-      next_node = bytecode0(jvm_iconst_0);
+      bc_append(meth, jvm_iconst_1);
+      goto_node = bc_append(meth, jvm_goto);
+      next_node = bc_append(meth, jvm_iconst_0);
 
-      if_node1->branch_target = next_node;
-      if_node2->branch_target = next_node;
+      bc_set_branch_target(if_node1, next_node);
+      bc_set_branch_target(if_node2, next_node);
 
-      next_node = bytecode0(jvm_impdep1);
+      next_node = bc_append(meth, jvm_xxxunusedxxx);
 
-      goto_node->branch_target = next_node;
+      bc_set_branch_target(goto_node, next_node);
 
       break;
     case OR:
-      expr_emit (root->astnode.expression.lhs);
-      if_node1 = bytecode0(jvm_ifne);
+      expr_emit (meth, root->astnode.expression.lhs);
+      if_node1 = bc_append(meth, jvm_ifne);
 
       fprintf (curfp, " || ");
 
-      expr_emit (root->astnode.expression.rhs);
-      if_node2 = bytecode0(jvm_ifne);
+      expr_emit (meth, root->astnode.expression.rhs);
+      if_node2 = bc_append(meth, jvm_ifne);
 
-      bytecode0(jvm_iconst_0);
-      goto_node = bytecode0(jvm_goto);
-      next_node = bytecode0(jvm_iconst_1);
+      bc_append(meth, jvm_iconst_0);
+      goto_node = bc_append(meth, jvm_goto);
+      next_node = bc_append(meth, jvm_iconst_1);
 
-      if_node1->branch_target = next_node;
-      if_node2->branch_target = next_node;
+      bc_set_branch_target(if_node1, next_node);
+      bc_set_branch_target(if_node2, next_node);
 
-      next_node = bytecode0(jvm_impdep1);
+      next_node = bc_append(meth, jvm_xxxunusedxxx);
 
-      goto_node->branch_target = next_node;
+      bc_set_branch_target(goto_node, next_node);
 
       break;
   }
@@ -6461,7 +6197,7 @@ logicalop_emit(AST *root)
  *****************************************************************************/
 
 void
-relationalop_emit(AST *root)
+relationalop_emit(JVM_METHOD *meth, AST *root)
 {
   int cur_vt;
 
@@ -6473,7 +6209,7 @@ relationalop_emit(AST *root)
      ((root->astnode.expression.rhs->vartype == String) ||
       (root->astnode.expression.rhs->vartype == Character)))
   {
-    CPNODE *c;
+    int c;
     int len;
 
     if((root->token != rel_eq) && (root->token != rel_ne)) {
@@ -6481,19 +6217,19 @@ relationalop_emit(AST *root)
       return;
     }
 
-    c = newMethodref(cur_const_table,JL_STRING,
+    c = bc_new_methodref(cur_class_file,JL_STRING,
            "regionMatches", REGIONMATCHES_DESC);
 
     if(root->token == rel_ne)
       fprintf(curfp,"!");
 
-    expr_emit (root->astnode.expression.lhs);
+    expr_emit (meth, root->astnode.expression.lhs);
 
-    bytecode0(jvm_iconst_0);
+    bc_append(meth, jvm_iconst_0);
     fprintf(curfp,".regionMatches(0, ");
 
-    expr_emit (root->astnode.expression.rhs);
-    bytecode0(jvm_iconst_0);
+    expr_emit (meth, root->astnode.expression.rhs);
+    bc_append(meth, jvm_iconst_0);
 
     len = 1;
       
@@ -6534,17 +6270,17 @@ relationalop_emit(AST *root)
           len = h->variable->astnode.ident.len;
     }
     
-    /* bytecode0(jvm_iconst_1); */
-    pushIntConst(len);
+    /* bc_append(jvm_iconst_1); */
+    bc_push_int_const(meth, len);
 
     fprintf(curfp,", 0, %d) ",len);
 
-    bytecode1(jvm_invokevirtual, c->index);  /* call regionMatches() */
+    bc_append(meth, jvm_invokevirtual, c);  /* call regionMatches() */
 
     /* now check the op type & reverse if .NE. */
     if(root->token == rel_ne) {
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_ixor);
+      bc_append(meth, jvm_iconst_1);
+      bc_append(meth, jvm_ixor);
     }
 
     return;   /* nothing more to do for strings here. */
@@ -6566,86 +6302,86 @@ relationalop_emit(AST *root)
             returnstring[root->astnode.expression.rhs->vartype]);
       }
 
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
 
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth, 
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
 
       fprintf (curfp, " == ");
 
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
 
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
 
       break;
     case rel_ne:
 
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
       fprintf (curfp, " != ");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
       break;
     case rel_lt:
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
       fprintf (curfp, " < ");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
       break;
     case rel_le:
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
       fprintf (curfp, " <= ");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
       break;
     case rel_gt:
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
       fprintf (curfp, " > ");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
       break;
     case rel_ge:
-      expr_emit (root->astnode.expression.lhs);
+      expr_emit (meth, root->astnode.expression.lhs);
       if(root->astnode.expression.lhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
       }
       fprintf (curfp, " >= ");
-      expr_emit (root->astnode.expression.rhs);
+      expr_emit (meth, root->astnode.expression.rhs);
       if(root->astnode.expression.rhs->vartype > cur_vt) {
-        bytecode0(
+        bc_append(meth,
           typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
       }
       break;
@@ -6669,47 +6405,47 @@ relationalop_emit(AST *root)
       break;
     case Double: 
       {
-        CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
+        JVM_CODE_GRAPH_NODE *cmp_node, *goto_node, *iconst_node, *next_node;
 
         /* the only difference between dcmpg and dcmpl is the handling
          * of the NaN value.  for .lt. and .le. we use dcmpg, otherwise
          * use dcmpl.  this mirrors the behavior of javac.
          */
         if((root->token == rel_lt) || (root->token == rel_le))
-          bytecode0(jvm_dcmpg);
+          bc_append(meth, jvm_dcmpg);
         else
-          bytecode0(jvm_dcmpl);
+          bc_append(meth, jvm_dcmpl);
 
-        cmp_node = bytecode0(dcmp_opcode[root->token]);
-        bytecode0(jvm_iconst_0);
-        goto_node = bytecode0(jvm_goto);
-        iconst_node = bytecode0(jvm_iconst_1);
-        cmp_node->branch_target = iconst_node;
+        cmp_node = bc_append(meth, dcmp_opcode[root->token]);
+        bc_append(meth, jvm_iconst_0);
+        goto_node = bc_append(meth, jvm_goto);
+        iconst_node = bc_append(meth, jvm_iconst_1);
+        bc_set_branch_target(cmp_node, iconst_node);
 
         /* create a dummy instruction node following the iconst so that
          * we have a branch target for the goto statement.  it'll be
          * removed later.
          */
-        next_node = bytecode0(jvm_impdep1);
-        goto_node->branch_target = next_node;
+        next_node = bc_append(meth, jvm_xxxunusedxxx);
+        bc_set_branch_target(goto_node, next_node);
       }
       break;
     case Integer: 
       {
-        CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
+        JVM_CODE_GRAPH_NODE *cmp_node, *goto_node, *iconst_node, *next_node;
 
-        cmp_node = bytecode0(icmp_opcode[root->token]);
-        bytecode0(jvm_iconst_0);
-        goto_node = bytecode0(jvm_goto);
-        iconst_node = bytecode0(jvm_iconst_1);
-        cmp_node->branch_target = iconst_node;
+        cmp_node = bc_append(meth, icmp_opcode[root->token]);
+        bc_append(meth, jvm_iconst_0);
+        goto_node = bc_append(meth, jvm_goto);
+        iconst_node = bc_append(meth, jvm_iconst_1);
+        bc_set_branch_target(cmp_node, iconst_node);
 
         /* create a dummy instruction node following the iconst so that
          * we have a branch target for the goto statement.  it'll be
          * removed later.
          */
-        next_node = bytecode0(jvm_impdep1);
-        goto_node->branch_target = next_node;
+        next_node = bc_append(meth, jvm_xxxunusedxxx);
+        bc_set_branch_target(goto_node, next_node);
       }
       break;
     default:
@@ -6730,27 +6466,27 @@ relationalop_emit(AST *root)
  *****************************************************************************/
 
 void
-substring_expr_emit(AST *root)
+substring_expr_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE *c;
+  int c;
 
   /* Substring operations are handled with java.lang.String.substring */
 
-  name_emit(root);
+  name_emit(meth, root);
 
   fprintf(curfp,"(");
-  expr_emit(root->astnode.ident.arraylist);
+  expr_emit(meth, root->astnode.ident.arraylist);
   fprintf(curfp,")-1,");
 
-  bytecode0(jvm_iconst_m1);  /* decrement start idx by one */
-  bytecode0(jvm_iadd);
+  bc_append(meth, jvm_iconst_m1);  /* decrement start idx by one */
+  bc_append(meth, jvm_iadd);
 
-  expr_emit(root->astnode.ident.arraylist->nextstmt);
+  expr_emit(meth, root->astnode.ident.arraylist->nextstmt);
   fprintf(curfp,")");
 
-  c = newMethodref(cur_const_table,JL_STRING,
+  c = bc_new_methodref(cur_class_file,JL_STRING,
            "substring", SUBSTR_DESC);
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_append(meth, jvm_invokevirtual, c);
 
   return;
 }
@@ -6784,7 +6520,7 @@ open_output_file(AST *root, char *classname)
   if(gendebug)
     printf("## going to open file: '%s'\n", filename);
 
-  if((javafp = fopen_fullpath(filename,"w"))==NULL) {
+  if((javafp = bc_fopen_fullpath(filename,"w", output_dir))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);
     perror("Reason");
     exit(1);
@@ -6830,14 +6566,6 @@ constructor (AST * root)
   AST *tempnode;
   char *tempstring;
   HASHNODE *hashtemp;
-
-  /* set global descriptor variable (method_desc) */
-
-  if((hashtemp=type_lookup(function_table, 
-         root->astnode.source.name->astnode.ident.name)) != NULL)
-    method_desc = hashtemp->variable->astnode.source.descriptor;
-  else
-    method_desc = MAIN_DESCRIPTOR;
 
   if (root->nodetype == Function)
   {
@@ -7011,12 +6739,12 @@ emit_interface(AST *root)
   classname = strdup(root->astnode.source.name->astnode.ident.name);
   uppercase(classname);
 
-  tempstring = get_full_classname(classname);
+  tempstring = bc_get_full_classname(classname, package_name);
   intfilename = f2jalloc( strlen(tempstring) + 6 );
   strcpy(intfilename, tempstring);
   strcat(intfilename,".java");
 
-  intfp = fopen_fullpath(intfilename,"w");
+  intfp = bc_fopen_fullpath(intfilename,"w", output_dir);
   if(!intfp) {
     perror("Unable to open file");
     exit(-1);
@@ -7330,16 +7058,16 @@ emit_methcall(FILE *intfp, AST *root)
  *****************************************************************************/
 
 void
-forloop_emit (AST * root)
+forloop_emit (JVM_METHOD *meth, AST * root)
 {
   char *indexname;
 
-  forloop_bytecode_emit(root);
+  forloop_bytecode_emit(meth, root);
 
   /* push this do loop's AST node on the stack */
   dl_insert_b(doloop, root);
 
-  set_bytecode_status(JAVA_ONLY);
+  set_bytecode_status(meth, JAVA_ONLY);
 
    /*  
     *  Some point I will need to test whether this is really a name
@@ -7353,7 +7081,7 @@ forloop_emit (AST * root)
   if(root->astnode.forloop.incr != NULL)
   {
     fprintf(curfp,"int _%s_inc = ", indexname);
-    expr_emit (root->astnode.forloop.incr);
+    expr_emit (meth, root->astnode.forloop.incr);
     fprintf(curfp, ";\n");
   }
 
@@ -7370,22 +7098,22 @@ forloop_emit (AST * root)
 
   fprintf (curfp, "for (");
 
-  assign_emit (root->astnode.forloop.start);
+  assign_emit (meth, root->astnode.forloop.start);
 
   fprintf(curfp, "; ");
 
   if(root->astnode.forloop.incr == NULL)
   {
 
-    name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+    name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
 
     fprintf(curfp, " <= ");
     if(gendebug)printf("forloop stop\n");
-    expr_emit (root->astnode.forloop.stop);
+    expr_emit (meth, root->astnode.forloop.stop);
 
     fprintf (curfp, "; ");
 
-    name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+    name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
 
     fprintf (curfp, "++");
   }
@@ -7402,7 +7130,7 @@ forloop_emit (AST * root)
     {
       int increment=atoi(root->astnode.forloop.incr->astnode.constant.number);
       
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
       if(increment > 0)
         fprintf(curfp," <= ");
       else if(increment < 0)
@@ -7413,32 +7141,32 @@ forloop_emit (AST * root)
       }
 
       if(gendebug)printf("forloop stop\n"); 
-      expr_emit (root->astnode.forloop.stop);
+      expr_emit (meth, root->astnode.forloop.stop);
 
       fprintf (curfp, "; ");
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf (curfp, " += _%s_inc",indexname);
     }
     else {
       fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf(curfp," >= ");
       if(gendebug)printf("forloop stop\n");
-      expr_emit (root->astnode.forloop.stop);
+      expr_emit (meth, root->astnode.forloop.stop);
       fprintf(curfp," : ");
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf(curfp," <= ");
-      expr_emit (root->astnode.forloop.stop);
+      expr_emit (meth, root->astnode.forloop.stop);
       fprintf (curfp, "; ");
 
-      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      name_emit(meth, root->astnode.forloop.start->astnode.assignment.lhs);
       fprintf (curfp, " += _%s_inc",indexname);
     }
   }
 
   fprintf (curfp, ") {\n");
 
-  set_bytecode_status(JAVA_AND_JVM);
+  set_bytecode_status(meth, JAVA_AND_JVM);
    /*  Done with loop parameters.  */
 }
 
@@ -7455,25 +7183,25 @@ forloop_emit (AST * root)
  *****************************************************************************/
 
 void
-forloop_bytecode_emit(AST *root) 
+forloop_bytecode_emit(JVM_METHOD *meth, AST *root) 
 {
-  set_bytecode_status(JVM_ONLY);
+  set_bytecode_status(meth, JVM_ONLY);
 
   /* emit the initialization assignment for the loop variable */
-  assign_emit(root->astnode.forloop.start);
+  assign_emit(meth, root->astnode.forloop.start);
 
   /* now emit the expression to calculate the number of 
    * iterations that this loop should make and store the result
    * into the next available local variable.
    */
-  expr_emit(root->astnode.forloop.iter_expr);
-  root->astnode.forloop.localvar = getNextLocal(Integer);
-  gen_store_op(root->astnode.forloop.localvar, Integer);
+  expr_emit(meth, root->astnode.forloop.iter_expr);
+  root->astnode.forloop.localvar = bc_get_next_local(meth, jvm_Int);
+  bc_gen_store_op(meth, root->astnode.forloop.localvar, jvm_Int);
 
   /* goto the end of the loop where we test for completion */
-  root->astnode.forloop.goto_node = bytecode0(jvm_goto);
+  root->astnode.forloop.goto_node = bc_append(meth, jvm_goto);
 
-  set_bytecode_status(JAVA_AND_JVM);
+  set_bytecode_status(meth, JAVA_AND_JVM);
 }
 
 /*****************************************************************************
@@ -7493,20 +7221,20 @@ forloop_bytecode_emit(AST *root)
  *****************************************************************************/
 
 void
-goto_emit (AST * root)
+goto_emit (JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *goto_node;
+  JVM_CODE_GRAPH_NODE *goto_node;
 
   /* for bytecode, maintain a list of the gotos so that we can come back
    * later and resolve the branch targets.
    */
-  goto_node = bytecode0(jvm_goto);
-  goto_node->branch_target = NULL;
-  goto_node->branch_label = root->astnode.go_to.label;
+  goto_node = bc_append(meth, jvm_goto);
+
+  bc_set_integer_branch_label(goto_node, root->astnode.go_to.label);
    
   if(gendebug)
     printf("## setting branch_label of this node to %d\n",
-      goto_node->branch_label);
+      root->astnode.go_to.label);
 
   if(label_search(doloop, root->astnode.go_to.label) != NULL)
   {
@@ -7563,28 +7291,28 @@ goto_emit (AST * root)
  *****************************************************************************/
 
 void
-computed_goto_emit (AST *root)
+computed_goto_emit(JVM_METHOD *meth, AST *root)
 {
-  CodeGraphNode *if_node, *goto_node;
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
   AST *temp;
   unsigned int lvar, count = 1;
 
-  lvar = getNextLocal(Integer);
+  lvar = bc_get_next_local(meth, jvm_Int);
 
   fprintf(curfp,"{\n");
   fprintf(curfp,"  int _cg_tmp = ");
 
   if(root->astnode.computed_goto.name->vartype != Integer) {
     fprintf(curfp,"(int)( ");
-    expr_emit(root->astnode.computed_goto.name);
-    bytecode0(typeconv_matrix[root->astnode.computed_goto.name->vartype]
+    expr_emit(meth, root->astnode.computed_goto.name);
+    bc_append(meth, typeconv_matrix[root->astnode.computed_goto.name->vartype]
                              [Integer]);
     fprintf(curfp,")");
   }
   else
-    expr_emit(root->astnode.computed_goto.name);
+    expr_emit(meth, root->astnode.computed_goto.name);
   
-  gen_store_op(lvar, Integer);
+  bc_gen_store_op(meth, lvar, jvm_Int);
   fprintf(curfp,";\n");
 
   for(temp=root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
@@ -7594,21 +7322,20 @@ computed_goto_emit (AST *root)
     fprintf(curfp,"if (_cg_tmp == %d) \n", count);
     fprintf(curfp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
       temp->astnode.constant.number);
-    gen_load_op(lvar, Integer);
-    pushIntConst(count);
-    if_node = bytecode0(jvm_if_icmpne);
+    bc_gen_load_op(meth, lvar,  jvm_Int);
+    bc_push_int_const(meth, count);
+    if_node = bc_append(meth, jvm_if_icmpne);
 
-    goto_node = bytecode0(jvm_goto);
-    goto_node->branch_target = NULL;
-    goto_node->branch_label = atoi(temp->astnode.constant.number);
+    goto_node = bc_append(meth, jvm_goto);
+    bc_set_branch_label(goto_node, temp->astnode.constant.number);
 
-    if_node->branch_target = bytecode0(jvm_impdep1);
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
 
     count++;
   }
   fprintf(curfp,"}\n");
 
-  releaseLocal(Integer);
+  bc_release_local(meth, jvm_Int);
 }
 
 /*****************************************************************************
@@ -7621,16 +7348,16 @@ computed_goto_emit (AST *root)
  *****************************************************************************/
 
 void
-logicalif_emit (AST * root)
+logicalif_emit(JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *if_node, *next_node;
+  JVM_CODE_GRAPH_NODE *if_node, *next_node;
 
   fprintf (curfp, "if (");
 
   if (root->astnode.logicalif.conds != NULL)
-    expr_emit (root->astnode.logicalif.conds);
+    expr_emit (meth, root->astnode.logicalif.conds);
 
-  if_node = bytecode0(jvm_ifeq);
+  if_node = bc_append(meth, jvm_ifeq);
 
   fprintf (curfp, ")  \n    ");
 
@@ -7640,8 +7367,8 @@ logicalif_emit (AST * root)
    * we have a branch target for the goto statement.  it'll be
    * removed later.
    */
-  next_node = bytecode0(jvm_impdep1);
-  if_node->branch_target = next_node;
+  next_node = bc_append(meth, jvm_xxxunusedxxx);
+  bc_set_branch_target(if_node, next_node);
 }
 
 /*****************************************************************************
@@ -7653,18 +7380,20 @@ logicalif_emit (AST * root)
  *****************************************************************************/
 
 void
-arithmeticif_emit (AST * root)
+arithmeticif_emit (JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *if_node, *goto_node;
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
   unsigned int lvar;
 
-  lvar = getNextLocal(root->astnode.arithmeticif.cond->vartype);
+  lvar = bc_get_next_local(meth, 
+     jvm_data_types[root->astnode.arithmeticif.cond->vartype]);
 
   fprintf (curfp, "{\n");
   fprintf (curfp, "  %s _arif_tmp = ", 
      returnstring[root->astnode.arithmeticif.cond->vartype]);
-  expr_emit(root->astnode.arithmeticif.cond);
-  gen_store_op(lvar, root->astnode.arithmeticif.cond->vartype);
+  expr_emit(meth, root->astnode.arithmeticif.cond);
+  bc_gen_store_op(meth, lvar, 
+     jvm_data_types[root->astnode.arithmeticif.cond->vartype]);
 
   fprintf (curfp, ";\n");
 
@@ -7685,44 +7414,42 @@ arithmeticif_emit (AST * root)
    * we split the cases into integer and non-integer.
    */
   if(root->astnode.arithmeticif.cond->vartype == Integer) {
-    gen_load_op(lvar, Integer);
-    if_node = bytecode0(jvm_ifge);
+    bc_gen_load_op(meth, lvar,  jvm_Int);
+    if_node = bc_append(meth, jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto);
-    goto_node->branch_target = NULL;
-    goto_node->branch_label = root->astnode.arithmeticif.neg_label;
+    goto_node = bc_append(meth, jvm_goto);
+    bc_set_integer_branch_label(goto_node, 
+       root->astnode.arithmeticif.neg_label);
 
-    if_node->branch_target = gen_load_op(lvar, Integer);
+    bc_set_branch_target(if_node, bc_gen_load_op(meth, lvar,  jvm_Int));
   }
   else {
-    gen_load_op(lvar, root->astnode.arithmeticif.cond->vartype);
-    bytecode0(jvm_dconst_0);
-    bytecode0(jvm_dcmpg);
-    if_node = bytecode0(jvm_ifge);
+    bc_gen_load_op(meth, lvar, jvm_data_types[root->astnode.arithmeticif.cond->vartype]);
+    bc_append(meth, jvm_dconst_0);
+    bc_append(meth, jvm_dcmpg);
+    if_node = bc_append(meth, jvm_ifge);
 
-    goto_node = bytecode0(jvm_goto);
-    goto_node->branch_target = NULL;
-    goto_node->branch_label = root->astnode.arithmeticif.neg_label;
+    goto_node = bc_append(meth, jvm_goto);
+    bc_set_integer_branch_label(goto_node, 
+      root->astnode.arithmeticif.neg_label);
 
-    if_node->branch_target = 
-       gen_load_op(lvar, root->astnode.arithmeticif.cond->vartype);
-    bytecode0(jvm_dconst_0);
-    bytecode0(jvm_dcmpg);
+    bc_set_branch_target(if_node, 
+       bc_gen_load_op(meth, lvar, jvm_data_types[root->astnode.arithmeticif.cond->vartype]));
+    bc_append(meth, jvm_dconst_0);
+    bc_append(meth, jvm_dcmpg);
   }
 
-  if_node = bytecode0(jvm_ifne);
+  if_node = bc_append(meth, jvm_ifne);
 
-  goto_node = bytecode0(jvm_goto);
-  goto_node->branch_target = NULL;
-  goto_node->branch_label = root->astnode.arithmeticif.zero_label;
+  goto_node = bc_append(meth, jvm_goto);
+  bc_set_integer_branch_label(goto_node,root->astnode.arithmeticif.zero_label);
 
-  goto_node = bytecode0(jvm_goto);
-  goto_node->branch_target = NULL;
-  goto_node->branch_label = root->astnode.arithmeticif.pos_label;
+  goto_node = bc_append(meth, jvm_goto);
+  bc_set_integer_branch_label(goto_node, root->astnode.arithmeticif.pos_label);
 
-  if_node->branch_target = goto_node;
+  bc_set_branch_target(if_node, goto_node);
 
-  releaseLocal(root->astnode.arithmeticif.cond->vartype);
+  bc_release_local(meth, jvm_data_types[root->astnode.arithmeticif.cond->vartype]);
 }
 
 /*****************************************************************************
@@ -7735,7 +7462,7 @@ arithmeticif_emit (AST * root)
  *****************************************************************************/
 
 void
-label_emit (AST * root)
+label_emit (JVM_METHOD *meth, AST * root)
 {
   AST *loop;
   int num;
@@ -7743,16 +7470,9 @@ label_emit (AST * root)
   num = root->astnode.label.number;
 
   if(gendebug)
-    printf("looking at label %d, pc is %d\n", num, pc);
+    printf("looking at label %d\n", num);
 
-  /* if the last node was impdep1, then that node will be replaced with
-   * whatever is the next generated opcode, so we set the PC appropriately.
-   */
-  if(lastOp == jvm_impdep1)
-    root->astnode.label.pc = pc - opWidth(jvm_impdep1);
-  else
-    root->astnode.label.pc = pc;
-
+  root->astnode.label.instr = bc_append(meth, jvm_xxxunusedxxx);
 
   /* if this continue statement corresponds with the most
    * recent DO loop, then this is the end of the loop - pop
@@ -7780,7 +7500,7 @@ label_emit (AST * root)
       fprintf(curfp, "}              //  Close for() loop. \n");
       fprintf(curfp, "}\n");
 
-      forloop_end_bytecode(loop);
+      forloop_end_bytecode(meth, loop);
 
       loop = dl_astnode_examine(doloop);
     } while((loop != NULL) &&
@@ -7799,7 +7519,8 @@ label_emit (AST * root)
     }
   }
 
-  dl_insert_b(label_list, root);
+  bc_associate_integer_branch_label(meth, root->astnode.label.instr, 
+     root->astnode.label.number);
 }
 
 /*****************************************************************************
@@ -7813,31 +7534,32 @@ label_emit (AST * root)
  *****************************************************************************/
 
 void
-forloop_end_bytecode(AST *root)
+forloop_end_bytecode(JVM_METHOD *meth, AST *root)
 {
-  CodeGraphNode *if_node, *iload_node;
+  JVM_CODE_GRAPH_NODE *if_node, *iload_node;
   unsigned int icount;
    
   icount = root->astnode.forloop.localvar;
 
-  set_bytecode_status(JVM_ONLY);
+  set_bytecode_status(meth, JVM_ONLY);
 
   /* increment loop variable */
-  assign_emit(root->astnode.forloop.incr_expr);
+  assign_emit(meth, root->astnode.forloop.incr_expr);
 
   /* decrement iteration count */
-  iinc_emit(icount, -1);
+  bc_gen_iinc(meth, icount, -1);
 
-  iload_node = gen_load_op(icount, Integer);
+  iload_node = bc_gen_load_op(meth, icount, jvm_Int);
 
-  root->astnode.forloop.goto_node->branch_target = iload_node;
+  bc_set_branch_target(root->astnode.forloop.goto_node, iload_node);
 
-  if_node = bytecode0(jvm_ifgt);
-  if_node->branch_target = root->astnode.forloop.goto_node->next;
+  if_node = bc_append(meth, jvm_ifgt);
+  bc_set_branch_target(if_node, 
+     bc_get_next_instr(root->astnode.forloop.goto_node));
 
-  releaseLocal(Integer);
+  bc_release_local(meth, jvm_Int);
 
-  set_bytecode_status(JAVA_AND_JVM);
+  set_bytecode_status(meth, JAVA_AND_JVM);
 }
 
 /*****************************************************************************
@@ -7851,13 +7573,13 @@ forloop_end_bytecode(AST *root)
  *****************************************************************************/
 
 void
-read_emit (AST * root)
+read_emit (JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *goto_node1, *goto_node2, *try_start, *pop_node;
-  ExceptionTableEntry *et_entry;
+  JVM_CODE_GRAPH_NODE *goto_node1, *goto_node2, *try_start, *pop_node;
+  JVM_EXCEPTION_TABLE_ENTRY *et_entry;
   AST *assign_temp;
   AST *temp;
-  CPNODE *c;
+  int c;
 
   /* if the READ statement has no args, just read a line and
    * ignore it.
@@ -7865,10 +7587,10 @@ read_emit (AST * root)
 
   if(root->astnode.io_stmt.arg_list == NULL) {
     fprintf(curfp,"_f2j_stdin.readString();  // skip a line\n");
-    gen_load_op(stdin_lvar, Object);
-    c = newMethodref(cur_const_table, EASYIN_CLASS, "readString",
+    bc_gen_load_op(meth, stdin_lvar, jvm_Object);
+    c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
           "()Ljava/lang/String;");
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
     return;
   }
 
@@ -7881,7 +7603,7 @@ read_emit (AST * root)
   {
     fprintf(curfp,"try {\n");
     funcname = input_func_eof;
-    try_start = bytecode0(jvm_impdep1);
+    try_start = bc_append(meth, jvm_xxxunusedxxx);
   }
   else
     funcname = input_func;
@@ -7892,16 +7614,16 @@ read_emit (AST * root)
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == IoImpliedLoop)
-      implied_loop_emit(temp, read_implied_loop_bytecode_emit,
-            read_implied_loop_sourcecode_emit);
+      implied_loop_emit(meth, temp, read_implied_loop_bytecode_emit,
+             read_implied_loop_sourcecode_emit);
     else if(temp->nodetype == Identifier)
     {
       temp->parent = assign_temp;
       assign_temp->astnode.assignment.lhs = temp;
 
-      name_emit(assign_temp->astnode.assignment.lhs);
+      name_emit(meth, assign_temp->astnode.assignment.lhs);
 
-      gen_load_op(stdin_lvar, Object);
+      bc_gen_load_op(meth, stdin_lvar, jvm_Object);
       if( (temp->vartype == Character) || (temp->vartype == String) ) {
         int len;
 
@@ -7909,17 +7631,17 @@ read_emit (AST * root)
 
         fprintf(curfp," = _f2j_stdin.%s(%d);\n",funcname[temp->vartype],
            len);
-        pushIntConst(len);
+        bc_push_int_const(meth, len);
       }
       else {
         fprintf(curfp," = _f2j_stdin.%s();\n",funcname[temp->vartype]);
       }
 
-      c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
+      c = bc_new_methodref(cur_class_file, EASYIN_CLASS, funcname[temp->vartype],
             input_descriptors[temp->vartype]);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
-      LHS_bytecode_emit(assign_temp);
+      LHS_bytecode_emit(meth, assign_temp);
     }
     else
     {
@@ -7932,9 +7654,9 @@ read_emit (AST * root)
   free_ast_node(assign_temp);
 
   fprintf(curfp,"_f2j_stdin.skipRemaining();\n");
-  gen_load_op(stdin_lvar, Object);
-  c = newMethodref(cur_const_table, EASYIN_CLASS, "skipRemaining", "()V");
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_gen_load_op(meth, stdin_lvar, jvm_Object);
+  c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "skipRemaining", "()V");
+  bc_append(meth, jvm_invokevirtual, c);
 
   /* Emit the catch block for when we hit EOF.  We only care if
    * the READ statement has an END label.
@@ -7947,7 +7669,7 @@ read_emit (AST * root)
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
 
-    goto_node1 = bytecode0(jvm_goto);  /* skip the exception handler */
+    goto_node1 = bc_append(meth, jvm_goto);  /* skip the exception handler */
 
     /* following is the exception handler for IOException.  this
      * implements Fortrans END specifier (eg READ(*,*,END=100)).
@@ -7955,27 +7677,26 @@ read_emit (AST * root)
      * back to normal and a goto to branch to the label specified
      * in the END spec.
      */
-    pop_node = bytecode0(jvm_pop);
+    pop_node = bc_append(meth, jvm_pop);
 
     /* artificially set stack depth at beginning of exception
      * handler to 1.
      */
-    pop_node->stack_depth = 1;
+    bc_set_stack_depth(pop_node, 1);
 
-    goto_node2 = bytecode0(jvm_goto);
-    goto_node2->branch_target = NULL;
-    goto_node2->branch_label = root->astnode.io_stmt.end_num;
+    goto_node2 = bc_append(meth, jvm_goto);
+    bc_set_integer_branch_label(goto_node2, root->astnode.io_stmt.end_num);
 
-    goto_node1->branch_target = bytecode0(jvm_impdep1);
+    bc_set_branch_target(goto_node1, bc_append(meth, jvm_xxxunusedxxx));
 
-    et_entry = (ExceptionTableEntry *) f2jalloc(sizeof(ExceptionTableEntry));
+    et_entry = (JVM_EXCEPTION_TABLE_ENTRY *) f2jalloc(sizeof(JVM_EXCEPTION_TABLE_ENTRY));
     et_entry->from = try_start;
     et_entry->to = pop_node;
     et_entry->target = pop_node;
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, IOEXCEPTION);
-    et_entry->catch_type = c->index;
+    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, IOEXCEPTION);
+    et_entry->catch_type = c;
 
-    dl_insert_b(exc_table, et_entry);
+    bc_add_exception_handler(meth, et_entry);
   }
 }
 
@@ -7989,10 +7710,10 @@ read_emit (AST * root)
  *****************************************************************************/
 
 void
-read_implied_loop_bytecode_emit(AST *node)
+read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
 {
   AST *assign_temp, *temp, *iot;
-  CPNODE *c;
+  int c;
   
   for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
   {
@@ -8011,22 +7732,22 @@ read_implied_loop_bytecode_emit(AST *node)
       temp->parent = assign_temp;
       assign_temp->astnode.assignment.lhs = temp;
 
-      name_emit(assign_temp->astnode.assignment.lhs);
+      name_emit(meth, assign_temp->astnode.assignment.lhs);
 
-      gen_load_op(stdin_lvar, Object);
+      bc_gen_load_op(meth, stdin_lvar, jvm_Object);
 
       if( (temp->vartype == Character) || (temp->vartype == String) ) {
         if(temp->astnode.ident.len < 0)
-          pushIntConst(1);
+          bc_push_int_const(meth, 1);
         else
-          pushIntConst(temp->astnode.ident.len);
+          bc_push_int_const(meth, temp->astnode.ident.len);
       }
 
-      c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
+      c = bc_new_methodref(cur_class_file, EASYIN_CLASS, funcname[temp->vartype],
             input_descriptors[temp->vartype]);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
-      LHS_bytecode_emit(assign_temp);
+      LHS_bytecode_emit(meth, assign_temp);
     }
   }
 
@@ -8042,7 +7763,7 @@ read_implied_loop_bytecode_emit(AST *node)
  *****************************************************************************/
 
 void
-read_implied_loop_sourcecode_emit(AST *node)
+read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
 {
   AST *iot;
 
@@ -8055,7 +7776,7 @@ read_implied_loop_sourcecode_emit(AST *node)
       fprintf(stderr," in implied loop (read stmt)\n");
     }
     else {
-      name_emit(iot);
+      name_emit(meth, iot);
       fprintf(curfp," = _f2j_stdin.%s();\n",
          funcname[iot->vartype]);
     }
@@ -8072,46 +7793,46 @@ read_implied_loop_sourcecode_emit(AST *node)
  *****************************************************************************/
 
 void
-one_arg_write_emit(AST *root)
+one_arg_write_emit(JVM_METHOD *meth, AST *root)
 {
-  CPNODE *c;
+  int c;
 
   /* if the only arg is an implied loop, emit that and return...
    * nothing more to do here.
    */
   if((root->astnode.io_stmt.arg_list != NULL) &&
      (root->astnode.io_stmt.arg_list->nodetype == IoImpliedLoop)) {
-    implied_loop_emit(root->astnode.io_stmt.arg_list, 
+    implied_loop_emit(meth, root->astnode.io_stmt.arg_list, 
          write_implied_loop_bytecode_emit,
          write_implied_loop_sourcecode_emit);
     fprintf(curfp, "System.out.println();\n");
-    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
-    bytecode1(jvm_invokevirtual, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
+    bc_append(meth, jvm_invokevirtual, c);
     return;
   }
 
-  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-  bytecode1(jvm_getstatic, c->index);
+  c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+  bc_append(meth, jvm_getstatic, c);
 
   fprintf(curfp, "System.out.println(");
   if(root->astnode.io_stmt.arg_list) {
-    expr_emit(root->astnode.io_stmt.arg_list);
+    expr_emit(meth, root->astnode.io_stmt.arg_list);
     if(isArrayNoIdx(root->astnode.io_stmt.arg_list)) 
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
             println_descriptor[Object]);
     else
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
             println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
   }
   else {
-    inline_format_emit(root, FALSE);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+    inline_format_emit(meth, root, FALSE);
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
           println_descriptor[String]);
   }
   fprintf(curfp, ");\n");
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_append(meth, jvm_invokevirtual, c);
 
   return;
 }
@@ -8143,13 +7864,13 @@ isArrayNoIdx(AST *var)
  *****************************************************************************/
 
 void
-write_emit(AST * root)
+write_emit(JVM_METHOD *meth, AST * root)
 {
   BOOL implied_loop = FALSE;
   AST *nodeptr, *temp, *prev;
   HASHNODE *hnode;
   char tmp[100];
-  CPNODE *c;
+  int c;
 
   /* look for a format statement */
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
@@ -8162,29 +7883,29 @@ write_emit(AST * root)
   if((root->astnode.io_stmt.arg_list == NULL) &&
      (root->astnode.io_stmt.fmt_list == NULL))
   {
-    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
 
     if(hnode) {
       nodeptr = root->astnode.io_stmt.arg_list; 
 
       fprintf (curfp, "System.out.println(");
-      format_emit(hnode->variable->astnode.label.stmt,&nodeptr);
+      format_emit(meth, hnode->variable->astnode.label.stmt,&nodeptr);
       fprintf(curfp,");\n");
 
-      c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
              TOSTRING_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
           println_descriptor[String]);
     }
     else {
       fprintf(curfp,"System.out.println();\n");
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
     }
 
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
     return;
   }
@@ -8216,13 +7937,13 @@ write_emit(AST * root)
        ((root->astnode.io_stmt.arg_list == NULL) &&
         (root->astnode.io_stmt.fmt_list != NULL))) )
   {
-    one_arg_write_emit(root);
+    one_arg_write_emit(meth, root);
     return;
   }
 
   if(root->astnode.io_stmt.arg_list->nodetype != IoImpliedLoop) {
-    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
   }
 
   if(implied_loop)
@@ -8231,7 +7952,7 @@ write_emit(AST * root)
     fprintf (curfp, "System.out.println(");
 
   if(root->astnode.io_stmt.fmt_list != NULL)
-    inline_format_emit(root, TRUE);
+    inline_format_emit(meth, root, TRUE);
 
   /* if there's formatting information for this write statement, use it
    * unless the write statement has an implied do loop.  in that case,
@@ -8244,7 +7965,7 @@ write_emit(AST * root)
 
     nodeptr = root->astnode.io_stmt.arg_list; 
 
-    format_emit(hnode->variable->astnode.label.stmt,&nodeptr);
+    format_emit(meth, hnode->variable->astnode.label.stmt,&nodeptr);
   }
   else {
     if(gendebug)
@@ -8268,13 +7989,13 @@ write_emit(AST * root)
         if( temp == root->astnode.io_stmt.arg_list )
           fprintf(curfp,"\"\");\n");
 
-        implied_loop_emit(temp, write_implied_loop_bytecode_emit,
+        implied_loop_emit(meth, temp, write_implied_loop_bytecode_emit,
                                 write_implied_loop_sourcecode_emit);
         if(temp->nextstmt != NULL)
           if(temp->nextstmt->nodetype != IoImpliedLoop) {
             fprintf(curfp,"System.out.print(");
-            c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-            bytecode1(jvm_getstatic, c->index);
+            c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+            bc_append(meth, jvm_getstatic, c);
           }
       }
       else
@@ -8292,79 +8013,79 @@ write_emit(AST * root)
            * before calling the constructor.
            */
 
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-          bytecode1(jvm_new,c->index);
-          bytecode0(jvm_dup);
+          c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
+          bc_append(meth, jvm_new,c);
+          bc_append(meth, jvm_dup);
 
-          expr_emit (temp);
+          expr_emit (meth, temp);
 
           if((temp->vartype != String) && (temp->vartype != Character)) {
             /* call String.valueOf() to convert this numeric type to string */
             if(isArrayNoIdx(temp)) {
-              c = newMethodref(cur_const_table, JL_OBJECT, "toString",
+              c = bc_new_methodref(cur_class_file, JL_OBJECT, "toString",
                      TOSTRING_DESC);
-              bytecode1(jvm_invokevirtual, c->index);
+              bc_append(meth, jvm_invokevirtual, c);
             }
             else {
-              c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+              c = bc_new_methodref(cur_class_file, JL_STRING, "valueOf", 
                      string_valueOf_descriptor[temp->vartype]);
-              bytecode1(jvm_invokestatic, c->index);
+              bc_append(meth, jvm_invokestatic, c);
             }
           }
 
-          c = newMethodref(cur_const_table, STRINGBUFFER, "<init>",
+          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>",
                 STRBUF_DESC);
-          bytecode1(jvm_invokespecial, c->index);
+          bc_append(meth, jvm_invokespecial, c);
         }
         else {
-          expr_emit (temp);
+          expr_emit (meth, temp);
 
           if(isArrayNoIdx(temp))
-            c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
                     append_descriptor[Object]);
           else
-            c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
                     append_descriptor[temp->vartype]);
 
-          bytecode1(jvm_invokevirtual, c->index);
+          bc_append(meth, jvm_invokevirtual, c);
         }
         fprintf(curfp,")");
 
         if(temp->nextstmt != NULL) 
         {
-          pushStringConst(" ");
-          c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+          bc_push_string_const(meth, " ");
+          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
                 append_descriptor[String]);
 
-          bytecode1(jvm_invokevirtual, c->index);
+          bc_append(meth, jvm_invokevirtual, c);
 
           if(temp->nextstmt->nodetype == IoImpliedLoop) {
             /* next item is implied loop.  finish up this print statement. */
             fprintf (curfp, " + \" \");\n");
 
-            c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
                   TOSTRING_DESC);
-            bytecode1(jvm_invokevirtual, c->index);
+            bc_append(meth, jvm_invokevirtual, c);
 
-            c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
+            c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
                   println_descriptor[String]);
-            bytecode1(jvm_invokevirtual, c->index);
+            bc_append(meth, jvm_invokevirtual, c);
           }
           else {
-            /* bytecode for this is above (pushStringConst(" "); etc.)  */
+            /* bytecode for this is above (bc_push_string_const(meth, " "); etc.)  */
             fprintf (curfp, " + \" \" + ");
           }
         }
         else if(implied_loop) {
           fprintf (curfp, ");\n");
 
-          c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
                 TOSTRING_DESC);
-          bytecode1(jvm_invokevirtual, c->index);
+          bc_append(meth, jvm_invokevirtual, c);
 
-          c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
+          c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
                 println_descriptor[String]);
-          bytecode1(jvm_invokevirtual, c->index);
+          bc_append(meth, jvm_invokevirtual, c);
         }
       }
       prev = temp;
@@ -8373,20 +8094,20 @@ write_emit(AST * root)
 
   if(implied_loop) {
     fprintf (curfp, "\nSystem.out.println();\n");
-    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
-    bytecode1(jvm_invokevirtual, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
+    bc_append(meth, jvm_invokevirtual, c);
   }
   else {
     fprintf (curfp, ");\n");
-    c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
           TOSTRING_DESC);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println", 
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", 
            println_descriptor[String]);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
   }
 }
 
@@ -8404,27 +8125,27 @@ write_emit(AST * root)
  *****************************************************************************/
 
 void
-inline_format_emit(AST *root, BOOL use_stringbuffer)
+inline_format_emit(JVM_METHOD *meth, AST *root, BOOL use_stringbuffer)
 {
-  CPNODE *c;
+  int c;
 
   fprintf(curfp, "\"%s\"", 
     root->astnode.io_stmt.fmt_list->astnode.constant.number);
     
   if(use_stringbuffer) {
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-    bytecode1(jvm_new,c->index);
-    bytecode0(jvm_dup);
+    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
+    bc_append(meth, jvm_new,c);
+    bc_append(meth, jvm_dup);
   }
 
-  pushStringConst(root->astnode.io_stmt.fmt_list->astnode.constant.number);
+  bc_push_string_const(meth, root->astnode.io_stmt.fmt_list->astnode.constant.number);
 
   if(root->astnode.io_stmt.arg_list != NULL)
     fprintf(curfp, " + ");
 
   if (use_stringbuffer) {
-    c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-    bytecode1(jvm_invokespecial, c->index);
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", STRBUF_DESC);
+    bc_append(meth, jvm_invokespecial, c);
   }
 }
 
@@ -8438,10 +8159,11 @@ inline_format_emit(AST *root, BOOL use_stringbuffer)
  *****************************************************************************/
 
 void
-implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
-                             void loop_body_sourcecode_emit(AST *) )
+implied_loop_emit(JVM_METHOD *meth, AST *node, 
+        void loop_body_bytecode_emit(JVM_METHOD *, AST *),
+        void loop_body_sourcecode_emit(JVM_METHOD *, AST *))
 {
-  CodeGraphNode *if_node, *goto_node, *iload_node;
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node, *iload_node;
   AST *temp;
   unsigned int icount;
 
@@ -8452,68 +8174,68 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
   temp->astnode.assignment.rhs = node->astnode.forloop.start;
   temp->astnode.assignment.rhs->parent = temp;
 
-  set_bytecode_status(JAVA_ONLY);
+  set_bytecode_status(meth, JAVA_ONLY);
 
   fprintf(curfp,"for("); 
 
-  assign_emit(temp);
+  assign_emit(meth, temp);
 
   fprintf(curfp,"; ");
 
-  expr_emit(node->astnode.forloop.counter);
+  expr_emit(meth, node->astnode.forloop.counter);
   fprintf(curfp," <= "); 
-  expr_emit(node->astnode.forloop.stop);
+  expr_emit(meth, node->astnode.forloop.stop);
 
   if(node->astnode.forloop.incr == NULL) {
     fprintf(curfp,"; "); 
-    expr_emit(node->astnode.forloop.counter);
+    expr_emit(meth, node->astnode.forloop.counter);
     fprintf(curfp,"++)\n"); 
   }
   else
   {
     fprintf(curfp,"; "); 
-    expr_emit(node->astnode.forloop.counter);
+    expr_emit(meth, node->astnode.forloop.counter);
     fprintf(curfp," += "); 
-    expr_emit(node->astnode.forloop.incr);
+    expr_emit(meth, node->astnode.forloop.incr);
     fprintf(curfp,")\n"); 
   }
 
-  loop_body_sourcecode_emit(node);
-  set_bytecode_status(JVM_ONLY);
+  loop_body_sourcecode_emit(meth, node);
+  set_bytecode_status(meth, JVM_ONLY);
 
   /* the rest of this code is only generated as bytecode.
    * first emit the initial assignment.
    */
-  assign_emit(temp);
+  assign_emit(meth, temp);
 
   /* now emit the expression to calculate the number of 
    * iterations that this loop should make and store the result
    * into the next available local variable.
    */
-  expr_emit(node->astnode.forloop.iter_expr);
-  icount = getNextLocal(Integer);
-  gen_store_op(icount, Integer);
+  expr_emit(meth, node->astnode.forloop.iter_expr);
+  icount = bc_get_next_local(meth, jvm_Int);
+  bc_gen_store_op(meth, icount, jvm_Int);
 
   /* goto the end of the loop where we test for completion */
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bc_append(meth, jvm_goto);
 
-  loop_body_bytecode_emit(node);
+  loop_body_bytecode_emit(meth, node);
 
   /* increment loop variable */
-  assign_emit(node->astnode.forloop.incr_expr);
+  assign_emit(meth, node->astnode.forloop.incr_expr);
 
   /* decrement iteration count */
-  iinc_emit(icount, -1);
+  bc_gen_iinc(meth, icount, -1);
 
-  iload_node = gen_load_op(icount, Integer);
+  iload_node = bc_gen_load_op(meth, icount, jvm_Int);
 
-  goto_node->branch_target = iload_node;
+  bc_set_branch_target(goto_node, iload_node);
 
-  if_node = bytecode0(jvm_ifgt);
-  if_node->branch_target = goto_node->next;
+  if_node = bc_append(meth, jvm_ifgt);
+  bc_set_branch_target(if_node, bc_get_next_instr(goto_node));
 
-  releaseLocal(Integer);
-  set_bytecode_status(JAVA_AND_JVM);
+  bc_release_local(meth, jvm_Int);
+  set_bytecode_status(meth, JAVA_AND_JVM);
 }
 
 /*****************************************************************************
@@ -8526,7 +8248,7 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
  *****************************************************************************/
 
 void
-write_implied_loop_sourcecode_emit(AST *node)
+write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
 {
   AST *temp;
 
@@ -8535,7 +8257,7 @@ write_implied_loop_sourcecode_emit(AST *node)
   {
     if(temp->nodetype == Identifier) {
       fprintf(curfp,"  System.out.print(");
-      name_emit(temp);
+      name_emit(meth,temp);
       fprintf(curfp," + \" \");\n");
     }
     else if(temp->nodetype == Constant) {
@@ -8562,26 +8284,26 @@ write_implied_loop_sourcecode_emit(AST *node)
  *****************************************************************************/
 
 void
-write_implied_loop_bytecode_emit(AST *node)
+write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
 {
   AST *temp;
-  CPNODE *c;
+  int c;
 
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
     /* emit loop body */
-    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-    bytecode1(jvm_getstatic, c->index);
+    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
+    bc_append(meth, jvm_getstatic, c);
 
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-    bytecode1(jvm_new,c->index);
-    bytecode0(jvm_dup);
+    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
+    bc_append(meth, jvm_new,c);
+    bc_append(meth, jvm_dup);
 
     if(temp->nodetype == Identifier) {
-      name_emit(temp);
+      name_emit(meth, temp);
     }
     else if(temp->nodetype == Constant) {
-      pushConst(temp);
+      pushConst(meth, temp);
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
@@ -8594,107 +8316,27 @@ write_implied_loop_bytecode_emit(AST *node)
        (temp->vartype != Character))
     {
       /* call String.valueOf() to convert this numeric type to string */
-      c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+      c = bc_new_methodref(cur_class_file, JL_STRING, "valueOf", 
              string_valueOf_descriptor[temp->vartype]);
-      bytecode1(jvm_invokestatic, c->index);
+      bc_append(meth, jvm_invokestatic, c);
     }
 
-    c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-    bytecode1(jvm_invokespecial, c->index);
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", STRBUF_DESC);
+    bc_append(meth, jvm_invokespecial, c);
 
-    pushStringConst(" ");
-    c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+    bc_push_string_const(meth, " ");
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
           append_descriptor[String]);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
-    c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
           TOSTRING_DESC);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
-    c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
+    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
           println_descriptor[String]);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
   }
-}
-
-/*****************************************************************************
- *                                                                           *
- * iinc_emit                                                                 *
- *                                                                           *
- * generates an iinc instruction.  iinc takes two one-byte operands, which   *
- * we join into a single operand here.                                       *
- *                                                                           *
- *****************************************************************************/
-
-void
-iinc_emit(unsigned int idx, int inc_const)
-{
-  unsigned int operand;
-
-  if((idx > 255) || (inc_const < -128) || (inc_const > 127)) {
-    u2 short_const;
-
-    bytecode0(jvm_wide);
-   
-    short_const = (u2) inc_const;
-    operand = ((idx & 0xFFFF) << 16) | (short_const & 0xFFFF);
-  }
-  else
-    operand = ((idx & 0xFF) << 8) | (inc_const & 0xFF);
-
-  bytecode1(jvm_iinc, operand);
-}
-
-/*****************************************************************************
- *                                                                           *
- * gen_store_op                                                              *
- *                                                                           *
- * given the local variable number, this function generates a store opcode   *
- * to store a value to the local var.                                        *
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-gen_store_op(unsigned int lvnum, enum returntype rt)
-{
-  CodeGraphNode *node;
-
-  if(lvnum > 255) {
-    node = bytecode0(jvm_wide); 
-    bytecode1(store_opcodes[rt], lvnum);
-  }
-  else if(lvnum <= 3)
-    node = bytecode0(short_store_opcodes[rt][lvnum]);
-  else
-    node = bytecode1(store_opcodes[rt], lvnum);
-
-  return node;
-}
-
-/*****************************************************************************
- *                                                                           *
- * gen_load_op                                                               *
- *                                                                           *
- * given the local variable number, this function generates a load opcode    *
- * to load a value from the local var.                                       *
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-gen_load_op(unsigned int lvnum, enum returntype rt)
-{
-  CodeGraphNode *node;
-
-  if(lvnum > 255) {
-    node = bytecode0(jvm_wide); 
-    bytecode1(load_opcodes[rt], lvnum);
-  }
-  else if(lvnum <= 3)
-    node = bytecode0(short_load_opcodes[rt][lvnum]);
-  else
-    node = bytecode1(load_opcodes[rt], lvnum);
-
-  return node;
 }
 
 /*****************************************************************************
@@ -8707,18 +8349,18 @@ gen_load_op(unsigned int lvnum, enum returntype rt)
  *****************************************************************************/
 
 void
-format_emit(AST *node, AST **nptr)
+format_emit(JVM_METHOD *meth, AST *node, AST **nptr)
 {
-  CPNODE *c;
+  int c;
 
   /* create a new stringbuffer with no initial value.  */
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
-  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", "()V");
-  bytecode1(jvm_invokespecial, c->index);
+  c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
+  bc_append(meth, jvm_new,c);
+  bc_append(meth, jvm_dup);
+  c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", "()V");
+  bc_append(meth, jvm_invokespecial, c);
 
-  format_list_emit(node,nptr);
+  format_list_emit(meth, node,nptr);
 }
 
 /*****************************************************************************
@@ -8731,12 +8373,12 @@ format_emit(AST *node, AST **nptr)
  *****************************************************************************/
 
 void
-format_list_emit(AST *node, AST **nptr)
+format_list_emit(JVM_METHOD *meth, AST *node, AST **nptr)
 {
   AST *temp = node;
 
   while(temp != NULL)
-    temp = format_item_emit(temp,nptr);
+    temp = format_item_emit(meth, temp,nptr);
 }
 
 /*****************************************************************************
@@ -8749,9 +8391,9 @@ format_list_emit(AST *node, AST **nptr)
  *****************************************************************************/
 
 AST *
-format_item_emit(AST *temp, AST **nodeptr)
+format_item_emit(JVM_METHOD *meth, AST *temp, AST **nodeptr)
 {
-  CPNODE *c;
+  int c;
   int i;
 
   switch(temp->token) {
@@ -8759,7 +8401,7 @@ format_item_emit(AST *temp, AST **nodeptr)
     case NAME:
       if(gendebug)
         printf("NAme/EDIT_DESC\n");
-      format_name_emit(*nodeptr);
+      format_name_emit(meth, *nodeptr);
       if(*nodeptr != NULL) {
         if(gendebug)
           printf("** Advancing nodeptr ** \n");
@@ -8774,10 +8416,10 @@ format_item_emit(AST *temp, AST **nodeptr)
         printf("STring: %s\n",temp->astnode.constant.number);
       fprintf(curfp,"\"%s\" ",temp->astnode.constant.number);
 
-      pushStringConst(temp->astnode.constant.number);
-      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+      bc_push_string_const(meth, temp->astnode.constant.number);
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
             append_descriptor[String]);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
@@ -8787,7 +8429,7 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("Repeat %d\n",temp->astnode.label.number);
       for(i=0;i<temp->astnode.label.number;i++) {
-        format_list_emit(temp->astnode.label.stmt,nodeptr);
+        format_list_emit(meth, temp->astnode.label.stmt,nodeptr);
 
         if((i < temp->astnode.label.number -1) || 
           ((i == temp->astnode.label.number -1) && (temp->nextstmt != NULL)))
@@ -8818,10 +8460,10 @@ format_item_emit(AST *temp, AST **nodeptr)
             strncpy(bi, tmpbuf + 1, strlen(tmpbuf) -2);
             bi[strlen(tmpbuf) - 2] = '\0';
 
-            pushStringConst(bi);
-            c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            bc_push_string_const(meth, bi);
+            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
                   append_descriptor[String]);
-            bytecode1(jvm_invokevirtual, c->index);
+            bc_append(meth, jvm_invokevirtual, c);
 
             f2jfree(tmpbuf, strlen(tmpbuf)+1);
             f2jfree(bi, strlen(bi)+1);
@@ -8852,10 +8494,10 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("Div\n");
       fprintf(curfp,"\"\\n\" ");
-      pushStringConst("\n ");
-      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+      bc_push_string_const(meth, "\n ");
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
             append_descriptor[String]);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -8864,10 +8506,10 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("two divs\n");
       fprintf(curfp,"\"\\n\\n\" ");
-      pushStringConst("\n\n ");
-      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+      bc_push_string_const(meth, "\n\n ");
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
             append_descriptor[String]);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -8896,17 +8538,17 @@ format_item_emit(AST *temp, AST **nodeptr)
  *****************************************************************************/
 
 void
-format_name_emit(AST *node)
+format_name_emit(JVM_METHOD *meth, AST *node)
 {
-  CPNODE *c;
+  int c;
 
   if(node == NULL) {
     if(gendebug)
       printf("*** BAD FORMATTING\n");
     bad_format_count++;
     fprintf(curfp,"\" NULL \"");
-    pushStringConst(" NULL ");
-    c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+    bc_push_string_const(meth, " NULL ");
+    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
           append_descriptor[String]);
   }
   else {
@@ -8934,24 +8576,24 @@ format_name_emit(AST *node)
     use the descriptor with the Object argument).
 */
     fprintf(curfp,"(");
-    expr_emit(node);
+    expr_emit(meth, node);
 
     if( (node->token == NAME) && 
         (type_lookup(cur_array_table, node->astnode.ident.name) != NULL) &&
         (node->astnode.ident.arraylist == NULL) )
-      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
             append_descriptor[Object]);
     else
-      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
             append_descriptor[node->vartype]);
     fprintf(curfp,")");
   }
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_append(meth, jvm_invokevirtual, c);
 
-  pushStringConst(" ");
-  c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+  bc_push_string_const(meth, " ");
+  c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
         append_descriptor[String]);
-  bytecode1(jvm_invokevirtual, c->index);
+  bc_append(meth, jvm_invokevirtual, c);
 
   fprintf(curfp," + \" \" ");
 }
@@ -8969,9 +8611,9 @@ format_name_emit(AST *node)
  *****************************************************************************/
 
 void
-blockif_emit (AST * root)
+blockif_emit (JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *if_node, *next_node, *goto_node;
+  JVM_CODE_GRAPH_NODE *if_node, *next_node, *goto_node;
   AST *prev = root->prevstmt;
   int *tmp_int;
   Dlist gotos, lptr;
@@ -9025,7 +8667,7 @@ blockif_emit (AST * root)
   
             if(temp->nodetype == Goto)
               if(temp->astnode.go_to.label == prev->astnode.label.number) {
-                while_emit(root);
+                while_emit(meth, root);
                 dl_delete_list(gotos);
                 return;
               }
@@ -9040,9 +8682,9 @@ blockif_emit (AST * root)
 
   fprintf (curfp, "if (");
   if(root->astnode.blockif.conds != NULL)
-    expr_emit (root->astnode.blockif.conds);
+    expr_emit (meth, root->astnode.blockif.conds);
 
-  if_node = bytecode0(jvm_ifeq);
+  if_node = bc_append(meth, jvm_ifeq);
 
   fprintf (curfp, ")  {\n    ");
   if(root->astnode.blockif.stmts != NULL)
@@ -9051,7 +8693,7 @@ blockif_emit (AST * root)
 
   if(root->astnode.blockif.elseifstmts || root->astnode.blockif.elsestmts)
   {
-    goto_node = bytecode0(jvm_goto);
+    goto_node = bc_append(meth, jvm_goto);
 
     dl_insert_b(gotos, goto_node);
 
@@ -9059,25 +8701,25 @@ blockif_emit (AST * root)
      * we have a branch target for the goto statement.
      * it will be removed later.
      */
-    next_node = bytecode0(jvm_impdep1);
-    if_node->branch_target = next_node;
+    next_node = bc_append(meth, jvm_xxxunusedxxx);
+    bc_set_branch_target(if_node, next_node);
 
     for(temp = root->astnode.blockif.elseifstmts; 
         temp != NULL;
         temp = temp->nextstmt)
     {
-      goto_node = elseif_emit (temp);
+      goto_node = elseif_emit (meth, temp);
       dl_insert_b(gotos, goto_node);
     }
 
     if(root->astnode.blockif.elsestmts != NULL)
       else_emit (root->astnode.blockif.elsestmts);
 
-    next_node = bytecode0(jvm_impdep1);
+    next_node = bc_append(meth, jvm_xxxunusedxxx);
 
     dl_traverse(lptr, gotos) {
-      goto_node = (CodeGraphNode *) lptr->val;
-      goto_node->branch_target = next_node;
+      goto_node = (JVM_CODE_GRAPH_NODE *) lptr->val;
+      bc_set_branch_target(goto_node, next_node);
     }
 
     dl_delete_list(gotos);
@@ -9090,8 +8732,8 @@ blockif_emit (AST * root)
      * conditional expression is false.
      */
 
-    next_node = bytecode0(jvm_impdep1);
-    if_node->branch_target = next_node;
+    next_node = bc_append(meth, jvm_xxxunusedxxx);
+    bc_set_branch_target(if_node, next_node);
   }
 }
 
@@ -9120,23 +8762,23 @@ blockif_emit (AST * root)
  *****************************************************************************/
 
 void 
-while_emit(AST *root)
+while_emit(JVM_METHOD *meth, AST *root)
 {
-  CodeGraphNode *if_node, *next_node;
+  JVM_CODE_GRAPH_NODE *if_node, *next_node;
 
   fprintf(curfp, "while (");
   if (root->astnode.blockif.conds != NULL)
-    expr_emit (root->astnode.blockif.conds);
+    expr_emit (meth, root->astnode.blockif.conds);
   fprintf (curfp, ")  {\n    ");
-  if_node = bytecode0(jvm_ifeq);
+  if_node = bc_append(meth, jvm_ifeq);
   emit (root->astnode.blockif.stmts);
 
   /* create a dummy instruction node so that
    * we have a branch target for the goto statement.
    * it will be removed later.
    */
-  next_node = bytecode0(jvm_impdep1);
-  if_node->branch_target = next_node;
+  next_node = bc_append(meth, jvm_xxxunusedxxx);
+  bc_set_branch_target(if_node, next_node);
 
   fprintf (curfp, "}              // end while()\n");
 
@@ -9151,28 +8793,28 @@ while_emit(AST *root)
  *                                                                           *
  *****************************************************************************/
 
-CodeGraphNode *
-elseif_emit (AST * root)
+JVM_CODE_GRAPH_NODE *
+elseif_emit (JVM_METHOD *meth, AST * root)
 {
-  CodeGraphNode *if_node, *next_node, *goto_node;
+  JVM_CODE_GRAPH_NODE *if_node, *next_node, *goto_node;
 
   if(gendebug)printf("in else if\n");
   fprintf (curfp, "else if (");
   
   if (root->astnode.blockif.conds != NULL)
-    expr_emit (root->astnode.blockif.conds);
-  if_node = bytecode0(jvm_ifeq);
+    expr_emit (meth, root->astnode.blockif.conds);
+  if_node = bc_append(meth, jvm_ifeq);
   fprintf (curfp, ")  {\n    ");
   emit (root->astnode.blockif.stmts);
   fprintf (curfp, "}              // Close else if()\n");
 
-  goto_node = bytecode0(jvm_goto);
+  goto_node = bc_append(meth, jvm_goto);
 
   /* create a dummy instruction node so that we have a branch target 
    * for the conditional statement. it will be removed later.
    */
-  next_node = bytecode0(jvm_impdep1);
-  if_node->branch_target = next_node;
+  next_node = bc_append(meth, jvm_xxxunusedxxx);
+  bc_set_branch_target(if_node, next_node);
 
   return goto_node;
 }
@@ -9208,12 +8850,12 @@ else_emit (AST * root)
  *****************************************************************************/
 
 int
-method_name_emit (AST *root, BOOL adapter)
+method_name_emit (JVM_METHOD *meth, AST *root, BOOL adapter)
 {
   char *tempname;
   HASHNODE *ht;
   AST *temp;
-  CPNODE *c;
+  int c;
 
   /* shouldn't be necessary to lowercase the name
    *   lowercase (root->astnode.ident.name);
@@ -9248,26 +8890,26 @@ method_name_emit (AST *root, BOOL adapter)
         exit(-1);
       }
  
-      gen_load_op(ht->variable->astnode.ident.localvnum, Object);
-      bytecode0(jvm_aconst_null);
-      bytecode0(jvm_aconst_null);
+      bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
+      bc_append(meth, jvm_aconst_null);
+      bc_append(meth, jvm_aconst_null);
 
-      c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+      c = bc_new_methodref(cur_class_file, METHOD_CLASS, "invoke",
             INVOKE_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
       if(root->nodetype == Call) {
         /* already called invoke().  for CALL, ignore the return value. */
-        bytecode0(jvm_pop);
+        bc_append(meth, jvm_pop);
 
         fprintf(curfp,"_%s_meth.invoke(null,null);\n",
            root->astnode.ident.name);
       }
       else {
 
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+        c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
               numeric_wrapper[root->vartype]);
-        bytecode1(jvm_checkcast, c->index);
+        bc_append(meth, jvm_checkcast, c);
 
         if((root->vartype == String) || (root->vartype == Character)) {
           fprintf(curfp,"(%s)_%s_meth.invoke(null,null)",
@@ -9278,10 +8920,10 @@ method_name_emit (AST *root, BOOL adapter)
             java_wrapper[root->vartype], root->astnode.ident.name, 
             numericValue_method[root->vartype]);
           
-          c = newMethodref(cur_const_table, numeric_wrapper[root->vartype],
+          c = bc_new_methodref(cur_class_file, numeric_wrapper[root->vartype],
                 numericValue_method[root->vartype], 
                 numericValue_descriptor[root->vartype]);
-          bytecode1(jvm_invokevirtual, c->index);
+          bc_append(meth, jvm_invokevirtual, c);
         }
       }
 
@@ -9308,14 +8950,14 @@ method_name_emit (AST *root, BOOL adapter)
       fprintf(curfp," Object [] _%s_args = new Object[%d];\n",
          root->astnode.ident.name, cnt);
 
-      pushIntConst(cnt);
+      bc_push_int_const(meth, cnt);
 
-      c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+      c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
                 "java/lang/Object");
 
-      bytecode1(jvm_anewarray, c->index);
-      arr_local = getNextLocal(Object);
-      gen_store_op(arr_local,Object);
+      bc_append(meth, jvm_anewarray, c);
+      arr_local = bc_get_next_local(meth, jvm_Object);
+      bc_gen_store_op(meth, arr_local,jvm_Object);
 
       /* foreach arg, assign that arg to an element of the object array */
 
@@ -9324,55 +8966,55 @@ method_name_emit (AST *root, BOOL adapter)
       {
         fprintf(curfp,"_%s_args[%d] = ", root->astnode.ident.name, cnt);
 
-        gen_load_op(arr_local,Object);
-        pushIntConst(cnt);
+        bc_gen_load_op(meth, arr_local,jvm_Object);
+        bc_push_int_const(meth, cnt);
 
         if((temp->nodetype == Identifier) && 
            (temp->astnode.ident.arraylist == NULL) &&
            type_lookup(cur_array_table, temp->astnode.ident.name))
         {
-          expr_emit (temp);
-          bytecode0(jvm_aastore);
+          expr_emit (meth, temp);
+          bc_append(meth, jvm_aastore);
 
           fprintf(curfp,";\n");
           fprintf(curfp,"_%s_args[%d] = new Integer(0);\n", 
              root->astnode.ident.name, ++cnt);
 
-          gen_load_op(arr_local,Object);
-          pushIntConst(cnt);  /* incremented 2 lines above */
+          bc_gen_load_op(meth, arr_local,jvm_Object);
+          bc_push_int_const(meth, cnt);  /* incremented 2 lines above */
 
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+          c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
                 numeric_wrapper[Integer]);
 
-          bytecode1(jvm_new,c->index);
-          bytecode0(jvm_dup);
+          bc_append(meth, jvm_new,c);
+          bc_append(meth, jvm_dup);
 
-          c = newMethodref(cur_const_table,numeric_wrapper[Integer],
+          c = bc_new_methodref(cur_class_file,numeric_wrapper[Integer],
                 "<init>", wrapper_descriptor[Integer]);
-          pushIntConst(0);
+          bc_push_int_const(meth, 0);
 
-          bytecode1(jvm_invokespecial, c->index);
+          bc_append(meth, jvm_invokespecial, c);
         }
         else
         {
           fprintf(curfp,"new %s(", java_wrapper[temp->vartype]);
 
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+          c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
                 numeric_wrapper[temp->vartype]);
 
-          bytecode1(jvm_new,c->index);
-          bytecode0(jvm_dup);
+          bc_append(meth, jvm_new,c);
+          bc_append(meth, jvm_dup);
 
-          c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype],
+          c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
                 "<init>", wrapper_descriptor[temp->vartype]);
 
-          expr_emit (temp);
+          expr_emit (meth, temp);
           fprintf(curfp,");\n");
 
-          bytecode1(jvm_invokespecial, c->index);
+          bc_append(meth, jvm_invokespecial, c);
         }
 
-        bytecode0(jvm_aastore);
+        bc_append(meth, jvm_aastore);
 
         cnt++;
       }
@@ -9384,20 +9026,20 @@ method_name_emit (AST *root, BOOL adapter)
         exit(-1);
       }
 
-      gen_load_op(ht->variable->astnode.ident.localvnum, Object);
-      bytecode0(jvm_aconst_null);
-      gen_load_op(arr_local, Object);
+      bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
+      bc_append(meth, jvm_aconst_null);
+      bc_gen_load_op(meth, arr_local, jvm_Object);
 
-      c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+      c = bc_new_methodref(cur_class_file, METHOD_CLASS, "invoke",
             INVOKE_DESC);
-      bytecode1(jvm_invokevirtual, c->index);
+      bc_append(meth, jvm_invokevirtual, c);
 
       fprintf(curfp,"_%s_meth.invoke(null,_%s_args);\n",
         root->astnode.ident.name, root->astnode.ident.name);
 
-      releaseLocal(Object);
+      bc_release_local(meth, jvm_Object);
 
-      bytecode0(jvm_pop);
+      bc_append(meth, jvm_pop);
       f2jfree(tempname, strlen(tempname)+1);
       return 1;
     }
@@ -9428,7 +9070,7 @@ method_name_emit (AST *root, BOOL adapter)
     fprintf (curfp, "%s_adapter", root->astnode.ident.name);
   }
   else {
-    METHODREF *mref = get_method_name(root, adapter);
+    JVM_METHODREF *mref = get_method_name(root, adapter);
 
     /* mref should always be non-null, though i guess it's
      * possible that the elements may be null.
@@ -9444,7 +9086,7 @@ method_name_emit (AST *root, BOOL adapter)
     else
       fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
 
-    free_fieldref(mref);
+    bc_free_fieldref(mref);
   }
 
   f2jfree(tempname, strlen(tempname)+1);
@@ -9461,12 +9103,12 @@ method_name_emit (AST *root, BOOL adapter)
  *                                                                           *
  *****************************************************************************/
 
-METHODREF *
+JVM_METHODREF *
 get_method_name(AST *root, BOOL adapter)
 {
   char *buf, *tempname;
   char *tmpdesc;
-  METHODREF *newmeth;
+  JVM_METHODREF *newmeth;
 
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
@@ -9486,7 +9128,7 @@ get_method_name(AST *root, BOOL adapter)
     }
     else {
       sprintf(buf,"%s_methcall",root->astnode.ident.name);
-      newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
+      newmeth = (JVM_METHODREF *)f2jalloc(sizeof(JVM_METHODREF));
 
       newmeth->classname = strdup(cur_filename);
       newmeth->methodname = strdup(buf);
@@ -9515,7 +9157,7 @@ get_method_name(AST *root, BOOL adapter)
     HASHNODE *hashtemp;
 
     sprintf (buf, "%s_adapter", root->astnode.ident.name);
-    newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
+    newmeth = (JVM_METHODREF *)f2jalloc(sizeof(JVM_METHODREF));
     newmeth->classname = strdup(cur_filename);
     newmeth->methodname = strdup(buf);
 
@@ -9526,7 +9168,7 @@ get_method_name(AST *root, BOOL adapter)
          root->astnode.ident.arraylist);
     }
     else {
-      METHODREF *mref;
+      JVM_METHODREF *mref;
 
       mref = find_method(root->astnode.ident.name, descriptor_table);
       if(mref)
@@ -9575,14 +9217,14 @@ get_method_name(AST *root, BOOL adapter)
  *                                                                           *
  *****************************************************************************/
 
-METHODREF *
+JVM_METHODREF *
 get_methodref(AST *node)
 {
-  METHODREF *new_mref, *srch_mref;
+  JVM_METHODREF *new_mref, *srch_mref;
   HASHNODE *ht;
   char *tempname = NULL;
 
-  new_mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
+  new_mref = (JVM_METHODREF *)f2jalloc(sizeof(JVM_METHODREF));
 
   /* first check the symbol table for information about this function.  */
 
@@ -9594,7 +9236,7 @@ get_methodref(AST *node)
     tempname = strdup (node->astnode.ident.name);
     *tempname = toupper (*tempname);
 
-    new_mref->classname  = get_full_classname(tempname);
+    new_mref->classname  = bc_get_full_classname(tempname, package_name);
     new_mref->methodname = strdup(node->astnode.ident.name);
     if(ht->variable->astnode.source.descriptor == NULL) {
       fprintf(stderr, "Warning: null descriptor for %s...", 
@@ -9620,7 +9262,7 @@ get_methodref(AST *node)
       tempname = strdup (node->astnode.ident.name);
       *tempname = toupper (*tempname);
 
-      new_mref->classname  = get_full_classname(tempname);
+      new_mref->classname  = bc_get_full_classname(tempname, package_name);
       new_mref->methodname = strdup(node->astnode.ident.name);
 
       f2jfree(tempname, strlen(tempname)+1);
@@ -9659,11 +9301,11 @@ get_methodref(AST *node)
  *****************************************************************************/
 
 void
-call_emit (AST * root)
+call_emit (JVM_METHOD *meth, AST * root)
 {
   BOOL adapter;
-  METHODREF *mref;
-  CPNODE *c;
+  JVM_METHODREF *mref;
+  int c;
 
   assert (root != NULL);
 
@@ -9674,7 +9316,7 @@ call_emit (AST * root)
 
   /* if method_name_emit() already completely generated the call, return now */
 
-  if( method_name_emit(root, adapter) )
+  if( method_name_emit(meth, root, adapter) )
     return;
 
   if(gendebug)
@@ -9691,17 +9333,17 @@ call_emit (AST * root)
       printf("call_emit (type: %s), got class = '%s', name = '%s'\n", 
         returnstring[root->vartype], mref->classname, mref->methodname);
 
-    c = newMethodref(cur_const_table,mref->classname, mref->methodname,
+    c = bc_new_methodref(cur_class_file,mref->classname, mref->methodname,
                      mref->descriptor);
 
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
 
     if(root->nodetype == Call)
       fprintf (curfp, "();\n");
     else
       fprintf (curfp, "()");
 
-    free_fieldref(mref);
+    bc_free_fieldref(mref);
 
     return;
   }
@@ -9727,17 +9369,17 @@ call_emit (AST * root)
       exit(-1);
     }
 
-    gen_load_op(ht->variable->astnode.ident.localvnum, Object);
+    bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
   }
 
-  emit_call_arguments(root, adapter);
+  emit_call_arguments(meth, root, adapter);
 
   mref = get_method_name(root, adapter);
 
-  c = newMethodref(cur_const_table,mref->classname, mref->methodname,
+  c = bc_new_methodref(cur_class_file,mref->classname, mref->methodname,
                    mref->descriptor);
 
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 
   /*  
    *  Problem here, depends on who called this procedure.
@@ -9753,7 +9395,7 @@ call_emit (AST * root)
     fprintf (curfp, ")");
 
   if(gendebug)printf("leaving-call emit\n");
-  free_fieldref(mref);
+  bc_free_fieldref(mref);
 }				/*  Close call_emit().  */
 
 /*****************************************************************************
@@ -9766,9 +9408,9 @@ call_emit (AST * root)
  *****************************************************************************/
 
 void
-emit_call_arguments(AST *root, BOOL adapter)
+emit_call_arguments(JVM_METHOD *meth, AST *root, BOOL adapter)
 {
-  METHODREF *mref;
+  JVM_METHODREF *mref;
 
   /* look up the function that we are calling so that we may compare
    * the parameters.
@@ -9781,11 +9423,11 @@ emit_call_arguments(AST *root, BOOL adapter)
        mref ? "Found" : "Not found");
 
   if(mref != NULL)
-    emit_call_args_known(root, mref->descriptor, adapter);
+    emit_call_args_known(meth, root, mref->descriptor, adapter);
   else
-    emit_call_args_unknown(root);
+    emit_call_args_unknown(meth, root);
 
-  free_fieldref(mref);
+  bc_free_fieldref(mref);
 }
 
 /*****************************************************************************
@@ -9801,7 +9443,7 @@ emit_call_arguments(AST *root, BOOL adapter)
  *****************************************************************************/
 
 void
-emit_call_args_known(AST *root, char *desc, BOOL adapter)
+emit_call_args_known(JVM_METHOD *meth, AST *root, char *desc, BOOL adapter)
 {
   char *com_prefix, *dptr;
   AST *temp;
@@ -9810,7 +9452,7 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
     printf("emit_call_args_known: desc = '%s'\n", desc);
 
   temp = root->astnode.ident.arraylist;
-  dptr = skipToken(desc);
+  dptr = bc_next_desc_token(desc);
 
   for( ; temp != NULL; temp = temp->nextstmt)
   {
@@ -9827,7 +9469,7 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
        (temp->astnode.ident.arraylist != NULL) && 
        (type_lookup(cur_array_table, temp->astnode.ident.name)!=NULL))
     {
-      arrayacc_arg_emit(temp, dptr, adapter);
+      arrayacc_arg_emit(meth, temp, dptr, adapter);
     }
 
       /* 
@@ -9840,7 +9482,7 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
             (temp->astnode.ident.arraylist == NULL) && 
             type_lookup(cur_array_table, temp->astnode.ident.name) )
     {
-      arrayref_arg_emit(temp, dptr);
+      arrayref_arg_emit(meth, temp, dptr);
     }
 
       /* 
@@ -9853,44 +9495,44 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
             (temp->astnode.ident.arraylist == NULL) && 
             !type_lookup(cur_array_table, temp->astnode.ident.name) ))
     {
-      scalar_arg_emit(temp, dptr, com_prefix);
+      scalar_arg_emit(meth, temp, dptr, com_prefix);
     }
     else if(omitWrappers && (temp->nodetype == Constant))
     {
       if(isPassByRef_desc(dptr) || (dptr[0] == '['))
       {
-        CPNODE *c;
+        int c;
 
         fprintf(curfp,"new %s(", 
            wrapper_returns[get_type_from_field_desc(dptr)]);
 
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+        c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
               full_wrappername[temp->vartype]);
 
-        bytecode1(jvm_new,c->index);
-        bytecode0(jvm_dup);
+        bc_append(meth, jvm_new,c);
+        bc_append(meth, jvm_dup);
 
-        c = newMethodref(cur_const_table,full_wrappername[temp->vartype],
+        c = bc_new_methodref(cur_class_file,full_wrappername[temp->vartype],
                "<init>", wrapper_descriptor[temp->vartype]);
 
-        expr_emit (temp);
+        expr_emit (meth, temp);
         fprintf(curfp,")");
 
-        bytecode1(jvm_invokespecial, c->index);
+        bc_append(meth, jvm_invokespecial, c);
       }
       else
-        expr_emit(temp);
+        expr_emit(meth, temp);
     }
     else if(
       ((temp->nodetype == Identifier) &&
        (temp->astnode.ident.arraylist == NULL) )
        || (temp->nodetype == Constant) )
     {
-      expr_emit(temp);
+      expr_emit(meth, temp);
     }
     else if(temp->nodetype != EmptyArgList)
     {
-      wrapped_arg_emit(temp, dptr);
+      wrapped_arg_emit(meth, temp, dptr);
     }
    
     /* if this arg is an array, then skip an extra token to compensate
@@ -9898,9 +9540,9 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
      */
 
     if(dptr[0] == '[')
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
 
     if(temp->nextstmt != NULL)
       fprintf(curfp, ",");
@@ -9921,7 +9563,7 @@ emit_call_args_known(AST *root, char *desc, BOOL adapter)
  *****************************************************************************/
 
 void
-arrayacc_arg_emit(AST *temp, char *dptr, BOOL adapter)
+arrayacc_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr, BOOL adapter)
 {
   BOOL isarg, isext;
   struct var_info *vtemp;
@@ -9931,12 +9573,12 @@ arrayacc_arg_emit(AST *temp, char *dptr, BOOL adapter)
   if(gendebug)
     printf("arrayacc_arg_emit() %s - %s\n", temp->astnode.ident.name, dptr);
 
-  vtemp = push_array_var(temp);
+  vtemp = push_array_var(meth, temp);
 
   if(dptr[0] == '[')     /* it is expecting an array */
   {
 
-    func_array_emit(temp->astnode.ident.arraylist,
+    func_array_emit(meth,  temp->astnode.ident.arraylist,
        temp->astnode.ident.name, isarg, TRUE);
   }
   else                                /* it is not expecting an array */
@@ -9958,11 +9600,11 @@ arrayacc_arg_emit(AST *temp, char *dptr, BOOL adapter)
         isext = FALSE;
     }
 
-    func_array_emit (temp->astnode.ident.arraylist, 
+    func_array_emit (meth, temp->astnode.ident.arraylist, 
       temp->astnode.ident.name, isarg, isext);
 
     if(!isext)
-      bytecode0(array_load_opcodes[temp->vartype]);
+      bc_gen_array_load_op(meth, jvm_data_types[temp->vartype]);
   }
 
   free_var_info(vtemp);
@@ -9980,7 +9622,7 @@ arrayacc_arg_emit(AST *temp, char *dptr, BOOL adapter)
  *****************************************************************************/
 
 void
-arrayref_arg_emit(AST *temp, char *dptr)
+arrayref_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr)
 {
 
   if(dptr[0] == '[')     /* it is expecting an array */
@@ -9988,7 +9630,7 @@ arrayref_arg_emit(AST *temp, char *dptr)
     if(gendebug)
       printf("expecting array\n");
 
-    expr_emit(temp);
+    expr_emit(meth, temp);
   }
   else
   {
@@ -9997,13 +9639,13 @@ arrayref_arg_emit(AST *temp, char *dptr)
     if(gendebug)
       printf("NOT expecting array\n");
 
-    vtemp = push_array_var(temp);
+    vtemp = push_array_var(meth, temp);
 
     if(omitWrappers && !isPassByRef_desc(dptr)) {
       /* fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name); */
       fprintf(curfp,"[0]");
-      pushIntConst(0);
-      bytecode0(array_load_opcodes[temp->vartype]);
+      bc_push_int_const(meth, 0);
+      bc_gen_array_load_op(meth, jvm_data_types[temp->vartype]);
     }
     else
     {
@@ -10012,7 +9654,7 @@ arrayref_arg_emit(AST *temp, char *dptr)
        * which would be the behavior of fortran.
        */
 
-      pushIntConst(0);
+      bc_push_int_const(meth, 0);
       fprintf(curfp,",0");
       /* 
        * fprintf(curfp,"new %s(",
@@ -10038,7 +9680,7 @@ arrayref_arg_emit(AST *temp, char *dptr)
  *****************************************************************************/
 
 void
-scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
+scalar_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr, char *com_prefix)
 {
   if(gendebug) {
     printf("scalar_arg_emit: ");
@@ -10061,16 +9703,16 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
       ainf = get_var_info(temp);
 
       if(dptr[0] == '[')
-        pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
+        pushVar(cur_class_file, meth, temp->vartype, ainf->is_arg, ainf->class, ainf->name,
           ainf->desc, ainf->localvar, FALSE);
       else
-        pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
+        pushVar(cur_class_file, meth, temp->vartype, ainf->is_arg, ainf->class, ainf->name,
           ainf->desc, ainf->localvar, TRUE);
 
       free_var_info(ainf);
     }
     else if(type_lookup(cur_external_table, temp->astnode.ident.name)) {
-      external_emit(temp);
+      external_emit(meth, temp);
     }
     else
       fprintf(stderr,"Internal error: %s should not be primitive\n",
@@ -10081,11 +9723,11 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
     if( temp->vartype != get_type_from_field_desc(dptr) )
       fprintf(curfp,"(%s) ( ",returnstring[get_type_from_field_desc(dptr)]);
 
-    expr_emit(temp);
+    expr_emit(meth, temp);
 
     if( temp->vartype != get_type_from_field_desc(dptr) ) {
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[temp->vartype]
+      bc_append(meth, typeconv_matrix[temp->vartype]
                                [get_type_from_field_desc(dptr)]);
     }
   }
@@ -10101,10 +9743,10 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
  *****************************************************************************/
 
 void
-wrapped_arg_emit(AST *temp, char *dptr)
+wrapped_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr)
 {
   enum returntype vtype = get_type_from_field_desc(dptr);
-  CPNODE *c;
+  int c;
 
   /* 
    * Otherwise, use wrappers.
@@ -10112,26 +9754,26 @@ wrapped_arg_emit(AST *temp, char *dptr)
   if(omitWrappers) {
     if(isPassByRef_desc(dptr)) {
       fprintf(curfp,"new %s(", wrapper_returns[vtype]);
-      c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+      c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
             full_wrappername[temp->vartype]);
 
-      bytecode1(jvm_new,c->index);
-      bytecode0(jvm_dup);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
 
-      c = newMethodref(cur_const_table,full_wrappername[temp->vartype],
+      c = bc_new_methodref(cur_class_file,full_wrappername[temp->vartype],
              "<init>", wrapper_descriptor[temp->vartype]);
     }
   }
   else
   {
     fprintf(curfp,"new %s(", wrapper_returns[vtype]);
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+    c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
           full_wrappername[temp->vartype]);
 
-    bytecode1(jvm_new,c->index);
-    bytecode0(jvm_dup);
+    bc_append(meth, jvm_new,c);
+    bc_append(meth, jvm_dup);
 
-    c = newMethodref(cur_const_table,full_wrappername[temp->vartype], 
+    c = bc_new_methodref(cur_class_file,full_wrappername[temp->vartype], 
            "<init>", wrapper_descriptor[temp->vartype]);
   }
 
@@ -10146,23 +9788,23 @@ wrapped_arg_emit(AST *temp, char *dptr)
   if( temp->vartype != vtype )
     fprintf(curfp,"(%s) ( ",returnstring[vtype]);
 
-  expr_emit(temp);
+  expr_emit(meth, temp);
 
   if( temp->vartype != vtype ) {
     fprintf(curfp,")");
-    bytecode0(typeconv_matrix[temp->vartype][vtype]);
+    bc_append(meth, typeconv_matrix[temp->vartype][vtype]);
   }
 
   if(omitWrappers) {
     if(isPassByRef_desc(dptr)) {
       fprintf(curfp,")");
-      bytecode1(jvm_invokespecial, c->index);
+      bc_append(meth, jvm_invokespecial, c);
     }
   }
   else
   {
     fprintf(curfp,")");
-    bytecode1(jvm_invokespecial, c->index);
+    bc_append(meth, jvm_invokespecial, c);
   }
 }
 
@@ -10177,7 +9819,7 @@ wrapped_arg_emit(AST *temp, char *dptr)
  *****************************************************************************/
 
 void
-emit_call_args_unknown(AST *root)
+emit_call_args_unknown(JVM_METHOD *meth, AST *root)
 {
   AST *temp;
 
@@ -10190,17 +9832,17 @@ emit_call_args_unknown(AST *root)
        ||
         (temp->nodetype == Constant))
     {
-      expr_emit (temp);
+      expr_emit (meth, temp);
     }
     else
     {
       if(omitWrappers) {
-        expr_emit (temp);
+        expr_emit (meth, temp);
       }
       else
       {
         fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
-        expr_emit (temp);
+        expr_emit (meth, temp);
         fprintf(curfp,")");
       }
     }
@@ -10317,7 +9959,7 @@ int
 needs_adapter(AST *root)
 {
   HASHNODE *hashtemp;
-  METHODREF *mtmp;
+  JVM_METHODREF *mtmp;
   AST *temp;
   char *dptr, *current_descriptor;
 
@@ -10346,7 +9988,7 @@ needs_adapter(AST *root)
   if(gendebug)
     printf("needs_adapter: got descriptor '%s'\n", current_descriptor);
 
-  dptr = skipToken(current_descriptor);
+  dptr = bc_next_desc_token(current_descriptor);
 
   temp = root->astnode.ident.arraylist;
 
@@ -10384,8 +10026,8 @@ needs_adapter(AST *root)
 
     /* consume the offset arg if necessary */
     if(dptr[0] == '[')
-      dptr = skipToken(dptr);
-    dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
+    dptr = bc_next_desc_token(dptr);
   }
 
   if(gendebug)
@@ -10421,10 +10063,10 @@ needs_adapter(AST *root)
  *****************************************************************************/
 
 void
-assign_emit (AST * root)
+assign_emit (JVM_METHOD *meth, AST * root)
 {
   enum returntype ltype, rtype;
-  CPNODE *c;
+  int c;
   HASHNODE *hashtemp;
 
   /* this used to be a pretty simple procedure:
@@ -10456,10 +10098,10 @@ assign_emit (AST * root)
 
   /* handle lhs substring operations elsewhere */
   if(root->astnode.assignment.lhs->nodetype == Substring) {
-    substring_assign_emit(root);
+    substring_assign_emit(meth, root);
   }
   else {
-    name_emit (root->astnode.assignment.lhs);
+    name_emit (meth, root->astnode.assignment.lhs);
     fprintf (curfp, " = ");
 
     if(ltype != rtype)    /* lhs and rhs have different types */
@@ -10469,52 +10111,52 @@ assign_emit (AST * root)
       {
         /* non-String = String */
         fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
-        expr_emit (root->astnode.assignment.rhs);
+        expr_emit (meth, root->astnode.assignment.rhs);
         fprintf(curfp,").%sValue()",returnstring[ltype]);
 
-        c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
+        c = bc_new_methodref(cur_class_file,numeric_wrapper[ltype], "valueOf",
                         wrapper_valueOf_descriptor[ltype]);
 
-        bytecode1(jvm_invokestatic, c->index);
+        bc_append(meth, jvm_invokestatic, c);
 
-        c = newMethodref(cur_const_table,numeric_wrapper[ltype], 
+        c = bc_new_methodref(cur_class_file,numeric_wrapper[ltype], 
                          numericValue_method[ltype],
                         numericValue_descriptor[ltype]);
 
-        bytecode1(jvm_invokevirtual, c->index);
+        bc_append(meth, jvm_invokevirtual, c);
       }
       else if( (ltype == Logical) && (rtype != String) )
       {
-        CodeGraphNode *if_node, *goto_node, *iconst_node, *next_node;
+        JVM_CODE_GRAPH_NODE *if_node, *goto_node, *iconst_node, *next_node;
 
         /* boolean = numeric value */
-        expr_emit (root->astnode.assignment.rhs);
+        expr_emit (meth, root->astnode.assignment.rhs);
         fprintf(curfp," == 0 ? false : true");
         if(rtype == Integer) {
-          if_node = bytecode0(jvm_ifeq);
-          bytecode0(jvm_iconst_0);
-          goto_node = bytecode0(jvm_goto);
-          iconst_node = bytecode0(jvm_iconst_1);
+          if_node = bc_append(meth, jvm_ifeq);
+          bc_append(meth, jvm_iconst_0);
+          goto_node = bc_append(meth, jvm_goto);
+          iconst_node = bc_append(meth, jvm_iconst_1);
         }
         else if(rtype == Double) {
-          bytecode0(jvm_dconst_0);
-          bytecode0(jvm_dcmpl);
-          if_node = bytecode0(jvm_ifne);
-          bytecode0(jvm_iconst_1);
-          goto_node = bytecode0(jvm_goto);
-          iconst_node = bytecode0(jvm_iconst_0);
+          bc_append(meth, jvm_dconst_0);
+          bc_append(meth, jvm_dcmpl);
+          if_node = bc_append(meth, jvm_ifne);
+          bc_append(meth, jvm_iconst_1);
+          goto_node = bc_append(meth, jvm_goto);
+          iconst_node = bc_append(meth, jvm_iconst_0);
         }
         else
           fprintf(stderr,"WARNING: unsupported cast.\n");
 
-        if_node->branch_target = iconst_node;
+        bc_set_branch_target(if_node, iconst_node);
 
         /* create a dummy instruction node following the iconst so that
          * we have a branch target for the goto statement.  it'll be
          * removed later.
          */
-        next_node = bytecode0(jvm_impdep1);
-        goto_node->branch_target = next_node;
+        next_node = bc_append(meth, jvm_xxxunusedxxx);
+        bc_set_branch_target(goto_node, next_node);
       }
       else
       {
@@ -10524,16 +10166,16 @@ assign_emit (AST * root)
 
         /* numeric value = numeric value of some other type */
         fprintf(curfp,"(%s)(",returnstring[ltype]);
-        expr_emit (root->astnode.assignment.rhs);
+        expr_emit (meth, root->astnode.assignment.rhs);
         fprintf(curfp,")");
-        bytecode0(typeconv_matrix[rtype][ltype]);
+        bc_append(meth, typeconv_matrix[rtype][ltype]);
       }
     }
     else   /* lhs and rhs have same types, everything is cool */
-      expr_emit (root->astnode.assignment.rhs);
+      expr_emit (meth, root->astnode.assignment.rhs);
   }
 
-  LHS_bytecode_emit(root);
+  LHS_bytecode_emit(meth, root);
   if(gendebug)printf("leaving-assign emit\n");
 }
 
@@ -10549,11 +10191,11 @@ assign_emit (AST * root)
  *****************************************************************************/
 
 void
-LHS_bytecode_emit(AST *root)
+LHS_bytecode_emit(JVM_METHOD *meth, AST *root)
 {
   char *name, *class, *desc, *com_prefix;
   HASHNODE *isArg, *typenode, *ht;
-  CPNODE *c;
+  int c;
 
   name = root->astnode.assignment.lhs->astnode.ident.name;
 
@@ -10624,8 +10266,8 @@ LHS_bytecode_emit(AST *root)
           root->astnode.assignment.lhs->astnode.ident.localvnum);
       }
 
-      storeVar(root->astnode.assignment.lhs->vartype, (BOOL)isArg, class, name,
-        desc, typenode->variable->astnode.ident.localvnum, FALSE);
+      storeVar(cur_class_file, meth, root->astnode.assignment.lhs->vartype, 
+           (BOOL)isArg, class, name, desc, typenode->variable->astnode.ident.localvnum, FALSE);
     }
     else {
       int vt = root->astnode.assignment.lhs->vartype;
@@ -10633,9 +10275,9 @@ LHS_bytecode_emit(AST *root)
        * already be sitting on the stack, so now we generate a putfield
        * instruction.
        */
-      c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+      c = bc_new_fieldref(cur_class_file, full_wrappername[vt], "val", 
              val_descriptor[vt]);
-      bytecode1(jvm_putfield, c->index);
+      bc_append(meth, jvm_putfield, c);
     }
   }
   else {
@@ -10643,7 +10285,7 @@ LHS_bytecode_emit(AST *root)
      * to the array, the array index, and the RHS expression.  all we need
      * to do now is generate an array store instruction (e.g. iastore).
      */
-    bytecode0(array_store_opcodes[root->astnode.assignment.lhs->vartype]);
+    bc_gen_array_store_op(meth, jvm_data_types[root->astnode.assignment.lhs->vartype]);
   }
 
   f2jfree(com_prefix, strlen(com_prefix)+1);
@@ -10662,16 +10304,16 @@ LHS_bytecode_emit(AST *root)
  *****************************************************************************/
 
 void
-substring_assign_emit(AST *root)
+substring_assign_emit(JVM_METHOD *meth, AST *root)
 {
   AST *lhs = root->astnode.assignment.lhs;
   AST *rhs = root->astnode.assignment.rhs;
-  CPNODE *c;
+  int c;
 
   if(gendebug)
     printf("substring_assign_emit\n");
 
-  name_emit(lhs);
+  name_emit(meth, lhs);
 
   fprintf(curfp,"= Util.stringInsert("); 
 
@@ -10681,7 +10323,7 @@ substring_assign_emit(AST *root)
    * and call scalar_emit() directly instead.
    */
   root->astnode.assignment.lhs = NULL;
-  scalar_emit(lhs, NULL);
+  scalar_emit(meth, lhs, NULL);
   fprintf(curfp,",");
 
   /* now reset the value just in case we need it later. */
@@ -10698,51 +10340,51 @@ substring_assign_emit(AST *root)
      */
 
     /*
-     *    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+     *    c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
      *              "java/lang/Character");
      *
-     *    bytecode1(jvm_new,c->index);
-     *    bytecode0(jvm_dup);
+     *    bc_append(jvm_new,c);
+     *    bc_append(jvm_dup);
      *
-     *    c = newMethodref(cur_const_table,"java/lang/Character",
+     *    c = bc_new_methodref(cur_class_file,"java/lang/Character",
      *            "<init>", "(C)V");
      *
      *    fprintf(curfp,"new Character(");
      *    expr_emit(rhs);
-     *    bytecode1(jvm_invokespecial, c->index);
+     *    bc_append(jvm_invokespecial, c);
      *    fprintf(curfp,").toString(),");
-     *    c = newMethodref(cur_const_table,"java/lang/Character", "toString",
+     *    c = bc_new_methodref(cur_class_file,"java/lang/Character", "toString",
      *                     "()Ljava/lang/String;");
-     *    bytecode1(jvm_invokestatic, c->index);
+     *    bc_append(jvm_invokestatic, c);
      */
 
     /* code above is broken, use code for STring */
-    expr_emit(rhs);
+    expr_emit(meth, rhs);
     fprintf(curfp,",");
   }
   else if(rhs->vartype == String)
   {
-    expr_emit(rhs);
+    expr_emit(meth, rhs);
     fprintf(curfp,",");
   }
   else
   {
     fprintf(curfp,"%s.toString(", java_wrapper[rhs->vartype]);
-    expr_emit(rhs);
-    c = newMethodref(cur_const_table,numeric_wrapper[rhs->vartype],
+    expr_emit(meth, rhs);
+    c = bc_new_methodref(cur_class_file,numeric_wrapper[rhs->vartype],
                      "toString", toString_descriptor[rhs->vartype]);
-    bytecode1(jvm_invokestatic, c->index);
+    bc_append(meth, jvm_invokestatic, c);
     fprintf(curfp,"),");
   }
 
-  expr_emit(lhs->astnode.ident.arraylist);
+  expr_emit(meth, lhs->astnode.ident.arraylist);
   fprintf(curfp,",");
-  expr_emit(lhs->astnode.ident.arraylist->nextstmt);
+  expr_emit(meth, lhs->astnode.ident.arraylist->nextstmt);
 
   fprintf(curfp,")");
 
-  c = newMethodref(cur_const_table,UTIL_CLASS, "stringInsert", INS_DESC);
-  bytecode1(jvm_invokestatic, c->index);
+  c = bc_new_methodref(cur_class_file,UTIL_CLASS, "stringInsert", INS_DESC);
+  bc_append(meth, jvm_invokestatic, c);
 }
 
 /*****************************************************************************
@@ -10774,31 +10416,6 @@ dl_astnode_examine(Dlist l)
     return NULL;
 
   return ( (AST *) dl_val(dl_last(l)) );
-}
-
-/*****************************************************************************
- *                                                                           *
- * find_label                                                                *
- *                                                                           *
- * searches a list of Label nodes for the one corresponding to the given     *
- * number.  from this label node, we can get the PC of the statement         *
- * corresponding to this node.                                               *
- *                                                                           *
- *****************************************************************************/
-
-AST *
-find_label(Dlist l, int val)
-{
-  Dlist tmp;
-  AST *v;
-
-  dl_traverse(tmp,l) {
-    v = (AST *) tmp->val;
-    if(v->astnode.label.number == val)
-      return v;
-  }
-
-  return NULL;
 }
 
 /*****************************************************************************
@@ -10860,7 +10477,7 @@ void
 insert_adapter(AST *node)
 {
   HASHNODE *ht;
-  METHODREF *tmp;
+  JVM_METHODREF *tmp;
   AST *ptr;
   Dlist p;
 
@@ -10946,7 +10563,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
   this_call = node->astnode.ident.arraylist;
   other_call = ptr->astnode.ident.arraylist;
 
-  dptr = skipToken(desc);
+  dptr = bc_next_desc_token(desc);
 
   diff = FALSE;
 
@@ -10989,7 +10606,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 
     other_call = other_call->nextstmt;
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
   }
 
   return diff;
@@ -11008,9 +10625,9 @@ void
 emit_adapters()
 {
   char *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc=NULL;
-  struct method_info *adapter_method;
+  JVM_METHOD *adapter_method;
   HASHNODE *hashtemp;
-  METHODREF *mref;
+  JVM_METHODREF *mref;
   Dlist p;
   AST *cval;
 
@@ -11023,14 +10640,15 @@ emit_adapters()
     strcpy(cur_name, cval->astnode.ident.name);
     strcat(cur_name, "_adapter");
 
-    adapter_method = beginNewMethod(F2J_ADAPTER_ACC);
+    adapter_method = bc_new_method(cur_class_file, cur_name, NULL, 
+       F2J_ADAPTER_ACC);
 
     hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
     if(hashtemp) {
       char *tempname;
 
-      mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
+      mref = (JVM_METHODREF *)f2jalloc(sizeof(JVM_METHODREF));
 
       tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.descriptor,
                      cval->astnode.ident.arraylist);
@@ -11052,14 +10670,14 @@ emit_adapters()
       tempname = strdup( cval->astnode.ident.name );
       *tempname = toupper(*tempname);
 
-      mref->classname = get_full_classname(tempname);
+      mref->classname = bc_get_full_classname(tempname, package_name);
       mref->methodname = strdup(
          hashtemp->variable->astnode.source.name->astnode.ident.name);
       mref->descriptor = strdup(hashtemp->variable->astnode.source.descriptor);
 
-      adapter_emit_from_descriptor(mref, cval);
+      adapter_emit_from_descriptor(adapter_method, mref, cval);
 
-      free_fieldref(mref);
+      bc_free_fieldref(mref);
       f2jfree(tmpdesc, strlen(tmpdesc)+1);
       f2jfree(tempname, strlen(tempname)+1);
     }
@@ -11092,7 +10710,7 @@ emit_adapters()
         strcat(cur_desc,")");
         strcat(cur_desc,ret_desc);
 
-        adapter_emit_from_descriptor(mref, cval);
+        adapter_emit_from_descriptor(adapter_method, mref, cval);
 
         f2jfree(tmpdesc, strlen(tmpdesc)+1);
         f2jfree(ret, strlen(ret)+1);
@@ -11114,8 +10732,13 @@ emit_adapters()
       }
     }
 
-    endNewMethod(cur_class_file, adapter_method, cur_name, cur_desc,
-         num_locals, NULL );
+    fprintf(indexfp,"%s:%s:%s\n",cur_filename, cur_name, cur_desc);
+    
+    /* Now we know the descriptor for this adapter, so set the field in 
+     * the method struct accordingly.
+     */
+
+    bc_set_method_descriptor(adapter_method, cur_desc);
   }
 
   if(cur_desc)
@@ -11135,7 +10758,7 @@ emit_adapters()
  *****************************************************************************/
 
 void
-adapter_emit_from_descriptor(METHODREF *mref, AST *node)
+adapter_emit_from_descriptor(JVM_METHOD *meth, JVM_METHODREF *mref, AST *node)
 {
   enum returntype ret_type;
   char *ret;
@@ -11163,24 +10786,24 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     ret_type = get_type_from_field_desc(ret);
   }
 
-  adapter_args_emit_from_descriptor( node->astnode.ident.arraylist,
+  adapter_args_emit_from_descriptor(meth, node->astnode.ident.arraylist,
     mref->descriptor);
 
   fprintf(curfp,")\n{\n");
 
-  lv_temp = cur_local;
+  lv_temp = meth->cur_local_number;
 
-  adapter_temps_emit_from_descriptor(node->astnode.ident.arraylist,
+  adapter_temps_emit_from_descriptor(meth, node->astnode.ident.arraylist,
      mref->descriptor);
 
-  adapter_methcall_emit_from_descriptor(node, lv_temp, mref, ret);
+  adapter_methcall_emit_from_descriptor(meth, node, lv_temp, mref, ret);
 
   if(ret[0] != 'V') {
-    retval_varnum = getNextLocal(ret_type);
-    gen_store_op(retval_varnum, ret_type);
+    retval_varnum = bc_get_next_local(meth, jvm_data_types[ret_type]);
+    bc_gen_store_op(meth, retval_varnum, jvm_data_types[ret_type]);
   }
 
-  adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
+  adapter_assign_emit_from_descriptor(meth, node->astnode.ident.arraylist,
      lv_temp, mref->descriptor);
 
   if(ret[0] != 'V')
@@ -11188,11 +10811,11 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     fprintf(curfp,"\nreturn %s_retval;\n",
       node->astnode.ident.name);
 
-    gen_load_op(retval_varnum, ret_type);
-    bytecode0(return_opcodes[ret_type]);
+    bc_gen_load_op(meth, retval_varnum, jvm_data_types[ret_type]);
+    bc_append(meth, return_opcodes[ret_type]);
   }
   else
-    bytecode0(jvm_return);
+    bc_append(meth, jvm_return);
 
   fprintf(curfp,"}\n\n");
   f2jfree(ret,strlen(ret)+1);
@@ -11208,13 +10831,14 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
  *****************************************************************************/
 
 void
-adapter_args_emit_from_descriptor(AST *arg, char *desc)
+adapter_args_emit_from_descriptor(JVM_METHOD *meth, AST *arg, 
+  char *desc)
 {
   enum returntype ctype;
   char *dptr;
   int i, lvnum;
 
-  dptr = skipToken(desc);
+  dptr = bc_next_desc_token(desc);
 
   lvnum = 0;
 
@@ -11248,7 +10872,7 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
       }
       
       /* consume the offset arg */
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
     }
     else if ( (arg->nodetype == Identifier) &&
               /* (arg->astnode.ident.arraylist != NULL) && */
@@ -11288,13 +10912,16 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
       }
     }
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
 
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
   }
 
-  num_locals = cur_local = lvnum;
+  /* set current local variable number to compensate for the method's
+   * arguments. 
+   */
+  bc_set_cur_local_num(meth, lvnum);
 }
 
 /*****************************************************************************
@@ -11308,30 +10935,30 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
  *****************************************************************************/
 
 void
-adapter_tmp_assign_emit(int arglocal, enum returntype argtype)
+adapter_tmp_assign_emit(JVM_METHOD *meth, int arglocal, enum returntype argtype)
 {
-  CPNODE *c;
+  int c;
   char *classname, *desc;
 
   classname = full_wrappername[argtype]; 
   desc = wrapper_descriptor[argtype];
 
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
+  c = cp_find_or_insert(cur_class_file,CONSTANT_Class, classname);
 
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
+  bc_append(meth, jvm_new,c);
+  bc_append(meth, jvm_dup);
 
   /* emit arg%d[arg%d_offset] */
-  gen_load_op(arglocal, Object);
-  gen_load_op(arglocal + 1, Integer);
-  bytecode0(array_load_opcodes[argtype]);
+  bc_gen_load_op(meth, arglocal, jvm_Object);
+  bc_gen_load_op(meth, arglocal + 1, jvm_Int);
+  bc_gen_array_load_op(meth, jvm_data_types[argtype]);
 
-  c = newMethodref(cur_const_table, classname, "<init>", desc);
+  c = bc_new_methodref(cur_class_file, classname, "<init>", desc);
 
-  bytecode1(jvm_invokespecial, c->index);
+  bc_append(meth, jvm_invokespecial, c);
 
   /* now assign value to next local */
-  gen_store_op(getNextLocal(Object), Object);
+  bc_gen_store_op(meth, bc_get_next_local(meth, jvm_Object), jvm_Object);
 }
 
 /*****************************************************************************
@@ -11345,20 +10972,20 @@ adapter_tmp_assign_emit(int arglocal, enum returntype argtype)
  *****************************************************************************/
 
 void
-adapter_tmp_array_assign_emit(int arglocal, enum returntype argtype)
+adapter_tmp_array_assign_emit(JVM_METHOD *meth, int arglocal, enum returntype argtype)
 {
-  CPNODE *c;
+  int c;
 
-  bytecode0(jvm_iconst_1);
-  newarray_emit(argtype);
-  bytecode0(jvm_dup);
-  bytecode0(jvm_iconst_0);
-  gen_load_op(arglocal, Object);
-  c = newFieldref(cur_const_table, full_wrappername[argtype], "val",
+  bc_append(meth, jvm_iconst_1);
+  newarray_emit(meth, argtype);
+  bc_append(meth, jvm_dup);
+  bc_append(meth, jvm_iconst_0);
+  bc_gen_load_op(meth, arglocal, jvm_Object);
+  c = bc_new_fieldref(cur_class_file, full_wrappername[argtype], "val",
          val_descriptor[argtype]);
-  bytecode1(jvm_getfield, c->index);
-  bytecode0(array_store_opcodes[argtype]);
-  gen_store_op(getNextLocal(Object), Object);
+  bc_append(meth, jvm_getfield, c);
+  bc_gen_array_store_op(meth, jvm_data_types[argtype]);
+  bc_gen_store_op(meth, bc_get_next_local(meth, jvm_Object), jvm_Object);
 }
 
 /*****************************************************************************
@@ -11371,12 +10998,12 @@ adapter_tmp_array_assign_emit(int arglocal, enum returntype argtype)
  *****************************************************************************/
 
 void
-adapter_temps_emit_from_descriptor(AST *arg, char *desc)
+adapter_temps_emit_from_descriptor(JVM_METHOD *meth, AST *arg, char *desc)
 {
   char *dptr, *wrapper;
   int i;
 
-  dptr = skipToken(desc);
+  dptr = bc_next_desc_token(desc);
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
@@ -11394,7 +11021,7 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
         if(isPassByRef_desc(dptr)) {
           fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
             wrapper, i, wrapper, i, i);
-          adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
+          adapter_tmp_assign_emit(meth, arg->astnode.ident.localvnum, 
             get_type_from_field_desc(dptr));
         }
       }
@@ -11402,7 +11029,7 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       {
         fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
           wrapper, i, wrapper, i, i);
-        adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
+        adapter_tmp_assign_emit(meth, arg->astnode.ident.localvnum, 
           get_type_from_field_desc(dptr));
       }
 
@@ -11415,14 +11042,14 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
         fprintf(curfp,"%s [] _f2j_tmp%d = { arg%d.val };\n",
            returnstring[ctype], i, i);
 
-        adapter_tmp_array_assign_emit(arg->astnode.ident.localvnum,
+        adapter_tmp_array_assign_emit(meth, arg->astnode.ident.localvnum,
           ctype);
       }
 
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
     }
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
   }
 }
 
@@ -11436,11 +11063,11 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
  *****************************************************************************/
 
 void
-adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
-  METHODREF *mref, char *ret)
+adapter_methcall_emit_from_descriptor(JVM_METHOD *meth, AST *node, int lv_temp,
+  JVM_METHODREF *mref, char *ret)
 {
   char *tempname, *dptr;
-  CPNODE *c;
+  int c;
   AST *arg;
   int i;
 
@@ -11462,7 +11089,7 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
        tempname,  node->astnode.ident.name );
   }
 
-  dptr = skipToken(mref->descriptor);
+  dptr = bc_next_desc_token(mref->descriptor);
   arg = node->astnode.ident.arraylist;
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
@@ -11470,13 +11097,13 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
     if(dptr == NULL)
       break;
 
-    lv_temp = adapter_methcall_arg_emit(arg, i, lv_temp, dptr);
+    lv_temp = adapter_methcall_arg_emit(meth, arg, i, lv_temp, dptr);
 
     /* skip extra field desc to compensate for offset arg */
     if(dptr[0] == '[')
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
 
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
@@ -11484,10 +11111,10 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
 
   fprintf(curfp,");\n\n");
 
-  c = newMethodref(cur_const_table, mref->classname, 
+  c = bc_new_methodref(cur_class_file, mref->classname, 
             mref->methodname,mref->descriptor);
  
-  bytecode1(jvm_invokestatic, c->index);
+  bc_append(meth, jvm_invokestatic, c);
 
   f2jfree(tempname, strlen(tempname)+1);
 }
@@ -11501,7 +11128,7 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
  *****************************************************************************/
 
 int
-adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
+adapter_methcall_arg_emit(JVM_METHOD *meth, AST *arg, int i, int lv, char *dptr)
 {
   if((arg->nodetype == Identifier) &&
      /* (arg->astnode.ident.arraylist != NULL) && */
@@ -11510,37 +11137,37 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
   {
     if(omitWrappers && !isPassByRef_desc(dptr)) {
       fprintf(curfp,"arg%d",i);
-      gen_load_op(arg->astnode.ident.localvnum,
-          get_type_from_field_desc(dptr));
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum,
+          jvm_data_types[get_type_from_field_desc(dptr)]);
     }
     else {
       fprintf(curfp,"_f2j_tmp%d",i);
-      gen_load_op(lv++, Object);
+      bc_gen_load_op(meth, lv++, jvm_Object);
     }
   }
   else if( ! type_lookup(cur_array_table,arg->astnode.ident.name) &&
           (dptr[0] == '['))
   {
     fprintf(curfp,"_f2j_tmp%d, 0",i);
-    gen_load_op(lv++, Object);
-    bytecode0(jvm_iconst_0);
+    bc_gen_load_op(meth, lv++, jvm_Object);
+    bc_append(meth, jvm_iconst_0);
   }
   else if((arg->nodetype == Identifier) &&
           (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
           (dptr[0] == '['))
   {
     fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    gen_load_op(arg->astnode.ident.localvnum, Object);
-    gen_load_op(arg->astnode.ident.localvnum+1, Integer);
+    bc_gen_load_op(meth, arg->astnode.ident.localvnum, jvm_Object);
+    bc_gen_load_op(meth, arg->astnode.ident.localvnum+1, jvm_Int);
   }
   else
   {
     fprintf(curfp,"arg%d",i);
     if(isPassByRef_desc(dptr))
-      gen_load_op(arg->astnode.ident.localvnum, Object);
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum, jvm_Object);
     else
-      gen_load_op(arg->astnode.ident.localvnum,
-            get_type_from_field_desc(dptr));
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum,
+            jvm_data_types[get_type_from_field_desc(dptr)]);
   }
 
   return lv;
@@ -11556,12 +11183,12 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
  *****************************************************************************/
 
 void
-adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
+adapter_assign_emit_from_descriptor(JVM_METHOD *meth, AST *arg, int lv_temp, char *desc)
 {
   char *dptr;
   int i;
 
-  dptr = skipToken(desc);
+  dptr = bc_next_desc_token(desc);
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
@@ -11575,27 +11202,27 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
     {
       if(omitWrappers) {
         if(isPassByRef_desc(dptr))
-          adapter_assign_emit(i,arg->astnode.ident.localvnum,lv_temp++,dptr);
+          adapter_assign_emit(meth, i,arg->astnode.ident.localvnum,lv_temp++,dptr);
       }
       else
       {
-        adapter_assign_emit(i,arg->astnode.ident.localvnum,lv_temp++,dptr);
+        adapter_assign_emit(meth, i,arg->astnode.ident.localvnum,lv_temp++,dptr);
       }
     }
     else if(dptr[0] == '[') {
 
       if( !type_lookup(cur_array_table,arg->astnode.ident.name) )
       {
-        adapter_array_assign_emit(i,arg->astnode.ident.localvnum,
+        adapter_array_assign_emit(meth, i,arg->astnode.ident.localvnum,
           lv_temp++,dptr);
       }
       
       /* skip extra field desc to compensate for offset arg */
 
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
     }
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
   }
 }
 
@@ -11608,24 +11235,24 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
  *****************************************************************************/
 
 void
-adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
+adapter_assign_emit(JVM_METHOD *meth, int i, int argvnum, int lv, char *dptr)
 {
   enum returntype vt;
-  CPNODE *c;
+  int c;
 
   fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
 
   vt = get_type_from_field_desc(dptr);
 
-  gen_load_op(argvnum, Object);
-  gen_load_op(argvnum+1, Integer);
+  bc_gen_load_op(meth, argvnum, jvm_Object);
+  bc_gen_load_op(meth, argvnum+1, jvm_Int);
 
-  gen_load_op(lv, Object);
-  c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+  bc_gen_load_op(meth, lv, jvm_Object);
+  c = bc_new_fieldref(cur_class_file, full_wrappername[vt], "val", 
          val_descriptor[vt]);
-  bytecode1(jvm_getfield, c->index);
+  bc_append(meth, jvm_getfield, c);
 
-  bytecode0(array_store_opcodes[vt]);
+  bc_gen_array_store_op(meth, jvm_data_types[vt]);
 }
 
 /*****************************************************************************
@@ -11639,10 +11266,10 @@ adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
  *****************************************************************************/
 
 void
-adapter_array_assign_emit(int i, int argvnum, int lv, char *dptr)
+adapter_array_assign_emit(JVM_METHOD *meth, int i, int argvnum, int lv, char *dptr)
 {
   enum returntype vt;
-  CPNODE *c;
+  int c;
 
   fprintf(curfp,"arg%d.val = _f2j_tmp%d[0];\n",i,i);
 
@@ -11654,14 +11281,14 @@ adapter_array_assign_emit(int i, int argvnum, int lv, char *dptr)
   if(gendebug)
     printf(" '%s'\n", returnstring[vt]);
 
-  gen_load_op(argvnum, Object);
-  gen_load_op(lv, Object);
-  bytecode0(jvm_iconst_0);
-  bytecode0(array_load_opcodes[vt]);
+  bc_gen_load_op(meth, argvnum, jvm_Object);
+  bc_gen_load_op(meth, lv, jvm_Object);
+  bc_append(meth, jvm_iconst_0);
+  bc_gen_array_load_op(meth, jvm_data_types[vt]);
 
-  c = newFieldref(cur_const_table, full_wrappername[vt], "val",
+  c = bc_new_fieldref(cur_class_file, full_wrappername[vt], "val",
          val_descriptor[vt]);
-  bytecode1(jvm_putfield, c->index);
+  bc_append(meth, jvm_putfield, c);
 }
 
 /*****************************************************************************
@@ -11761,23 +11388,17 @@ get_desc_from_arglist(AST *list)
 void
 emit_invocations()
 {
-  struct method_info *inv_method;
-  Dlist p, tmplist, exc_list;
+  JVM_METHOD *meth;
+  Dlist p, tmplist;
   int count, obj_array_varnum;
   char *cur_name=NULL, *cur_desc=NULL, *tmpdesc;
-  CPNODE *c;
+  int c;
   AST *temp;
-
-  exc_list = make_dl();
-  dl_insert_b(exc_list, "java/lang/reflect/InvocationTargetException");
-  dl_insert_b(exc_list, "java/lang/IllegalAccessException");
 
   dl_traverse(p,methcall_list) {
     tmplist = (Dlist) dl_val(p);
     
     temp = (AST *) dl_val(dl_first(tmplist));
-
-    inv_method = beginNewMethod(F2J_ADAPTER_ACC);
 
     /* allocate enough space for the name + "_methcall" and null-term */
 
@@ -11804,8 +11425,11 @@ emit_invocations()
     strcat(cur_desc, ")");
     strcat(cur_desc, field_descriptor[temp->vartype][0]);
 
-    /* set global variables */
-    num_locals = cur_local = num_locals_in_descriptor(cur_desc);
+    meth = bc_new_method(cur_class_file, cur_name, cur_desc, 
+      F2J_ADAPTER_ACC);
+
+    bc_add_method_exception(meth, "java.lang.reflect.InvocationTargetException");
+    bc_add_method_exception(meth, "java.lang.IllegalAccessException");
 
     count = methcall_arglist_emit(temp);
 
@@ -11816,50 +11440,49 @@ emit_invocations()
     fprintf(curfp,"%s _retval;\n", returnstring[temp->vartype]);
 
     /* create a new object array and store it in the first local var */
-    pushIntConst(count);
-    c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/Object");
-    bytecode1(jvm_anewarray, c->index);
-    obj_array_varnum = getNextLocal(Object);
-    gen_store_op(obj_array_varnum, Object);
+    bc_push_int_const(meth, count);
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, "java/lang/Object");
+    bc_append(meth, jvm_anewarray, c);
+    obj_array_varnum = bc_get_next_local(meth, jvm_Object);
+    bc_gen_store_op(meth, obj_array_varnum, jvm_Object);
 
-    methcall_obj_array_emit(temp, obj_array_varnum);
+    methcall_obj_array_emit(meth, temp, obj_array_varnum);
 
     fprintf(curfp,
       "_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",
       java_wrapper[temp->vartype], returnstring[temp->vartype]);
 
     /* load _funcptr, which should always be local var 0 */
-    gen_load_op(0, Object);
-    bytecode0(jvm_aconst_null);
-    gen_load_op(obj_array_varnum, Object);
+    bc_gen_load_op(meth, 0, jvm_Object);
+    bc_append(meth, jvm_aconst_null);
+    bc_gen_load_op(meth, obj_array_varnum, jvm_Object);
 
-    c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+    c = bc_new_methodref(cur_class_file, METHOD_CLASS, "invoke",
           INVOKE_DESC);
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+    c = cp_find_or_insert(cur_class_file,CONSTANT_Class,
           numeric_wrapper[temp->vartype]);
-    bytecode1(jvm_checkcast, c->index);
+    bc_append(meth, jvm_checkcast, c);
 
-    c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype], 
+    c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype], 
                      numericValue_method[temp->vartype],
                      numericValue_descriptor[temp->vartype]);
 
-    bytecode1(jvm_invokevirtual, c->index);
+    bc_append(meth, jvm_invokevirtual, c);
 
-    bytecode0(return_opcodes[temp->vartype]);
+    bc_append(meth, return_opcodes[temp->vartype]);
 
     fprintf(curfp,"return _retval;\n");
     fprintf(curfp,"}\n"); 
 
-    endNewMethod(cur_class_file, inv_method, cur_name, cur_desc,
-         num_locals, exc_list );
+    fprintf(indexfp,"%s:%s:%s\n",cur_filename, cur_name, cur_desc);
+
     f2jfree(tmpdesc, strlen(tmpdesc)+1);
   }
 
   if(cur_name) f2jfree(cur_name, strlen(cur_name)+1);
   if(cur_desc) f2jfree(cur_desc, strlen(cur_desc)+1);
-  dl_delete_list(exc_list);
 }
 
 /*****************************************************************************
@@ -11952,7 +11575,7 @@ methcall_arglist_emit(AST *temp)
  *****************************************************************************/
 
 void
-methcall_obj_array_emit(AST *temp, int lv)
+methcall_obj_array_emit(JVM_METHOD *meth, AST *temp, int lv)
 {
   enum returntype rtype;
   HASHNODE *ht;
@@ -11985,24 +11608,24 @@ methcall_obj_array_emit(AST *temp, int lv)
       if(dim > 0) {
         fprintf(curfp,"_arg%d[_arg%d_offset]);\n", ai, ai);
 
-        arg_array_assign_emit(lv, ai, vi, rtype);
+        arg_array_assign_emit(cur_class_file, meth, lv, ai, vi, rtype);
         vi++;
       }
       else {
         fprintf(curfp,"_arg%d);\n", ai);
-        arg_assignment_emit(lv, ai, vi, TRUE, rtype);
+        arg_assignment_emit(cur_class_file, meth, lv, ai, vi, TRUE, rtype);
       }
     }
     else
     {
       if(dim > 0) {
         fprintf(curfp," _funcargs[%d] = _arg%d[_arg%d_offset];\n",ai,ai,ai);
-        arg_array_assign_emit(lv, ai, vi, rtype);
+        arg_array_assign_emit(cur_class_file, meth, lv, ai, vi, rtype);
         vi++;
       }
       else {
         fprintf(curfp," _funcargs[%d] = _arg%d;\n",ai,ai);
-        arg_assignment_emit(lv, ai, vi, FALSE, rtype);
+        arg_assignment_emit(cur_class_file, meth, lv, ai, vi, FALSE, rtype);
       }
     }
 
@@ -12021,28 +11644,28 @@ methcall_obj_array_emit(AST *temp, int lv)
  *****************************************************************************/
 
 void
-arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum,
-  enum returntype argtype)
+arg_array_assign_emit(JVM_CLASS *cclass, JVM_METHOD *meth,
+             int array_vnum, int array_idx, int arg_vnum, enum returntype argtype)
 {
-  CPNODE *c;
+  int c;
 
-  gen_load_op(array_vnum, Object);
-  pushIntConst(array_idx);
+  bc_gen_load_op(meth, array_vnum, jvm_Object);
+  bc_push_int_const(meth, array_idx);
 
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, 
+  c = cp_find_or_insert(cclass,CONSTANT_Class,
           numeric_wrapper[argtype]);
 
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
-  gen_load_op(arg_vnum, Object);
-  gen_load_op(arg_vnum + 1, Integer);
-  bytecode0(array_load_opcodes[argtype]);
+  bc_append(meth, jvm_new,c);
+  bc_append(meth, jvm_dup);
+  bc_gen_load_op(meth, arg_vnum, jvm_Object);
+  bc_gen_load_op(meth, arg_vnum + 1, jvm_Int);
+  bc_gen_array_load_op(meth, jvm_data_types[argtype]);
 
-  c = newMethodref(cur_const_table, numeric_wrapper[argtype],
+  c = bc_new_methodref(cclass, numeric_wrapper[argtype],
            "<init>", wrapper_descriptor[argtype]);
-  bytecode1(jvm_invokespecial, c->index);
+  bc_append(meth, jvm_invokespecial, c);
 
-  bytecode0(array_store_opcodes[Object]);
+  bc_gen_array_store_op(meth, jvm_data_types[Object]);
 }
 
 /*****************************************************************************
@@ -12055,262 +11678,32 @@ arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum,
  *****************************************************************************/
 
 void
-arg_assignment_emit(int array_vnum, int array_idx, int arg_vnum, BOOL wrap,
-  enum returntype argtype)
+arg_assignment_emit(JVM_CLASS *cclass, JVM_METHOD *meth, 
+    int array_vnum, int array_idx, int arg_vnum, BOOL wrap, 
+    enum returntype argtype)
 {
-  CPNODE *c;
+  int c;
 
-  gen_load_op(array_vnum, Object);
-  pushIntConst(array_idx);
+  bc_gen_load_op(meth, array_vnum, jvm_Object);
+  bc_push_int_const(meth, array_idx);
 
   if(wrap) {
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, 
+    c = cp_find_or_insert(cclass,CONSTANT_Class,
             numeric_wrapper[argtype]);
 
-    bytecode1(jvm_new,c->index);
-    bytecode0(jvm_dup);
-    gen_load_op(arg_vnum, argtype);
+    bc_append(meth, jvm_new,c);
+    bc_append(meth, jvm_dup);
+    bc_gen_load_op(meth, arg_vnum, jvm_data_types[argtype]);
 
-    c = newMethodref(cur_const_table, numeric_wrapper[argtype],
+    c = bc_new_methodref(cclass, numeric_wrapper[argtype],
              "<init>", wrapper_descriptor[argtype]);
 
-    bytecode1(jvm_invokespecial, c->index);
+    bc_append(meth, jvm_invokespecial, c);
   }
   else
-    gen_load_op(arg_vnum, argtype);
+    bc_gen_load_op(meth, arg_vnum, jvm_data_types[argtype]);
 
-  bytecode0(jvm_aastore);
-}
-
-/*****************************************************************************
- *                                                                           *
- * inc_stack                                                                 *
- *                                                                           *
- * Increment the stacksize by the specified amount.  If this is the highest  *
- * stack value encountered, set max_stack to the current stacksize.          *
- *                                                                           *
- *****************************************************************************/
-
-void
-inc_stack(int inc)
-{
-  stacksize += inc;
-  
-  if(stacksize > cur_code->attr.Code->max_stack)
-    cur_code->attr.Code->max_stack = (u2)stacksize;
-}
-
-/*****************************************************************************
- *                                                                           *
- * dec_stack                                                                 *
- *                                                                           *
- * Decrement the stacksize by the specified amount.                          *
- *                                                                           *
- *****************************************************************************/
-
-void
-dec_stack(int dec) {
-  stacksize -= dec;
-
-  if(stacksize < 0){
-    fprintf(stderr,"WARNING: negative stack! (%s:%s)\n", cur_filename,
-       unit_name);
-    printf("WARNING: negative stack! (%s:%s)\n", cur_filename,
-       unit_name);
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * newCodeAttribute                                                          *
- *                                                                           *
- * creates a new attribute_info structure and initializes the Code_attribute *
- * section with some initial values.                                         *
- *                                                                           *
- *****************************************************************************/
-
-struct attribute_info *
-newCodeAttribute()
-{
-  struct attribute_info * tmp;
-  CPNODE *c;
-
-  tmp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
-
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, "Code");
-  tmp->attribute_name_index = c->index;
-  tmp->attribute_length = 0;
-  tmp->attr.Code = (struct Code_attribute *)
-        f2jalloc(sizeof(struct Code_attribute));
-  tmp->attr.Code->max_stack = 0;
-  tmp->attr.Code->max_locals = 0;
-  tmp->attr.Code->code_length = 0;
-  tmp->attr.Code->code = make_dl();
-  tmp->attr.Code->exception_table_length = 0;
-  tmp->attr.Code->exception_table = NULL;
-  tmp->attr.Code->attributes_count = 0;
-  tmp->attr.Code->attributes = NULL;
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * newExceptionsAttribute                                                    *
- *                                                                           *
- * creates a new attribute_info structure and initializes the                *
- * Exception_attribute section with some initial values.                     *
- *                                                                           *
- *****************************************************************************/
-
-struct attribute_info *
-newExceptionsAttribute(Dlist exc)
-{
-  struct attribute_info * tmp;
-  CPNODE *c;
-  Dlist dtmp, new;
-  int cnt=0;
-  char *entry;
-  int *copy;
-
-  tmp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
-
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, "Exceptions");
-  tmp->attribute_name_index = c->index;
-
-  tmp->attr.Exceptions = (struct Exceptions_attribute *)
-                 f2jalloc(sizeof(struct Exceptions_attribute));
-
-  new = make_dl();
-
-  dl_traverse(dtmp, exc) {
-    entry = (char *) dtmp->val;
-
-    cnt++;
-    c = cp_find_or_insert(cur_const_table, CONSTANT_Class, entry);
-
-    copy = (int *)f2jalloc(sizeof(int));
-    *copy = c->index;
-
-    dl_insert_b(new, copy);
-  }
-
-  tmp->attribute_length = 2 + (cnt * 2);
-
-  tmp->attr.Exceptions->number_of_exceptions = (u2) cnt;
-  tmp->attr.Exceptions->exception_index_table = new;
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * newClassFile                                                              *
- *                                                                           *
- * Creates a new class file structure.                                       *
- *                                                                           *
- *****************************************************************************/
-
-struct ClassFile *
-newClassFile(char *name, char *srcFile)
-{
-  struct attribute_info * attr_temp;
-  struct method_info * meth_tmp;
-  struct cp_info *newnode;
-  struct ClassFile * tmp;
-  char * fullclassname;
-  CPNODE *c;
-
-  tmp = (struct ClassFile *)f2jalloc(sizeof(struct ClassFile));
- 
-  tmp->magic = JVM_MAGIC;
-  tmp->minor_version = JVM_MINOR_VER;
-  tmp->major_version = JVM_MAJOR_VER;
-
-  /* we'll fill out the constant pool and fields later. */
-  tmp->constant_pool_count = 0;
-  tmp->constant_pool = NULL;
-  tmp->fields_count = 0;
-  tmp->fields = make_dl();
-
-  tmp->access_flags = F2J_CLASS_ACC;
-
-  /* first create an entry for 'this'.  the class file variable this_class
-   * points to a CONSTANT_Class_info entry in the constant pool, which in
-   * turn points to a CONSTANT_Utf8_info entry representing the name of
-   * this class.  so, first we create the Utf8 entry, then the Class entry.
-   */
-
-  fullclassname = get_full_classname(name);
-
-  if(gendebug)
-    printf("##creating new entry, this -> %s\n",fullclassname);
-
-  newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
-  newnode->tag = CONSTANT_Utf8;
-  newnode->cpnode.Utf8.length = strlen(fullclassname);
-  newnode->cpnode.Utf8.bytes = (u1 *)f2jalloc(newnode->cpnode.Utf8.length);
-  strncpy((char *)newnode->cpnode.Utf8.bytes, fullclassname, 
-    newnode->cpnode.Utf8.length);
-
-  c = cp_insert(cur_const_table,newnode,1);
-
-  newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
-  newnode->tag = CONSTANT_Class;
-  newnode->cpnode.Class.name_index = c->index;
-
-  c = cp_insert(cur_const_table,newnode,1);
-  tmp->this_class = c->index;
-
-  c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/Object");
-  tmp->super_class = c->index;
-
-  /* f2java generated code does not implement any interfaces */
-  tmp->interfaces_count = 0;
-  tmp->interfaces = NULL;
-
-  /* the only attributes allowed for a class file are SourceFile and
-   * Deprecated.  we don't want to generate deprecated classes, so
-   * the only one we're interested in setting here is the SourceFile.
-   * SourceFile refers to the name of the original source code file,
-   * which in this case should be some Fortran code.
-   */
-  tmp->attributes_count = 1;
-  tmp->attributes = make_dl();
- 
-  attr_temp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
-
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, "SourceFile");
-  attr_temp->attribute_name_index = c->index;
-  attr_temp->attribute_length = 2;  /* SourceFile attr length always 2 */
-  attr_temp->attr.SourceFile = (struct SourceFile_attribute *) 
-       f2jalloc(sizeof(struct SourceFile_attribute));
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, srcFile);
-  attr_temp->attr.SourceFile->sourcefile_index = c->index;
-
-  dl_insert_b(tmp->attributes,attr_temp);
-
-  /* every f2java generated class will have a default constructor "<init>"
-   * which simply calls the constructor for java.lang.Object.  here we create
-   * a method entry for the default constructor.
-   */
-
-  tmp->methods_count = 0;
-  tmp->methods = make_dl();
-
-  meth_tmp = beginNewMethod(F2J_INIT_ACC);
-
-  c = newMethodref(cur_const_table,"java/lang/Object", "<init>", "()V");
-
-  bytecode0(jvm_aload_0);
-  bytecode1(jvm_invokespecial, c->index);
-  bytecode0(jvm_return);
-  
-  endNewMethod(tmp, meth_tmp, "<init>", "()V", 1, NULL);
-
-  f2jfree(fullclassname, strlen(fullclassname)+1);
-
-  return tmp;
+  bc_append(meth, jvm_aastore);
 }
 
 /*****************************************************************************
@@ -12336,341 +11729,6 @@ char_substitution(char *str, int from_char, int to_char)
   return newstr;
 }
 
-/*****************************************************************************
- *                                                                           *
- * beginNewMethod                                                            *
- *                                                                           *
- * Creates a new method structure with the given access flags.               *
- *                                                                           *
- *****************************************************************************/
-
-struct method_info *
-beginNewMethod(unsigned int flags)
-{
-  struct method_info *tmp;
-  u2 acc;
-
-  acc = (u2) flags;
-
-  if((unsigned int)acc != flags)
-    fprintf(stderr,"Warning: possible truncation in beginNewMethod.\n");
-
-  tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
-  tmp->access_flags = acc;
-
-  if(gendebug)
-    printf("access flags = %d\n", flags);
-
-  tmp->attributes = make_dl();
-  tmp->attributes_count = 1;
-
-  cur_code = newCodeAttribute();
-  if(exc_table != NULL)  {
-    Dlist tmp;
-
-    dl_traverse(tmp, exc_table)
-      f2jfree(tmp->val, sizeof(ExceptionTableEntry));
-
-    dl_delete_list(exc_table);
-  }
-
-  exc_table = make_dl();
-
-  stacksize = pc = num_handlers = 0;
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * endNewMethod                                                              *
- *                                                                           *
- * Finishes initialization of the new method structure.                      *
- *                                                                           *
- *****************************************************************************/
-
-void
-endNewMethod(struct ClassFile *cclass, struct method_info * meth,
-  char * name, char * desc, unsigned int mloc, Dlist exceptions)
-{
-  ExceptionTableEntry *et_entry;
-  CPNODE *c;
-  Dlist tmp;
-  int idx;
-  u2 maxloc;
-
-  if(gendebug)
-    printf("endNewMethod(): %s - %s\n", name, desc);
-
-  if(exceptions != NULL) {
-    dl_insert_b(meth->attributes, newExceptionsAttribute(exceptions));
-
-    meth->attributes_count += 1;
-  }
-
-  maxloc = (u2)mloc;
-
-  if((unsigned int)maxloc != mloc)
-    fprintf(stderr,"Warning: possible truncation in endNewMethod.\n");
-
-  fprintf(indexfp,"%s:%s:%s\n",cur_filename, name, desc);
-
-  /* at the end of the method, the stacksize should always be zero.
-   * if not, we're gonna have verification problems at the very least.
-   * at this point, there's not much we can do about it, but issue a
-   * warning.
-   */
-  if(stacksize != 0)
-    fprintf(stderr,"WARNING: ending method with stacksize = %d\n",stacksize);
-
-  /* here we insert the name and descriptor of this method.  the reason that
-   * we didn't insert this into the constant pool in the beginNewMethod()
-   * function is for the <clinit> case.  we dont always need a <clinit> 
-   * method because we might not have any array, object, or other static
-   * initialization to do.  in that case, there's no need to put these
-   * entries into the constant pool.
-   */
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, name);
-
-  meth->name_index = c->index;
-
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, desc);
-
-  meth->descriptor_index = c->index;
-
-  traverse_code(cur_code->attr.Code->code);
-
-#ifdef VCG_CONTROL_FLOW
-  cfg_emit(cur_code->attr.Code->code, name);
-#endif
-
-  cur_code->attr.Code->exception_table_length = num_handlers;
-
-  if(num_handlers > 0) {
-    cur_code->attr.Code->exception_table = (struct ExceptionTable *) 
-        f2jalloc(sizeof(struct ExceptionTable) * num_handlers);
-
-    if(gendebug)
-      printf("Code set exception_table_length = %d\n",num_handlers);
-
-    idx = 0;
-    dl_traverse(tmp, exc_table) {
-      et_entry = (ExceptionTableEntry *) tmp->val;
-
-      cur_code->attr.Code->exception_table[idx].start_pc = et_entry->from->pc;
-      cur_code->attr.Code->exception_table[idx].end_pc = et_entry->to->pc;
-      cur_code->attr.Code->exception_table[idx].handler_pc = 
-         et_entry->target->pc;
-      cur_code->attr.Code->exception_table[idx].catch_type = 
-         et_entry->catch_type;
-      idx++;
-
-      f2jfree(et_entry, sizeof(ExceptionTableEntry));
-    }
-  }
-
-  dl_delete_list(exc_table);
-  exc_table = NULL;
-
-  /* attribute_length is calculated as follows:
-   *   max_stack               =  2 bytes
-   *   max_locals              =  2 bytes
-   *   code_length             =  4 bytes
-   *   code                    = pc bytes
-   *   exception_table_length  =  2 bytes
-   *   exception_table         =  exc_table_len * sizeof(exc table) bytes
-   *   attributes_count        =  2 bytes
-   *   attributes              =  0 bytes  (no attributes generated)
-   *  ---------------------------------
-   *   total (in bytes)        =  12 + exc_table_length * sizeof(exc table)
-   */
-
-  cur_code->attribute_length = pc + 12 + num_handlers * 
-               sizeof(struct ExceptionTable);
-  cur_code->attr.Code->max_locals = maxloc;
-  cur_code->attr.Code->code_length = pc;
-
-  if(gendebug)
-    printf("Code: set code_length = %d\n",pc);
-
-  dl_insert_b(meth->attributes, cur_code);
-
-  cclass->methods_count++;
-  dl_insert_b(cclass->methods, meth);
-}
-
-/*****************************************************************************
- *                                                                           *
- * getNextLocal                                                              *
- *                                                                           *
- * this function returns the next available local variable number and        *
- * updates the max if necessary.                                             *
- *                                                                           *
- *****************************************************************************/
-
-int
-getNextLocal(enum returntype vtype)
-{
-  if(vtype == Double)
-    cur_local+=2;
-  else
-    cur_local++;
-
-  if(cur_local > num_locals)
-    num_locals = cur_local;
-
-  return cur_local - ((vtype == Double) ? 2 : 1);
-}
-
-/*****************************************************************************
- *                                                                           *
- * releaseLocal                                                              *
- *                                                                           *
- * this function 'releases' a local variable.  that is, calling this         *
- * function signifies that we no longer need this local variable.            *
- *                                                                           *
- *****************************************************************************/
-
-void
-releaseLocal(enum returntype vtype)
-{
-  if(vtype == Double)
-    cur_local-=2;
-  else
-    cur_local--;
-}
-
-/*****************************************************************************
- *                                                                           *
- * nodeAtPC                                                                  *
- *                                                                           *
- * this function searches the list of nodes for the given PC.  returns the   *
- * node if found, otherwise NULL.  this is not very efficient - we should    *
- * probably modify it eventually.                                            * 
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-nodeAtPC(int num)
-{
-  CodeGraphNode *nodeptr;
-  Dlist tmp;
-
-  dl_traverse(tmp, cur_code->attr.Code->code) {
-    nodeptr = (CodeGraphNode *)tmp->val;
-    if(nodeptr->pc == (unsigned int)num)
-      return nodeptr;
-    if(nodeptr->pc > (unsigned int)num)
-      return NULL;
-  }
-
-  return NULL;
-}
-
-/*****************************************************************************
- *                                                                           *
- * traverse_code                                                             *
- *                                                                           *
- * this function traverses the code graph and determines the max stack and   *
- * assigns branch target offsets.                                            *
- *                                                                           *
- *****************************************************************************/
-
-void
-traverse_code(Dlist cgraph) 
-{
-  ExceptionTableEntry *et_entry;
-  CodeGraphNode *val;
-  char *warn;
-  Dlist tmp;
-
-  if(dl_empty(cgraph))
-    return;
-
-  /* set initial stack depth to zero */
-  val = (CodeGraphNode *) dl_val(dl_first(cgraph));
-  val->stack_depth = 0;
-
-  reCalcAddr = FALSE;
-
-  /* traverse the whole graph calculating branch target offsets. */
-  calcOffsets(cgraph, val);
-
-  /* now traverse paths originating from exception handlers */
-  num_handlers = 0;
-  dl_traverse(tmp,exc_table) {
-    /* count number of handlers.. we'll use this info later */
-    num_handlers++;
-    et_entry = (ExceptionTableEntry *) tmp->val;
-    calcOffsets(cgraph, et_entry->target);
-  }
-
-  /* 
-   * if there was a branch offset that exceeds the JVM instruction's
-   * limit (signed 16-bit value), then the width of that instruction
-   * must change (e.g. from goto to goto_w), thus altering the
-   * addresses of all instructions following that one.  here we are
-   * recalculating the PCs and all branch target offsets (only if
-   * necessary though).  there are only a few instances in the LAPACK
-   * code where the branch exceeds the limits, so this shouldn't
-   * increase the compilation time very much.
-   */
-
-  if(reCalcAddr) {
-    int tmpPC = 0;
-
-    dl_traverse(tmp,cgraph) {
-      val = (CodeGraphNode *) tmp->val;
-
-      val->pc = tmpPC;
-      tmpPC += val->width;
-    }
-
-    /* now that all the instruction addresses are correct, recalculate
-     * the branch target offsets.
-     */
-
-    reCalcAddr = FALSE;
-    dl_traverse(tmp,cgraph) {
-      val = (CodeGraphNode *) tmp->val;
-
-      if ( val->branch_target != NULL) {
-        reCalcAddr = checkDistance(val->op, val->branch_target->pc, val->pc);
-
-        val->operand = val->branch_target->pc - val->pc;
-      }
-    }
-
-    if(reCalcAddr)
-      fprintf(stderr,"BAD NEWS - things are still screwed.\n");
-
-    pc = tmpPC;
-  }
-
-  if(pc > MAX_CODE_LEN)
-    fprintf(stderr,"WARNING: code length (%d) exceeds max of %d\n",
-       pc, MAX_CODE_LEN);
-
-  /* now print the instructions */
-  if(gendebug) {
-    dl_traverse(tmp,cgraph) {
-      val = (CodeGraphNode *) tmp->val;
-  
-      if(!val->visited)
-        warn = "(UNVISITED!!)";
-      else
-        warn = "";
-
-      if(opWidth(val->op) > 1)
-        printf("%d: %s %d %s\n", val->pc, jvm_opcode[val->op].op, 
-           val->operand, warn);
-      else
-        printf("%d: %s %s\n", val->pc, jvm_opcode[val->op].op, warn);
-    }
-  }
-
-}
-
 #ifdef VCG_CONTROL_FLOW
 
 /*****************************************************************************
@@ -12685,7 +11743,7 @@ traverse_code(Dlist cgraph)
 void
 cfg_emit(Dlist cgraph, char *mname)
 {
-  CodeGraphNode *val;
+  JVM_CODE_GRAPH_NODE *val;
   char *filename, *warn;
   char node_label[200];
   FILE *v;
@@ -12701,7 +11759,7 @@ cfg_emit(Dlist cgraph, char *mname)
     print_vcg_header(v, "Control Flow Graph");
 
     dl_traverse(tmp,cgraph) {
-      val = (CodeGraphNode *) tmp->val;
+      val = (JVM_CODE_GRAPH_NODE *) tmp->val;
   
       if(!val->visited)
         warn = "(UNVISITED!!)";
@@ -12729,575 +11787,6 @@ cfg_emit(Dlist cgraph, char *mname)
 #endif
 
 /*****************************************************************************
- * checkDistance                                                             *
- *                                                                           *
- * checks whether a branch is too far.  currently the branch target offset   *
- * is a signed 16-bit integer, so the maximum branch is -2^15..2^15-1.       *
- *                                                                           *
- * return value is TRUE if the branch is too far away, FALSE otherwise.      *
- *                                                                           *
- *****************************************************************************/
-
-BOOL
-checkDistance(enum _opcode op, int dest, int src)
-{
-  int distance;
-
-  /* if it's a wide goto, then it'll always be ok.. otherwise check */
-  if(op == jvm_goto_w)
-    return FALSE;
-
-  distance = dest - src;
-  if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
-     (distance < ((int)-mypow( 2.0, 15.0 ))))
-    return TRUE;
-  else
-    return FALSE;
-}
-
-/*****************************************************************************
- * getListNode                                                               *
- *                                                                           *
- * given a list and a graph node, this function returns the list node which  *
- * contains the graph node.                                                  *
- *                                                                           *
- *****************************************************************************/
-
-Dlist
-getListNode(Dlist cgraph, CodeGraphNode *n)
-{
-  Dlist tmp;
-
-  dl_traverse(tmp,cgraph) {
-    if((CodeGraphNode *) tmp->val == n) 
-      return tmp;
-  }
-
-  return NULL;
-}
-
-/*****************************************************************************
- *                                                                           *
- * calcOffsets                                                               *
- *                                                                           *
- * This function calculates the branch target offsets for instructions that  *
- * branch (gotos, compares, etc).  also set the stack depth for the          *
- * instruction(s) following this one.  also perform sanity checks on the     *
- * stack values to make sure that we aren't hitting some instruction from    * 
- * different places with different stack depths.                             *
- *                                                                           *
- *****************************************************************************/
-
-void
-calcOffsets(Dlist cgraph, CodeGraphNode *val)
-{
-  /* if we already visited this node, then do not visit again. */
-
-  if(gendebug)
-  {
-    printf("in calcoffsets, before op %d : %s, stack_Depth = %d\n",
-         val->pc, jvm_opcode[val->op].op,val->stack_depth);
-
-    if(val->next == NULL)
-      printf("next is NULL\n");
-    else
-      printf("next is %s\n", jvm_opcode[val->next->op].op);
-  }
-
-  if(val->visited)
-    return;
-
-  val->visited = TRUE;
-
-  stacksize = val->stack_depth;
-
-  dec_stack(getStackDecrement(val->op, val->operand));
-
-if(stacksize < 0)
-  fprintf(stderr,"\tpc = %d\n", val->pc);
-
-
-  inc_stack(getStackIncrement(val->op, val->operand));
-
-  /* special handling for return instructions? */
-
-  if((val->op == jvm_goto) || (val->op == jvm_goto_w)) {
-    /* there's a lot of stuff to do/check for goto statements. 
-     *  - calculate the branch target offset (remember that the operand to
-     *      a goto statement is a signed offset, not an absolute address).
-     *  - if this is a goto and the branch_target is NULL, then that means
-     *      this is a fortran goto (as opposed to a goto generated as part
-     *      of some valid java construct).  we need to find the instruction
-     *      corresponding to the branch label and set offset based on that.
-     *  - set/check the stack depth for the target of this goto
-     */
-    if(val->branch_target == NULL) {
-      CodeGraphNode *label_node;
-      AST *label_ast;
-
-      if(gendebug)
-        printf("looking at GOTO %d\n", val->branch_label);
-      
-      if( (label_ast = find_label(label_list, val->branch_label)) != NULL)
-      {
-        label_node = nodeAtPC(label_ast->astnode.label.pc);
-
-        if(label_node != NULL) {
-          if(gendebug)
-            printf(" **found** target pc is %d\n", label_node->pc); 
-
-          if(label_node->stack_depth == -1)
-            label_node->stack_depth = stacksize;
-          else if(label_node->stack_depth != stacksize) {
-            fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s)\n",
-                    label_node->pc, cur_filename);
-            printf("WARNING: hit pc %d with diff stack sizes (%s)\n",
-                    label_node->pc, cur_filename);
-            
-          }
-
-          /* if branching too far, change to wide goto, we'll fix
-           * the following instructions later.  */
-
-          if(checkDistance(val->op, label_node->pc, val->pc)) {
-            reCalcAddr = TRUE;
-            val->op = jvm_goto_w;
-            val->width = opWidth(jvm_goto_w);
-          }
-
-          val->operand = label_node->pc - val->pc;
-          val->branch_target = label_node;
-          calcOffsets(cgraph, label_node);
-        }
-        else 
-          fprintf(stderr,"WARNING: cannot find node for pc %d\n", 
-                  label_ast->astnode.label.pc);
-      }
-      else
-        fprintf(stderr,"WARNING: cannot find label %d\n", val->branch_label);
-    }
-    else {
-      if(gendebug)
-        printf("goto branching to pc %d\n", val->branch_target->pc);
-
-      if(val->branch_target->stack_depth == -1)
-        val->branch_target->stack_depth = stacksize;
-      else if (val->branch_target->stack_depth != stacksize) {
-        fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s).\n",
-                val->branch_target->pc, cur_filename);
-        printf("WARNING: hit pc %d with diff stack sizes (%s)\n",
-                val->branch_target->pc, cur_filename);
-      }
-
-      /* if branching too far, change to wide goto, we'll fix
-       * the following instructions later.  */
-
-      if(checkDistance(val->op, val->branch_target->pc, val->pc)) {
-        reCalcAddr = TRUE;
-        val->op = jvm_goto_w;
-        val->width = opWidth(jvm_goto_w);
-      }
-
-      val->operand = val->branch_target->pc - val->pc;
-      calcOffsets(cgraph, val->branch_target);
-    }
-  }
-  else if ( val->branch_target != NULL) {
-    /* if this is not a goto, but the branch target is non-null, then it
-     * must be a comparison instruction.  in this case we can either
-     * branch to the next instruction or to the branch target, so we will
-     * set the stack depth for both instructions.
-     */
-    if(val->next != NULL)
-      val->next->stack_depth = stacksize;
-
-    if(checkDistance(val->op, val->branch_target->pc, val->pc)) {
-      CodeGraphNode *gotoNode, *wideGotoNode;
-      Dlist listNode;
-
-      reCalcAddr = TRUE;
-
-      val->branch_target->stack_depth = stacksize;
-      val->operand = val->branch_target->pc - val->pc;
-
-      gotoNode = newGraphNode(jvm_goto, 0);
-      wideGotoNode = newGraphNode(jvm_goto_w, 0);
-
-      gotoNode->visited = TRUE;
-      wideGotoNode->visited = TRUE;
-
-      gotoNode->branch_target = val->next;
-      wideGotoNode->next = val->next;
-      gotoNode->next = wideGotoNode;
-      val->next = gotoNode;
-      wideGotoNode->branch_target = val->branch_target;
-      val->branch_target = wideGotoNode;
-
-      listNode = getListNode(cgraph, val);
-      dl_insert_a(listNode, gotoNode);
-      listNode = dl_next(listNode);
-      dl_insert_a(listNode, wideGotoNode);
-
-      if(gotoNode->branch_target != NULL)
-        calcOffsets(cgraph, gotoNode->branch_target);
-      calcOffsets(cgraph, wideGotoNode->branch_target);
-    }
-    else {
-
-      val->branch_target->stack_depth = stacksize;
-      val->operand = val->branch_target->pc - val->pc;
-
-      if(val->next != NULL)
-        calcOffsets(cgraph, val->next);
-      calcOffsets(cgraph, val->branch_target);
-    }
-  }
-  else {
-    /* null branch target, set stack depth for following instruction only. */
-    if(val->next != NULL) {
-      /* set stack depth for following instruction only if the current
-       * instruction is NOT a return.
-       */
-      if((val->op != jvm_return) && (val->op != jvm_areturn) &&
-         (val->op != jvm_dreturn) && (val->op != jvm_freturn) &&
-         (val->op != jvm_ireturn) && (val->op != jvm_areturn))
-      {
-        val->next->stack_depth = stacksize;
-        calcOffsets(cgraph, val->next);
-      }
-    }
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * getStackIncrement                                                         *
- *                                                                           *
- * determines the number of bytes that this instruction leaves on the stack  *
- * after execution.  this depends on the instruction and on the data types.  *
- * e.g. for a method invoke instruction, the number of bytes depends on the  *
- * return type of the method (double/long = 2 stack entries).                *
- *                                                                           *
- *****************************************************************************/
-
-int
-getStackIncrement(enum _opcode op, u4 index)
-{
-  char *this_desc;
-  CPNODE *c;
-  int stack_increment;
-
-  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
-   || (op == jvm_invokestatic))
-  {
-    struct stack_info *stackinf;
-
-    /* now we need to determine how many parameters are sitting on the stack */
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, 
-                          c->val->cpnode.Utf8.length);
-    stackinf = calcStack(this_desc);
-    /* if the opcode is invokespecial or invokevirtual, then there is one
-     * object reference + parameters on the stack.  if this is an invokestatic
-     * instruction, then there's just parameters. 
-     */
-
-    stack_increment = stackinf->ret_len;
-
-    f2jfree(stackinf, sizeof(struct stack_info));
-    f2jfree(this_desc, strlen(this_desc)+1);
-  }
-  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
-          (op == jvm_putfield)  || (op == jvm_getfield))
-  {
-    int tmpsize;
-
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes,
-                          c->val->cpnode.Utf8.length);
-
-    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
-      tmpsize = 2;
-    else 
-      tmpsize = 1;
-
-    switch(op) {
-      case jvm_getstatic:
-        stack_increment = tmpsize;
-        break;
-      case jvm_putstatic:
-        stack_increment = 0;
-        break;
-      case jvm_getfield:
-        stack_increment = tmpsize;
-        break;
-      case jvm_putfield:
-        stack_increment = 0;
-        break;
-      default:
-        fprintf(stderr,"getSTackIncrement(): unexpected op type\n");
-        break; /* ansi compliance */
-    }
-    f2jfree(this_desc, strlen(this_desc)+1);
-  }
-  else {
-    /* else we can determine the stack increment from a table.  */
-    stack_increment = jvm_opcode[op].stack_post;
-  }
-
-  return stack_increment;
-}
-
-/*****************************************************************************
- *                                                                           *
- * getStackDecrement                                                         *
- *                                                                           *
- * determines the number of bytes that this instruction removes from the     *
- * stack prior to execution.  this depends on the instruction and on the     *
- * data types involved.  e.g. a method invoke instruction will remove one or *
- * two entries per argument, depending on the data type.                     *
- *                                                                           *
- *                                                                           *
- *****************************************************************************/
-
-int
-getStackDecrement(enum _opcode op, u4 index)
-{
-  char *this_desc;
-  CPNODE *c;
-  int stack_decrement;
-
-  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
-   || (op == jvm_invokestatic))
-  {
-    struct stack_info *stackinf;
-
-    /* now we need to determine how many parameters are sitting on the stack */
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes,
-                          c->val->cpnode.Utf8.length);
-    stackinf = calcStack(this_desc);
-    /* if the opcode is invokespecial or invokevirtual, then there is one
-     * object reference + parameters on the stack.  if this is an invokestatic
-     * instruction, then there's just parameters. 
-     */
-    if(op == jvm_invokestatic)
-      stack_decrement = stackinf->arg_len;
-    else
-      stack_decrement = stackinf->arg_len + 1;
-
-    f2jfree(stackinf, sizeof(struct stack_info));
-    f2jfree(this_desc, strlen(this_desc)+1);
-  }
-  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
-          (op == jvm_putfield)  || (op == jvm_getfield))
-  {
-    int tmpsize;
-
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, 
-                          c->val->cpnode.Utf8.length);
-
-    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
-      tmpsize = 2;
-    else 
-      tmpsize = 1;
-
-    switch(op) {
-      case jvm_getstatic:
-        stack_decrement = 0;
-        break;
-      case jvm_putstatic:
-        stack_decrement = tmpsize;
-        break;
-      case jvm_getfield:
-        stack_decrement = 1;
-        break;
-      case jvm_putfield:
-        stack_decrement = tmpsize + 1;
-        break;
-      default:
-        fprintf(stderr,"getSTackDecrement(): unexpected op type\n");
-        break; /* ansi compliance */
-    }
-    f2jfree(this_desc, strlen(this_desc)+1);
-  }
-  else {
-    /* else we can determine the stack decrement from a table.  */
-    stack_decrement = jvm_opcode[op].stack_pre;
-  }
-
-  return stack_decrement;
-}
-
-/*****************************************************************************
- *                                                                           *
- * calcStack                                                                 *
- *                                                                           *
- * given a method descriptor, this function returns the number of arguments  *
- * it takes.  we use this value to determine how much to decrement the stack *
- * after a method invocation.                                                *
- *                                                                           *
- *****************************************************************************/
-
-struct stack_info *
-calcStack(char *d)
-{
-  struct stack_info *tmp;
-  int len = strlen(d);
-  char *ptr, *tstr;
-
-  if(gendebug)
-    printf("in calcStack, the desc = '%s'\n", d);
-
-  tmp = (struct stack_info *)f2jalloc(sizeof(struct stack_info));
-  tmp->arg_len = 1;
-  tmp->ret_len = 1;
-
-  /* the shortest possible method descriptor should be 3 characters: ()V
-   * thus, if the given string is < 3 characters, it must be in error.
-   */
-
-  if(len < 3) {
-    fprintf(stderr,"WARNING: invalid descriptor '%s' (len < 3).\n", d);
-    return tmp;
-  }
-
-  if(d[0] != '(') {
-    fprintf(stderr,"WARNING: invalid descriptor '%s' (bad 1st char).\n", d);
-    return tmp;
-  }
-
-  ptr = d;
-
-  /* start at -1 because the opening paren will contribute 1 to
-   * the count.
-   */
-  tmp->arg_len = -1;
-
-  while((ptr = skipToken(ptr)) != NULL) {
-    tmp->arg_len++;
-
-    /* check if this is a double or long type.  if so, increment
-     * again because these data types take up two stack entries.
-     */
-    if( (*ptr ==  'D') || (*ptr == 'J') )
-      tmp->arg_len++;
-  }
-
-  tstr = strdup(d);
-  strtok(tstr,")");
-  ptr = strtok(NULL,")");
-  if( (*ptr ==  'D') || (*ptr == 'J') )
-    tmp->ret_len = 2;
-  else if(*ptr == 'V')
-    tmp->ret_len = 0;
-  else
-    tmp->ret_len = 1;
-
-  f2jfree(tstr, strlen(tstr)+1);
-
-  if(gendebug)
-    printf("calcStack arg_len = %d, ret_len = %d\n",
-      tmp->arg_len, tmp->ret_len);
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * skipToken                                                                 *
- *                                                                           *
- * helper routine for calcStack().  this function returns a pointer to       *
- * the next field type in this descriptor.  if there are no more field types *
- * this function returns NULL.  on error, this function also returns NULL.   *
- *                                                                           *
- *****************************************************************************/
-
-char *
-skipToken(char *str)
-{
-  char *p = str;
-
-  switch(*p) {
-    case 'B': case 'C': case 'D': case 'F':
-    case 'I': case 'J': case 'S': case 'Z':
-      return p+1;
-
-    case 'L':
-      while((*p != ';') && (*p != '\0'))
-        p++;
-
-      if(*p == '\0') {
-        fprintf(stderr,"ERR:skipToken() incomplete classname in desc\n");
-        return NULL;
-      }
-
-      return p+1;
-
-    case '[':
-      return skipToken(p+1);
-
-    case '(':
-      /* we should hit this case at the beginning of the descriptor */
-      return p+1;
-
-    case ')':
-      return NULL;
-
-    default:
-      fprintf(stderr,"WARNING: skipToken() unrecognized char in desc:%s\n",
-        str);
-      return NULL;
-  }
-
-  /* should never reach here */
-}
-
-/*****************************************************************************
- *                                                                           *
- * num_locals_in_descriptor                                                  *
- *                                                                           *
- * given a method descriptor, this function returns the number of local      *
- * variables needed to hold the arguments.  doubles and longs use 2 local    *
- * vars, while every other data type only uses 1 local.                      *
- *                                                                           *
- *****************************************************************************/
-
-int
-num_locals_in_descriptor(char *d)
-{
-  int vlen = 0;
-
-  d = skipToken(d);
-  while( (d = skipToken(d)) != NULL) {
-    if(d[0] == 'D')
-      vlen += 2;
-    else
-      vlen++;
-  }
-
-  return vlen;
-}
-
-
-/*****************************************************************************
  *                                                                           *
  * assign_varnums_to_arguments                                               *
  *                                                                           *
@@ -13311,7 +11800,7 @@ num_locals_in_descriptor(char *d)
  *                                                                           *
  *****************************************************************************/
 
-void
+int
 assign_varnums_to_arguments(AST * root)
 {
   AST * locallist;
@@ -13320,7 +11809,7 @@ assign_varnums_to_arguments(AST * root)
 
   /* if root is NULL, this is probably a PROGRAM (no args) */
   if(root == NULL)
-    return;
+    return 1;
 
   /* This loop takes care of the stuff coming in from the
    * argument list.  
@@ -13379,7 +11868,7 @@ assign_varnums_to_arguments(AST * root)
         hashtemp->variable->astnode.ident.localvnum); 
   }
 
-  locals = localnum;
+  return localnum;
 } /* Close assign_varnums_to_arguments().  */
 
 /*****************************************************************************
@@ -13508,133 +11997,6 @@ print_nodetype (AST *root)
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);
   }
-}
-
-/*****************************************************************************
- *                                                                           *
- * newGraphNode                                                              *
- *                                                                           *
- * returns a new code graph node initialized with the given opcode, operand, *
- * and pc.                                                                   *
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-newGraphNode(enum _opcode op, u4 operand)
-{
-  CodeGraphNode *tmp = (CodeGraphNode *)f2jalloc(sizeof(CodeGraphNode));
-  
-  tmp->op = op;
-  tmp->operand = operand;
-  tmp->width = opWidth(op);
-
-  /* set pc and branch targets later */
-  tmp->pc = pc;
-  tmp->branch_target = NULL;
-  tmp->next = NULL;
-  tmp->optional_targets = NULL;
-  tmp->branch_label = -1;
-  tmp->stack_depth = -1;
-  tmp->visited = FALSE;
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * bytecode1                                                                 *
- *                                                                           *
- * inserts the given instruction into the code graph.                        *
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-bytecode1(enum _opcode op, u4 operand)
-{
-  CodeGraphNode *tmp, *prev;
-
-  /* if we should not generate bytecode, then just return a dummy node */
-  if(!bytecode_gen) {
-    CodeGraphNode *g;
-
-    /* keep track of the dummy node so that we may reclaim the memory later. */
-    g = newGraphNode(op, operand);
-    dl_insert_b(dummy_nodes, g);
-    return g;
-  }
-
-  if(gendebug)
-    printf("drew bytecode: %s %d\n", jvm_opcode[op].op, operand);
-
-  lastOp = op;
-
-  if(cur_code->attr.Code->code == NULL)
-    fprintf(stderr,"ERROR: null code graph.\n");
-
-  prev = (CodeGraphNode *) dl_val(dl_last(cur_code->attr.Code->code));
-
-  if((prev != NULL) && (prev->op == jvm_impdep1)) {
-    prev->op = op;
-    prev->operand = operand;
-    prev->width = opWidth(op);
-    pc += opWidth(op) - opWidth(jvm_impdep1);
-    return prev;
-  }
-
-  tmp = newGraphNode(op, operand);
-
-  if(prev != NULL)
-    prev->next = tmp;
-
-  dl_insert_b(cur_code->attr.Code->code, tmp);
-
-  /* if the previous instruction was 'wide', then we need to
-   * increase the width of this instruction. 
-   */
-  if((prev != NULL) && (prev->op == jvm_wide)) {
-    if( (op == jvm_iload) || (op == jvm_fload) || (op == jvm_aload) || 
-        (op == jvm_lload) || (op == jvm_dload) || (op == jvm_istore) || 
-        (op == jvm_fstore) || (op == jvm_astore) || (op == jvm_lstore) || 
-        (op == jvm_dstore) || (op == jvm_ret))
-      tmp->width = opWidth(op) + 1;
-    else if(op == jvm_iinc)
-      tmp->width = opWidth(op) + 2;
-    else
-      fprintf(stderr,"Error: bad op used after wide instruction (%s)\n",
-          jvm_opcode[op].op);
-  }
-
-  pc += tmp->width;
-
-  return tmp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * bytecode0                                                                 *
- *                                                                           *
- * inserts the given instruction into the code graph.                        *
- *                                                                           *
- *****************************************************************************/
-
-CodeGraphNode *
-bytecode0(enum _opcode op)
-{
-  return bytecode1(op,0);
-}
-
-/*****************************************************************************
- *                                                                           *
- * opWidth                                                                   *
- *                                                                           *
- * returns the width in bytes of this op, including operands.                *
- *                                                                           *
- *****************************************************************************/
-
-u1
-opWidth(enum _opcode op)
-{
-  return jvm_opcode[op].width;
 }
 
 /*****************************************************************************
@@ -13826,7 +12188,7 @@ get_adapter_desc(char *dptr, AST *arg)
   char *p;
   int i;
 
-  dptr = skipToken(dptr);
+  dptr = bc_next_desc_token(dptr);
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
@@ -13847,7 +12209,7 @@ get_adapter_desc(char *dptr, AST *arg)
         temp_desc = strAppend(temp_desc, "I");
       }
 
-      dptr = skipToken(dptr);
+      dptr = bc_next_desc_token(dptr);
     }
     else if ( (arg->nodetype == Identifier) && 
               type_lookup(cur_array_table,arg->astnode.ident.name))
@@ -13878,7 +12240,7 @@ get_adapter_desc(char *dptr, AST *arg)
       }
     }
 
-    dptr = skipToken(dptr);
+    dptr = bc_next_desc_token(dptr);
   }
 
   p = temp_desc->val;
@@ -13912,4 +12274,89 @@ cast_data_stmt(AST  *LHS, int no_change){
   fprintf(curfp, "(%s) ", returnstring[LHS->vartype]);
 
   return tok;    
+}
+
+
+/**
+ ** below are functions that we might want to move to the bytecode library
+ ** but the dependency on returntype enum would have to be eliminated.
+ **/
+
+/*****************************************************************************
+ *                                                                           *
+ * pushVar                                                                   *
+ *                                                                           *
+ * pushes a local variable or field onto the stack.                          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushVar(JVM_CLASS *cclass, JVM_METHOD *meth, enum returntype vt,
+               BOOL isArg, char *class, char *name, char *desc, int lv, BOOL deref)
+{
+  int c;
+
+  if(gendebug) {
+    /* printf("in pushvar, vartype is %s\n", returnstring[vt]); */
+    printf("               desc is %s\n", desc);
+    printf("       local varnum is %d\n", lv);
+  }
+
+  if(isArg || (lv != -1)) {
+    /* for reference types, always use aload */
+    if((desc[0] == 'L') || (desc[0] == '['))
+      bc_gen_load_op(meth, lv, jvm_Object);
+    else
+      bc_gen_load_op(meth, lv, jvm_data_types[vt]);
+  }
+  else {
+    c = bc_new_fieldref(cclass, class, name, desc);
+    bc_append(meth, jvm_getstatic, c);
+  }
+
+  if(deref) {
+    c = bc_new_fieldref(cclass, full_wrappername[vt], "val",
+           val_descriptor[vt]);
+    bc_append(meth, jvm_getfield, c);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * storeVar                                                                  *
+ *                                                                           *
+ * stores a value from the stack to a local variable.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+storeVar(JVM_CLASS *cclass, JVM_METHOD *meth, 
+  enum returntype vt, BOOL isArg, char *class, char *name, char *desc, 
+  int lv, BOOL deref)
+{
+  int c;
+
+  if(gendebug) {
+    /* printf("in store, vartype is %s\n", returnstring[vt]); */
+    printf("             desc is %s\n", desc);
+    printf("     local varnum is %d\n", lv);
+  }
+
+  if(isArg || (lv != -1)) {
+    /* for reference types, always use aload */
+    if((desc[0] == 'L') || (desc[0] == '['))
+      bc_gen_store_op(meth, lv, jvm_Object);
+    else
+      bc_gen_store_op(meth, lv, jvm_data_types[vt]);
+  }
+  else {
+    c = bc_new_fieldref(cclass, class, name, desc);
+    bc_append(meth, jvm_putstatic, c);
+  }
+
+  if(deref) {
+    c = bc_new_fieldref(cclass, full_wrappername[vt], "val",
+           val_descriptor[vt]);
+    bc_append(meth,  jvm_putfield, c);
+  }
 }

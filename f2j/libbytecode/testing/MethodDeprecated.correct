@@ -1,0 +1,21 @@
+Compiled from asdf.f
+public class MethodDeprecated extends java.lang.Object {
+    public MethodDeprecated();
+    public void foo();
+    public void synth();
+    public static void main(java.lang.String[]);
+}
+
+Method MethodDeprecated()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void foo()
+   0 return
+
+Method void synth()
+   0 return
+
+Method void main(java.lang.String[])
+   0 return

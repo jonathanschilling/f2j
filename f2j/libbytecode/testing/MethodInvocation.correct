@@ -1,0 +1,73 @@
+Compiled from asdf.f
+public class MethodInvocation extends java.lang.Object {
+    public MethodInvocation();
+    public static int int_method();
+    public static long long_method();
+    public static float float_method();
+    public static double double_method();
+    public static java.lang.String obj_method();
+    public static int int_method_nodesc();
+    public static long long_method_nodesc();
+    public static float float_method_nodesc();
+    public static double double_method_nodesc();
+    public static java.lang.String obj_method_nodesc();
+    public static void main(java.lang.String[]);
+}
+
+Method MethodInvocation()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method int int_method()
+   0 sipush 1234
+   3 ireturn
+
+Method long long_method()
+   0 ldc2_w #16 <Long 4321>
+   3 lreturn
+
+Method float float_method()
+   0 ldc #20 <Real 9.9>
+   2 freturn
+
+Method double double_method()
+   0 ldc2_w #23 <Double 8.8>
+   3 dreturn
+
+Method java.lang.String obj_method()
+   0 ldc #28 <String "blah">
+   2 areturn
+
+Method int int_method_nodesc()
+   0 sipush 1234
+   3 ireturn
+
+Method long long_method_nodesc()
+   0 ldc2_w #16 <Long 4321>
+   3 lreturn
+
+Method float float_method_nodesc()
+   0 ldc #20 <Real 9.9>
+   2 freturn
+
+Method double double_method_nodesc()
+   0 ldc2_w #23 <Double 8.8>
+   3 dreturn
+
+Method java.lang.String obj_method_nodesc()
+   0 ldc #28 <String "blah">
+   2 areturn
+
+Method void main(java.lang.String[])
+   0 invokestatic #37 <Method int int_method()>
+   3 invokestatic #39 <Method long long_method()>
+   6 invokestatic #41 <Method float float_method()>
+   9 invokestatic #43 <Method double double_method()>
+  12 invokestatic #45 <Method java.lang.String obj_method()>
+  15 invokestatic #47 <Method int int_method_nodesc()>
+  18 invokestatic #49 <Method long long_method_nodesc()>
+  21 invokestatic #51 <Method float float_method_nodesc()>
+  24 invokestatic #53 <Method double double_method_nodesc()>
+  27 invokestatic #55 <Method java.lang.String obj_method_nodesc()>
+  30 return

@@ -20,12 +20,8 @@
 #include<string.h>
 #include<ctype.h>
 #include"f2j.h"
-#include"class.h"
 #include"f2jparse.tab.h"
-#include"constant_pool.h"
 #include"codegen.h"
-#include"opcodes.h"
-#include"graph.h"
 #include"f2jmem.h"
 
 /*****************************************************************************
@@ -112,20 +108,6 @@
 #define MAX_CODE_LEN 65535
 
 /*****************************************************************************
- * this structure holds information about the state of the stack before and  *
- * after a method call.  to correctly calculate the maximum stack depth, we  *
- * need to know how many arguments an invoke[static,virtual,etc] instruction *
- * will pop off the stack.  even though there is only one return value, it   *
- * can occupy zero, one, or two stack entries depending on the return type   *
- * of the method.                                                            *
- *****************************************************************************/
-
-struct stack_info {
-  int arg_len,       /* depth of stack when this method is invoked           */
-      ret_len;       /* depth of stack when this method returns              */
-};
-
-/*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
 
@@ -137,11 +119,9 @@ char
   * tok2str(int),
   * strdup ( const char * ),
   * lowercase ( char * ),
-  * skipToken(char *),
   * get_common_prefix(char *),
   * getVarDescriptor(AST *),
   * char_substitution(char *, int, int),
-  * get_full_classname(char *),
   * get_return_type_from_descriptor(char *),
   * get_wrapper_from_desc(char *),
   * get_field_desc_from_ident(AST *),
@@ -157,150 +137,136 @@ METHODTAB
   * methodscan (METHODTAB * , char * );
 
 void 
-  stop_emit(AST *),
-  pause_emit(AST *),
-  external_emit(AST *),
-  maxmin_intrinsic_emit(AST *, METHODTAB *, char *, char *),
-  max_intrinsic_emit (AST *, METHODTAB *),
-  min_intrinsic_emit (AST *, METHODTAB *),
-  arg_assignment_emit(int, int, int, BOOL, enum returntype),
-  arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
-         enum returntype argtype),
-  calcOffsets(Dlist, CodeGraphNode *),
-  traverse_code(Dlist),
-  while_emit(AST *),
-  format_name_emit(AST *),
-  format_list_emit(AST *, AST **),
-  one_arg_write_emit(AST *),
-  forloop_end_bytecode(AST *),
-  substring_assign_emit(AST *),
-  dint_intrinsic_emit(AST *, METHODTAB *),
-  emit_call_args_known(AST *, char *, BOOL),
-  emit_call_args_unknown(AST *),
-  emit_call_arguments(AST *, BOOL),
-  aint_intrinsic_emit(AST *, METHODTAB *),
-  intrinsic_arg_emit(AST *, enum returntype),
-  intrinsic0_call_emit(AST *, METHODTAB *),
-  intrinsic_call_emit(AST *, METHODTAB *, enum returntype),
-  intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
-  intrinsic_lexical_compare_emit(AST *, METHODTAB *),
-  intrinsic_emit(AST *),
-  implied_loop_emit(AST *, void (*)(AST *), void (*)(AST*)),
-  format_emit(AST *, AST **),
-  read_implied_loop_bytecode_emit(AST *),
-  read_implied_loop_sourcecode_emit(AST *),
-  scalar_emit(AST *, HASHNODE *),
-  write_implied_loop_bytecode_emit(AST *),
-  write_implied_loop_sourcecode_emit(AST *),
-  array_emit(AST *),
+  pushConst(JVM_METHOD *, AST *),
+  pushVar(JVM_CLASS *, JVM_METHOD *, enum returntype, BOOL,
+    char *, char *, char *, int, BOOL),
+  storeVar(JVM_CLASS *, JVM_METHOD *, enum returntype, BOOL,
+    char *, char *, char *, int, BOOL),
+  arg_array_assign_emit(JVM_CLASS *, JVM_METHOD *, int,
+    int, int, enum returntype),
+  arg_assignment_emit(JVM_CLASS *, JVM_METHOD *, int, 
+    int, int, BOOL, enum returntype),
+  read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
+  write_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
+  forloop_bytecode_emit(JVM_METHOD *, AST *),
+  forloop_end_bytecode(JVM_METHOD *, AST *),
+  LHS_bytecode_emit(JVM_METHOD *, AST *),
+  stop_emit(JVM_METHOD *, AST *),
+  pause_emit(JVM_METHOD *, AST *),
+  external_emit(JVM_METHOD *, AST *),
+  maxmin_intrinsic_emit(JVM_METHOD *, AST *, METHODTAB *, char *, char *),
+  max_intrinsic_emit (JVM_METHOD *, AST *, METHODTAB *),
+  min_intrinsic_emit (JVM_METHOD *, AST *, METHODTAB *),
+  while_emit(JVM_METHOD *, AST *),
+  format_name_emit(JVM_METHOD *, AST *),
+  format_list_emit(JVM_METHOD *, AST *, AST **),
+  one_arg_write_emit(JVM_METHOD *, AST *),
+  substring_assign_emit(JVM_METHOD *, AST *),
+  dint_intrinsic_emit(JVM_METHOD *, AST *, METHODTAB *),
+  emit_call_args_known(JVM_METHOD *, AST *, char *, BOOL),
+  emit_call_args_unknown(JVM_METHOD *, AST *),
+  emit_call_arguments(JVM_METHOD *, AST *, BOOL),
+  aint_intrinsic_emit(JVM_METHOD *, AST *, METHODTAB *),
+  intrinsic_arg_emit(JVM_METHOD *, AST *, enum returntype),
+  intrinsic0_call_emit(JVM_METHOD *, AST *, METHODTAB *),
+  intrinsic_call_emit(JVM_METHOD *, AST *, METHODTAB *, enum returntype),
+  intrinsic2_call_emit(JVM_METHOD *, AST *, METHODTAB *, enum returntype),
+  intrinsic_lexical_compare_emit(JVM_METHOD *, AST *, METHODTAB *),
+  intrinsic_emit(JVM_METHOD *, AST *),
+  implied_loop_emit(JVM_METHOD *, AST *, void (*)(JVM_METHOD *, AST *), 
+                                                 void (*)(JVM_METHOD *, AST*)),
+  format_emit(JVM_METHOD *, AST *, AST **),
+  read_implied_loop_sourcecode_emit(JVM_METHOD *, AST *),
+  scalar_emit(JVM_METHOD *, AST *, HASHNODE *),
+  write_implied_loop_sourcecode_emit(JVM_METHOD *, AST *),
+  array_emit(JVM_METHOD *, AST *),
   emit_interface(AST *),
-  substring_emit(AST *),
-  subcall_emit(AST *),
+  substring_emit(JVM_METHOD *, AST *),
+  subcall_emit(JVM_METHOD *, AST *),
   emit_methcall(FILE *, AST *),
-  name_emit (AST *),
+  name_emit (JVM_METHOD *, AST *),
   print_eqv_list(AST *, FILE *),
-  addField(char *, char *),
   open_output_file(AST *, char *),
-  print_string_initializer(AST *),
-  typedec_emit_all_static(AST *),
-  vardec_emit(AST *, enum returntype, char *),
-  assign_varnums_to_arguments(AST *),
-  assign_varnums_to_locals(AST *),
-  local_emit(AST *),
+  print_string_initializer(JVM_METHOD *, AST *),
+  typedec_emit_all_static(JVM_METHOD *, AST *),
+  vardec_emit(JVM_METHOD *, AST *, enum returntype, char *),
+  assign_varnums_to_locals(JVM_METHOD *, AST *),
+  local_emit(JVM_METHOD *, AST *),
   emit_adapters(void),
-  newarray_emit(enum returntype),
+  newarray_emit(JVM_METHOD *, enum returntype),
   constructor (AST *),
-  typedec_emit (AST *),
-  data_emit(AST *),
-  equiv_emit (AST *),
-  call_emit (AST *),
-  forloop_emit (AST *),
-  blockif_emit (AST *),
-  logicalif_emit (AST *),
-  arithmeticif_emit (AST *),
-  goto_emit (AST *),
-  computed_goto_emit (AST *),
-  label_emit (AST *),
-  write_emit (AST *),
+  typedec_emit (JVM_METHOD *, AST *),
+  data_emit(JVM_METHOD *, AST *),
+  equiv_emit (JVM_METHOD *, AST *),
+  call_emit (JVM_METHOD *, AST *),
+  forloop_emit (JVM_METHOD *, AST *),
+  blockif_emit (JVM_METHOD *, AST *),
+  logicalif_emit (JVM_METHOD *, AST *),
+  arithmeticif_emit (JVM_METHOD *, AST *),
+  goto_emit (JVM_METHOD *, AST *),
+  computed_goto_emit (JVM_METHOD *, AST *),
+  label_emit (JVM_METHOD *, AST *),
+  write_emit (JVM_METHOD *, AST *),
   common_emit(AST *),
-  read_emit (AST *),
+  read_emit (JVM_METHOD *, AST *),
   emit_invocations(void),
   merge_equivalences(AST *),
   print_equivalences(AST *),
   emit_prolog_comments(AST *),
   emit_javadoc_comments(AST *),
   insert_fields(AST *),
-  return_emit(void),
-  end_emit(void),
+  return_emit(JVM_METHOD *),
+  end_emit(JVM_METHOD *),
   emit (AST *),
-  pushConst(AST *),
   field_emit(AST *),
-  pushIntConst(int),
-  pushDoubleConst(double),
-  pushStringConst(char *),
-  pushVar(enum returntype, BOOL, char *, char *, char *, int, BOOL),
-  storeVar(enum returntype, BOOL, char *, char *, char *, int, BOOL),
-  dec_stack(int),
-  iinc_emit(unsigned int, int),
-  invoke_constructor(char *, AST *, char *),
-  set_bytecode_status(int),
-  inline_format_emit(AST *, BOOL),
-  endNewMethod(struct ClassFile *, struct method_info *, char *, char *, unsigned int, Dlist),
-  releaseLocal(enum returntype),
-  assign_emit (AST *),
-  expr_emit(AST *),
-  substring_expr_emit(AST *),
-  relationalop_emit(AST *),
-  logicalop_emit(AST *),
-  constant_expr_emit(AST *),
-  unaryop_emit(AST *),
-  binaryop_emit(AST *),
-  power_emit(AST *),
-  parenthesized_expr_emit(AST *),
-  forloop_bytecode_emit(AST *),
+  invoke_constructor(JVM_METHOD *, char *, AST *, char *),
+  set_bytecode_status(JVM_METHOD *, int),
+  inline_format_emit(JVM_METHOD *, AST *, BOOL),
+  assign_emit (JVM_METHOD *, AST *),
+  expr_emit(JVM_METHOD *, AST *),
+  substring_expr_emit(JVM_METHOD *, AST *),
+  relationalop_emit(JVM_METHOD *, AST *),
+  logicalop_emit(JVM_METHOD *, AST *),
+  constant_expr_emit(JVM_METHOD *, AST *),
+  unaryop_emit(JVM_METHOD *, AST *),
+  binaryop_emit(JVM_METHOD *, AST *),
+  power_emit(JVM_METHOD *, AST *),
+  parenthesized_expr_emit(JVM_METHOD *, AST *),
   else_emit (AST *),
-  LHS_bytecode_emit(AST *),
   insert_adapter(AST *),
   insert_methcall(Dlist, AST *),
-  reflect_declarations_emit(AST *),
-  invocation_exception_handler_emit(ExceptionTableEntry *),
-  data_scalar_emit(enum returntype, AST *, AST *, int),
-  func_array_emit(AST *, char *, int, int),
-  methcall_obj_array_emit(AST *, int),
-  adapter_emit_from_descriptor(METHODREF *, AST *),
-  adapter_args_emit_from_descriptor(AST *, char *),
-  adapter_temps_emit_from_descriptor(AST *, char *),
-  adapter_methcall_emit_from_descriptor(AST *, int, METHODREF *, char *),
-  adapter_assign_emit_from_descriptor(AST *, int, char *),
-  adapter_tmp_assign_emit(int, enum returntype),
-  adapter_assign_emit(int, int, int, char *),
-  adapter_array_assign_emit(int, int, int, char *),
-  arrayacc_arg_emit(AST *, char *, BOOL),
-  arrayref_arg_emit(AST *, char *),
-  scalar_arg_emit(AST *, char *, char *),
-  wrapped_arg_emit(AST *, char *),
+  reflect_declarations_emit(JVM_METHOD *, AST *),
+  data_scalar_emit(JVM_METHOD *, enum returntype, AST *, AST *, int),
+  func_array_emit(JVM_METHOD *, AST *, char *, int, int),
+  methcall_obj_array_emit(JVM_METHOD *, AST *, int),
+  adapter_emit_from_descriptor(JVM_METHOD *, JVM_METHODREF *, AST *),
+  adapter_args_emit_from_descriptor(JVM_METHOD *, AST *, char *),
+  adapter_temps_emit_from_descriptor(JVM_METHOD *, AST *, char *),
+  adapter_methcall_emit_from_descriptor(JVM_METHOD *, AST *, int, JVM_METHODREF *, char *),
+  adapter_assign_emit_from_descriptor(JVM_METHOD *, AST *, int, char *),
+  adapter_tmp_assign_emit(JVM_METHOD *, int, enum returntype),
+  adapter_assign_emit(JVM_METHOD *, int, int, int, char *),
+  adapter_array_assign_emit(JVM_METHOD *, int, int, int, char *),
+  arrayacc_arg_emit(JVM_METHOD *, AST *, char *, BOOL),
+  arrayref_arg_emit(JVM_METHOD *, AST *, char *),
+  scalar_arg_emit(JVM_METHOD *, AST *, char *, char *),
+  wrapped_arg_emit(JVM_METHOD *, AST *, char *),
   initialize_lists(void),
-  free_lists(void),
-  inc_stack(int);
+  free_lists();
 
 int
+  assign_varnums_to_arguments(AST *),
   cast_data_stmt(AST *, int),
   cgPassByRef(char *),
   dl_int_examine(Dlist),
-  getNextLocal(enum returntype),
   needs_adapter(AST *),
   idxNeedsDecr(AST *),
-  getStackIncrement(enum _opcode, u4),
-  getStackDecrement(enum _opcode, u4),
-  method_name_emit (AST *, BOOL),
-  data_repeat_emit(AST *, AST *, unsigned int),
+  method_name_emit (JVM_METHOD *, AST *, BOOL),
+  data_repeat_emit(JVM_METHOD *, AST *, AST *, unsigned int),
   methcall_arglist_emit(AST *),
   num_locals_in_descriptor(char *),
-  adapter_methcall_arg_emit(AST *, int, int, char *),
+  adapter_methcall_arg_emit(JVM_METHOD *, AST *, int, int, char *),
   determine_var_length(HASHNODE *);
-
-u1
-  opWidth(enum _opcode);
 
 double
   eval_const_expr(AST *);
@@ -308,59 +274,38 @@ double
 HASHNODE 
   * format_lookup(SYMTABLE *, char *);
 
-struct ClassFile 
-  * newClassFile(char *,char *);
-
-struct attribute_info
-  * newCodeAttribute(void),
-  * newExceptionsAttribute(Dlist);
-
-struct method_info 
-  * beginNewMethod(unsigned int);
-
-CodeGraphNode
-  * bytecode0(enum _opcode),
-  * bytecode1(enum _opcode, u4),
-  * nodeAtPC(int),
-  * gen_store_op(unsigned int, enum returntype),
-  * gen_load_op(unsigned int, enum returntype),
-  * newGraphNode(enum _opcode, u4),
-  * elseif_emit (AST *);
+JVM_CODE_GRAPH_NODE
+  * elseif_emit (JVM_METHOD *, AST *);
 
 AST
   * label_search(Dlist, int),
   * dl_astnode_examine(Dlist),
   * dl_name_search(Dlist, char *),
-  * find_label(Dlist, int),
   * addnode(void),
-  * data_var_emit(AST *, AST *, HASHNODE *),
-  * data_implied_loop_emit(AST * , AST *),
-  * data_array_emit(int , AST *, AST *),
-  * format_item_emit(AST *, AST **);
+  * data_var_emit(JVM_METHOD *, AST *, AST *, HASHNODE *),
+  * data_implied_loop_emit(JVM_METHOD *, AST * , AST *),
+  * data_array_emit(JVM_METHOD *, int , AST *, AST *),
+  * format_item_emit(JVM_METHOD *, AST *, AST **);
 
 enum returntype
   get_type_from_field_desc(char *),
   get_type(char *);
 
-METHODREF
-  * get_method_name(AST *, BOOL);
-
-struct stack_info * calcStack(char *);
-
-METHODREF
+JVM_METHODREF
+  * get_method_name(AST *, BOOL),
   * get_methodref(AST *),
   * find_commonblock(char *, Dlist),
   * find_method(char *, Dlist);
 
 BOOL
   adapter_insert_from_descriptor(AST *, AST *, char *),
-  checkDistance(enum _opcode, int, int),
   is_static(AST *),
   is_local(AST *),
   isArrayNoIdx(AST *);
 
 struct var_info
  * get_var_info(AST *),
- * push_array_var(AST *);
+ * push_array_var(JVM_METHOD *, AST *);
+
 
 #endif

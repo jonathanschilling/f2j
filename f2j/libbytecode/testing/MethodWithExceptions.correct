@@ -1,0 +1,25 @@
+Compiled from asdf.f
+public class MethodWithExceptions extends java.lang.Object {
+    public MethodWithExceptions();
+    public void no_exceptions();
+    public void one_exception() throws java.lang.IllegalAccessException;
+    public void two_exceptions() throws java.lang.reflect.InvocationTargetException, java.lang.IllegalAccessException;
+    public static void main(java.lang.String[]);
+}
+
+Method MethodWithExceptions()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void no_exceptions()
+   0 return
+
+Method void one_exception()
+   0 return
+
+Method void two_exceptions()
+   0 return
+
+Method void main(java.lang.String[])
+   0 return

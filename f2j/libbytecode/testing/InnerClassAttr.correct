@@ -1,0 +1,25 @@
+Compiled from asdf.f
+public class InnerClassAttr extends java.lang.Object {
+    public InnerClassAttr();
+    public static void main(java.lang.String[]);
+    public class inner extends java.lang.Object 
+    /* ACC_SUPER bit NOT set */
+{
+        public inner();
+    }
+
+Method inner()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+}
+
+Method InnerClassAttr()
+   0 aload_0
+   1 invokespecial #11 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 bipush 12
+   2 istore_1
+   3 return

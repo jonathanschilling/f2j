@@ -1,0 +1,13 @@
+Compiled from asdf.f
+public class ClassDeprecated extends java.lang.Object {
+    public ClassDeprecated();
+    public static void main(java.lang.String[]);
+}
+
+Method ClassDeprecated()
+   0 aload_0
+   1 invokespecial #12 <Method java.lang.Object()>
+   4 return
+
+Method void main(java.lang.String[])
+   0 return

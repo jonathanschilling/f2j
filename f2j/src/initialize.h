@@ -223,7 +223,7 @@ METHODTAB intrinsic_toks[]=
   {ifunc_MIN1,  "MIN1",   "Math.min",          "java/lang/Math",   "min",              "(FF)F", REAL_ARG, Integer},
 
   /* Length of Character Entity */
-  {ifunc_LEN, "LEN",    "(int)",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
+  {ifunc_LEN, "LEN",    "Unused",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
 
   /* Location of Substring a2 in String a1 */
   {ifunc_INDEX, "INDEX",    "(int)",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
@@ -235,12 +235,12 @@ METHODTAB intrinsic_toks[]=
   {ifunc_CONJG, "CONJG",    "(int)",             "Unused",           "Unused",           "Unused", COMPLEX_ARG, Complex},
 
   /* Sqare Root */
-  {ifunc_SQRT, "SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", RDC_ARGS, Double},
+  {ifunc_SQRT, "SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(F)F", RDC_ARGS, Float},
   {ifunc_DSQRT, "DSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", DOUBLE_ARG, Double},
   {ifunc_CSQRT, "CSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", COMPLEX_ARG, Complex},
 
   /* Exponential */
-  {ifunc_EXP, "EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", RDC_ARGS, Double},
+  {ifunc_EXP, "EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", RDC_ARGS, Float},
   {ifunc_DEXP, "DEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", DOUBLE_ARG, Double},
   {ifunc_CEXP, "CEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", COMPLEX_ARG, Complex},
 
@@ -250,7 +250,7 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DLOG, "DLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", DOUBLE_ARG, Double},
   {ifunc_CLOG, "CLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", COMPLEX_ARG, Complex},
 
-  /* Common Logarithm - use java's log function then divie by 2.30258509 */
+  /* Common Logarithm - use java's log function then divide by 2.30258509 */
   {ifunc_LOG10, "LOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", RD_ARGS, Double},
   {ifunc_ALOG10, "ALOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", REAL_ARG, Float},
   {ifunc_DLOG10, "DLOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", DOUBLE_ARG, Double},
@@ -266,46 +266,46 @@ METHODTAB intrinsic_toks[]=
   {ifunc_CCOS, "CCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", COMPLEX_ARG, Complex},
 
   /* Tangent */
-  {ifunc_TAN, "TAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DTAN, "DTAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TAN, "TAN",    "Math.tan",          "java/lang/Math",   "tan",              "(D)D", RD_ARGS, Double},
+  {ifunc_DTAN, "DTAN",    "Math.tan",          "java/lang/Math",   "tan",              "(D)D", DOUBLE_ARG, Double},
 
   /* Arcsine */
-  {ifunc_ASIN, "ASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", RD_ARGS, Double},
-  {ifunc_DASIN, "DASIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ASIN, "ASIN",    "Math.asin",          "java/lang/Math",   "asin",              "(D)D", RD_ARGS, Double},
+  {ifunc_DASIN, "DASIN",    "Math.asin",          "java/lang/Math",   "asin",              "(D)D", DOUBLE_ARG, Double},
 
   /* Arccosine */
-  {ifunc_ACOS, "ACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DACOS, "DACOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ACOS, "ACOS",    "Math.acos",          "java/lang/Math",   "acos",              "(D)D", RD_ARGS, Double},
+  {ifunc_DACOS, "DACOS",    "Math.acos",          "java/lang/Math",   "acos",              "(D)D", DOUBLE_ARG, Double},
 
   /* Arctangent */
-  {ifunc_ATAN, "ATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DATAN, "DATAN",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_ATAN2, "ATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DATAN2, "DATAN2",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ATAN, "ATAN",    "Math.atan",          "java/lang/Math",   "atan",              "(D)D", RD_ARGS, Double},
+  {ifunc_DATAN, "DATAN",    "Math.atan",          "java/lang/Math",   "atan",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ATAN2, "ATAN2",    "Math.atan2",          "java/lang/Math",   "atan2",              "(DD)D", RD_ARGS, Double},
+  {ifunc_DATAN2, "DATAN2",    "Math.atan2",          "java/lang/Math",   "atan2",              "(DD)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Sine */
-  {ifunc_SINH, "SINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", RD_ARGS, Double},
-  {ifunc_DSINH, "DSINH",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_SINH, "SINH",    "Util.sinh",          "org/netlib/util/Util",   "sinh",              "(D)D", RD_ARGS, Double},
+  {ifunc_DSINH, "DSINH",    "Util.sinh",          "org/netlib/util/Util",   "sinh",              "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Cosine */
-  {ifunc_COSH, "COSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DCOSH, "DCOSH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_COSH, "COSH",    "Util.cosh",          "org/netlib/util/Util",   "cosh",              "(D)D", RD_ARGS, Double},
+  {ifunc_DCOSH, "DCOSH",    "Util.cosh",          "org/netlib/util/Util",   "cosh",              "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Tangent */
-  {ifunc_TANH, "TANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DTANH, "DTANH",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TANH, "TANH",    "Util.tanh",          "org/netlib/util/Util",   "tanh",              "(D)D", RD_ARGS, Double},
+  {ifunc_DTANH, "DTANH",    "Util.tanh",          "org/netlib/util/Util",   "tanh",              "(D)D", DOUBLE_ARG, Double},
 
   /* Lexically Greater than or Equal to */
-  {ifunc_LGE, "LGE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", CS_ARGS, Logical},
+  {ifunc_LGE, "LGE",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Greater than */
-  {ifunc_LGT, "LGT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", CS_ARGS, Logical},
+  {ifunc_LGT, "LGT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Less than or Equal to */
-  {ifunc_LLE, "LLE",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", CS_ARGS, Logical},
+  {ifunc_LLE, "LLE",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Less than */
-  {ifunc_LLT, "LLT",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", CS_ARGS, Logical},
+  {ifunc_LLT, "LLT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* LAPACK 'intrinsics' */
   {ifunc_LSAME, "LSAME",  ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z", CS_ARGS, Logical}, 

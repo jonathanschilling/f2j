@@ -990,17 +990,12 @@ intrinsic_check(AST *root)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
-  printf("MIN? looking for intrinsic %s\n",tempname);
-
   entry = methodscan (intrinsic_toks, tempname);
 
   if(!entry) {
     fprintf(stderr,"Error: not expecting null entry at this point.\n");
     exit(-1);
   }
-
-  printf("MIN? found entry: %s %s %s %s (intrinsic # %d)\n", entry->fortran_name,
-         entry->class_name, entry->method_name, entry->descriptor, entry->intrinsic);
 
   javaname = entry->java_method;
   id = entry->intrinsic;
@@ -1024,9 +1019,6 @@ intrinsic_check(AST *root)
       exit(-1);
     }
   }
-
-  printf("&intrinsic... min_type of %s is %s\n", intrinsic_toks[id].fortran_name,
-          returnstring[min_type]);
 
   /* if this is a generic intrinsic, then set the return type of the
    * intrinsic to the type of the widest argument.
@@ -1063,9 +1055,6 @@ intrinsic_check(AST *root)
   }
   else
     root->vartype = intrinsic_toks[id].ret;
-
-  printf("&intrinsic... final return type of %s is %s\n", intrinsic_toks[id].fortran_name,
-          returnstring[root->vartype]);
 }
 
 /*****************************************************************************

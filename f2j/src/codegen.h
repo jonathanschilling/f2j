@@ -54,6 +54,7 @@
 #define STRBUF_DESC "(Ljava/lang/String;)V"
 #define TOSTRING_DESC "()Ljava/lang/String;"
 #define CHARAT_DESC "(I)C"
+#define COMPARE_DESC "(Ljava/lang/String;)I"
 
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"

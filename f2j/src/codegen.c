@@ -3894,7 +3894,11 @@ intrinsic_emit(AST *root)
   void max_intrinsic_emit (AST *, char *, METHODTAB *),
     min_intrinsic_emit (AST *, char *, METHODTAB *),
     dint_intrinsic_emit(AST *, METHODTAB *),
-    aint_intrinsic_emit(AST *, METHODTAB *);
+    aint_intrinsic_emit(AST *, METHODTAB *),
+    intrinsic_arg_emit(AST *, enum returntype),
+    intrinsic_call_emit(AST *, METHODTAB *, enum returntype),
+    intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
+    intrinsic_lexical_compare_emit(AST *, METHODTAB *);
 
   if(gendebug)
     printf("entering intrinsic_emit\n");
@@ -3913,6 +3917,7 @@ intrinsic_emit(AST *root)
   id = entry->intrinsic;
 
   switch(id) {
+      /* numeric type conversion intrinsics.  */
     case ifunc_INT:
     case ifunc_IFIX:
     case ifunc_IDINT:
@@ -3921,20 +3926,20 @@ intrinsic_emit(AST *root)
     case ifunc_SNGL:
     case ifunc_DBLE:
     case ifunc_CMPLX:
-      /* numeric type conversion intrinsics.  for Java source, we just emit a cast. 
-       * for bytecode, we emit the appropriate conversion opcode.  this will break
-       * eventually for Complex numbers, but we can worry about that later.
-       */
-
       temp = root->astnode.ident.arraylist;
+
+       /* for Java source, we just emit a cast.  */
       fprintf (curfp, "%s(", javaname);
       expr_emit (temp);
       fprintf (curfp, ")");
 
+      /* for bytecode, we emit the appropriate conversion opcode.  */
       if(temp->vartype != root->vartype)
         bytecode0(typeconv_matrix[temp->vartype][root->vartype]);
 
       break;
+
+      /* conversion to integer */
     case ifunc_ICHAR:
       temp = root->astnode.ident.arraylist;
       fprintf (curfp, "%s(", javaname);
@@ -3946,6 +3951,8 @@ intrinsic_emit(AST *root)
              "charAt", CHARAT_DESC);
       bytecode1(jvm_invokevirtual, c->index);
       break;
+
+      /* conversion to character */
     case ifunc_CHAR:
       c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                 JL_CHAR);
@@ -3964,18 +3971,18 @@ intrinsic_emit(AST *root)
              TOSTRING_DESC);
       bytecode1(jvm_invokevirtual, c->index);
       break;
+
+      /* truncation */
     case ifunc_AINT:
     case ifunc_DINT:
-      /* AINT is the generic intrinsic.   we check if the
-       * vartype of the arg is float.  if so, then we must
-       * generate the appropriate casts,etc.
-       */
       if((root->astnode.ident.arraylist->vartype == Float) &&
          (id==ifunc_AINT))
         aint_intrinsic_emit(root, entry);
       else
         dint_intrinsic_emit(root, entry);
       break;
+
+      /* nearest whole number */
     case ifunc_ANINT:
     case ifunc_DNINT:
       if(root->astnode.ident.arraylist->vartype == Double) {
@@ -3999,6 +4006,8 @@ intrinsic_emit(AST *root)
         bytecode0(jvm_i2f);
 
       break;
+
+      /* nearest integer */
     case ifunc_NINT:
     case ifunc_IDNINT:
       if(root->astnode.ident.arraylist->vartype == Double)
@@ -4014,6 +4023,8 @@ intrinsic_emit(AST *root)
       bytecode1(jvm_invokestatic, c->index);
 
       break;
+
+      /* absolute value */
     case ifunc_ABS:
       if(root->astnode.ident.arraylist->vartype == Integer)
         entry = &intrinsic_toks[ifunc_IABS];
@@ -4035,6 +4046,8 @@ intrinsic_emit(AST *root)
 
       bytecode1(jvm_invokestatic, c->index);
       break;
+
+      /* remainder */
     case ifunc_MOD:
     case ifunc_AMOD:
     case ifunc_DMOD:
@@ -4062,6 +4075,8 @@ intrinsic_emit(AST *root)
         bytecode0(jvm_drem);
 
       break;
+      
+      /* transfer of sign */
     case ifunc_SIGN:
       if(root->vartype == Integer)
         entry = &intrinsic_toks[ifunc_ISIGN];
@@ -4069,25 +4084,10 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_DSIGN];
     case ifunc_ISIGN:
     case ifunc_DSIGN:
-      temp = root->astnode.ident.arraylist;
-
-      fprintf (curfp, "%s(", entry->java_method);
-      expr_emit (temp);
-      if(temp->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[temp->vartype][root->vartype]);
-      fprintf (curfp, ",");
-      expr_emit (temp->nextstmt);
-      if(temp->nextstmt->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[temp->nextstmt->vartype][root->vartype]);
-      fprintf (curfp, ")");
-
-      c = newMethodref(cur_const_table,entry->class_name, 
-                        entry->method_name, entry->descriptor);
-
-      bytecode1(jvm_invokestatic, c->index);
+      intrinsic2_call_emit(root,entry, root->vartype);
       break;
+
+      /* positive difference */
     case ifunc_DIM:
       if(root->vartype == Integer)
         entry = &intrinsic_toks[ifunc_IDIM];
@@ -4095,25 +4095,10 @@ intrinsic_emit(AST *root)
         entry = &intrinsic_toks[ifunc_DDIM];
     case ifunc_IDIM:
     case ifunc_DDIM:
-      temp = root->astnode.ident.arraylist;
-
-      fprintf (curfp, "%s(", entry->java_method);
-      expr_emit (temp);
-      if(temp->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[temp->vartype][root->vartype]);
-      fprintf (curfp, ",");
-      expr_emit (temp->nextstmt);
-      if(temp->nextstmt->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[temp->nextstmt->vartype][root->vartype]);
-      fprintf (curfp, ")");
-
-      c = newMethodref(cur_const_table,entry->class_name, 
-                        entry->method_name, entry->descriptor);
-
-      bytecode1(jvm_invokestatic, c->index);
+      intrinsic2_call_emit(root,entry, root->vartype);
       break;
+      
+      /* double precision product of two reals */
     case ifunc_DPROD:
       temp = root->astnode.ident.arraylist;
 
@@ -4126,54 +4111,56 @@ intrinsic_emit(AST *root)
       fprintf(curfp, "))");
       bytecode0(jvm_dmul);
       break;
-    case ifunc_AMAX0:   /* AMAX0 and MAX1 return types which differ from the arguments */
+
+      /* real AMAX0(integer) */
+    case ifunc_AMAX0:
       fprintf(curfp,"(float)(");
       max_intrinsic_emit(root, tempname, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Integer][Float]);
       break;
+
+      /* integer MAX1(real) */
     case ifunc_MAX1:
       fprintf(curfp,"(int)(");
       max_intrinsic_emit(root, tempname, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Float][Integer]);
       break;
+
+      /* generic maximum or MAX that returns same type as args */
     case ifunc_MAX:
     case ifunc_MAX0:
     case ifunc_AMAX1:
     case ifunc_DMAX1:
       max_intrinsic_emit(root, tempname, entry);
       break;
-    case ifunc_AMIN0:   /* AMIN0 and MIN1 return types which differ from the arguments */
+
+      /* real AMIN0(integer) */
+    case ifunc_AMIN0: 
       fprintf(curfp,"(float)(");
       min_intrinsic_emit(root, tempname, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Integer][Float]);
       break;
+
+      /* integer MIN1(real) */
     case ifunc_MIN1:
       fprintf(curfp,"(int)(");
       min_intrinsic_emit(root, tempname, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Float][Integer]);
       break;
+
+      /* generic minimum or MIN that returns same type as args */
     case ifunc_MIN:
     case ifunc_MIN0:
     case ifunc_AMIN1:
     case ifunc_DMIN1:
       min_intrinsic_emit(root, tempname, entry);
       break;
-    case ifunc_DSQRT:
-    case ifunc_SQRT:
-    case ifunc_LOG:
-    case ifunc_SIN:
-    case ifunc_COS:
-    case ifunc_EXP:
-    case ifunc_LOG10:
-      temp = root->astnode.ident.arraylist;
-      fprintf (curfp, "%s(", javaname);
-      expr_emit (temp);
-      fprintf (curfp, ")");
-      break;
+      
+      /* length of a character entity */
     case ifunc_LEN:
       temp = root->astnode.ident.arraylist;
 
@@ -4181,6 +4168,8 @@ intrinsic_emit(AST *root)
         if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
         {
           fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
+
+          pushIntConst(ht->variable->astnode.ident.len);
 
           if(gendebug)
             printf("LEN(%s) = %d\n",temp->astnode.ident.name,
@@ -4190,11 +4179,173 @@ intrinsic_emit(AST *root)
         {
           fprintf (curfp, " 1 ");
 
+          bytecode0(jvm_iconst_1);
+
           if(gendebug)
             printf("LEN(%s) = 1\n",temp->astnode.ident.name);
         }
       }
       break;
+
+      /* Index of substring */
+    case ifunc_INDEX:
+    case ifunc_AIMAG:
+    case ifunc_CONJG:
+      /* Unimplemented!
+       *
+       * INDEX returns the location of a substring within another
+       * string.  however fortran and java treat strings quite differently
+       * so implementing INDEX properly isn't as straightforward as it seems
+       * at first.  at this point, it's not that important, so I'll leave
+       * it for later.   --kgs 6/14/00
+       *
+       * AIMAG and CONJG operate on complex numbers, which are not yet
+       * supported.
+       */
+      fprintf(stderr,"WARNING: intrinsic %s not yet implemented!\n", 
+              entry->fortran_name);
+      break;
+
+      /* square root */
+    case ifunc_SQRT:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DSQRT];
+      else if(root->vartype == Complex)
+        entry = &intrinsic_toks[ifunc_CSQRT];
+    case ifunc_DSQRT:
+    case ifunc_CSQRT:
+      intrinsic_call_emit(root,entry,Double);
+      break;
+
+      /* exponential */
+    case ifunc_EXP:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DEXP];
+      else if(root->vartype == Complex)
+        entry = &intrinsic_toks[ifunc_CEXP];
+    case ifunc_DEXP:
+    case ifunc_CEXP:
+      intrinsic_call_emit(root,entry,Double);
+      break;
+
+      /* natural logarithm */
+    case ifunc_LOG:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DLOG];
+      else if(root->vartype == Float)
+        entry = &intrinsic_toks[ifunc_ALOG];
+      else if(root->vartype == Complex)
+        entry = &intrinsic_toks[ifunc_CLOG];
+    case ifunc_ALOG:
+    case ifunc_DLOG:
+    case ifunc_CLOG:
+      intrinsic_call_emit(root,entry,Double);
+      break;
+
+      /* common logarithm */
+    case ifunc_LOG10:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DLOG10];
+      else if(root->vartype == Float)
+        entry = &intrinsic_toks[ifunc_ALOG10];
+    case ifunc_ALOG10:
+    case ifunc_DLOG10:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* sine */
+    case ifunc_SIN:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DSIN];
+      else if(root->vartype == Complex)
+        entry = &intrinsic_toks[ifunc_CSIN];
+    case ifunc_DSIN:
+    case ifunc_CSIN:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* cosine */
+    case ifunc_COS:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DCOS];
+      else if(root->vartype == Complex)
+        entry = &intrinsic_toks[ifunc_CCOS];
+    case ifunc_DCOS:
+    case ifunc_CCOS:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* tangent */
+    case ifunc_TAN:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DTAN];
+    case ifunc_DTAN:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* arcsine */
+    case ifunc_ASIN:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DASIN];
+    case ifunc_DASIN:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* arccosine */
+    case ifunc_ACOS:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DACOS];
+    case ifunc_DACOS:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* arctangent */
+    case ifunc_ATAN:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DATAN];
+    case ifunc_DATAN:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* arctangent (2 arg) */
+    case ifunc_ATAN2:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DATAN2];
+    case ifunc_DATAN2:
+      intrinsic2_call_emit(root, entry, Double);
+      break;
+
+      /* Hyperbolic sine */
+    case ifunc_SINH:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DSINH];
+    case ifunc_DSINH:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* Hyperbolic cosine */
+    case ifunc_COSH:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DCOSH];
+    case ifunc_DCOSH:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+      /* Hyperbolic tangent */
+    case ifunc_TANH:
+      if(root->vartype == Double)
+        entry = &intrinsic_toks[ifunc_DTANH];
+    case ifunc_DTANH:
+      intrinsic_call_emit(root, entry, Double);
+      break;
+
+    case ifunc_LGE: /* lexically greater than/equal */
+    case ifunc_LGT: /* lexically greater than */
+    case ifunc_LLE: /* lexically less than/equal */
+    case ifunc_LLT: /* lexically less than */
+      intrinsic_lexical_compare_emit(root, entry);
+      break;
+
     default:
       fprintf(stderr,"WARNING: codegen() unimplemented intrinsic!\n");
       break; /* ansi c */
@@ -4202,6 +4353,126 @@ intrinsic_emit(AST *root)
 
   if(gendebug)
     printf("leaving intrinsic_emit\n");
+}
+
+
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic_lexical_compare_emit                                            *
+ *                                                                           *
+ * generates code for LGE, LGT, LLE, adn LLT intrinsics.   these intrinsics  *
+ * perform lexical comparison of strings.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
+{
+  CodeGraphNode *goto_node, *if_node;
+  AST *temp;
+  CPNODE *c;
+
+  temp = root->astnode.ident.arraylist;
+  fprintf(curfp,"((");
+  expr_emit(temp);
+  fprintf(curfp,").compareTo(");
+  expr_emit(temp->nextstmt);
+
+  c = newMethodref(cur_const_table, JL_STRING, "compareTo", COMPARE_DESC);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  if(entry->intrinsic == ifunc_LGE) {
+    fprintf(curfp,") >= 0 ? true : false)");
+    if_node = bytecode0(jvm_ifge);
+  }
+  else if(entry->intrinsic == ifunc_LGT) {
+    fprintf(curfp,") > 0 ? true : false)");
+    if_node = bytecode0(jvm_ifgt);
+  }
+  else if(entry->intrinsic == ifunc_LLE) {
+    fprintf(curfp,") <= 0 ? true : false)");
+    if_node = bytecode0(jvm_ifle);
+  }
+  else if(entry->intrinsic == ifunc_LLT) {
+    fprintf(curfp,") < 0 ? true : false)");
+    if_node = bytecode0(jvm_iflt);
+  }
+  else
+    fprintf(stderr,"intrinsic_lexical_compare_emit(): bad tag!\n");
+
+  bytecode0(jvm_iconst_0);
+  goto_node = bytecode0(jvm_goto);
+  if_node->branch_target = bytecode0(jvm_iconst_1);
+
+  /* create a dummy instruction node following the stmts so that
+   * we have a branch target for the goto statement.  it'll be
+   * removed later.
+   */
+  goto_node->branch_target = bytecode0(jvm_impdep1);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic_call_emit                                                       *
+ *                                                                           *
+ * generates a call to a single-arg intrinsic.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+intrinsic_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
+{
+  CPNODE *c;
+
+  void intrinsic_arg_emit(AST *, enum returntype);
+
+  /* entry->ret should represent the return type of the equivalent JAva
+   * function, while root->vartype should represent the return type of
+   * the fortran intrinsic.  e.g. fortan's EXP may return Real but JAva's
+   * Math.exp() always returns double.  in these cases we must cast.
+   */
+  if(entry->ret != root->vartype)
+    fprintf(curfp, "(%s)", returnstring[root->vartype]);
+
+  fprintf (curfp, "%s(", entry->java_method);
+  intrinsic_arg_emit(root->astnode.ident.arraylist, argtype);
+  fprintf (curfp, ")");
+
+  c = newMethodref(cur_const_table,entry->class_name, 
+                    entry->method_name, entry->descriptor);
+
+  bytecode1(jvm_invokestatic, c->index);
+
+  if(entry->ret != root->vartype)
+    bytecode0(typeconv_matrix[entry->ret][root->vartype]);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic2_call_emit                                                      *
+ *                                                                           *
+ * generates a call to a two-arg intrinsic.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+intrinsic2_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
+{
+  AST * temp = root->astnode.ident.arraylist;
+  CPNODE *c;
+
+  void intrinsic_arg_emit(AST *, enum returntype);
+
+  fprintf (curfp, "%s(", entry->java_method);
+  intrinsic_arg_emit (temp, argtype);
+  fprintf (curfp, ",");
+  intrinsic_arg_emit (temp->nextstmt, argtype);
+  fprintf (curfp, ")");
+
+  c = newMethodref(cur_const_table,entry->class_name, 
+                    entry->method_name, entry->descriptor);
+
+  bytecode1(jvm_invokestatic, c->index);
 }
 
 /*****************************************************************************
@@ -4388,7 +4659,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
                       char *threearg, char *three_desc)
 {
   int ii, arg_count = 0;
-  char *javaname = entry->java_method;
+  char *javaname = entry->java_method, *method;
   CPNODE *c;
   AST *temp;
 
@@ -4424,8 +4695,6 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
   /* special handling of common situation in which MAX or MIN has three args. */
 
   else if(arg_count == 3) {
-    char *method;
-
     temp = root->astnode.ident.arraylist;
     fprintf(curfp, "%s(", threearg);
     intrinsic_arg_emit(temp,entry->ret);
@@ -4450,6 +4719,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
    * I dont think this situation is very common (in LAPACK/BLAS at least).
    *
    * changed this slightly to make the inner call a three-arg Util.max call.
+   *  e.g.  Math.max(Math.max(Util.max(a,b,c),d),e)
    * --kgs 6/13/00
    */
 
@@ -4464,6 +4734,17 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
     temp = temp->nextstmt;
     intrinsic_arg_emit(temp, entry->ret);
     fprintf (curfp, ", ");
+    temp = temp->nextstmt;
+    intrinsic_arg_emit(temp, entry->ret);
+
+    method = strtok(strdup(threearg),".");
+    method = strtok(NULL,".");
+    c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
+
+    bytecode1(jvm_invokestatic, c->index);
+
+    c = newMethodref(cur_const_table,entry->class_name, 
+                      entry->method_name, entry->descriptor);
 
     for(temp = temp->nextstmt; temp != NULL; temp = temp->nextstmt) {
       intrinsic_arg_emit(temp, entry->ret);
@@ -4471,6 +4752,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
         fprintf (curfp, "), ");
       else
         fprintf (curfp, ") ");
+      bytecode1(jvm_invokestatic, c->index);
     }
   }
 }

@@ -6080,7 +6080,6 @@ open_output_file(AST *root, char *classname)
 
   if(gendebug)
     printf("## going to open file: '%s'\n", filename);
-printf("## going to open file: '%s'\n", filename);
 
   if((javafp = fopen_fullpath(filename,"w"))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);

@@ -238,8 +238,8 @@ void
   adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
   adapter_temps_emit_from_descriptor(AST *, char *),
-  adapter_methcall_emit_from_descriptor(AST *, METHODREF *, char *),
-  adapter_assign_emit_from_descriptor(AST *, char *),
+  adapter_methcall_emit_from_descriptor(AST *, int, METHODREF *, char *),
+  adapter_assign_emit_from_descriptor(AST *, int, char *),
   adapter_tmp_assign_emit(int, enum returntype),
   adapter_assign_emit(int, int, char *),
   inc_stack(int);

@@ -9355,6 +9355,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 {
   enum returntype ret_type;
   char *ret;
+  int lv_temp;
 
   fprintf(curfp,"// adapter for %s\n", 
     node->astnode.ident.name);
@@ -9367,8 +9368,6 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     return;
   }
 
-  num_locals = cur_local = num_locals_in_descriptor(mref->descriptor);
-
   if(ret[0] == 'V')
     fprintf(curfp,"private static void %s_adapter(", 
       node->astnode.ident.name);
@@ -9379,21 +9378,23 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     ret_type = get_type_from_field_desc(ret);
   }
 
-  adapter_args_emit_from_descriptor(node->astnode.ident.arraylist,
-     mref->descriptor);
+  adapter_args_emit_from_descriptor( node->astnode.ident.arraylist,
+    mref->descriptor);
 
   fprintf(curfp,")\n{\n");
+
+  lv_temp = cur_local;
 
   adapter_temps_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
 
-  adapter_methcall_emit_from_descriptor(node, mref, ret);
+  adapter_methcall_emit_from_descriptor(node, lv_temp, mref, ret);
 
   if(ret[0] != 'V')
     gen_store_op(getNextLocal(ret_type), ret_type);
 
   adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
-     mref->descriptor);
+     lv_temp, mref->descriptor);
 
   if(ret[0] != 'V')
   {
@@ -9443,39 +9444,52 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
     if(dptr[0] == '[') {
       fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
         returnstring[get_type_from_field_desc(dptr+1)], i, i);
+      lvnum += 2;
     }
     else if ( (arg->nodetype == Identifier) &&
               (arg->astnode.ident.arraylist != NULL) &&
               type_lookup(cur_array_table,arg->astnode.ident.name) )
     {
-      if(omitWrappers && (dptr[0] != 'L'))
+      if(omitWrappers && (dptr[0] != 'L')) {
         fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
-      else
+        if(ctype == Double)
+          lvnum += 2;
+        else
+          lvnum++;
+      }
+      else {
         fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
           returnstring[ctype], i, i);
+        lvnum += 2;
+      }
     }
     else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
     {
       fprintf(curfp,"Object arg%d ", i);
+      lvnum++;
     }
     else
     {
-      if(omitWrappers && (dptr[0] != 'L'))
+      if(omitWrappers && (dptr[0] != 'L')) {
         fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
-      else
+        if(ctype == Double)
+          lvnum += 2;
+        else
+          lvnum++;
+      }
+      else {
         fprintf(curfp,"%s arg%d ", wrapper_returns[ctype], i);
+        lvnum++;
+      }
     }
 
     dptr = skipToken(dptr);
 
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
-
-    if(dptr[0] == 'D')
-      lvnum+=2;
-    else
-      lvnum++;
   }
+
+  num_locals = cur_local = lvnum;
 }
 
 /*****************************************************************************
@@ -9575,14 +9589,13 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
  *****************************************************************************/
 
 void
-adapter_methcall_emit_from_descriptor(AST *node, METHODREF *mref, char *ret)
+adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
+  METHODREF *mref, char *ret)
 {
   char *tempname, *dptr;
   CPNODE *c;
   AST *arg;
-  int i, lv_temp;
-
-  lv_temp = num_locals_in_descriptor(mref->descriptor);
+  int i;
 
   tempname = strdup( node->astnode.ident.name );
   *tempname = toupper(*tempname);
@@ -9674,12 +9687,10 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
  *****************************************************************************/
 
 void
-adapter_assign_emit_from_descriptor(AST *arg, char *desc)
+adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
 {
   char *dptr;
-  int i, lv_temp;
-
-  lv_temp = num_locals_in_descriptor(desc);
+  int i;
 
   dptr = skipToken(desc);
 
@@ -9725,13 +9736,13 @@ adapter_assign_emit(int i, int lv, char *dptr)
 
   vt = get_type_from_field_desc(dptr);
 
+  gen_load_op(i, Object);
+  gen_load_op(i+1, Integer);
+
   gen_load_op(lv, Object);
   c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
          val_descriptor[vt]);
   bytecode1(jvm_getfield, c->index);
-
-  gen_load_op(i, Object);
-  gen_load_op(i+1, Integer);
 
   bytecode0(array_store_opcodes[vt]);
 }

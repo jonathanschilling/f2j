@@ -8508,8 +8508,9 @@ insert_methcall(Dlist mlist, AST *root)
 int
 needs_adapter(AST *root)
 {
-  AST *temp;
   HASHNODE *hashtemp;
+  METHODREF *mtmp;
+  AST *temp;
 
   /* first, check for a null parameter list.  if there are no parameters, 
    * we certainly wont need an adapter.
@@ -8519,7 +8520,7 @@ needs_adapter(AST *root)
     return 0;
 
   if(gendebug)
-    printf("in needs_adapter: Looking up function name %s, ", 
+    printf("in needs_adapter: Looking up function name %s..\n", 
       root->astnode.ident.name);
 
   if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
@@ -8556,6 +8557,48 @@ needs_adapter(AST *root)
 
        if(t2 != NULL)
          t2 = t2->nextstmt;
+    }
+  }
+  else {
+    char *dptr;
+
+    mtmp = find_method(root->astnode.ident.name, descriptor_table);
+ 
+    if(mtmp) {
+
+      if(gendebug)
+        printf("needs_adapter: found descriptor '%s'\n", mtmp->descriptor);
+
+      dptr = skipToken(mtmp->descriptor);
+
+      temp = root->astnode.ident.arraylist;
+
+      for( ; temp != NULL; temp = temp->nextstmt)
+      {
+        if(dptr == NULL)
+          break;
+
+          /*
+           * if the arg is an identifier  AND
+           *    it is in the array table  AND
+           *    the function is not expecting an array
+           */
+        if(omitWrappers) {
+          if((temp->nodetype == Identifier) && 
+              type_lookup(cur_array_table, temp->astnode.ident.name) &&
+              (dptr[0] != '[') && (dptr[0] == 'L'))
+                 return 1;
+        }
+        else
+        {
+          if((temp->nodetype == Identifier) && 
+            type_lookup(cur_array_table, temp->astnode.ident.name) &&
+            (dptr[0] != '['))
+               return 1;
+        }
+
+        dptr = skipToken(dptr);
+      }
     }
   }
 
@@ -9544,7 +9587,8 @@ emit_invocations(AST *root)
     fprintf(curfp,"return _retval;\n");
     fprintf(curfp,"}\n"); 
 
-    endNewMethod(cur_class_file, inv_method, cur_name, cur_desc, num_locals , exc_list );
+    endNewMethod(cur_class_file, inv_method, cur_name, cur_desc,
+         num_locals, exc_list );
   }
 }
 
@@ -9667,14 +9711,14 @@ methcall_obj_array_emit(AST *temp, int lv)
         fprintf(curfp," _funcargs[%d] = _arg%d;\n", i, i);
         fprintf(curfp," _funcargs[%d] = new Integer(_arg%d_offset);\n",i+1,i);
 
-        arg_assignment_emit(lv, i, i, FALSE, Object);
-        arg_assignment_emit(lv, i+1, i+1, TRUE, Integer);
+        arg_assignment_emit(lv, i+1, i+1, FALSE, Object);
+        arg_assignment_emit(lv, i+2, i+2, TRUE, Integer);
         i++;
       }
       else {
         fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
           i,java_wrapper[rtype], i);
-        arg_assignment_emit(lv, i, i, TRUE, rtype);
+        arg_assignment_emit(lv, i+1, i+1, TRUE, rtype);
       }
     }
     else
@@ -9682,16 +9726,19 @@ methcall_obj_array_emit(AST *temp, int lv)
       fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
 
       if(dim > 0) {
-        arg_assignment_emit(lv, i, i, FALSE, Object);
+        arg_assignment_emit(lv, i+1, i+1, FALSE, Object);
 
         fprintf(curfp," _funcargs[%d] = _arg%d_offset;\n",i+1,i);
-        arg_assignment_emit(lv, i+1, i+1, FALSE, Integer);
+        arg_assignment_emit(lv, i+2, i+2, FALSE, Integer);
         i++;
       }
       else {
-        arg_assignment_emit(lv, i, i, FALSE, rtype);
+        arg_assignment_emit(lv, i+1, i+1, FALSE, rtype);
       }
     }
+
+    if(rtype == Double)
+      i++;
   }
 }
 

@@ -85,8 +85,8 @@ void
   prepend_minus(char *),
   insert_name(SYMTABLE *, AST *, enum returntype),
   store_array_var(AST *),
+  initialize_implicit_table(ITAB_ENTRY *),
   printbits(char *, void *, int);
-
 
 AST 
   * dl_astnode_examine(Dlist l),
@@ -99,7 +99,7 @@ AST
 SYMTABLE 
   * new_symtable (int );
 
-extern enum returntype default_implicit_table[];
+ITAB_ENTRY implicit_table[26];
 
 %}
 
@@ -160,6 +160,7 @@ extern enum returntype default_implicit_table[];
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
+%type <ptnode> ImplicitSpecItem ImplicitLetterList ImplicitLetter
 %type <ptnode> Label Lhs Logicalif
 %type <ptnode> Name Namelist LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
@@ -855,36 +856,84 @@ Implicit:   IMPLICIT ImplicitSpecList NL
 	      $$=addnode();
 	      $$->nodetype = Specification;
 	      $$->token = IMPLICIT;
+              fprintf(stderr,"Warning: IMPLICIT NONE ignored.\n");
 	    }
 ;
 
 ImplicitSpecList: ImplicitSpecItem
-            {
-            }
-                | ImplicitSpecItem CM ImplicitSpecItem
-            {
-            }
+                  {
+                    /* I don't think anything needs to be done here */
+                  }
+                | ImplicitSpecList CM ImplicitSpecItem
+                  {
+                    /* or here either. */
+                  }
 ;
 
 ImplicitSpecItem:  Types OP ImplicitLetterList CP
-            {
-            }
+                   {
+                     AST *temp;
+
+                     for(temp=$3;temp!=NULL;temp=temp->prevstmt) {
+                       char *start_range, *end_range;
+                       char start_char, end_char;
+                       int i;
+
+                       start_range = temp->astnode.expression.lhs->astnode.ident.name;
+                       end_range = temp->astnode.expression.rhs->astnode.ident.name;
+
+                       start_char = tolower(start_range[0]);
+                       end_char = tolower(end_range[0]);
+
+                       if((strlen(start_range) > 1) || (strlen(end_range) > 1)) {
+                         yyerror("IMPLICIT spec must contain single character.");
+                         exit(EXIT_FAILURE);
+                       }
+
+                       if(end_char < start_char) {
+                         yyerror("IMPLICIT range in backwards order.");
+                         exit(EXIT_FAILURE);
+                       }
+
+                       for(i=start_char - 'a'; i <= end_char - 'a'; i++) {
+                         if(implicit_table[i].declared) {
+                           yyerror("Duplicate letter specified in IMPLICIT statement.");
+                           exit(EXIT_FAILURE);
+                         }
+
+                         implicit_table[i].type = $1;
+                         implicit_table[i].declared = TRUE;
+                         implicit_table[i].len = len;  /* global set in Types production */
+                       }
+                     }
+                   }
 ;
 
 ImplicitLetterList: ImplicitLetter
-            {
-            }
-                  | ImplicitLetter CM ImplicitLetter
-            {
-            }
+                    {
+                      $$ = $1;
+                    }
+                  | ImplicitLetterList CM ImplicitLetter
+                    {
+                      $3->prevstmt = $1;
+                      $$ = $3;
+                    }
 ;
 
 ImplicitLetter: Name
-            {
-            }
+                {
+                  $$ = addnode();
+                  $$->nodetype = Expression;
+                  $$->astnode.expression.lhs = $1;
+                  $$->astnode.expression.rhs = $1;
+                }
               | Name MINUS Name
-            {
-            }
+                {
+                  $$ = addnode();
+                  $$->nodetype = Expression;
+                  $$->astnode.expression.lhs = $1;
+                  $$->astnode.expression.rhs = $3;
+                }
 ;
 
 Data:       DATA DataList
@@ -1502,7 +1551,7 @@ Arraydeclaration: Name OP Arraynamelist CP
                          $$->astnode.ident.name);
                       fprintf(stderr,"number of dimensions: %d\n", 
                          MAX_ARRAY_DIM);
-                      exit(-1);
+                      exit(EXIT_FAILURE);
                     }
 
                     $$->astnode.ident.dim = count;
@@ -3052,7 +3101,7 @@ Intrinsic: INTRINSIC Namelist NL
  *                                                                           *
  * yyerror                                                                   *
  *                                                                           *
- * The standard error routine, which is not currently implemented.           *
+ * The standard yacc error routine.                                          *
  *                                                                           *
  *****************************************************************************/
 
@@ -3228,7 +3277,7 @@ type_hash(AST * types)
         else {
           node = initialize_name(tempnames->astnode.ident.name );
           type_insert(type_table, node, 
-             default_implicit_table[tempnames->astnode.ident.name[0] - 'a'],
+             implicit_table[tempnames->astnode.ident.name[0] - 'a'].type,
              tempnames->astnode.ident.name);
 
           if(debug)
@@ -3506,6 +3555,7 @@ init_tables()
   if(debug)
     printf("Initializing tables.\n");
 
+  initialize_implicit_table(implicit_table);
   array_table     = (SYMTABLE *) new_symtable(211);
   format_table    = (SYMTABLE *) new_symtable(211);
   data_table      = (SYMTABLE *) new_symtable(211);
@@ -4039,7 +4089,7 @@ initialize_name(char *id)
   
       printf("cannot find name %s in hash table..",id);
       
-      ret = default_implicit_table[tolower(id[0]) - 'a'];
+      ret = implicit_table[tolower(id[0]) - 'a'].type;
   
       printf("going to insert with default implicit type %s\n",
         returnstring[ret]);
@@ -4074,4 +4124,31 @@ insert_name(SYMTABLE * tt, AST *node, enum returntype ret)
     node->vartype = hash_entry->variable->vartype;
 
   type_insert(tt, node, node->vartype, node->astnode.ident.name);
+}
+
+
+/*****************************************************************************
+ *                                                                           *
+ * initialize_implicit_table                                                 *
+ *                                                                           *
+ * this function the implicit table, which indicates the implicit typing for *
+ * the current program unit (i.e. which letters correspond to which data     *
+ * type).       .                                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+initialize_implicit_table(ITAB_ENTRY *itab)
+{
+  int i;
+
+  /* first initialize everything to double */
+  for(i = 0; i < 26; i++) {
+    itab[i].type = Double;
+    itab[i].declared = FALSE;
+  }
+
+  /* then change 'i' through 'n' to Integer */
+  for(i = 'i' - 'a'; i <= 'n' - 'a'; i++)
+    itab[i].type = Integer;
 }

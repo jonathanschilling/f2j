@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = TRUE;
+int lexdebug = FALSE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -394,6 +394,33 @@ yylex ()
     }
   }
     
+  /* If we're tokenizing an IMPLICIT statement, then we need to check
+   * whether we're inside the parens or not.  If not, then this must
+   * be a type (integer, real, etc).  If inside the parens, then this
+   * must be a letter or hyphen.  We pass the letter as a NAME token.
+   */
+
+  if(firsttoken == IMPLICIT) {
+    if(lexdebug)
+      printf("first tok is IMPLICIT, parentcount = %d\n",parencount);
+
+    if(parencount > 0) {
+      if (isalpha ( (int) *buffer.stmt))
+        token = name_scan (&buffer);
+    }
+    else {
+      token = keyscan (tab_type, &buffer);
+    }
+
+    if(token) {
+      tokennumber++;
+      if(lexdebug)
+        printf("5.1: lexer returns %s (%s)\n",tok2str(token),
+          buffer.stmt);
+      return token;
+    }
+  }
+
   /* Since we are tracking parentheses, we need to
    * scan for miscellaneous tokens.  We are really
    * sniffing for parens... 

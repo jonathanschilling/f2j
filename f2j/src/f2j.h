@@ -109,6 +109,18 @@ typedef struct _include_file_info
 INCLUDED_FILE;
 
 /*****************************************************************************
+ * This struct defines an entry in the implicit table, which holds info      *
+ * about any IMPLICIT statements and the mapping between first letter and    *
+ * data type.                                                                *
+ *****************************************************************************/
+
+typedef struct _itab_entry {
+  enum returntype type;
+  int len;
+  int declared;
+} ITAB_ENTRY;
+
+/*****************************************************************************
  * F2J_PATH_VAR defines the environment variable used to specify the search  *
  * path for .f2j method/descriptor files.                                    *
  *****************************************************************************/

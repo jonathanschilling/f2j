@@ -462,40 +462,6 @@ char *blas_routines[] =
    "dtrsv", "idamax", 0
 };
 
-/*****************************************************************************
- * this is the default mapping of letters to data types.                     *
- *****************************************************************************/
-
-enum returntype default_implicit_table[] =
-{
-  /* A */ Double,
-  /* B */ Double,
-  /* C */ Double,
-  /* D */ Double,
-  /* E */ Double,
-  /* F */ Double,
-  /* G */ Double,
-  /* H */ Double,
-  /* I */ Integer,
-  /* J */ Integer,
-  /* K */ Integer,
-  /* L */ Integer,
-  /* M */ Integer,
-  /* N */ Integer,
-  /* O */ Double,
-  /* P */ Double,
-  /* Q */ Double,
-  /* R */ Double,
-  /* S */ Double,
-  /* T */ Double,
-  /* U */ Double,
-  /* V */ Double,
-  /* W */ Double,
-  /* X */ Double,
-  /* Y */ Double,
-  /* Z */ Double
-};
-
 /* data types for f2java primitives: */
 
 char *returnstring[MAX_RETURNS+1] =

@@ -9653,7 +9653,7 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
   {
     if(omitWrappers && (dptr[0] != 'L')) {
       fprintf(curfp,"arg%d",i);
-      gen_load_op(i, get_type_from_field_desc(dptr));
+      gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
     }
     else {
       fprintf(curfp,"_f2j_tmp%d",i);
@@ -9665,13 +9665,13 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
           (dptr[0] == '['))
   {
     fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    gen_load_op(i, get_type_from_field_desc(dptr+1));
-    gen_load_op(i+1, Integer);
+    gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr+1));
+    gen_load_op(arg->astnode.ident.localvnum+1, Integer);
   }
   else
   {
     fprintf(curfp,"arg%d",i);
-    gen_load_op(i, get_type_from_field_desc(dptr));
+    gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
   }
 
   return lv;
@@ -9706,11 +9706,11 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
     {
       if(omitWrappers) {
         if(dptr[0] == 'L')
-          adapter_assign_emit(i, lv_temp++, dptr);
+          adapter_assign_emit(arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
       else
       {
-        adapter_assign_emit(i, lv_temp++, dptr);
+        adapter_assign_emit(arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
     }
 
@@ -9759,6 +9759,8 @@ adapter_assign_emit(int i, int lv, char *dptr)
 void
 adapter_emit_from_table(AST *node, HASHNODE *hashtemp)
 {
+  int lv_temp;
+
   fprintf(curfp,"// adapter for %s\n", 
     node->astnode.ident.name);
   
@@ -9777,23 +9779,30 @@ adapter_emit_from_table(AST *node, HASHNODE *hashtemp)
 
   fprintf(curfp,")\n{\n");
 
+  lv_temp = cur_local;
+
   adapter_temps_emit_from_table(hashtemp->variable->astnode.source.args,
      node->astnode.ident.arraylist);
 
   /*  now emit the call */
 
-  adapter_methcall_emit_from_table( node, hashtemp->variable);
+  adapter_methcall_emit_from_table( node, lv_temp, hashtemp->variable);
 
   /*  assign the temp variables to the array elements */
 
   adapter_assign_emit_from_table(hashtemp->variable->astnode.source.args,
-     node->astnode.ident.arraylist);
+     lv_temp, node->astnode.ident.arraylist);
     
   if(hashtemp->variable->nodetype == Function)
   {
     fprintf(curfp,"\nreturn %s_retval;\n", 
         hashtemp->variable->astnode.source.name->astnode.ident.name);
+
+    gen_load_op(cur_local, hashtemp->variable->astnode.source.returns);
+    bytecode0(return_opcodes[hashtemp->variable->astnode.source.returns]);
   }
+  else
+    bytecode0(jvm_return);
 
   fprintf(curfp,"}\n\n");
 }
@@ -9810,7 +9819,9 @@ adapter_emit_from_table(AST *node, HASHNODE *hashtemp)
 void
 adapter_args_emit_from_table(AST *temp, AST *arg)
 {
-  int i;
+  int i, lvnum;
+
+  lvnum = 0;
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
@@ -9822,27 +9833,43 @@ adapter_args_emit_from_table(AST *temp, AST *arg)
     if(temp->astnode.ident.arraylist) {
       fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
         returnstring[temp->vartype], i, i);
+      lvnum+=2;
     }
     else if ( (arg->nodetype == Identifier) && 
               (arg->astnode.ident.arraylist != NULL) &&
               type_lookup(cur_array_table,arg->astnode.ident.name) )
     {
-      if(omitWrappers && !temp->astnode.ident.passByRef)
+      if(omitWrappers && !temp->astnode.ident.passByRef) {
         fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-      else
+        if(temp->vartype == Double)
+          lvnum+=2;
+        else
+          lvnum++;
+      }
+      else {
         fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
           returnstring[temp->vartype], i, i);
+        lvnum+=2;
+      }
     }
     else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
     {
       fprintf(curfp,"Object arg%d ", i);
+      lvnum++;
     }
     else
     {
-      if(omitWrappers && !temp->astnode.ident.passByRef)
+      if(omitWrappers && !temp->astnode.ident.passByRef) {
         fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-      else
+        if(temp->vartype == Double)
+          lvnum+=2;
+        else
+          lvnum++;
+      }
+      else {
         fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
+        lvnum++;
+      }
     }
 
     if(temp != NULL)
@@ -9850,6 +9877,8 @@ adapter_args_emit_from_table(AST *temp, AST *arg)
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
   }
+
+  num_locals = cur_local = lvnum;
 }
 
 /*****************************************************************************
@@ -9877,16 +9906,19 @@ adapter_temps_emit_from_table(AST *temp, AST *arg)
        (temp->astnode.ident.arraylist == NULL))
     {
       if(omitWrappers) {
-        if(temp->astnode.ident.passByRef)
+        if(temp->astnode.ident.passByRef) {
           fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
             wrapper_returns[temp->vartype], i, 
             wrapper_returns[temp->vartype], i, i);
+          adapter_tmp_assign_emit(arg->astnode.ident.localvnum,temp->vartype);
+        }
       }
       else
       {
         fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
           wrapper_returns[temp->vartype], i,
           wrapper_returns[temp->vartype], i, i);
+        adapter_tmp_assign_emit(arg->astnode.ident.localvnum,temp->vartype);
       }
     }
 
@@ -9905,7 +9937,7 @@ adapter_temps_emit_from_table(AST *temp, AST *arg)
  *****************************************************************************/
 
 void
-adapter_methcall_emit_from_table(AST *node, AST *var)
+adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
 {
   char *tempname;
   AST *temp, *arg;
@@ -9934,22 +9966,27 @@ adapter_methcall_emit_from_table(AST *node, AST *var)
     if(temp == NULL)
       break;
 
-    if((arg->nodetype == Identifier) && 
-       (arg->astnode.ident.arraylist != NULL) &&
-       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-       (temp->astnode.ident.arraylist == NULL))
-    {
-      if(omitWrappers && !temp->astnode.ident.passByRef)
-        fprintf(curfp,"arg%d",i);
-      else
-        fprintf(curfp,"_f2j_tmp%d",i);
-    }
-    else if((arg->nodetype == Identifier) &&
-            (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-            (temp->astnode.ident.arraylist != NULL))
-       fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    else
-       fprintf(curfp,"arg%d",i);
+    lv_temp = adapter_methcall_arg_emit(arg, i, lv_temp, 
+                  get_field_desc_from_ident(arg));
+
+/*
+ *  if((arg->nodetype == Identifier) && 
+ *     (arg->astnode.ident.arraylist != NULL) &&
+ *     (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+ *     (temp->astnode.ident.arraylist == NULL))
+ *  {
+ *    if(omitWrappers && !temp->astnode.ident.passByRef)
+ *      fprintf(curfp,"arg%d",i);
+ *    else
+ *      fprintf(curfp,"_f2j_tmp%d",i);
+ *  }
+ *  else if((arg->nodetype == Identifier) &&
+ *          (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+ *          (temp->astnode.ident.arraylist != NULL))
+ *     fprintf(curfp,"arg%d, arg%d_offset",i,i);
+ *  else
+ *     fprintf(curfp,"arg%d",i);
+ */
 
     if(temp != NULL)
       temp = temp->nextstmt;
@@ -11697,4 +11734,26 @@ get_wrapper_from_desc(char *desc)
   new[dptr-ls-1] = '\0';
 
   return new;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_field_desc_from_ident                                                 *
+ *                                                                           *
+ * given the AST node of some identifier, return the appropriate field       *
+ * descriptor.                                                               *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_field_desc_from_ident(AST *node)
+{
+  char *fdesc;
+
+  if(omitWrappers && !node->astnode.ident.passByRef)
+    fdesc = field_descriptor[node->vartype][node->astnode.ident.dim];
+  else
+    fdesc = wrapped_field_descriptor[node->vartype][node->astnode.ident.dim];
+
+  return fdesc;
 }

@@ -130,6 +130,7 @@ char
   * get_full_classname(char *),
   * get_return_type_from_descriptor(char *),
   * get_wrapper_from_desc(char *),
+  * get_field_desc_from_ident(AST *),
   * get_desc_from_arglist(AST *);
 
 METHODTAB
@@ -232,7 +233,7 @@ void
   methcall_obj_array_emit(AST *, int),
   adapter_args_emit_from_table(AST *, AST *),
   adapter_temps_emit_from_table(AST *, AST *),
-  adapter_methcall_emit_from_table(AST *, AST *),
+  adapter_methcall_emit_from_table(AST *, int, AST *),
   adapter_assign_emit_from_table(AST *, AST *),
   adapter_emit_from_table(AST *, HASHNODE *),
   adapter_emit_from_descriptor(METHODREF *, AST *),

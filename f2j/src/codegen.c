@@ -44,8 +44,7 @@ SUBSTITUTION
 FILE 
   *javafp,              /* the class file currently generating               */
   *curfp,               /* the file currently being written to               */
-  *savefp,              /* temp var for saving the current file pointer      */
-  *devnull;             /* pointer to the file /dev/null                     */
+  *savefp;              /* temp var for saving the current file pointer      */
 
 SYMTABLE                /* Symbol tables containing...                       */
   *cur_type_table,      /* type information                                  */
@@ -97,6 +96,8 @@ ExceptionTableEntry
   * access_entry;       /* exception table entry for access exceptions.      */
 
 extern METHODTAB intrinsic_toks[];
+
+extern FILE *devnull;   /* file pointer to /dev/null, opened in f2jmain.c    */
 
 /*****************************************************************************
  *                                                                           *
@@ -206,7 +207,7 @@ emit (AST * root)
             import_blas = FALSE; 
 
           open_output_file(root->astnode.source.progtype, classname);
-          devnull = fopen("/dev/null","w");
+
           savefp = curfp;
           set_bytecode_status(JAVA_AND_JVM);
 
@@ -659,15 +660,18 @@ set_bytecode_status(int mode)
       bytecode_gen=TRUE;
       savefp = curfp;
       curfp = devnull;
+printf("set_bytecode_status.1: set curfp = %p\n", curfp);
       break;
     case JAVA_ONLY:
       bytecode_gen=FALSE;
       curfp = savefp;
+printf("set_bytecode_status.2: set curfp = %p\n", curfp);
       break;
     case JAVA_AND_JVM:
     default:
       bytecode_gen=TRUE;
       curfp = savefp;
+printf("set_bytecode_status.3: set curfp = %p\n", curfp);
       break;
   }
 }
@@ -1303,6 +1307,7 @@ common_emit(AST *root)
       }
   
       curfp = commonfp;
+printf("common_emit.1: set curfp = %p\n", curfp);
       
       /* import util package for object wrapper classes */
 
@@ -1375,6 +1380,7 @@ common_emit(AST *root)
   }
 
   curfp = javafp;
+printf("common_emit.2: set curfp = %p\n", curfp);
 
   /* restore previously saved globals */
 
@@ -5609,6 +5615,7 @@ open_output_file(AST *root, char *classname)
   }
 
   curfp = javafp;  /* set global pointer to output file */
+printf("open_output_file.1: set curfp = %p\n", curfp);
 
   /* add import statements if necessary */
 

@@ -33,6 +33,8 @@ extern char *generic_intrinsics[];
 extern char *unit_name;
 extern char *optarg;
 
+FILE *devnull;             /* pointer to the file /dev/null                  */
+
 BOOLEAN isBigEndian(void);
 AST *addnode(void);
 char *strdup(const char *),
@@ -231,6 +233,13 @@ will most likely not work for other code.\n";
   }
 
   descriptor_table = build_method_table(f2jpath);
+
+  devnull = fopen("/dev/null","w");
+
+  if(devnull == NULL) {
+    fprintf(stderr,"Cannot open /dev/null for writing\n");
+    exit(-1);
+  }
 
   fprintf(stderr,"%s:\n",inputfilename);
   yyparse ();

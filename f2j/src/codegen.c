@@ -5729,12 +5729,12 @@ label_emit (AST * root)
   else {
     /* this labeled statement is not associated with a DO loop */
 
+    fprintf (curfp, "label%d:\n   ", num);
+    fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename, num);
 
     if((root->astnode.label.stmt != NULL) &&
        (root->astnode.label.stmt->nodetype != Format))
     {
-      fprintf (curfp, "label%d:\n   ", num);
-      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename, num);
       emit (root->astnode.label.stmt);
     }
   }

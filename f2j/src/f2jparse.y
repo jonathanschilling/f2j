@@ -629,7 +629,12 @@ Specstmt:  Dimension
 
 Dimension: DIMENSION ArraydecList NL
            {
-             $$ = $2;
+             $$ = addnode();
+             $2->parent = $$;
+             $2 = switchem($2);
+             $$->nodetype = Dimension;
+
+             $$->astnode.typeunit.declist = $2;
            }
 ;
 
@@ -2742,20 +2747,7 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
     {
       /* Stuff names and return types into the symbol table. */
       if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
-
-      hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
-
-      if(hash_entry == NULL) {
-        tempnames->vartype = return_type;
-
-        type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
-      }
-      else {
-        if(debug)
-          printf("Duplicate entry.\n");  
-
-        tempnames->vartype = hash_entry->variable->vartype;
-      }
+      printf("Type hash: %s\n", tempnames->astnode.ident.name);
 
       if(temptypes->nodetype == Dimension) {
         /* looking at a Dimension spec.  check whether the ident is already
@@ -2766,16 +2758,23 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
         extern enum returntype default_implicit_table[];
         AST *node;
 
+printf("DIMENSION stmt.  looking for '%s' in hash table.\n",
+ tempnames->astnode.ident.name);
+ 
         hash_entry = type_lookup(type_table, tempnames->astnode.ident.name);
         if(hash_entry)
           node = hash_entry->variable;
         else {
+printf("not found... inserting new node w/default type.\n");
           node = initialize_name(tempnames->astnode.ident.name );
           type_insert(type_table, node, 
              default_implicit_table[tempnames->astnode.ident.name[0] - 'a'],
              tempnames->astnode.ident.name);
         }
 
+if(node == NULL)
+  printf("NULL node!!\n");
+  
         node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
         node->astnode.ident.dim = tempnames->astnode.ident.dim;
         node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
@@ -2791,10 +2790,13 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
          * for idents that were previously dimensioned, we need to get this
          * info out of the table.
          */
+printf("looking for DIMENSION for '%s'\n",tempnames->astnode.ident.name);
+
         hash_entry = type_lookup(array_table,tempnames->astnode.ident.name);
         if(hash_entry) {
           AST *var = hash_entry->variable;
   
+printf("found.\n");
           tempnames->astnode.ident.arraylist = var->astnode.ident.arraylist;
           tempnames->astnode.ident.dim = var->astnode.ident.dim;
           tempnames->astnode.ident.leaddim = var->astnode.ident.leaddim;
@@ -2802,6 +2804,20 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
           tempnames->astnode.ident.D[0] = var->astnode.ident.D[0];
           tempnames->astnode.ident.D[1] = var->astnode.ident.D[1];
           tempnames->astnode.ident.D[2] = var->astnode.ident.D[2];
+        }
+
+        hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
+
+        if(hash_entry == NULL) {
+          tempnames->vartype = return_type;
+
+          type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
+        }
+        else {
+          if(debug)
+            printf("Duplicate entry.\n");  
+  
+          tempnames->vartype = hash_entry->variable->vartype;
         }
       }
 

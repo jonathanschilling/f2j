@@ -4886,13 +4886,11 @@ intrinsic_emit(AST *root)
             CPNODE *c;
 
             expr_emit(temp);
-            fprintf(curfp,".length()+1");
+            fprintf(curfp,".length()");
 
             c = newMethodref(cur_const_table,JL_STRING,
                  "length", STRLEN_DESC);
             bytecode1(jvm_invokevirtual, c->index);
-            bytecode0(jvm_iconst_1);
-            bytecode0(jvm_iadd);
           }
         }
         else

@@ -660,7 +660,6 @@ read_optimize (AST * root, AST *rptr)
       continue;
     }
   }
-
 }
 
 void
@@ -818,7 +817,6 @@ call_optimize (AST * root, AST *rptr)
   HASHNODE *hashtemp;
   HASHNODE *ht, *ht2, *ht3;
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
-  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
   void expr_optimize(AST *, AST *);
@@ -877,14 +875,7 @@ printf("looking up %s in the global function table\n",root->astnode.ident.name);
     {
        expr_optimize(temp, rptr);
 
-       /*  if this node is an identifier AND
-        *      it does not look like an array AND
-        *      it is not in the array table
-        */
-
-       if((temp->nodetype == Identifier) && 
-          (temp->astnode.ident.arraylist == NULL) && 
-          (type_lookup(opt_array_table,temp->astnode.ident.name)==NULL))
+       if(temp->nodetype == Identifier)
        {
          /* now we check whether the function/subroutine expects this 
           * to be passed by reference.

@@ -36,7 +36,7 @@
 
 #define YYTEXTLEN 100 
 
-int lexdebug = TRUE;
+int lexdebug = FALSE;
 
 /* Some of these variable may not be used anymore.
    gcc -Wall needs to be run to clean up this stuff

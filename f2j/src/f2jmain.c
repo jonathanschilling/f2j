@@ -19,6 +19,7 @@ main (int argc, char **argv)
     extern char *package_name;
     extern char *java_reserved_words[];
     extern char *jasmin_reserved_words[];
+    extern char *blas_routines[];
     extern FILE *ifp;
     extern FILE *jasminfp;
     /*    extern FILE *javafp;  9-11-97, Keith*/
@@ -73,16 +74,25 @@ main (int argc, char **argv)
      * wrapped objects.  The default behavior is to only
      * wrap those scalars that must be passed by reference.
      *
+     * The -i option causes f2j to generate a high-level
+     * interface to each subroutine and function.
+     *
+     * The -s option causes f2j to simplify the interfaces
+     * by removing the offset parameter and using a zero offset.
+     * It isn't necessary to specify the -i flag in addition
+     * to the -s.
      */
 
-    omitWrappers = TRUE;
-    package_name = NULL;
+    omitWrappers  = TRUE;
+    genInterfaces = FALSE;
+    noOffset      = FALSE;
+    package_name  = NULL;
     JAS = 0;   /* default to Java output */
 
     ignored_formatting = 0;
     bad_format_count = 0;
 
-    while((c = getopt(argc,argv,"j:p:w:")) != EOF)
+    while((c = getopt(argc,argv,"j:p:wis")) != EOF)
       switch(c) {
         case 'j':
           if(!strcmp(optarg,"ava"))
@@ -101,6 +111,12 @@ main (int argc, char **argv)
         case 'w':
           omitWrappers = FALSE;
           break;
+        case 'i':
+          genInterfaces = TRUE;
+          break;
+        case 's':
+          noOffset = TRUE;
+          break;
         case '?':
           errflg++;
           break;
@@ -112,9 +128,12 @@ main (int argc, char **argv)
     if(errflg || (argc < 2))
     {
       fprintf(stderr,
-        "Usage: f2java [-java/-jas] [-p package name] [-w] <filename>\n");
+        "Usage: f2java [-java/-jas] [-p package name] [-w] [-i] [-s] <filename>\n");
       exit(2);
     }
+
+    if(noOffset)
+      genInterfaces = TRUE;
 
     inputfilename = argv[argc - 1];
 
@@ -191,6 +210,15 @@ main (int argc, char **argv)
       index = hash(jasmin_reserved_words[i]) % jasmin_keyword_table->num_entries;
       type_insert(&(jasmin_keyword_table->entry[index]),temp,0,
         jasmin_reserved_words[i]);
+    }
+
+    blas_routine_table = (SYMTABLE *) new_symtable(211);
+    temp = addnode();
+
+    for(i=0;blas_routines[i] != NULL; i++) {
+      index = hash(blas_routines[i]) % blas_routine_table->num_entries;
+      type_insert(&(blas_routine_table->entry[index]),temp,0,
+        blas_routines[i]);
     }
 
     fprintf(stderr,"%s:\n",inputfilename);

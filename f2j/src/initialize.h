@@ -250,3 +250,20 @@ char *jasmin_reserved_words[] =
 {
      "ldc", "isub", "iinc", 0
 };
+
+/* 
+ * This is a list of the BLAS routines.  When translating
+ * some code, we need to know whether to import the blas
+ * library or not.  so we can use this list to determine
+ * whether a call is to a BLAS routine or not.
+ */
+
+char *blas_routines[] = 
+{
+   "dasum", "daxpy", "dcopy", "ddot",   "dgbmv", "dgemm",
+   "dgemv", "dger",  "dnrm2", "drot",   "drotg", "dsbmv",
+   "dscal", "dspmv", "dspr",  "dspr2",  "dswap", "dsymm",
+   "dsymv", "dsyr",  "dsyr2", "dsyr2k", "dsyrk", "dtbmv",
+   "dtbsv", "dtpmv", "dtpsv", "dtrmm",  "dtrmv", "dtrsm",
+   "dtrsv", "idamax"
+};

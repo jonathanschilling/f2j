@@ -25,7 +25,7 @@
 #define STATIC_NODATA 1
 #define STATIC_WITHDATA 2
 
-int gendebug = FALSE;
+int gendebug = TRUE;
 
 extern int ignored_formatting;
 extern int bad_format_count;
@@ -72,6 +72,7 @@ AST *cur_dataList;
 AST *cur_equivList;
 
 int import_reflection;
+int import_blas;
 
 #define MAX_RETURNS 7
 #define OBJECT_TYPE 7
@@ -140,7 +141,6 @@ emit (AST * root)
     void emit_prolog_comments(AST *);
     int isPassByRef(char *);
 
-printf("here in emit nodetype is %s\n",print_nodetype(root));
     switch (root->nodetype)
       {
       case 0:
@@ -149,6 +149,8 @@ printf("here in emit nodetype is %s\n",print_nodetype(root));
 	  emit (root->nextstmt);
       case Progunit:
         {
+          char *tmpname;
+
 	  if (gendebug)
 	      printf ("Source.\n");
 
@@ -180,6 +182,15 @@ printf("here in emit nodetype is %s\n",print_nodetype(root));
             import_reflection = TRUE;
           else
             import_reflection = FALSE; 
+
+          tmpname = root->astnode.source.progtype->
+                       astnode.source.name->astnode.ident.name;
+
+          if(root->astnode.source.progtype->astnode.source.needs_blas &&
+             !type_lookup(blas_routine_table,tmpname))
+            import_blas = TRUE;
+          else
+            import_blas = FALSE; 
 
           open_output_file(root->astnode.source.progtype);
           curfp = javafp;
@@ -2921,6 +2932,7 @@ open_output_file(AST *root)
 {
   char * filename;
   char * classname;
+  char import_stmt[60];
   
   filename = (char *)
      malloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
@@ -2945,10 +2957,15 @@ open_output_file(AST *root)
     exit(1);
   }
 
+  import_stmt[0] = '\0';
+  
   if(import_reflection)
-    javaheader(javafp,classname,"import java.lang.reflect.*;\n");
-  else
-    javaheader(javafp,classname,"");  /* print header to output file */
+    strcat(import_stmt,"import java.lang.reflect.*;\n");
+
+  if(import_blas)
+    strcat(import_stmt,"import org.netlib.blas.*;\n");
+
+  javaheader(javafp,classname,import_stmt);
 }
 
 /*
@@ -2965,6 +2982,7 @@ constructor (AST * root)
     char *tempstring;
     HASHNODE *hashtemp;
     void print_string_initializer(AST *);
+    void emit_interface(AST *);
 #if TWOD
     AST *temp;
 #endif
@@ -2978,6 +2996,7 @@ constructor (AST * root)
 
     if (root->nodetype == Function)
     {
+
       returns = root->astnode.source.returns;
 
       /* Test code.... */
@@ -3016,12 +3035,18 @@ constructor (AST * root)
       fprintf (curfp, "\npublic static %s %s (",
         returnstring[returns],
         root->astnode.source.name->astnode.ident.name);
+
+      if(genInterfaces)
+        emit_interface(root);
     }
     /* Else we have a subroutine, which returns void. */
     else if(root->nodetype == Subroutine)
     {
       fprintf (curfp, "\npublic static void %s (",
         root->astnode.source.name->astnode.ident.name);
+
+      if(genInterfaces)
+        emit_interface(root);
     }
     else  /* Else we have a program, create a main() function */
     {
@@ -3146,7 +3171,297 @@ constructor (AST * root)
 
     if(type_lookup(cur_external_table,"etime") != NULL)
       fprintf(curfp, "  Etime.etime();\n");
+
 }				/*  Close  constructor(). */
+
+void
+emit_interface(AST *root)
+{
+  enum returntype returns;
+  extern char *returnstring[];
+  AST *tempnode, *prev;
+  char *tempstring;
+  HASHNODE *hashtemp;
+  FILE *intfp;
+  char *intfilename;
+  char *classname;
+  Dlist decs, rest, tmp;
+  int i;
+  BOOLEAN skipped;
+  void emit_methcall(FILE *, AST *);
+
+  decs = make_dl();
+  rest = make_dl();
+
+  classname = strdup(root->astnode.source.name->astnode.ident.name);
+  intfilename = malloc( strlen(classname) + 6 );
+  uppercase(classname);
+  strcpy(intfilename,classname);
+  strcat(intfilename,".java");
+
+  intfp = fopen(intfilename,"w");
+  if(!intfp) {
+    perror("Unable to open file");
+    exit(-1);
+  }
+
+  javaheader(intfp, classname, "");
+
+  if (root->nodetype == Function)
+    fprintf (intfp, "\npublic static %s %s (",
+      returnstring[root->astnode.source.returns], classname);
+  else if(root->nodetype == Subroutine)
+    fprintf (intfp, "\npublic static void %s (", classname);
+  else
+    fprintf (stderr, "emit_interface called with bad nodetype.");
+
+  prev = NULL;
+  tempnode = root->astnode.source.args;
+
+  for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    skipped = FALSE;
+
+    hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
+    if (hashtemp == NULL)
+    {
+      fprintf (stderr,"Type table is screwed (codegen.c).\n");
+      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+      exit (-1);
+    }
+
+    if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
+      returns = OBJECT_TYPE;
+    else
+      returns = hashtemp->type;
+
+    /* 
+     * Check the numerical value returns.  It should not 
+     * exceed the value of the enum returntypes.  
+     */
+
+    if (returns > MAX_RETURNS)
+      fprintf (stderr,"Bad return value, check types.\n");
+
+    if(omitWrappers) {
+      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
+        isPassByRef(tempnode->astnode.ident.name))
+          tempstring = wrapper_returns[returns];
+      else
+        tempstring = returnstring[returns];
+    }
+    else
+    {
+      if (hashtemp->variable->astnode.ident.arraylist == NULL)
+        tempstring = wrapper_returns[returns];
+      else
+        tempstring = returnstring[returns];
+    }
+
+    if (hashtemp->variable->astnode.ident.arraylist == NULL) {
+      if((prev != NULL) && (prev->astnode.ident.dim > 1) &&
+         !strcmp(tempnode->astnode.ident.name,prev->astnode.ident.leaddim))
+      {
+        skipped = TRUE;
+      }
+      else 
+      {
+        if(prev != NULL)
+          fprintf (intfp, ",\n");
+        fprintf (intfp, "%s %s", tempstring, tempnode->astnode.ident.name);
+      }
+    }
+    else {
+      char *decstr;
+
+      if(prev != NULL)
+        fprintf (intfp, ",\n");
+
+      /* allocate enough room for:                                          */
+      /*                                                                    */
+      /* the data type ('double' etc.)               strlen(tempstring)     */
+      /* plus a space                                                 1     */
+      /* two for the brackets: "[]"                                   2     */
+      /* plus a space                                                 1     */
+      /* one for the leading "_"                                      1     */
+      /* plus the var name                                 strlen(name)     */
+      /* five for the "_copy"                                         5     */
+      /* plus a space                                                 1     */
+      /* the equals sign                                              1     */
+      /* plus a space                                                 1     */
+      /* plus the "TwoDtoOneD" call                                  28     */
+      /* open paren                                                   1     */
+      /* argument name                                     strlen(name)     */ 
+      /* close paren                                                  1     */
+      /* semicolon                                                    1     */
+      /* NULL termination                                             1     */
+      /* ----------------------------------------------------------------   */
+      /* Total             45 + (2 * strlen(name)) + strlen(tempstring)     */
+
+      if(hashtemp->variable->astnode.ident.dim > 1) {
+        decstr = (char *) malloc(45 + (2 * strlen(tempnode->astnode.ident.name)) 
+          + strlen(tempstring));
+        sprintf(decstr,"%s [] _%s_copy = MatConv.%sTwoDtoOneD(%s);",
+          tempstring, tempnode->astnode.ident.name, 
+          returnstring[returns], tempnode->astnode.ident.name);
+
+        dl_insert_b(decs, (void *) strdup(decstr));
+
+        if(isPassByRef(tempnode->astnode.ident.name)) {
+          /* decstr should already have enough storage for the following string.  */
+
+          sprintf(decstr,"MatConv.copyOneDintoTwoD(%s,_%s_copy);",
+            tempnode->astnode.ident.name, tempnode->astnode.ident.name);
+
+          dl_insert_b(rest, (void *) strdup(decstr));
+        }
+      }
+
+      if(hashtemp->variable->astnode.ident.dim > 2)
+        fprintf(stderr,
+           "Cant correctly generate interface with array over 2 dimensions\n");
+
+      fprintf (intfp, "%s ", tempstring);
+
+      for(i = 0; i < hashtemp->variable->astnode.ident.dim; i++ )
+        fprintf(intfp,"[]");
+
+      fprintf(intfp, " %s", tempnode->astnode.ident.name);
+
+      if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
+        char * temp2 = (char *) malloc(strlen(tempnode->astnode.ident.name) + 9);
+                
+        strcpy( temp2, "_");
+        strcat( temp2, tempnode->astnode.ident.name);
+        strcat( temp2, "_offset");
+        fprintf(intfp, ", int %s",temp2);
+      }
+    }
+
+    prev = hashtemp->variable;
+  }
+
+  fprintf (intfp, ")  {\n\n");
+    
+  if (root->nodetype == Function)
+    fprintf (intfp, "\n%s _retval;\n",
+      returnstring[root->astnode.source.returns]);
+
+  dl_traverse (tmp, decs)
+    fprintf(intfp,"%s\n", (char *) dl_val(tmp));
+
+  emit_methcall(intfp,root);
+
+  dl_traverse (tmp, rest)
+    fprintf(intfp,"%s\n", (char *) dl_val(tmp));
+
+  if (root->nodetype == Function)
+    fprintf (intfp, "\nreturn _retval;\n");
+
+  fprintf (intfp, "}\n");
+  fprintf (intfp, "}\n");
+
+  fclose(intfp);
+}
+
+void
+emit_methcall(FILE *intfp, AST *root)
+{
+  enum returntype returns;
+  extern char *returnstring[];
+  AST *tempnode, *prev;
+  char *tempstring;
+  HASHNODE *hashtemp;
+  BOOLEAN skipped;
+
+  if (root->nodetype == Function)
+    fprintf (intfp, "_retval = ");
+
+  tempstring = strdup(root->astnode.source.name->astnode.ident.name);
+  *tempstring = toupper(*tempstring);
+
+  fprintf(intfp,"%s.%s( ", tempstring, root->astnode.source.name->astnode.ident.name);
+
+  prev = NULL;
+  tempnode = root->astnode.source.args;
+
+  for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    skipped = FALSE;
+
+    hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
+    if (hashtemp == NULL)
+    {
+      fprintf (stderr,"Type table is screwed (codegen.c).\n");
+      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+      exit (-1);
+    }
+
+    if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
+      returns = OBJECT_TYPE;
+    else
+      returns = hashtemp->type;
+
+    if(omitWrappers) {
+      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
+        isPassByRef(tempnode->astnode.ident.name))
+          tempstring = wrapper_returns[returns];
+      else
+        tempstring = returnstring[returns];
+    }
+    else
+    {
+      if (hashtemp->variable->astnode.ident.arraylist == NULL)
+        tempstring = wrapper_returns[returns];
+      else
+        tempstring = returnstring[returns];
+    }
+
+    if (hashtemp->variable->astnode.ident.arraylist == NULL) {
+      if((prev != NULL) && (prev->astnode.ident.dim > 1) &&
+         !strcmp(tempnode->astnode.ident.name,prev->astnode.ident.leaddim))
+      {
+        skipped = TRUE;
+        fprintf(intfp, "%s.length" , prev->astnode.ident.name);
+      }
+      else 
+      {
+        fprintf (intfp, "%s", tempnode->astnode.ident.name);
+      }
+    }
+    else {
+
+      if(hashtemp->variable->astnode.ident.dim > 2)
+        fprintf(stderr,
+           "Cant correctly generate interface with array over 2 dimensions\n");
+
+     
+      if(hashtemp->variable->astnode.ident.dim == 1)
+        fprintf(intfp, " %s", tempnode->astnode.ident.name);
+      else if(hashtemp->variable->astnode.ident.dim == 2)
+        fprintf(intfp, " _%s_copy", tempnode->astnode.ident.name);
+
+      if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
+        char * temp2 = (char *) malloc(strlen(tempnode->astnode.ident.name) + 9);
+                
+        strcpy( temp2, "_");
+        strcat( temp2, tempnode->astnode.ident.name);
+        strcat( temp2, "_offset");
+        fprintf(intfp, ", %s",temp2);
+      }
+      else
+        fprintf(intfp, ", 0");
+    }
+
+    prev = hashtemp->variable;
+
+    /* Don't emit a comma on the last iteration. */
+    if(tempnode->nextstmt)
+      fprintf (intfp, ", ");
+  }
+
+  fprintf (intfp, ");\n\n");
+}
 
 /*
  * This function generates code to implement the fortran DO loop.

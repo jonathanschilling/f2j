@@ -7,7 +7,7 @@
 
 #define YYDEBUG 0
 
-int debug = TRUE;
+int debug = FALSE;
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -271,6 +271,7 @@ Fprogram:   Program Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+                $$->astnode.source.needs_blas = FALSE;
 
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
@@ -324,6 +325,7 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+                $$->astnode.source.needs_blas = FALSE;
 
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
@@ -375,6 +377,7 @@ Ffunction:   Function Specstmts Statements  End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+                $$->astnode.source.needs_blas = FALSE;
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
@@ -1041,21 +1044,8 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               }
             | Read
               {
-                HASHNODE *ht;
-                AST *temp;
-
                 $$ = $1;
                 $$->nodetype = Read;
-
-                if(omitWrappers) {
-                  for(temp = $1->astnode.io_stmt.arg_list;
-                       temp != NULL; temp = temp->nextstmt)
-                    if(temp->nodetype == Identifier) {
-                      ht = type_lookup(type_table,temp->astnode.ident.name);
-                      if(ht)
-                        ht->variable->astnode.ident.isReadArg = TRUE;
-                    }
-                }
               }
             | Stop
               {
@@ -1247,7 +1237,6 @@ Name:    NAME
            if(omitWrappers) {
              $$->astnode.ident.passByRef = FALSE;
              $$->astnode.ident.isLhs     = FALSE;
-             $$->astnode.ident.isReadArg = FALSE;
            }
 
            lowercase(yylval.lexeme);
@@ -2740,7 +2729,6 @@ type_hash(AST * types)
                tempnames, return_type, tempnames->astnode.ident.name);
             break;
           case EXTERNAL:
-printf("inserting %s into external table\n",tempnames->astnode.ident.name);
             type_insert(&(external_table->entry[index]), tempnames, 
                return_type, tempnames->astnode.ident.name);
             break;

@@ -36,6 +36,8 @@ int JAS;
 char *inputfilename;
 char *package_name;
 BOOLEAN omitWrappers;
+BOOLEAN genInterfaces;
+BOOLEAN noOffset;
 
 /* Dlist tokenstack; */
 SYMTABLE *type_table;
@@ -51,6 +53,7 @@ SYMTABLE *parameter_table;
 SYMTABLE *function_table; 
 SYMTABLE *java_keyword_table; 
 SYMTABLE *jasmin_keyword_table; 
+SYMTABLE *blas_routine_table; 
 SYMTABLE *common_block_table;
 SYMTABLE *global_func_table;
 SYMTABLE *global_common_table;
@@ -178,6 +181,7 @@ typedef struct ast_node
                   struct ast_node *prologComments;
                   int needs_input;
                   int needs_reflection;
+                  int needs_blas;
                   int scalarOptStatus;
 	      }
 	    source;
@@ -255,7 +259,6 @@ typedef struct ast_node
                   int len;
                   int passByRef;
                   int isLhs;
-                  int isReadArg;
                   int position;
 	      }
 	    ident;

@@ -1075,6 +1075,9 @@ call_check (AST * root)
     printf("the name of this function/subroutine is %s\n",
          root->astnode.ident.name);
 
+  if(type_lookup(blas_routine_table,root->astnode.ident.name))
+    cur_unit->astnode.source.needs_blas = TRUE;
+
   if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
   {
     if(checkdebug)

@@ -429,7 +429,6 @@ name_emit (AST * root)
 
     hashtemp = type_lookup (array_table, root->astnode.ident.name);
 
-
     switch (root->token)
       {
       case STRING:
@@ -446,7 +445,29 @@ name_emit (AST * root)
 	     name is intrinsic or external.  */
 
 	  if (root->astnode.ident.arraylist == NULL) {
+
+            if(hashtemp == NULL) {
 	      fprintf (javafp, "%s", root->astnode.ident.name);
+            } 
+            else {
+              if(root->parent == NULL) {
+                fprintf(stderr,"name_emit(): NO PARENT!\n");
+              } 
+              else {
+                if (root->parent->nodetype == Call) {
+                  if((type_lookup(external_table, 
+                                  root->parent->astnode.ident.name) != NULL))
+                  {
+                    fprintf (javafp, "%s,0", root->astnode.ident.name);
+                  }
+                  else {
+	            fprintf (javafp, "%s", root->astnode.ident.name);
+                  }
+                } else {
+	          fprintf (javafp, "%s", root->astnode.ident.name);
+                }
+              }
+            }
           }
 	  else if (hashtemp != NULL)
 	    {
@@ -560,10 +581,13 @@ name_emit (AST * root)
                       /* possibly not -- keith */
 	  else
 	    {
-printf("hi\n");
                 /* else it's not in the array table? */
+                char *tempstr;
 
-		fprintf (javafp, "%s", root->astnode.ident.name);
+                tempstr = strdup (root->astnode.ident.name);
+                *tempstr = toupper (*tempstr);
+
+		fprintf (javafp, "%s.%s", tempstr,root->astnode.ident.name);
 		temp = root->astnode.ident.arraylist;
 		fprintf (javafp, "(");
 		for (temp; temp != NULL; temp = temp->nextstmt)
@@ -696,7 +720,7 @@ constructor (AST * root)
 	  /* Define the constructor for the class. */
 	  fprintf (javafp, "\npublic static %s %s (",
 		   returnstring[returns],
-		   root->astnode.source.name->astnode.ident.name);
+		   lowercase(root->astnode.source.name->astnode.ident.name));
 
       }
     /* Else we have a subroutine, which returns void. */

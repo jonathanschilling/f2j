@@ -544,8 +544,7 @@ intrinsic_check(AST *root)
     return;
   }
 
-  if (!strcmp (tempname, "MOD")
-   || !strcmp (tempname, "SIGN"))
+  if(!strcmp (tempname, "MOD"))
   {
     temp = root->astnode.ident.arraylist;
       if(temp == NULL)
@@ -554,7 +553,22 @@ intrinsic_check(AST *root)
       if(temp->nextstmt == NULL)
         fprintf(stderr,"MOD2: calling expr_check with null pointer!\n");
     expr_check(temp->nextstmt);
+
     root->vartype = Integer;
+    return;
+  }
+
+  if(!strcmp (tempname, "SIGN"))
+  {
+    temp = root->astnode.ident.arraylist;
+      if(temp == NULL)
+        fprintf(stderr,"SIGN: calling expr_check with null pointer!\n");
+    expr_check(temp);
+      if(temp->nextstmt == NULL)
+        fprintf(stderr,"SIGN2: calling expr_check with null pointer!\n");
+    expr_check(temp->nextstmt);
+
+    root->vartype = Double;
     return;
   }
 

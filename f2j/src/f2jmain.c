@@ -177,6 +177,7 @@ main (int argc, char **argv)
         jasmin_reserved_words[i]);
     }
 
+    fprintf(stderr,"%s:\n",inputfilename);
     yyparse ();
 
     if(JAS)

@@ -1154,6 +1154,7 @@ name_emit (AST * root)
   char *javaname, * tempname;
   extern METHODTAB intrinsic_toks[];
 
+  printf("entering name_emit\n");
   /*  
    *  Check to see whether name is in external table.  Names are
    *  loaded into the external table from the parser.   
@@ -1208,6 +1209,7 @@ name_emit (AST * root)
           subcall_emit(root);
         break;
     }
+  printf("leaving name_emit\n");
 }
 
 /*  This function emits a function call */
@@ -1386,7 +1388,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
-      fprintf(stderr,"scalar_emit:Cant find %s in type_table\n",
+      fprintf(stderr,"array_emit:Cant find %s in type_table\n",
           root->astnode.ident.name);
 
     if(ht->variable->astnode.ident.merged_name != NULL)
@@ -1737,6 +1739,7 @@ intrinsic_emit(AST *root)
   AST *temp;
   char *tempname, *javaname;
 
+  printf("entering intrinsic_emit\n");
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
@@ -1906,7 +1909,7 @@ intrinsic_emit(AST *root)
   {
     temp = root->astnode.ident.arraylist;
 
-    fprintf(curfp,"%s((",javaname);
+    fprintf(curfp,"((");
     expr_emit(temp->nextstmt);
     fprintf(curfp,") >= 0 ? Math.abs(");
     expr_emit(temp);
@@ -1915,6 +1918,7 @@ intrinsic_emit(AST *root)
     fprintf(curfp,"))");
     return;
   }
+  printf("leaving intrinsic_emit\n");
 }
 
 /*

@@ -347,6 +347,8 @@ Program:      PROGRAM Name NL
                  $$->token = PROGRAM;
                  $$->astnode.source.args = NULL;
                  init_tables();
+
+                 fprintf(stderr," MAIN %s:\n",$2->astnode.ident.name);
               }
 ;
 
@@ -370,6 +372,8 @@ Subroutine: SUBROUTINE Name Functionargs NL
                    $$->astnode.source.args = NULL;
                  else
                    $$->astnode.source.args = switchem($3);
+
+                 fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
           | SUBROUTINE Name NL
               {
@@ -385,6 +389,7 @@ Subroutine: SUBROUTINE Name Functionargs NL
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
                  $$->astnode.source.args = NULL;
+                 fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
 ;
 
@@ -408,6 +413,8 @@ Function:  Type FUNCTION Name Functionargs NL
                $$->astnode.source.args = NULL;
              else 
                $$->astnode.source.args = switchem($4);
+
+             fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
 ; 
 
@@ -1281,6 +1288,13 @@ Doloop:   Do_incr Do_vals Do_statements  Continue /* Integer CONTINUE  NL */
             $$->astnode.forloop.stmts = $3;
             $$->astnode.forloop.Label = $1;
             $$->astnode.forloop.Continue = $4;
+
+            if(atoi($1->astnode.constant.number) != $4->astnode.label.number)
+            {
+             fprintf(stderr,"Warning: continue (%d) on line %d ",
+                $4->astnode.label.number,lineno);
+             fprintf(stderr,"does not match for loop\n");
+            }
           }
 ;
 

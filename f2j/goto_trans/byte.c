@@ -68,7 +68,7 @@ static u2_int        cur_sp;
 static char          *thisClassName;
 
 #ifndef TRANS_DEBUG
-#define TRANS_DEBUG 0
+#define TRANS_DEBUG 1
 #endif
 
 static int trdebug = TRANS_DEBUG;
@@ -951,7 +951,8 @@ back:
        if( (last_op == 18u) 
              && 
            (((prev_op >= 3u) && (prev_op <= 8u)) 
-                || (prev_op == 16u) || (prev_op == 17u) || (prev_op == 18u)) 
+                || (prev_op == 16u) || (prev_op == 17u)
+                || (prev_op == 18u) || (prev_op == 19u)) 
              && 
            (opc == 184u))
        {
@@ -1034,6 +1035,17 @@ back:
              branch_label = constant_pool[byt[prev_offset+1u]] -> u.data.val1;
              inst_size = 2;
              break;
+           case 19u:  /* ldc_w */
+             {
+               u2_int po = ((byt[prev_offset+1u]) << 8) | byt[prev_offset + 2u];
+               
+               if(trdebug) 
+                 printf("%d: %s %d\n", prev_offset, op,
+                   constant_pool[po] -> u.data.val1);
+               branch_label = constant_pool[po] -> u.data.val1;
+               inst_size = 3;
+             }
+             break;
            default:
              fprintf(stderr,"%s:Bad opcode encountered, output may be incorrect.\n",
                 filename);
@@ -1082,7 +1094,7 @@ back:
                    first 'ldc' is always 2 bytes, so add that
                    to the size of the previous instruction. */
 
-               bzero(byt+last_offset, inst_size + 2 - 2);
+               bzero(byt+last_offset, inst_size);
                numChanges++;
 
                 /* use the goto_w opcode just to be sure we

@@ -203,6 +203,8 @@ typedef struct ast_node
 	      {
 		  int number;
 		  struct ast_node *stmt;
+/* To construct a flow graph, need an array of "called_from"
+   pointers, that point back to the appropriate goto statements. */
 	      }
 	    label;
 
@@ -242,6 +244,7 @@ typedef struct ast_node
 		  struct ast_node *callingstmt;
 		  /*  Use for the `goto' node.  */
 		  struct ast_node *labelstmt;
+/*  Using the name "targetnode" might be less confusing. */
 	      }
 	    go_to;		/*, label; *//* goto is a reserved word! */
 

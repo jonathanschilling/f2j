@@ -170,7 +170,8 @@ emit (AST * root)
        emit_prolog_comments(AST *),
        emit_javadoc_comments(AST *),
        insert_fields(AST *),
-       assign_local_vars(AST *);
+       assign_local_vars(AST *),
+       return_emit(AST *);
 
     struct attribute_info * newCodeAttribute();
     char * tok2str(int);
@@ -361,8 +362,8 @@ emit (AST * root)
           printf ("Program name: %s\n", 
              root->astnode.source.name->astnode.ident.name);
 
-          constructor(root);
-          break;
+        constructor(root);
+        break;
       case Typedec:
         if (gendebug)
           printf ("Typedec.\n");
@@ -468,44 +469,10 @@ emit (AST * root)
           emit (root->nextstmt);
         break;
       case Return:
-        if (gendebug)
-        {
-          if(returnname != NULL)
-            printf ("Return: %s.\n", returnname);
-          else
-            printf ("Return.\n");
-        }
-            
-        /*
-         * According to the f77 spec, labels cannot contain more
-         * than five digits, so we use six nines as the label
-         * for the final return statement to avoid conflicts with
-         * labels that already exist in the program.
-         */
+        if(gendebug)
+          printf("Return: %s.\n", returnname != NULL ? returnname : "void");
 
-        fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
-
-        /* for bytecode, check if the current program unit is a
-         * Function.  if so, we push the implicit return value
-         * on the stack and return.  otherwise, just return void.
-         */
-
-        if(returnname) {
-          if(omitWrappers && !isPassByRef(returnname)) {
-            pushVar(cur_unit->vartype, FALSE, cur_filename,
-                    returnname, field_descriptor[cur_unit->vartype][0],
-                    0, FALSE);
-          }
-          else {
-            pushVar(cur_unit->vartype, FALSE, cur_filename,
-                    returnname, wrapped_field_descriptor[cur_unit->vartype][0],
-                    0, TRUE);
-          }
-          code_zero_op(return_opcodes[cur_unit->vartype]);
-        }
-        else
-          code_zero_op(jvm_return);
-
+        return_emit(root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -557,13 +524,13 @@ emit (AST * root)
           emit (root->nextstmt);
           break;
       case Stop:
-          if (gendebug)
-            printf ("Stop.\n");
+        if (gendebug)
+          printf ("Stop.\n");
 
-          fprintf (curfp, "System.exit(1);\n");
+        fprintf (curfp, "System.exit(1);\n");
 
-          if (root->nextstmt != NULL)
-            emit (root->nextstmt);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
         break;
       case End:
         if (gendebug)
@@ -649,6 +616,51 @@ emit (AST * root)
         fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
           print_nodetype(root));
     }				/* switch on nodetype.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * return_emit                                                               *
+ *                                                                           *
+ * This function generates code to return from a method.  Fortran program    *
+ * units PROGRAM and SUBROUTINE both return void, while FUNCTIONs return     *
+ * the Java type corresponding to their original Fortran declaration.        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+return_emit(AST *root)
+{
+            
+  /*
+   * According to the f77 spec, labels cannot contain more
+   * than five digits, so we use six nines as the label
+   * for the final return statement to avoid conflicts with
+   * labels that already exist in the program.
+   */
+
+  fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
+
+  /* for bytecode, check if the current program unit is a
+   * Function.  if so, we push the implicit return value
+   * on the stack and return.  otherwise, just return void.
+   */
+
+  if(returnname) {
+    if(omitWrappers && !isPassByRef(returnname)) {
+      pushVar(cur_unit->vartype, FALSE, cur_filename,
+              returnname, field_descriptor[cur_unit->vartype][0],
+              0, FALSE);
+    }
+    else {
+      pushVar(cur_unit->vartype, FALSE, cur_filename,
+              returnname, wrapped_field_descriptor[cur_unit->vartype][0],
+              0, TRUE);
+    }
+    code_zero_op(return_opcodes[cur_unit->vartype]);
+  }
+  else
+    code_zero_op(jvm_return);
 }
 
 /*****************************************************************************
@@ -2995,7 +3007,7 @@ pushStringConst(char *str)
  *                                                                           *
  * pushVar                                                                   *
  *                                                                           *
- * pushes a local variable onto the stack.                                   *
+ * pushes a local variable or field onto the stack.                          *
  *                                                                           *
  *****************************************************************************/
 
@@ -3253,6 +3265,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         /* this is the LHS of some assignment.  this is only an
          * issue for bytecode generation since we don't want to
          * generate a load instruction for the LHS of an assignment.
+         * for Java source, generate as usual.
          */
 
         if((global_sub.name != NULL) && 
@@ -3261,8 +3274,11 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         else {
           if(omitWrappers && !isPassByRef(root->astnode.ident.name))
             fprintf (curfp, "%s%s", com_prefix, name);
-          else
+          else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
+            pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+               typenode->variable->astnode.ident.localvnum, FALSE);
+          }
         }
       }
       else {
@@ -6591,6 +6607,21 @@ spec_emit (AST * root)
  * try to provide the appropriate cast, but in some cases the                *
  * resulting code may need to be modified slightly.                          *
  *                                                                           *
+ * to generate an assignment statement in bytecode, we consider              *
+ * three cases:                                                              *
+ *  1. LHS is a scalar, not wrapped in an object  (e.g.      a = expr)       *
+ *       in this case, the RHS should be emitted first, followed by          *
+ *       a store instruction to the LHS (unlike Java source where we         *
+ *       generate the LHS followed by the RHS).                              *
+ *  2. LHS is a scalar, wrapped in an object      (e.g.  a.val = expr)       *
+ *       in this case, we push a reference to the LHS on the stack           *
+ *       then emit the RHS as usual, followed by a putfield opcode           *
+ *       to store the value to the 'val' field.                              *
+ *  3. LHS is an array access                     (e.g.   a[x] = expr)       *
+ *       in this case, we push a reference to the LHS then emit the          *
+ *       index expression.  next emit the RHS and generate an                *
+ *       array store instruction (e.g. iastore).                             *
+ *                                                                           *
  *****************************************************************************/
 
 void
@@ -6672,6 +6703,60 @@ assign_emit (AST * root)
   }
   else   /* lhs and rhs have same types, everything is cool */
     expr_emit (root->astnode.assignment.rhs);
+
+  printf("blah1\n");
+  if(root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) {
+    printf("blah2\n");
+    /* LHS is not an array reference (note that the variable may be
+     * an array, but it isn't being indexed here).  for bytecode,
+     * we now generate a store or putfield instruction, depending
+     * on whether the variable is wrapped or not.
+     */
+    if(omitWrappers && 
+       !isPassByRef(root->astnode.assignment.lhs->astnode.ident.name)) 
+    {
+      char *desc;
+      HASHNODE * isArg;
+
+      desc = getVarDescriptor(root->astnode.assignment.lhs);
+      isArg = type_lookup(cur_args_table,root->astnode.assignment.lhs->astnode.ident.name);
+
+      /* generate a store/putstatic instruction */
+      printf("generating LHS...\n");
+      printf("lhs descriptor = %s\n",desc);
+      printf("isArg = %s\n",isArg?"Yes":"No");
+      printf("local var #%d\n",root->astnode.assignment.lhs->astnode.ident.localvnum);
+
+      /*
+      if(isArg) {
+        if((desc[0] == 'L') || (desc[0] == '[')) {
+          if(lv > 3)
+            code_one_op(jvm_aload, lv);
+          else
+            code_zero_op(short_load_opcodes[0][lv]);
+        } else {
+          if(lv > 3)
+            code_one_op(load_opcodes[vt], lv);
+          else
+            code_zero_op(short_load_opcodes[vt][lv]);
+        }
+      }
+      else {
+        c = newFieldref(cur_const_table, class, name, desc);
+        code_one_op_w(jvm_getstatic, c->index);
+      }
+
+      if(deref) {
+        c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+               val_descriptor[vt]);
+        code_one_op_w(jvm_getfield, c->index);
+      }
+      */
+    }
+    else {
+        /* generate a putfield instruction */
+    }
+  }
 }
 
 /*****************************************************************************

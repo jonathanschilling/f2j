@@ -42,6 +42,8 @@ int  isPassByRef(char *);
 
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
+struct ClassFile * newClassFile(char *,char *);
+
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
  *****************************************************************************/
@@ -146,8 +148,6 @@ emit (AST * root)
        emit_javadoc_comments(AST *),
        insert_fields(AST *);
 
-    struct ClassFile * newClassFile(AST *,char *);
-
     char * tok2str(int);
 
     switch (root->nodetype)
@@ -164,6 +164,9 @@ emit (AST * root)
 	  if (gendebug)
             printf ("Source.\n");
 
+          tmpname = root->astnode.source.progtype->
+                       astnode.source.name->astnode.ident.name;
+
           /* First set up the local hash tables. */
 
           cur_type_table = root->astnode.source.type_table;
@@ -179,7 +182,8 @@ emit (AST * root)
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
           cur_const_table = root->astnode.source.constants_table;
-          cur_class_file = root->astnode.source.class = newClassFile(root,inputfilename);
+          cur_class_file = root->astnode.source.class = 
+                newClassFile(tmpname,inputfilename);
        
           stacksize = max_stack = pc = 0;
           
@@ -199,9 +203,6 @@ emit (AST * root)
             import_reflection = TRUE;
           else
             import_reflection = FALSE; 
-
-          tmpname = root->astnode.source.progtype->
-                       astnode.source.name->astnode.ident.name;
 
           /* needs_blas is also determined during typecheck */
 
@@ -237,7 +238,15 @@ emit (AST * root)
 
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
+
           cp_dump(cur_const_table);
+          fields_dump(cur_class_file->fields, cur_const_table);
+ 
+          cur_class_file->constant_pool_count = 
+             (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
+          cur_class_file->constant_pool = cur_const_table;
+
+          write_class(cur_class_file);
 	  break;
         }
       case Subroutine:
@@ -579,23 +588,15 @@ insert_fields(AST *root)
           && ! type_lookup (cur_intrinsic_table, dec->astnode.ident.name)
           && ! type_lookup (cur_args_table, dec->astnode.ident.name))
         {
-          /* we should check if this var is a parameter... if so, we 
-           * generate a ConstantValue attribute for the field.  however,
-           * if the parameter represents some value that we wouldn't
-           * normally insert into the constant pool, then we will just
-           * not create a field for it.
+          /* we should check if this var is a parameter... if so, then
+           * the parameter variable will be emitted as a literal, so there
+           * is no need to insert this variable as a field.
            */
-          ht=type_lookup(cur_param_table, dec->astnode.ident.name);
-          if(ht != NULL) {
-            printf("ok, '%s' is a parameter. ",dec->astnode.ident.name);
-          }
-
-
-printf("var name '%s', desc '%s'\n",dec->astnode.ident.name,
-  field_descriptor[returns][dec->astnode.ident.dim]);
+          if(type_lookup(cur_param_table, dec->astnode.ident.name))
+            continue;
 
           tmpfield = (struct field_info *) malloc(sizeof(struct field_info));
-          tmpfield->access_flags = ACC_PUBLIC & ACC_STATIC;
+          tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
 
           c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
                   dec->astnode.ident.name);
@@ -604,10 +605,19 @@ printf("var name '%s', desc '%s'\n",dec->astnode.ident.name,
           c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
                   field_descriptor[returns][dec->astnode.ident.dim]);
           tmpfield->descriptor_index = c->index;
+  
+          tmpfield->attributes_count = 0;
+          tmpfield->attributes = NULL;
           
+          dl_insert_b(cur_class_file->fields, tmpfield);
+
+          if((ht=type_lookup(cur_type_table,dec->astnode.ident.name))!=NULL)
+            ht->variable->astnode.ident.fieldnum = cur_class_file->fields_count;
+          else
+            fprintf(stderr,"WARNING: can't set field num for '%s'\n",
+                dec->astnode.ident.name);
+
           cur_class_file->fields_count++;
-
-
         }
       }
     } 
@@ -793,9 +803,14 @@ common_emit(AST *root)
   AST *Ctemp, *Ntemp, *temp;
   char filename[100];
   FILE *commonfp;
-  char * prefix = strtok(strdup(inputfilename),".");
+  char * prefix = strtok(strdup(inputfilename),"."), * com_prefix, * mname;
   int needs_dec = FALSE;
   void vardec_emit(AST *, enum returntype);
+  struct ClassFile *tmpclass;
+  Dlist save_const_table;
+  char *get_common_prefix(char *);
+
+  save_const_table = cur_const_table;
 
   /*
    * Ctemp loops through each common block name specified
@@ -814,6 +829,10 @@ common_emit(AST *root)
       sprintf(filename,"%s_%s.java", prefix,
          Ctemp->astnode.common.name);
 
+      cur_const_table = make_dl();
+
+      tmpclass = newClassFile(strtok(strdup(filename),"."), inputfilename);
+
       if((commonfp = fopen(filename,"w"))==NULL) 
       {
         fprintf(stderr,"Cannot open output file '%s'.\n",filename);
@@ -830,7 +849,7 @@ common_emit(AST *root)
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"public class %s_%s\n{\n",prefix,
           Ctemp->astnode.common.name);
-  
+
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
       {
         needs_dec = FALSE;
@@ -866,10 +885,36 @@ common_emit(AST *root)
         /* now emit the variable declaration as with any
          * other variable.
          */
+
+        /* why do we check this, then do the same thing either way?  --kgs */
         if(type_lookup(cur_data_table,Ntemp->astnode.ident.name) && !needs_dec)
           vardec_emit(temp, temp->vartype);
         else
           vardec_emit(temp, temp->vartype);
+
+        /* the rest of the code in this loop determines the merged name
+         * of the variable so that we can insert it as a field in the
+         * class file for this common block.
+         */
+ 
+        com_prefix = get_common_prefix(temp->astnode.ident.name);
+
+        mname = temp->astnode.ident.name;
+
+        if(com_prefix[0] != '\0')
+        {
+          hashtemp = type_lookup(cur_type_table,temp->astnode.ident.name);
+          if (hashtemp == NULL)
+            fprintf(stderr,"array_emit:Cant find %s in type_table\n",
+                temp->astnode.ident.name);
+
+          if(hashtemp->variable->astnode.ident.merged_name != NULL)
+            mname = hashtemp->variable->astnode.ident.merged_name;
+        }
+
+
+        printf("ok.. common block var: %s%s\n",com_prefix,mname);
+
       }
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"}\n");
@@ -878,6 +923,7 @@ common_emit(AST *root)
     }
   }
   curfp = javafp;
+  cur_const_table = save_const_table;
 }
 
 /*****************************************************************************
@@ -2611,9 +2657,13 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         if((methodscan (intrinsic_toks, tempname) == NULL) &&
            (type_lookup(cur_array_table, root->parent->astnode.ident.name) == NULL))
         {
+          /* parent is not a call to an intrinsic and not an array access */
+
           if(gendebug)
             printf("did not find %s in intrinsics table\n",
                root->parent->astnode.ident.name);
+
+printf("com_prefix = %s, merged name = %s\n",com_prefix, name);
           fprintf (curfp, "%s%s", com_prefix, name);
         }
         else
@@ -3226,8 +3276,10 @@ expr_emit (AST * root)
     case Power:
       {
         /* hack alert: determine whether this expression is used as the size
-         *   in an array declaration.  if so, it must be integer.  so we add
-         *   a cast.  it would probably be better to detect this elsewhere.
+         *   in an array declaration.  if so, it must be integer, but java's
+         *   pow() method returns double.  so we add a cast.  it would probably
+         *   be better to detect this elsewhere (e.g. in the code that emits
+         *   array declarations).
          */
         BOOLEAN gencast = (root->parent != NULL) && (root->parent->nodetype == ArrayDec);
 
@@ -6779,7 +6831,7 @@ code_one_op_w(enum _opcode op, int index)
  *****************************************************************************/
 
 struct ClassFile *
-newClassFile(AST *root, char *srcFile)
+newClassFile(char *name, char *srcFile)
 {
   struct attribute_info * attr_temp;
   struct cp_info *newnode;
@@ -6793,9 +6845,9 @@ newClassFile(AST *root, char *srcFile)
  
   tmp = (struct ClassFile *)malloc(sizeof(struct ClassFile));
  
-  tmp->magic = 0xCAFEBABE;
-  tmp->minor_version = 3;
-  tmp->major_version = 45;
+  tmp->magic = JVM_MAGIC;
+  tmp->minor_version = JVM_MINOR_VER;
+  tmp->major_version = JVM_MAJOR_VER;
 
   /* we'll fill out the constant pool, fields, and methods later. */
   tmp->constant_pool_count = 0;
@@ -6805,15 +6857,14 @@ newClassFile(AST *root, char *srcFile)
   tmp->fields_count = 0;
   tmp->fields = make_dl();
 
-  tmp->access_flags = ACC_PUBLIC & ACC_FINAL & ACC_SUPER;
+  tmp->access_flags = ACC_PUBLIC | ACC_FINAL | ACC_SUPER;
 
   /* first create an entry for 'this'.  the class file variable this_class
    * points to a CONSTANT_Class_info entry in the constant pool, which in
    * turn points to a CONSTANT_Utf8_info entry representing the name of
    * this class.  so, first we create the Utf8 entry, then the Class entry.
    */
-  thisname = 
-    strdup(root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  thisname = strdup(name);
   lowercase(thisname);
   thisname[0] = toupper(thisname[0]);
 

@@ -314,6 +314,7 @@ struct _ident
     D[3],                           /* num elements in each dim (up to 3)    */
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
     position,                       /* ident's position in COMMON block      */
+    fieldnum,                       /* this var's field number (in bytecode) */ 
     localvnum;                      /* local variable number (for Jasmin)    */ 
 
   BOOLEAN

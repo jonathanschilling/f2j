@@ -1281,6 +1281,7 @@ Name:    NAME
 
              $$->astnode.ident.needs_declaration = FALSE;
              $$->astnode.ident.lead_expr = NULL;
+             $$->astnode.ident.fieldnum = 0;
 
              if(omitWrappers)
                $$->astnode.ident.passByRef = FALSE;

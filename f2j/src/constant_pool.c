@@ -400,6 +400,9 @@ cp_entry_by_index(Dlist list, int idx)
 {
   Dlist temp;
 
+  if(list == NULL)
+    return NULL;
+
   dl_traverse(temp,list) {
     if( ((CPNODE*)temp->val)->index == idx )
       return temp->val;
@@ -551,6 +554,37 @@ cp_insert(Dlist list, struct cp_info *node, char width) {
   dl_insert_b(list, n);
 
   return n;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * fields_dump                                                               *
+ *                                                                           *
+ * Dumps a list of the class variables.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+fields_dump(Dlist flist, Dlist clist)
+{
+  struct field_info *tmpfield;
+  CPNODE * tmpfield2;
+  Dlist tmpPtr;
+  int count=1;
+
+  dl_traverse(tmpPtr,flist) {
+    tmpfield = (struct field_info *) tmpPtr->val;
+    printf("Field #%d\n", count++);
+    printf("\taccess flags: %d\n",tmpfield->access_flags);
+    tmpfield2 = cp_entry_by_index(clist,tmpfield->name_index);
+    printf("\tname idx: %d (%s)\n", tmpfield->name_index,
+           null_term(tmpfield2->val->cpnode.Utf8.bytes,
+                     tmpfield2->val->cpnode.Utf8.length));
+    tmpfield2 = cp_entry_by_index(clist,tmpfield->descriptor_index);
+    printf("\tdesc idx: %d (%s)\n", tmpfield->descriptor_index,
+           null_term(tmpfield2->val->cpnode.Utf8.bytes,
+                     tmpfield2->val->cpnode.Utf8.length));
+  }
 }
 
 /*****************************************************************************

@@ -11,6 +11,10 @@
 
 #include "dlist.h"
 
+/*
+ * Definitions of class/field/method modifiers:
+ */
+
 #define ACC_PUBLIC       0x0001
 #define ACC_PRIVATE      0x0002
 #define ACC_PROTECTED    0x0004
@@ -22,6 +26,14 @@
 #define ACC_INTERFACE    0x0200
 #define ACC_ABSTRACT     0x0400
 #define ACC_STRICT       0x0800
+
+#define JVM_MAGIC 0xCAFEBABE
+#define JVM_MINOR_VER 3
+#define JVM_MAJOR_VER 45
+
+/*
+ * Structures representing the JVM class file.
+ */
 
 enum _constant_tags {
   CONSTANT_Utf8 = 1,              /*   1  */
@@ -164,26 +176,15 @@ struct Code_attribute {
 };
 
 struct Exceptions_attribute {
-  u2 attribute_name_index;    /* cp index to name ("Exceptions")             */
-  u4 attribute_length;        /* length of the attribute in bytes            */
   u2 number_of_exceptions;    /* number of entries in exception_index_table  */
   u2 *exception_index_table;  /* table of exceptions a method can throw      */
 };
 
-struct Synthetic_attribute {
-  u2 attribute_name_index;    /* cp index to name ("Synthetic")              */
-  u4 attribute_length;        /* length must be zero for Synthetic attribute */
-};
-
 struct SourceFile_attribute {
-  u2 attribute_name_index;    /* cp index to name ("SourceFile")             */
-  u4 attribute_length;        /* length must be 2 for SourceFile attribute   */
   u2 sourcefile_index;        /* cp index to name of source file (in Utf8)   */
 };
 
 struct LineNumberTable_attribute {
-  u2 attribute_name_index;    /* cp index to name ("LineNumberTable")        */
-  u4 attribute_length;        /* length of the attribute in bytes            */
   u2 line_number_table_length; /* number of entries in line_number_table     */
   struct {  
     u2 start_pc;              /* idx to code where original src stmt begins  */
@@ -192,8 +193,6 @@ struct LineNumberTable_attribute {
 };
 
 struct LocalVariableTable_attribute {
-  u2 attribute_name_index;    /* cp index to name ("LocalVariableTable")     */
-  u4 attribute_length;        /* length of the attribute in bytes            */
   u2 local_variable_table_length; /* number of entries in line_number_table  */
   struct {  
     u2 start_pc;              /* start idx of valid range for this variable  */
@@ -211,11 +210,23 @@ struct attribute_info {
     struct ConstantValue_attribute ConstantValue;
     struct Code_attribute Code;
     struct Exceptions_attribute Exceptions;
-    struct Synthetic_attribute Synthetic;
+    void * Synthetic;
     struct SourceFile_attribute SourceFile;
     struct LineNumberTable_attribute LineNumberTable;
     struct LocalVariableTable_attribute LocalVariableTable;
   } attr;
 };
 
+/*
+ * Function prototypes. 
+ */
+
+void   write_class(struct ClassFile *);
+void   write_constant_pool(struct ClassFile *, FILE *); 
+void   write_interfaces(struct ClassFile *, FILE *); 
+void   write_fields(struct ClassFile *, FILE *); 
+void   write_methods(struct ClassFile *, FILE *); 
+void   write_attributes(struct ClassFile *, FILE *); 
+FILE * open_output_classfile(struct ClassFile *);
+ 
 #endif

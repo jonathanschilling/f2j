@@ -855,7 +855,7 @@ blockif_optimize (AST * root, AST *rptr)
     optimize (root->astnode.blockif.stmts, rptr);
 
   for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
-    elseif_optimize (root->astnode.blockif.elseifstmts, rptr);
+    elseif_optimize (temp, rptr);
 
   if (root->astnode.blockif.elsestmts != NULL)
     else_optimize (root->astnode.blockif.elsestmts, rptr);

@@ -3108,6 +3108,9 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
   ht = type_lookup(ttable,name);
   if(ht) {
 
+    if(gendebug)
+      printf("isPassByRef(): found '%s' in type table\n", name);
+
     if(ht->variable->nodetype != Identifier) {
       fprintf(stderr,"isPassByRef():  non-ident node found (%s).\n", name);
       return FALSE;
@@ -3118,6 +3121,8 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
       /* simple case.  if the variable is tagged as pass-by-reference
        * in the hash table, then return TRUE.
        */
+      if(gendebug)
+        printf("isPassByRef(): '%s' is tagged pass-by-ref\n", name);
 
       return TRUE;
     }
@@ -3125,6 +3130,8 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
       /* otherwise, we look up the variable name in the table of
        * COMMON variables.
        */
+      if(gendebug)
+        printf("isPassByRef(): '%s' is not tagged pass-by-ref\n", name);
 
       ht2 = type_lookup(ctable,name);
       if(ht2) {
@@ -3171,6 +3178,9 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
     }
   }
   else if(type_lookup(etable, name)) {
+    if(gendebug)
+      printf("isPassByRef(): '%s' not found in type table, but found in external table\n", name);
+
     return FALSE;
   }
   else {

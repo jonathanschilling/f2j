@@ -1,4 +1,21 @@
 #!/usr/local/bin/perl
+#
+# This file is part of the Fortran-to-Java (f2java) system,
+# developed at the University of Tennessee.
+#
+# This perl program translates calls to Dummy.go_to() and
+# Dummy.label() into jasmin gotos and jasmin labels (see
+# Dummy.java).  There are several patterns that we look for:
+#   ldc "asdf"
+#   bipush 10, or sipush 10, or iconst_10
+#   invokestatic Dummy/go_to(Ljava/lang/String;I)V
+# These three lines would be translated to:
+#   goto dlabel10   
+# where dlabel10 is a jasmin label.
+# Labels are translated similarly.
+#
+# Keith Seymour (seymour@cs.utk.edu)
+#
 
 undef $/;
 

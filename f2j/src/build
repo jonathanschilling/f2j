@@ -1,7 +1,25 @@
 #!/bin/csh -f
+#
+# This file is part of the Fortran-to-Java (f2java) system,
+# developed at the University of Tennessee.
+#
+# This script helps automate the process of converting fortran
+# code containing gotos into runnable java code.  It is assumed
+# that the fortran source has already been translated into a
+# .java file by f2java.  To translate all the gotos, pass the
+# name of the file to this script, e.g.:
+#    mymachine> f2java f77code.f
+#    mymachine> build F77code.java
+# Notice that f2java will convert the first letter of the file to
+# uppercase.
+# 
+# Keith Seymour (seymour@cs.utk.edu)
+#
 
 set PNAME = `echo $0 | awk -F/ '{print $NF}'`
 
+# check the args
+#
 if($#argv != 1) then
   echo Usage:  $PNAME \<source file\>
   exit
@@ -11,10 +29,15 @@ set JAVA_SRC = $1
 set CLASS = `echo $1 | sed s/java/class/g`
 set JAS_SRC = `echo $1 | sed s/java/j/g`
 
+#
+# Step 1.  Compile the java .file to a .class file.
+#
+
 echo "javac $JAVA_SRC"
-# set result = `javac $JAVA_SRC`
 rm -f __out
 javac $JAVA_SRC >& __out
+
+# check for compilation errors
 if(! -z __out) then
  echo "Trouble compiling - check your source file."
  cat __out
@@ -22,10 +45,29 @@ if(! -z __out) then
  exit
 endif
 rm -f __out
+
+#
+# Step 2.  Disassemble the class file into a file containing
+#          jasmin assembler.
+#
+
 echo "djava -o jasmin $CLASS > $CLASS.out"
 djava -o jasmin $CLASS > $CLASS.out
+
+#
+# Step 3.  Translate the 'dummy' gotos (see Dummy.java) to
+#          jasmin gotos.  This is done by a perl script called
+#          trans, which should be in the current directory.
+#
+
 echo "./trans < $CLASS.out > $JAS_SRC"
 ./trans < $CLASS.out > $JAS_SRC
+
+#
+# Step 4.  Assemble the resulting jasmin assembler code into
+#          a new class file.
+#
+
 echo "jasmin $JAS_SRC"
 jasmin $JAS_SRC
 rm -f $CLASS.out

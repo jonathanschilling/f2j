@@ -692,6 +692,12 @@ prelex (BUFFER * bufstruct)
     check_continued_lines (ifp, bufstruct->stmt);
     collapse_white_space (bufstruct);
 
+    if(bufstruct->stmt[0] == '\n') {
+      lineno++;
+      strcpy(yylval.lexeme, bufstruct->stmt);
+      return COMMENT;
+    }
+
     if(lexdebug)
       printf ("From prelex: %s\n", bufstruct->stmt);
 

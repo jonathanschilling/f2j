@@ -383,8 +383,12 @@ uppercase(char * name)
 
 void handle_segfault()
 {
+  extern char * unit_name;
+
   fflush(stdout);
   fprintf(stderr,"Segmentation Fault, stdout flushed.\n");
+  if(unit_name != NULL)
+    fprintf(stderr,"unit name is %s\n",unit_name);
   fflush(stderr);
   exit(1);
 }

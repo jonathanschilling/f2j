@@ -155,7 +155,7 @@ optimize (AST * root, AST * rptr)
   {
     case 0:
       if (optdebug)
-        printf ("Bad node\n");
+        fprintf (stderr,"Bad node\n");
 
       optimize (root->nextstmt, rptr);
     case Progunit:
@@ -269,7 +269,7 @@ optimize (AST * root, AST * rptr)
     case Format:
     case Stop:
     case Save:
-    case Common:
+    case CommonList:
     case ComputedGoto:
     case Goto:
     case Return:
@@ -329,11 +329,14 @@ spec_optimize(AST *root, AST *rptr)
       temp = root->astnode.typeunit.declist;
       for(;temp != NULL;temp = temp->nextstmt) {
 
-        printf("external %s\n", temp->astnode.ident.name);
+        if(optdebug)
+          printf("external %s\n", temp->astnode.ident.name);
+
         ht= type_lookup(opt_external_table,temp->astnode.ident.name);
         if(ht)
         {
-          printf("going to optimize external %s\n",temp->astnode.ident.name);
+          if(optdebug)
+            printf("going to optimize external %s\n",temp->astnode.ident.name);
 
           ht2 = type_lookup(global_func_table,temp->astnode.ident.name);
           if(!ht2) {
@@ -1007,8 +1010,9 @@ call_optimize (AST * root, AST *rptr)
   }
   else
   {
-    printf("call_optimize(): %s not found in global function table.\n",
-      root->astnode.ident.name);
+    if(optdebug)
+      printf("call_optimize(): %s not found in global function table.\n",
+        root->astnode.ident.name);
 
     temp = root->astnode.ident.arraylist;
 
@@ -1055,7 +1059,7 @@ assign_optimize (AST * root, AST *rptr)
       ht->variable->astnode.ident.passByRef = TRUE;
   }
   else
-    printf("Can't find lhs of assignment: %s\n", 
+    fprintf(stderr,"Can't find lhs of assignment: %s\n", 
        root->astnode.assignment.lhs->astnode.ident.name);
 
   expr_optimize (root->astnode.assignment.rhs, rptr);

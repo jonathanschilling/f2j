@@ -122,7 +122,6 @@ typecheck (AST * root)
         for(temp = root->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
           if(type_lookup(chk_external_table,temp->astnode.ident.name) != NULL)
             cur_unit->astnode.source.needs_reflection = TRUE;
-
       }
       break;
     case End:
@@ -159,6 +158,7 @@ typecheck (AST * root)
     case Save:
     case Comment:
     case Unimplemented:
+
       if (checkdebug)
         printf ("typecheck(): %s.\n", print_nodetype(root));
 
@@ -166,6 +166,8 @@ typecheck (AST * root)
         typecheck (root->nextstmt);
       break;
     case Common:
+      fprintf(stderr,"Warning: hit case Common in typecheck()\n");
+    case CommonList:
       common_check(root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
@@ -586,7 +588,7 @@ common_check(AST *root)
   int hash (char *);
   void type_insert (HASHNODE **, AST *, int, char *);
 
-  for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
+  for(Ctemp=root->astnode.common.nlist;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
     if(Ctemp->astnode.common.name != NULL)
     {

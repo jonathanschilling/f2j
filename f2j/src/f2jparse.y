@@ -195,6 +195,7 @@ F2java:   Sourcecodes
                      * for that in codegen.
                      */
                     temp->astnode.source.prologComments = commentList;
+
                     typecheck(temp);
 
                     if(omitWrappers)
@@ -706,11 +707,15 @@ EquivalenceItem: Lhs
                  }
 ;
 
-Common:     COMMON CommonList NL
-            {
-              $$ = switchem($2);
-              merge_common_blocks($$);
-            }
+Common: COMMON CommonList NL
+        {
+          $$ = addnode();
+          $$->nodetype = CommonList;
+          $$->astnode.common.name = NULL;
+
+          $$->astnode.common.nlist = switchem($2);
+          merge_common_blocks($$->astnode.common.nlist);
+        }
 ;
 
 CommonList: CommonSpec
@@ -3091,6 +3096,16 @@ merge_common_blocks(AST *root)
     if(name_array == NULL) {
       perror("Unsuccessful malloc");
       exit(1);
+    }
+
+    for(temp=Clist->astnode.common.nlist, count = 0;
+              temp!=NULL; temp=temp->nextstmt, count++)
+    {
+      name_array[count] = (char *) malloc( 80 );
+      if(name_array[count] == NULL) {
+        perror("Unsuccessful malloc");
+        exit(1);
+      }
     }
 
     /* foreach COMMON variable */

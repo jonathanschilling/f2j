@@ -128,6 +128,7 @@ enum _nodetype
   Blockif,
   Comment,
   Common,
+  CommonList,
   DataStmt,
   DataList,
   Elseif,

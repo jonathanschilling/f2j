@@ -54,7 +54,7 @@ HASHNODE * format_lookup(SYMTABLE *, char *);
  *   Global variables, a necessary evil when working with yacc.              *
  *****************************************************************************/
 
-int gendebug = TRUE;   /* set to TRUE to generate debugging output           */
+int gendebug = FALSE;  /* set to TRUE to generate debugging output           */
 
 extern int 
   ignored_formatting,  /* number of FORMAT statements ignored                */
@@ -224,7 +224,7 @@ emit (AST * root)
           char *tmpname;
 
 	  if (gendebug)
-	      printf ("Source.\n");
+            printf ("Source.\n");
 
           /* First set up the local hash tables. */
 
@@ -564,6 +564,8 @@ emit (AST * root)
             emit (root->nextstmt);
           break;
       case Common:
+          fprintf(stderr,"Warning: hit case Common in emit()\n");
+      case CommonList:
           if (gendebug)
             printf ("Common.\n");
 
@@ -752,7 +754,7 @@ common_emit(AST *root)
    * variable in each common block. 
    */
 
-  for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
+  for(Ctemp=root->astnode.common.nlist;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
     if(Ctemp->astnode.common.name != NULL) 
     {
@@ -875,14 +877,16 @@ typedec_emit (AST * root)
   {
 
     if(omitWrappers) {
-      printf("vardec %s\n", temp->astnode.ident.name);
+      if(gendebug)
+        printf("vardec %s\n", temp->astnode.ident.name);
       if((ht= type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
       {
-        printf("%s should be %s\n", temp->astnode.ident.name,
-          ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
+        if(gendebug)
+          printf("%s should be %s\n", temp->astnode.ident.name,
+            ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
       }
       else
-        printf("could not find %s\n", temp->astnode.ident.name);
+        fprintf(stderr,"could not find %s\n", temp->astnode.ident.name);
     }
 
     /* 
@@ -6244,6 +6248,8 @@ print_nodetype (AST *root)
       return("Blockif");
     case Common:
       return("Common");
+    case CommonList:
+      return("CommonList");
     case DataStmt:
       return("DataStmt");
     case DataList:

@@ -5410,6 +5410,8 @@ expr_emit (AST * root)
         }
         ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
 
+        fprintf (curfp, "%c", root->astnode.expression.optype);
+
         bytecode1(jvm_invokespecial, ct->index);
         expr_emit (root->astnode.expression.rhs);
         if((root->astnode.expression.rhs->vartype != String) &&
@@ -5459,8 +5461,9 @@ expr_emit (AST * root)
 
       break;
     case Unaryop:
-      fprintf (curfp, "%c", root->astnode.expression.minus);
+      fprintf (curfp, "%c(", root->astnode.expression.minus);
       expr_emit (root->astnode.expression.rhs);
+      fprintf (curfp, ")");
 
       if(root->astnode.expression.minus == '-')
         bytecode0(neg_opcode[root->vartype]);

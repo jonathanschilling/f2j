@@ -62,6 +62,7 @@ double
 char 
   * strdup(const char *),
   * lowercase(char * ),
+  * first_char_is_minus(char *),
   * tok2str(int );
 
 void 
@@ -1347,6 +1348,11 @@ Name:    NAME
            HASHNODE *hashtemp;
 
            lowercase(yylval.lexeme);
+
+           if(type_lookup(java_keyword_table,yylval.lexeme) ||
+             type_lookup(jasmin_keyword_table,yylval.lexeme))
+                yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+
 
            /* check if the name we're looking at is defined as a parameter.
             * if so, instead of inserting an Identifier node here, we're just
@@ -2793,6 +2799,7 @@ Pdecs:    Pdec
 Pdec:     Assignment
           {
             double constant_eval;
+            char *cur_id;
             AST *temp;
 
             if(debug)
@@ -2840,8 +2847,13 @@ Pdec:     Assignment
                                                       
 printf("### the constant is '%s'\n", temp->astnode.constant.number);
 
-            type_insert(parameter_table, temp, 0,
-               strdup($$->astnode.assignment.lhs->astnode.ident.name));
+            cur_id = strdup($$->astnode.assignment.lhs->astnode.ident.name);
+
+            if(type_lookup(java_keyword_table,cur_id) ||
+               type_lookup(jasmin_keyword_table,cur_id))
+                  cur_id[0] = toupper(cur_id[0]);
+
+            type_insert(parameter_table, temp, 0, cur_id);
             free_ast_node($$->astnode.assignment.lhs);
 /*
             type_insert(parameter_table, temp, 0,
@@ -3609,17 +3621,47 @@ printbits(char *header, void *var, int datalen)
  *****************************************************************************/
 
 void
-prepend_minus(char *num) {
+prepend_minus(char *num)
+{
   char * tempstr;
 
+  if( (tempstr = first_char_is_minus(num)) ) {
+    *tempstr = ' ';
+    return;
+  }
+
   /* allocate enough for the number, minus sign, and null char */
-  tempstr = (char *)f2jalloc(strlen(num) + 2);
+  tempstr = (char *)f2jalloc(strlen(num) + 5);
 
   strcpy(tempstr,"-");
   strcat(tempstr,num);
   strcpy(num,tempstr);
 
   free(tempstr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * first_char_is_minus                                                       *
+ *                                                                           *
+ * Determines whether the number represented by this string is negative.     *
+ * If negative, this function returns a pointer to the minus sign.  if non-  *
+ * negative, returns NULL.                                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+first_char_is_minus(char *num)
+{
+  char *ptr = num;
+
+  while( *ptr ) {
+    if( *ptr == '-' )
+      return ptr;
+    ptr++;
+  }
+
+  return NULL;
 }
 
 /*****************************************************************************

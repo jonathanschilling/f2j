@@ -556,7 +556,7 @@ typedef struct {
 void 
   jasminheader (FILE *, char *),
   javaheader (FILE *, char *),
-  return_emit (AST *),
+  return_emit (),
   logicalop_assign(AST *),
   relationalop_assign(AST *),
   logicalop_emit(AST *),

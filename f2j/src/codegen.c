@@ -130,6 +130,9 @@ struct method_info
   *clinit_method,       /* special class initialization method <clinit>      */
   *main_method;         /* the primary method for this fortran program unit  */
 
+enum _opcode
+  lastOp = jvm_nop;     /* the last opcode emitted (avoids dup return stmt)  */
+
 /*****************************************************************************
  *                                                                           *
  * emit                                                                      *
@@ -171,10 +174,12 @@ emit (AST * root)
        emit_javadoc_comments(AST *),
        insert_fields(AST *),
        assign_local_vars(AST *),
-       return_emit(AST *);
+       return_emit(),
+       end_emit(AST *);
 
     struct attribute_info * newCodeAttribute();
     char * tok2str(int);
+    extern int locals;
 
     switch (root->nodetype)
     {
@@ -197,10 +202,19 @@ emit (AST * root)
 
           classname = strdup(tmpname);
           lowercase(classname);
-          if(root->astnode.source.progtype->nodetype == Program)
+
+          /* check if this program unit is a PROGRAM.  if so, the
+           * method name is "main" and we have to set the max. locals
+           * to 1 because Java's main always takes a string array arg.
+           */
+           
+          if(root->astnode.source.progtype->nodetype == Program) {
             methodname = "main";
+            locals = 1;
+          }
           else
             methodname = strdup(classname);
+
           classname[0] = toupper(classname[0]);
 
           /* First set up the local hash tables. */
@@ -475,7 +489,16 @@ emit (AST * root)
         if(gendebug)
           printf("Return: %s.\n", returnname != NULL ? returnname : "void");
 
-        return_emit(root);
+        /*
+         * According to the f77 spec, labels cannot contain more
+         * than five digits, so we use six nines as the label
+         * for the final return statement to avoid conflicts with
+         * labels that already exist in the program.
+         */
+
+        fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
+
+        return_emit();
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -538,41 +561,7 @@ emit (AST * root)
       case End:
         if (gendebug)
           printf ("End.\n");
-
-        /*
-         * We only generate one real return statement.  The
-         * other return statements are emitted as gotos to
-         * the end of the code.  See the tech report for the
-         * reasoning behind this decision.  Anyway, here at 
-         * the end, we emit the real return statement.
-         * We use six nines as the label to avoid conflicts 
-         * with other labels.  See comment above in the Return 
-         * case.
-         */
-
-        fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
-
-        if (returnname != NULL) {
-          if(omitWrappers && !isPassByRef(returnname))
-            fprintf (curfp, "return %s;\n", returnname);
-          else
-            fprintf (curfp, "return %s.val;\n", returnname);
-        }
-        else
-          fprintf (curfp, "return;\n");
-
-        if(import_reflection) {
-          fprintf(curfp, "%s%s%s%s%s%s%s",
-             "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
-             "   System.err.println(\"Error calling method.", 
-             "  \"+ _e.getMessage());\n",
-             "} catch (java.lang.IllegalAccessException _e2) {\n",
-             "   System.err.println(\"Error calling method.",
-             "  \"+ _e2.getMessage());\n",
-             "}\n");
-        }
-
-        fprintf (curfp, "   }\n");
+        end_emit(root);
         break;
       case Save:
         if (gendebug)
@@ -623,6 +612,73 @@ emit (AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * end_emit                                                                  *
+ *                                                                           *
+ * We only generate one real return statement.  The other return statements  *
+ * are emitted as gotos to the end of the code.  See the tech report for the *
+ * reasoning behind this decision.  Anyway, here at the end, we emit the     *
+ * real return statement.  We use six nines as the label to avoid conflicts  *
+ * with other labels.  See comment above in the Return case.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+end_emit(AST *root)
+{
+  void return_emit();
+
+  fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
+
+  if (returnname != NULL) {
+    if(omitWrappers && !isPassByRef(returnname))
+      fprintf (curfp, "return %s;\n", returnname);
+    else
+      fprintf (curfp, "return %s.val;\n", returnname);
+  }
+  else
+    fprintf (curfp, "return;\n");
+
+  if(import_reflection) {
+    fprintf(curfp, "%s%s%s%s%s%s%s",
+       "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
+       "   System.err.println(\"Error calling method.", 
+       "  \"+ _e.getMessage());\n",
+       "} catch (java.lang.IllegalAccessException _e2) {\n",
+       "   System.err.println(\"Error calling method.",
+       "  \"+ _e2.getMessage());\n",
+       "}\n");
+  }
+
+  fprintf (curfp, "   }\n");
+
+  /* in Fortran if the program unit is a PROGRAM, it has no explicit
+   * return statement.  however, Java bytecode requires an explicit return
+   * instruction even if the method returns void.  also, if I remember
+   * correctly from the F77 spec, FUNCTIONs and SUBROUTINEs do not 
+   * require an explicit return statement, but the END statement acts
+   * as an implicit return in these cases.   here we must generate a
+   * return statement however we want to avoid generating two return
+   * statements because then the bytecode verifier will reject the class.
+   * to avoid duplicates, check whether the last opcode generated was
+   * a return.  if so, do not generate another one here. 
+   */
+  switch(lastOp) {
+    case jvm_ireturn:
+    case jvm_lreturn:
+    case jvm_freturn:
+    case jvm_dreturn:
+    case jvm_areturn:
+    case jvm_return:
+      /* do nothing */
+      break;
+    default:
+      return_emit();
+      break;  /* ansi compliance */
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * return_emit                                                               *
  *                                                                           *
  * This function generates code to return from a method.  Fortran program    *
@@ -632,34 +688,22 @@ emit (AST * root)
  *****************************************************************************/
 
 void
-return_emit(AST *root)
+return_emit()
 {
-            
-  /*
-   * According to the f77 spec, labels cannot contain more
-   * than five digits, so we use six nines as the label
-   * for the final return statement to avoid conflicts with
-   * labels that already exist in the program.
-   */
-
-  fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
-
   /* for bytecode, check if the current program unit is a
    * Function.  if so, we push the implicit return value
    * on the stack and return.  otherwise, just return void.
    */
 
   if(returnname) {
-    if(omitWrappers && !isPassByRef(returnname)) {
+    if(omitWrappers && !isPassByRef(returnname))
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, field_descriptor[cur_unit->vartype][0],
               0, FALSE);
-    }
-    else {
+    else
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, wrapped_field_descriptor[cur_unit->vartype][0],
               0, TRUE);
-    }
     code_zero_op(return_opcodes[cur_unit->vartype]);
   }
   else
@@ -2360,7 +2404,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   else
     fprintf (curfp, "[");
 
-  /* if the index is not an integer value, then it needs a cast to int. */
+  /* if the index is not an integer value, then it needs a cast to int.  for
+   * bytecode generation, we cast the indices as we emit them, so a final
+   * cast should not be necessary.
+   */
 
   needs_cast = root->vartype != Integer;
 
@@ -2410,6 +2457,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit(root);
+    if(root->vartype != Integer)
+      code_zero_op(typeconv_matrix[root->vartype][Integer]);
+
     if(d0 != ht->variable->astnode.ident.D[0]) {
       fprintf (curfp, "+1");
       code_zero_op(jvm_iconst_1);
@@ -2421,6 +2471,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit(root->nextstmt);
+    if(root->nextstmt->vartype != Integer)
+      code_zero_op(typeconv_matrix[root->nextstmt->vartype][Integer]);
+
     if(d1 != ht->variable->astnode.ident.D[1]) {
       fprintf (curfp, "+1");
       code_zero_op(jvm_iconst_1);
@@ -2432,6 +2485,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit(root->nextstmt->nextstmt);
+    if(root->nextstmt->nextstmt->vartype != Integer)
+      code_zero_op(typeconv_matrix[root->nextstmt->nextstmt->vartype][Integer]);
+
     if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt)) {
       fprintf (curfp, "+1");
       code_zero_op(jvm_iconst_1);
@@ -2458,6 +2514,8 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit (root);
+    if(root->vartype != Integer)
+      code_zero_op(typeconv_matrix[root->vartype][Integer]);
 
     if(decrementIndex) {
       fprintf (curfp, ")- 1");
@@ -2483,6 +2541,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
+      if(root->vartype != Integer)
+        code_zero_op(typeconv_matrix[root->vartype][Integer]);
+
       if(decrementIndex) {
         fprintf (curfp, "- 1)");
         code_zero_op(jvm_iconst_1);
@@ -2494,18 +2555,28 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "* (");
       if(hashtemp->variable->astnode.ident.lead_expr->nodetype == ArrayIdxRange)
       {
-        expr_emit(
-          hashtemp->variable->astnode.ident.lead_expr->astnode.expression.rhs);
+        AST * lhs = hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs;
+        AST * rhs = hashtemp->variable->astnode.ident.lead_expr->astnode.expression.rhs;
+
+        expr_emit(rhs);
+        if(rhs->vartype != Integer)
+          code_zero_op(typeconv_matrix[rhs->vartype][Integer]);
         fprintf (curfp, " - ");
-        expr_emit(
-          hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs);
+        expr_emit(lhs);
+        if(lhs->vartype != Integer)
+          code_zero_op(typeconv_matrix[lhs->vartype][Integer]);
         fprintf (curfp, " + 1 ");
         code_zero_op(jvm_isub);
         code_zero_op(jvm_iconst_1);
         code_zero_op(jvm_iadd);
       }
-      else
-        expr_emit(hashtemp->variable->astnode.ident.lead_expr);
+      else {
+        AST * lead_exp = hashtemp->variable->astnode.ident.lead_expr;
+
+        expr_emit(lead_exp);
+        if(lead_exp->vartype != Integer)
+          code_zero_op(typeconv_matrix[lead_exp->vartype][Integer]);
+      }
 
       fprintf (curfp, ")");
 
@@ -2529,6 +2600,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
+      if(root->vartype != Integer)
+        code_zero_op(typeconv_matrix[root->vartype][Integer]);
+
       if(decrementIndex) {
         fprintf (curfp, "- 1)");
         code_zero_op(jvm_iconst_1);
@@ -6658,6 +6732,8 @@ assign_emit (AST * root)
     printf("## ## codegen: ltype = %s (%d)\n",returnstring[ltype], ltype);
     printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
   }
+  printf("## ## codegen: ltype = %s (%d)\n",returnstring[ltype], ltype);
+  printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
 
   /* handle lhs substring operations elsewhere */
   if(root->astnode.assignment.lhs->nodetype == Substring)
@@ -6669,43 +6745,25 @@ assign_emit (AST * root)
   name_emit (root->astnode.assignment.lhs);
   fprintf (curfp, " = ");
 
-  if(ltype != rtype)
+  if(ltype != rtype)    /* lhs and rhs have different types */
   {
-    /* lhs and rhs have different types */
 
-    if((ltype != String) && (ltype != Logical) && (rtype == String))
+    if((ltype != String) && ((rtype == String)||(rtype==Character)))
     {
-      fprintf(curfp,"(%s)(",returnstring[ltype]);
+      /* non-String = String */
+      fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,".charAt(0)");
-      fprintf(curfp,")");
-    }
-    else if((ltype != String) && (ltype != Logical) && (rtype == Character))
-    {
-      fprintf(curfp,"(%s)(",returnstring[ltype]);
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,")");
-    }
-    else if( (ltype == Logical) && (rtype == String) )
-    {
-      fprintf(curfp,"(");
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,").charAt(0)");
-      fprintf(curfp," == 0 ? false : true");
-    }
-    else if( (ltype == Logical) && (rtype == Character) )
-    {
-      fprintf(curfp,"(int)(");
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,") == 0 ? false : true");
+      fprintf(curfp,").%sValue()",returnstring[ltype]);
     }
     else if( (ltype == Logical) && (rtype != String) )
     {
+      /* boolean = numeric value */
       expr_emit (root->astnode.assignment.rhs);
       fprintf(curfp," == 0 ? false : true");
     }
     else
     {
+      /* numeric value = numeric value of some other type */
       fprintf(curfp,"(%s)(",returnstring[ltype]);
       expr_emit (root->astnode.assignment.rhs);
       fprintf(curfp,")");
@@ -7475,6 +7533,7 @@ code_zero_op(enum _opcode op)
 
   dec_stack(jvm_opcode[op].stack_pre);
   check_code_size(jvm_opcode[op].width);
+  lastOp = op;
   memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   printf("%d %s\n", pc, jvm_opcode[op].op);
   pc += jvm_opcode[op].width;
@@ -7511,6 +7570,7 @@ code_one_op(enum _opcode op, int opval)
 
     dec_stack(jvm_opcode[op].stack_pre);
     check_code_size(jvm_opcode[op].width);
+    lastOp = op;
     memcpy(cur_code->attr.Code->code + pc,
            &this_opcode, sizeof(this_opcode));
     memcpy(cur_code->attr.Code->code + pc + 1, 
@@ -7617,6 +7677,7 @@ code_one_op_w(enum _opcode op, u2 index)
 
   dec_stack(stack_decrement);
   check_code_size(jvm_opcode[op].width);
+  lastOp = op;
   memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));
   printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);

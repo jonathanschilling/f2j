@@ -471,12 +471,12 @@ jas_name_emit (AST * root)
     {
       if (root->astnode.ident.arraylist == NULL)
       {
-        fprintf (jasminfp, "%d", hashtemp->localvarnum);
+        fprintf (jasminfp, "%d", hashtemp->variable->astnode.ident.localvnum);
         fprintf (jasminfp, "\t; %s\n", root->astnode.ident.name);
       }
       else
       {
-        fprintf (jasminfp, "%d", hashtemp->localvarnum);
+        fprintf (jasminfp, "%d", hashtemp->variable->astnode.ident.localvnum);
         fprintf (jasminfp, "\t; %s\n", root->astnode.ident.name);
 
         temp = root->astnode.ident.arraylist;
@@ -531,7 +531,7 @@ jas_assign_emit (AST * root)
   hashtemp = type_lookup (type_table, javaname);
   if (hashtemp != NULL)
   {
-    fprintf (jasminfp, "%d", hashtemp->localvarnum);
+    fprintf (jasminfp, "%d", hashtemp->variable->astnode.ident.localvnum);
     fprintf (jasminfp, "\t; = %s\n", javaname);
   }
 }				/* Close assign_emit(). */
@@ -632,7 +632,7 @@ jas_incr_emit (AST * root)
   hashtemp = type_lookup (type_table, root->astnode.ident.name);
   if (hashtemp != NULL)
   {
-    fprintf (jasminfp, Mindent1 "iinc %d 1", hashtemp->localvarnum);
+    fprintf (jasminfp, Mindent1 "iinc %d 1", hashtemp->variable->astnode.ident.localvnum);
     fprintf (jasminfp, "\t; Increment counter %s.\n",
         root->astnode.ident.name);
   }

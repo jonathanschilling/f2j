@@ -40,7 +40,6 @@ main (int argc, char **argv)
   extern char *optarg;
 
   extern FILE *ifp;
-  extern FILE *jasminfp;
 
   extern BOOLEAN bigEndian;
   BOOLEAN isBigEndian();
@@ -66,11 +65,7 @@ main (int argc, char **argv)
 
   char f2java_help[] = "The program is used as follows:\n\n\
 To compile a program into Java source code:\n\
-    f2java -java filename\n\n\
-To compile a program into Jasmin assembly code:\n\
-    f2java -jas filename\n\n\
-If no language is specified (e.g. \"f2java filename\"),\n\
-the default behavior is to generate Java source code.\n\n\
+    f2java filename\n\n\
 The -p option may also be used to specify the name\n\
 of the package.  For example:\n\n\
     f2java -java -p org.netlib.blas filename\n\n\
@@ -99,25 +94,13 @@ will most likely not work for other code.\n";
   genJavadoc    = FALSE;
   noOffset      = FALSE;
   package_name  = NULL;
-  JAS = FALSE;   /* default to Java output */
   bigEndian = isBigEndian();
 
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"j:p:wisdh")) != EOF)
+  while((c = getopt(argc,argv,"p:wisdh")) != EOF)
     switch(c) {
-      case 'j':
-        if(!strcmp(optarg,"ava"))
-          JAS = FALSE;
-        else if(!strcmp(optarg,"as"))
-          JAS = TRUE;
-        else
-        {
-          fprintf(stderr,"Error: use either \"-java\" or \"-jas\"\n");
-          errflg++;
-        }
-        break;
       case 'p':
         package_name = optarg;
         break;
@@ -148,7 +131,7 @@ will most likely not work for other code.\n";
   if(errflg || (argc < 2))
   {
     fprintf(stderr,
-     "Usage: f2java [-java/-jas] [-p package name] [-w] [-i] [-s] [-d] <filename>\n");
+     "Usage: f2java [-p package name] [-w] [-i] [-s] [-d] <filename>\n");
     fprintf(stderr,
      "For help: f2java -h\n");
     exit(2);
@@ -158,9 +141,6 @@ will most likely not work for other code.\n";
     genInterfaces = TRUE;
 
   inputfilename = argv[argc - 1];
-
-  printf("Ok... compiling '%s' to %s\n", inputfilename, 
-     JAS ? "JAS" : "JAVA");
 
   if((ifp = fopen (inputfilename, "r"))==NULL) {
     fprintf(stderr,"Input file not found: '%s'\n",inputfilename);
@@ -182,15 +162,6 @@ will most likely not work for other code.\n";
   strcat (vcgname, ".vcg");
 
   initialize ();
-
-  if(JAS) {
-    if((jasminfp = fopen (jasminname, "w"))==NULL) {
-      fprintf(stderr,"Cannot open output file '%s'.\n",jasminname);
-      perror("Reason");
-      exit(1);
-    }
-    jasminheader (jasminfp, classname);
-  }
 
 #if VCG
   if((vcgfp = fopen(vcgname, "w"))==NULL) {
@@ -223,9 +194,6 @@ will most likely not work for other code.\n";
 
   fprintf(stderr,"%s:\n",inputfilename);
   yyparse ();
-
-  if(JAS)
-    fclose (jasminfp);
 
 #if VCG
   fclose (vcgfp);

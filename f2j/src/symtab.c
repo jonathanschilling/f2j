@@ -81,12 +81,6 @@ type_insert (SYMTABLE * table, AST * node_val, int returntype, char *tag)
   newnode->ident = tag;
   newnode->type = returntype;
   newnode->variable = node_val;
-
-  /* Initialize to zero; assign number after all types
-   * are declared.  
-   */
-  newnode->localvarnum = -1;
-
   newnode->next = table->entry[idx];
   table->entry[idx] = newnode;  
 

@@ -44,7 +44,7 @@ HASHNODE * format_lookup(SYMTABLE *, char *);
 
 struct ClassFile * newClassFile(char *,char *);
 struct method_info * beginNewMethod(u2);
-void endNewMethod(struct method_info *, char *,char *);
+void endNewMethod(struct method_info *, char *,char *, u2);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -251,7 +251,7 @@ emit (AST * root)
            */
           if(pc > 0) {
             code_zero_op(jvm_return);
-            endNewMethod(clinit_method, "<clinit>", "()V");
+            endNewMethod(clinit_method, "<clinit>", "()V", 1);
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, clinit_method);
           }
@@ -901,7 +901,6 @@ equiv_emit (AST *root)
 void
 common_emit(AST *root)
 {
-  /* extern char *returnstring[];  3/23/00 kgs */
   HASHNODE *hashtemp;
   AST *Ctemp, *Ntemp, *temp;
   char *common_classname=NULL, *filename=NULL;
@@ -915,7 +914,12 @@ common_emit(AST *root)
   int save_stack, save_pc;
   char *get_common_prefix(char *), *save_filename;
 
-  /* save the current global variables pointing to the class file. */
+  /* save the current global variables pointing to the class file.  this is
+   * necessary because we're in the middle of generating the class file
+   * for the current fortran program unit, but now we need to generate some
+   * classes to hold COMMON blocks and we dont want to alter the pc, stack,
+   * etc for the current class.
+   */
   save_const_table = cur_const_table;
   save_class_file = cur_class_file; 
   save_filename = cur_filename; 
@@ -1005,11 +1009,7 @@ common_emit(AST *root)
          * other variable.
          */
 
-        /* why do we check this, then do the same thing either way?  --kgs */
-        if(type_lookup(cur_data_table,Ntemp->astnode.ident.name) && !needs_dec)
-          vardec_emit(temp, temp->vartype);
-        else
-          vardec_emit(temp, temp->vartype);
+        vardec_emit(temp, temp->vartype);
       }
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"}\n");
@@ -1022,7 +1022,7 @@ common_emit(AST *root)
        */
       if(pc > 0) {
         code_zero_op(jvm_return);
-        endNewMethod(clinit_method, "<clinit>", "()V");
+        endNewMethod(clinit_method, "<clinit>", "()V", 1);
         cur_class_file->methods_count++;
         dl_insert_b(cur_class_file->methods, clinit_method);
       }
@@ -1036,6 +1036,9 @@ common_emit(AST *root)
   }
 
   curfp = javafp;
+
+  /* restore previously saved globals */
+
   cur_const_table = save_const_table;
   cur_class_file = save_class_file;
   cur_filename = save_filename; 
@@ -1369,49 +1372,7 @@ vardec_emit(AST *root, enum returntype returns)
 
   } else {    /* this is not an array declaration */
 
-    HASHNODE *p;
-
-    /* Check to see whether this variable is a PARAMETER */
-
-    if (gendebug)
-      printf("looking for %s in parameter table\n",root->astnode.ident.name);
-
-    p = type_lookup(cur_param_table, root->astnode.ident.name);
-
-    if(p != NULL)
-    {
-      /* this variable is declared as a parameter, so 
-       * initialize it with the value from the PARAMETER
-       * statement.
-       */
-
-     
-      /*
-       * comment this code out since
-       * we no longer declare parameters...  --kgs 4/19/00
-       *
-       * if(omitWrappers) {
-       *   if(isPassByRef(root->astnode.ident.name)) {
-       *     fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-       *     expr_emit(p->variable);
-       *     fprintf(curfp,");\n");
-       *   }
-       *   else {
-       *     fprintf(curfp,"= ");
-       *     expr_emit(p->variable);
-       *     fprintf(curfp,";\n");
-       *   }
-       * }
-       * else
-       * {
-       *   fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-       *   expr_emit(p->variable);
-       *   fprintf(curfp,");\n");
-       * }
-       */
-
-    }
-    else
+    if(!type_lookup(cur_param_table, root->astnode.ident.name))
     {
       if(omitWrappers && !isPassByRef(root->astnode.ident.name))
         fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
@@ -2771,7 +2732,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   extern METHODTAB intrinsic_toks[];
   char *com_prefix;
   char *name;
-  HASHNODE *ht;
+  HASHNODE *ht, *isArg;
 
   /* get the name of the common block class file, if applicable */
 
@@ -2779,7 +2740,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   name = root->astnode.ident.name;
 
-  if(com_prefix[0] != '\0')
+  isArg = type_lookup(cur_args_table,name);
+
+  if(com_prefix)
   {
     /* if this is a COMMON variable, find out the merged
      * name, if any, that we should use instead.  Names are
@@ -7206,7 +7169,7 @@ printf("creating new entry, this -> %s\n",name);
   code_one_op_w(jvm_invokespecial, c->index);
   code_zero_op(jvm_return);
   
-  endNewMethod(meth_tmp, "<init>", "()V");
+  endNewMethod(meth_tmp, "<init>", "()V", 1);
 
   dl_insert_b(tmp->methods, meth_tmp);
 
@@ -7248,7 +7211,7 @@ beginNewMethod(u2 flags)
  *****************************************************************************/
 
 void
-endNewMethod(struct method_info * meth, char * name, char * desc)
+endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
 {
   CPNODE *c;
 
@@ -7288,7 +7251,7 @@ endNewMethod(struct method_info * meth, char * name, char * desc)
    *   total             pc + 12 bytes
    */
   cur_code->attribute_length = pc + 12;
-  cur_code->attr.Code->max_locals = 1;
+  cur_code->attr.Code->max_locals = mloc;
   cur_code->attr.Code->code_length = pc;
 
   dl_insert_b(meth->attributes, cur_code);

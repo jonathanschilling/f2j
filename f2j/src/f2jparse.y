@@ -43,8 +43,7 @@ char
   tempname[60];                   /* temporary string                        */
 
 AST 
-  * equivList = NULL,             /* list to keep track of equivalences      */
-  * localvarlist;                 /* list of local variables                 */
+  * equivList = NULL;             /* list to keep track of equivalences      */
 
 CPNODE
   * lastConstant;                 /* last constant inserted into the c.pool  */
@@ -180,38 +179,32 @@ F2java:   Sourcecodes
             prev = NULL;
             for(temp=$$;temp!=NULL;temp=temp->nextstmt)
             {
-              if(JAS) {
-                if(temp->nodetype != Comment) {
-                  assign_local_vars(localvarlist); 
-                  assign_local_vars( $1->astnode.source.typedecs );
-                  assign(temp); 
+              if(emittem) {
+
+                if(temp->nodetype == Comment)
+                {
+                  if((prev == NULL) ||
+                     ((prev != NULL) && (prev->nodetype != Comment)))
+                    commentList = temp;
                 }
+                else
+                {
+                  assign_local_vars(
+                     temp->astnode.source.progtype->astnode.source.args); 
 
-                if(emittem) jas_emit(temp);
-              }else {
-                if(emittem) {
-                  if(temp->nodetype == Comment)
-                  {
-                    if((prev == NULL) ||
-                       ((prev != NULL) && (prev->nodetype != Comment)))
-                      commentList = temp;
-                  }
-                  else
-                  {
-                    /* commentList may be NULL here so we must check
-                     * for that in codegen.
-                     */
-                    temp->astnode.source.prologComments = commentList;
+                  /* commentList may be NULL here so we must check
+                   * for that in codegen.
+                   */
+                  temp->astnode.source.prologComments = commentList;
 
-                    typecheck(temp);
+                  typecheck(temp);
 
-                    if(omitWrappers)
-                      optScalar(temp);
+                  if(omitWrappers)
+                    optScalar(temp);
 
-                    emit(temp);
+                  emit(temp);
 
-                    commentList = NULL;
-                  }
+                  commentList = NULL;
                 }
               }
               prev = temp;
@@ -1116,10 +1109,7 @@ End:    END  NL
 
 Functionargs:   OP Namelist CP   
                 {
-                  if(JAS)
-  		    localvarlist = switchem($2);
-                  else
-	 	    $2 = switchem($2);  
+                  $2 = switchem($2);
                   init_tables();
 		  arg_table_load($2);
                   $$ = $2;
@@ -2787,7 +2777,6 @@ type_hash(AST * types)
 void 
 exp_to_double (char *lexeme, char *temp)
 {
-  float tempnum;
   char *cp = lexeme;
 
   while (*cp)           /* While *cp != '\0'...  */
@@ -2805,12 +2794,7 @@ exp_to_double (char *lexeme, char *temp)
    * of the float or double constant. 
    */
 
- if(JAS) {
-   sscanf(lexeme,"%e", &tempnum); /* Read the string into a number.  */
-   sprintf(temp,"%f", tempnum);   /* Reformat the number into a string. */
- } else {
-   strcpy(temp,lexeme);
- }
+ strcpy(temp,lexeme);
 }  /*  Close exp_to_double().  */
 
 
@@ -2886,72 +2870,22 @@ char * lowercase(char * name)
 void
 assign_local_vars(AST * root)
 {
-  AST * locallist, * declist;
+  AST * locallist;
   HASHNODE * hashtemp;
   extern SYMTABLE * type_table;  
-    /* 3/23/00 kgs -- removed extern SYMTABLE * args_table from decl */
   static int localnum = 0;
   extern int locals;
 
-  locallist = root;
 
-  if (root->nodetype == Typedec || root->nodetype == Specification)
-  {
-    for (; locallist; locallist = locallist->nextstmt)
-    {
-      declist = locallist->astnode.typeunit.declist;
-      for (; declist; declist = declist->nextstmt)
-      {
-        if(debug)printf("dec list name: %s\n", declist->astnode.ident.name);
-        hashtemp = type_lookup(type_table, declist->astnode.ident.name);
-        if(hashtemp == NULL)
-        {
-          fprintf(stderr,"Type table is screwed in assign locals.\n");
-          exit(-1);
-        }
-        if(hashtemp->localvarnum > -1)
-        {
-          /* printf("Duplicate local found.\n"); */
-          continue;
-        }
-        /* Check to see if it is a double, but make sure it isn't
-         * an array of doubles. */
-        if (hashtemp->type == Double &&
-            hashtemp->variable->astnode.ident.arraylist == NULL)
-        {
-          hashtemp->localvarnum = localnum;
-          hashtemp->variable->astnode.ident.localvnum = localnum;
-          if(debug)
-            printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
-          localnum += 2;
-        }
-        else
-        {
-          hashtemp->localvarnum = localnum;
-          hashtemp->variable->astnode.ident.localvnum = localnum;
-          if(debug)
-            printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
-          localnum++;
-        }
-      }
-    }
-  }
+  /* if root is NULL, this is probably a PROGRAM (no args) */
+  if(root == NULL)
+    return;
 
-/*  I added this else {} to block this code out.  It was
- *  executing after the previous loop.  Also, for some 
- *  reason, the `localvnum' field of the of the hashed
- *  ident structure is not being initialized properly. 
- */
-
-  else 
-  {
-	
     /* This loop takes care of the stuff coming in from the
      * argument list.  
      */
-    for (; locallist; locallist = locallist->nextstmt)
+    for (locallist = root ; locallist; locallist = locallist->nextstmt)
     {
-
       if(debug)
         printf("arg list name: %s\n", locallist->astnode.ident.name);
 
@@ -2961,11 +2895,6 @@ assign_local_vars(AST * root)
         fprintf(stderr,"Type table is screwed in assign locals.\n");
         exit(-1);
       }
-      if(hashtemp->localvarnum > -1)
-      {
-        /* printf("Duplicate local found.\n"); */
-        continue;
-      }
   
       /* Check to see if it is a double, but make sure it isn't
        * an array of doubles. 
@@ -2974,7 +2903,6 @@ assign_local_vars(AST * root)
       if (hashtemp->type == Double &&
           hashtemp->variable->astnode.ident.arraylist == NULL)
       {
-        hashtemp->localvarnum = localnum;
         hashtemp->variable->astnode.ident.localvnum = localnum;
         if(debug)
           printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
@@ -2982,14 +2910,12 @@ assign_local_vars(AST * root)
       }
       else
       {
-        hashtemp->localvarnum = localnum;
         hashtemp->variable->astnode.ident.localvnum = localnum;
         if(debug)
           printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
         localnum++;
       }
     }
-  }
 
   locals = localnum;
 } /* Close assign_local_vars().  */

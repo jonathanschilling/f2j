@@ -26,7 +26,6 @@ typedef struct hash_node
   struct ast_node *variable;     /* The variable corresponding to this entry */
   char *ident;                   /* String tag                               */
   int type;                      /* The variable's data type                 */
-  int localvarnum;               /* Local variable number                    */
   struct hash_node *next;        /* Next node                                */
 }
 HASHNODE;

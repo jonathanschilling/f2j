@@ -1582,6 +1582,9 @@ common_emit(AST *root)
   
       curfp = commonfp;
       
+      if(package_name != NULL)
+        fprintf(curfp,"package %s;\n",package_name);
+
       /* import util package for object wrapper classes */
 
       fprintf(curfp,"import org.netlib.util.*;\n\n");
@@ -10753,8 +10756,12 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
   AST *arg;
   int i;
 
-  tempname = strdup( node->astnode.ident.name );
-  *tempname = toupper(*tempname);
+  if((mref->classname != NULL) && (strlen(mref->classname) > 0))
+    tempname = char_substitution(mref->classname, '/', '.');
+  else {
+    tempname = strdup( node->astnode.ident.name );
+    *tempname = toupper(*tempname);
+  }
 
   if(ret[0] == 'V')
     fprintf(curfp,"\n%s.%s(",tempname,  node->astnode.ident.name );

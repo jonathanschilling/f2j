@@ -131,6 +131,7 @@ static FILE *new_file(char *oldname) {
 
 static void process(void) {
   FILE *outfile;
+  int num;
 
   files++;
   error = 0;
@@ -138,13 +139,15 @@ static void process(void) {
   process_classfile(file, 0u); /* read   */
  /*  process_classfile(NULL, 1u);  */   /* verify */
 
-  byte_proc();
+  num = byte_proc();
 
-  outfile = new_file(filename);
+  if(num > 0) {
+    outfile = new_file(filename);
   	
-  if (outfile) {
-    dump_classfile(outfile);
-    fclose(outfile);
+    if (outfile) {
+      dump_classfile(outfile);
+      fclose(outfile);
+    }
   }
 }
 

@@ -73,6 +73,8 @@ static char          *thisClassName;
 
 static int trdebug = TRANS_DEBUG;
 
+static int numChanges;
+
 /* reaching definitions and uses
    ***************************** */
 
@@ -1039,12 +1041,12 @@ back:
 
          if(!strcmp(op,"label"))
          {
-           if(type_lookup(att->label_table,lbuf) ||
-              strcmp(caller, thisClassName)) 
-           {
-             fprintf(stderr,"%s: duplicate or invalid label: %s\n",
+           if(type_lookup(att->label_table,lbuf))
+             fprintf(stderr,"%s: duplicate label: %s\n",
                 filename,lbuf);
-           }
+           else if(strcmp(caller, thisClassName))
+             fprintf(stderr,"%s: invalid label: %s (caller = %s, this = %s)\n",
+                filename,lbuf,caller,thisClassName);
            else {
              idx = hash(lbuf) % att->label_table->num_entries;
              type_insert(&(att->label_table->entry[idx]), 
@@ -1052,6 +1054,7 @@ back:
            }
 
            bzero(byt+last_offset, inst_size + 5);
+           numChanges++;
          }
          else if(!strcmp(op,"goto"))
          {
@@ -1075,6 +1078,7 @@ back:
                    to the size of the previous instruction. */
 
                bzero(byt+last_offset, inst_size + 2 - 2);
+               numChanges++;
 
                 /* use the goto_w opcode just to be sure we
                    have enough space for the branchoffset */
@@ -1093,7 +1097,10 @@ back:
              }
            }
            else {
+             fprintf(stderr,"%s: invalid goto: %s (caller = %s, this = %s)\n",
+                filename,lbuf,caller,thisClassName);
              bzero(byt+last_offset, inst_size + 5);
+             numChanges++;
            }
          }
          else if(!strcmp(op,"unknown"))
@@ -1241,14 +1248,33 @@ static void byte_codeattr(attribute_ptr a, u2_int w_arg,
    *** Bytecode Processing ***
    *************************** */
 
-void byte_proc(void) {
+int byte_proc(void) {
   
   u4_int i, j;       /* wide counters */
   char *strdup(char *);
+  char *strtok(char *, const char *);
+  char *tmp, *curtok, *prev;
   extern char * thisClassName;
 
-  thisClassName = (char *) 
-    constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s;
+  prev = NULL;
+
+  numChanges = 0;
+
+  tmp = strdup( (char *) 
+    constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s);
+
+  curtok = strtok(tmp,"/");
+
+  while((curtok = strtok(NULL,"/")) != NULL)
+    prev = curtok;
+
+  if(prev != NULL)
+    thisClassName = strdup(prev);
+  else if(curtok != NULL) 
+    thisClassName = strdup(curtok);
+  else
+    thisClassName = strdup( (char *) 
+      constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s);
 
 #ifdef CHECK_TABLE
 
@@ -1334,4 +1360,5 @@ void byte_proc(void) {
       break;   /* otherwise, a list of method 
 		  headers appears for switch `-d' */
   }
+  return numChanges;
 }

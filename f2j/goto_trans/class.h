@@ -461,7 +461,7 @@ void          add_method(fm_ptr);
 
 state_ptr new_stack_state(u1_int, u4_int, s4_int);
 void      check_triv_loop(loop_ptr);
-void      byte_proc(void);
+int      byte_proc(void);
 
 /* basic.c
    ******* */

@@ -433,14 +433,14 @@ insert_constant(Dlist list, int tok, void * tag)
   switch(tok) {
     case INTEGER:
       {
-        /* if integer value is between -1 and 5 inclusive, then
-         * we can use the iconst_<i> opcode.  Thus, there's no
+        /* if integer value is between JVM_SHORT_MIN and JVM_SHORT_MAX,
+         * then we do not need to use the ldc opcode.  Thus, there's no
          * need to create a constant pool entry.
          */
         int intVal = *((int*)tag);
 
         if( !cp_lookup(list, CONSTANT_Integer, (void *)&intVal)
-          && (intVal < -1 || intVal > 5) )
+          && (intVal < JVM_SHORT_MIN || intVal > JVM_SHORT_MAX) )
         {
             newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
             newnode->tag = CONSTANT_Integer;

@@ -12,6 +12,25 @@
 #include"class.h"
 #include"f2j.h"
 
+/*****************************************************************************
+ *                                                                           *
+ * Following are some constants that help determine which integer load       *
+ * instruction to use.                                                       *
+ *                                                                           *
+ * if intval < JVM_SHORT_MIN or intval > JVM_SHORT_MAX, use ldc              *
+ * else if intval < JVM_BYTE_MIN or intval > JVM_BYTE_MAX, use sipush        *
+ * else if intval < JVM_ICONST_MIN or intval > JVM_ICONST_MAX, use bipush    *
+ * else use iconst_<intval>                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+#define JVM_SHORT_MIN (-32768)
+#define JVM_SHORT_MAX 32767
+#define JVM_BYTE_MIN  (-128)
+#define JVM_BYTE_MAX  127
+#define JVM_ICONST_MIN -1
+#define JVM_ICONST_MAX 5
+
 /*
  * We build a linked list containing all the constant pool entries.
  * Each entry in the list has the following structure:

@@ -38,7 +38,11 @@ char
 void 
   code_zero_op(enum _opcode),
   code_one_op(enum _opcode, int),
-  code_one_op_w(enum _opcode, u2);
+  code_one_op_w(enum _opcode, u2),
+  pushConst(AST *),
+  pushIntConst(int),
+  pushDoubleConst(double),
+  pushStringConst(char *);
 
 int
   isPassByRef(char *);
@@ -563,12 +567,12 @@ emit (AST * root)
 
         if(import_reflection) {
           fprintf(curfp, "%s%s%s%s%s%s%s",
-             "} catch (java.lang.reflect.InvocationTargetException e) {\n",
+             "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
              "   System.err.println(\"Error calling method.", 
-             "  \"+ e.getMessage());\n",
-             "} catch (java.lang.IllegalAccessException e2) {\n",
+             "  \"+ _e.getMessage());\n",
+             "} catch (java.lang.IllegalAccessException _e2) {\n",
              "   System.err.println(\"Error calling method.",
-             "  \"+ e2.getMessage());\n",
+             "  \"+ _e2.getMessage());\n",
              "}\n");
         }
 
@@ -2764,28 +2768,115 @@ getVarDescriptor(AST *root)
 
 /*****************************************************************************
  *                                                                           *
- * pushIntConstant                                                           *
+ * pushConst                                                                 *
+ *                                                                           *
+ * this function pushes the constant value pointed to by root onto the       *
+ * jvm stack.                                                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushConst(AST *root) {
+  switch(root->token) {
+    case INTEGER:
+      pushIntConst(atoi(root->astnode.constant.number));
+      break;
+    case EXPONENTIAL:
+    case DOUBLE:
+      pushDoubleConst(atof(root->astnode.constant.number));
+      break;
+    case TrUE:   /* dont expect to find booleans anyway, so dont try */
+      code_zero_op(jvm_iconst_1);
+      break;
+    case FaLSE:
+      code_zero_op(jvm_iconst_0);
+      break;
+    case STRING:
+      pushStringConst(root->astnode.constant.number);
+      break;
+    default:
+      break;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * pushIntConst                                                              *
  *                                                                           *
  * pushes an integer constant onto the stack.                                *
  *                                                                           *
  *****************************************************************************/
 
-enum _opcode
-get_iconst_opcode(CPNODE *ct, int ival)
+void
+pushIntConst(int ival)
 {
+  CPNODE *ct;
+
+  ct=cp_find_or_insert(cur_const_table,CONSTANT_Integer,(void*)&ival);
+
   if(ct) {
     if(ct->index > CPIDX_MAX)
-      return(jvm_ldc_w);
+      code_one_op_w(jvm_ldc_w,ct->index);
     else
-      return(jvm_ldc);
+      code_one_op(jvm_ldc,ct->index);
   } else {   /* not found, use literal */
-    if((ival < -1) || (ival > 5)) {
+    if((ival < JVM_SHORT_MIN) || (ival > JVM_SHORT_MAX)) {
       fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n", ival);
-      return jvm_nop;
+      return;
     }
+    else if((ival < JVM_BYTE_MIN) || (ival > JVM_BYTE_MAX))
+      code_one_op_w(jvm_sipush, ival);
+    else if((ival < JVM_ICONST_MIN) || (ival > JVM_ICONST_MAX))
+      code_one_op(jvm_bipush, ival);
     else
-      return(iconst_opcodes[ival+1]);
+      code_zero_op(iconst_opcodes[ival+1]);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * pushDoubleConst                                                           *
+ *                                                                           *
+ * pushes a double constant onto the stack.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushDoubleConst(double dval)
+{
+  CPNODE *ct;
+
+  ct=cp_find_or_insert(cur_const_table,CONSTANT_Double,(void*)&dval);
+
+  if(ct)
+    code_one_op_w(jvm_ldc2_w, ct->index);
+  else if(dval == 0.0)
+    code_zero_op(jvm_dconst_0);
+  else if(dval == 1.0)
+    code_zero_op(jvm_dconst_1);
+  else
+    fprintf(stderr,"WARNING: bad double-prec literal in expr_emit()\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * pushStringConst                                                           *
+ *                                                                           *
+ * pushes a string constant onto the stack.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushStringConst(char *str)
+{
+  CPNODE *ct;
+
+  ct=cp_find_or_insert(cur_const_table,CONSTANT_String, (void*)str);
+
+  if(ct->index > CPIDX_MAX)
+    code_one_op_w(jvm_ldc_w, ct->index);
+  else
+    code_one_op(jvm_ldc, ct->index);
 }
 
 /*****************************************************************************
@@ -3077,16 +3168,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         if((global_sub.name != NULL) && 
             !strcmp(global_sub.name, name))
         {
-          CPNODE *c;
-
           fprintf (curfp, " %d ", global_sub.val);
           
-          c=cp_find_or_insert(cur_const_table,CONSTANT_Integer,
-                              (void*)&global_sub.val);
-          if(c) 
-            code_one_op(get_iconst_opcode(c, global_sub.val),c->index);
-          else
-            code_zero_op(get_iconst_opcode(c, global_sub.val));
+          pushIntConst(global_sub.val);
         }
         else {
           if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
@@ -3609,10 +3693,9 @@ void
 expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
-  enum _opcode cur_opcode = jvm_nop;
   char *tempname;
   CPNODE * ct;
-  int cp_index, cur_vt;
+  int cur_vt;
 
   void name_emit (AST *);
 
@@ -3714,69 +3797,11 @@ expr_emit (AST * root)
 
       break;
     case Constant:
-
-      cur_opcode = jvm_nop;  /* some reasonable default value */
-
-      switch(root->token) {
-        case INTEGER:
-          {
-            int ival = atoi(root->astnode.constant.number);
-
-            ct=cp_find_or_insert(cur_const_table,CONSTANT_Integer,(void*)&ival);
-            cur_opcode = get_iconst_opcode(ct, ival);
-          }
-          break;
-        case EXPONENTIAL:
-        case DOUBLE:
-          {
-            double dval = atof(root->astnode.constant.number);
-
-            ct=cp_find_or_insert(cur_const_table,CONSTANT_Double,(void*)&dval);
-
-            if(ct)
-              cur_opcode = jvm_ldc2_w;
-            else if(dval == 0.0)
-              cur_opcode = jvm_dconst_0;
-            else if(dval == 1.0)
-              cur_opcode = jvm_dconst_1;
-            else
-              fprintf(stderr,"WARNING: bad double-prec literal in expr_emit()\n");
-          }
-          break;
-        case TrUE:   /* dont expect to find booleans anyway, so dont try */
-          cur_opcode = jvm_iconst_1;
-          ct = NULL;
-          break;
-        case FaLSE:
-          cur_opcode = jvm_iconst_0;
-          ct = NULL;
-          break;
-        case STRING:
-          ct=cp_find_or_insert(cur_const_table,CONSTANT_String, 
-             (void*)root->astnode.constant.number);
-
-          if(ct->index > CPIDX_MAX)
-            cur_opcode = jvm_ldc_w;
-          else
-            cur_opcode = jvm_ldc;
-
-          break;
-        default:
-          ct = NULL;
-          break;
-      }
-
-      if(ct)
-        cp_index = ct->index;
-      else
-        cp_index = 0;  /* constant pool index 0 not valid */
-
       if(root->parent != NULL)
       {
         tempname = strdup(root->parent->astnode.ident.name);
         uppercase(tempname);
       }
-
 
      /* 
       * here we need to determine if this is a parameter to a function
@@ -3791,13 +3816,9 @@ expr_emit (AST * root)
           (methodscan(intrinsic_toks, tempname) == NULL))
       {
         if(root->token == STRING) {
-          if(!ct)
-            fprintf(stderr,"WARNING: can't find string '%s' in constant pool!\n",
-              root->astnode.constant.number);
-
           if(omitWrappers) {
 
-            code_one_op(cur_opcode,cp_index);
+            pushConst(root);
 
             fprintf (curfp, "\"%s\"", root->astnode.constant.number);
           }
@@ -3810,7 +3831,7 @@ expr_emit (AST * root)
 
             code_one_op_w(jvm_new,c->index);
             code_zero_op(jvm_dup);
-            code_one_op(cur_opcode,cp_index);
+            pushConst(root);
 
             c = newMethodref(cur_const_table,full_wrappername[root->vartype], 
                    "<init>", wrapper_descriptor[root->vartype]);
@@ -3822,10 +3843,7 @@ expr_emit (AST * root)
         }
         else {     /* non-string constant argument to a function call */
           if(omitWrappers) {
-            if(cp_index)
-              code_one_op(cur_opcode,cp_index);
-            else
-              code_zero_op(cur_opcode);
+            pushConst(root);
 
             fprintf (curfp, "%s", root->astnode.constant.number);
           }
@@ -3839,10 +3857,7 @@ expr_emit (AST * root)
             code_one_op_w(jvm_new,c->index);
             code_zero_op(jvm_dup);
 
-            if(cp_index)
-              code_one_op(cur_opcode,cp_index);
-            else
-              code_zero_op(cur_opcode);
+            pushConst(root);
             
             c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
                    wrapper_descriptor[root->vartype]);
@@ -3858,10 +3873,7 @@ expr_emit (AST * root)
       else  /* this constant is not an argument to a function call */
       {
 
-        if(cp_index)
-          code_one_op(cur_opcode,cp_index);
-        else
-          code_zero_op(cur_opcode);
+        pushConst(root);
 
         if(root->token == STRING)
           fprintf (curfp, "\"%s\"", root->astnode.constant.number);
@@ -4507,6 +4519,7 @@ constructor (AST * root)
    */
 
   if(import_reflection) {
+    fprintf(stderr,"WARNING: reflection stuff not implemented for bytecode\n");
     tempnode = root->astnode.source.args;
     for (; tempnode != NULL; tempnode = tempnode->nextstmt)
     {

@@ -18,6 +18,9 @@ f2java: f2j.h f2jparse.y $(OBJS)
 puref2j:	f2j.h f2jparse.y $(OBJS)
 	/usr/local/pure/purify/purify  ${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
+javab:	
+	cd goto_trans;make
+
 f2jmain.o:  f2jmain.c f2j.h f2jparse.y
 	$(CC) -c $(CFLAGS) f2jmain.c
 

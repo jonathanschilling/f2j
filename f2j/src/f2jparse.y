@@ -1086,12 +1086,16 @@ Arraydeclaration: Name OP Arraynamelist CP
 		      $$->astnode.ident.leaddim = 
                        strdup($$->astnode.ident.arraylist->astnode.ident.name);
                     }
+
                     if(debug)
+                    {
                       printf("leaddim nodetype = %s\n",
                         print_nodetype($$->astnode.ident.arraylist));
 
-                    if($$->astnode.ident.leaddim != NULL)
-                      printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
+                      if($$->astnode.ident.leaddim != NULL)
+                        printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
+                    }
+
 		    store_array_var($$);
                   }
 

@@ -19,9 +19,33 @@
 #define OBJECT_TYPE 7
 #define CPIDX_MAX 255
 
+/*****************************************************************************
+ * Following are some fully-qualified class names and method descriptors     *
+ * for commonly used methods.                                                *
+ * TRIM_DESC is the descriptor for java.lang.String.trim()                   *
+ * STREQV_DESC is the descriptor for java.lang.String.equalsIgnoreCase()     *
+ *  F2J_UTIL defines the default name of the f2java utility package.         *
+ *****************************************************************************/
+
+#define JL_STRING "java/lang/String"
+#define TRIM_DESC "()Ljava/lang/String;"
+#define STREQV_DESC "()Z"
+#define F2J_UTIL "org/netlib/util"
+
+
+/*****************************************************************************
+ * CODE is just a temporary macro so that the printf's in the code generator *
+ * that emit jvm opcodes can be easily distinguished from the java source    *
+ * code printfs.                                                             *
+ *****************************************************************************/
+
 #define CODE printf
 
-enum _opcode {       /* enumeration of all the java opcodes */
+/*****************************************************************************
+ * enumeration of all the java opcodes.                                      *
+ *****************************************************************************/
+
+enum _opcode {       
   jvm_nop = 0x0,
   jvm_aconst_null,
   jvm_iconst_m1,
@@ -378,6 +402,31 @@ enum _opcode neg_opcode[MAX_RETURNS+1] =  /* negation opcodes, by vartype    */
   jvm_nop
 };
 
+enum _opcode icmp_opcode[] = {
+  jvm_nop,      /* first entry is unused because enum _relop starts at 1 */
+  jvm_if_icmpeq,
+  jvm_if_icmpne,
+  jvm_if_icmplt,
+  jvm_if_icmple,
+  jvm_if_icmpgt,
+  jvm_if_icmpge,
+  jvm_if_icmpge
+};
+
+/* comparison ops for relational expressions.  note that the logic is
+ * reversed.. that is, this array is indexed by the relops, but each entry
+ * contains the reverse relop (e.g. .lt. -> ifgt) except for .eq. and .ne.
+ */
+
+enum _opcode dcmp_opcode[] = {
+  jvm_nop,      /* first entry is unused because enum _relop starts at 1 */
+  jvm_ifeq,
+  jvm_ifne,
+  jvm_ifgt,
+  jvm_ifge,
+  jvm_iflt,
+  jvm_ifle
+};
 
 /* The following is a table of type conversion opcodes.  to find the
  * appropriate opcode for the conversion, go to the row of the type to

@@ -311,7 +311,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
       newnode->cpnode.Class.name_index = temp->index;
 
       /* now return the CPNODE pointer created by cp_insert */
-      return cp_insert(constants_table,newnode,1);
+      return cp_insert(list,newnode,1);
     case CONSTANT_Methodref:
       {
         METHODREF *mref = (METHODREF *)value;
@@ -334,7 +334,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
         temp = cp_find_or_insert(list,CONSTANT_NameAndType,mref);
         newnode->cpnode.Methodref.name_and_type_index = temp->index;
 
-        return cp_insert(constants_table,newnode,1);
+        return cp_insert(list,newnode,1);
       }
       break;
     case CONSTANT_NameAndType:
@@ -353,7 +353,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
         temp = cp_find_or_insert(list,CONSTANT_Utf8,mref->descriptor);
         newnode->cpnode.NameAndType.descriptor_index = temp->index;
  
-        return cp_insert(constants_table,newnode,1);
+        return cp_insert(list,newnode,1);
       }
       break;
     case CONSTANT_Utf8:
@@ -363,19 +363,19 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
       newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
       strncpy((char*)newnode->cpnode.Utf8.bytes,value,newnode->cpnode.Utf8.length);
 
-      return cp_insert(constants_table, newnode, 1);
+      return cp_insert(list, newnode, 1);
       break;
     case CONSTANT_Integer:
-      return insert_constant(INTEGER,(char *)value);
+      return insert_constant(list, INTEGER,(char *)value);
       break;
     case CONSTANT_Float:
     case CONSTANT_Long:
       fprintf(stderr,"cp_find_or_insert():WARNING: should not hit float/long case!\n");
       break;
     case CONSTANT_Double:
-      return insert_constant(DOUBLE,(char *)value);
+      return insert_constant(list, DOUBLE,(char *)value);
     case CONSTANT_String:
-      return insert_constant(STRING,(char *)value);
+      return insert_constant(list, STRING,(char *)value);
     case CONSTANT_Fieldref:
     case CONSTANT_InterfaceMethodref:
     default:
@@ -422,9 +422,8 @@ cp_entry_by_index(Dlist list, int idx)
  *****************************************************************************/
 
 CPNODE *
-insert_constant(int tok, char * tag)
+insert_constant(Dlist list, int tok, char * tag)
 {
-  extern Dlist constants_table;
   struct cp_info * newnode = NULL;
   int idx;
   extern BOOLEAN bigEndian;
@@ -442,14 +441,14 @@ insert_constant(int tok, char * tag)
          */
         int intVal = atoi(tag);
 
-        if( !cp_lookup(constants_table, CONSTANT_Integer, (void *)&intVal)
+        if( !cp_lookup(list, CONSTANT_Integer, (void *)&intVal)
           && (intVal < -1 || intVal > 5) )
         {
             newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
             newnode->tag = CONSTANT_Integer;
             newnode->cpnode.Integer.bytes = u4BigEndian(intVal);
 
-            return cp_insert(constants_table, newnode, 1);
+            return cp_insert(list, newnode, 1);
         }
       }
       break;
@@ -463,7 +462,7 @@ insert_constant(int tok, char * tag)
         double doubleVal = atof(tag);
         unsigned int tmp1, tmp2;
 
-        if( !cp_lookup(constants_table, CONSTANT_Double, (void *)&doubleVal)
+        if( !cp_lookup(list, CONSTANT_Double, (void *)&doubleVal)
           && ( doubleVal != 0.0 && doubleVal != 1.0 ) ) 
         {
           newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
@@ -479,7 +478,7 @@ insert_constant(int tok, char * tag)
             newnode->cpnode.Double.low_bytes = u4BigEndian(tmp1);
           }
 
-          return cp_insert(constants_table, newnode, 2);
+          return cp_insert(list, newnode, 2);
         }
       }
       break;
@@ -498,7 +497,7 @@ insert_constant(int tok, char * tag)
          * Note that we only malloc enough for the string itself
          * since the Utf8 string should not be null-terminated.
          */
-      if( !cp_lookup(constants_table, CONSTANT_Utf8, (void *)tag))
+      if( !cp_lookup(list, CONSTANT_Utf8, (void *)tag))
       {
         if(cp_debug)
           printf("&& in insert_constant, inserting '%s'\n",tag);
@@ -509,13 +508,13 @@ insert_constant(int tok, char * tag)
         newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
         strncpy((char *)newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
 
-        idx = cp_insert(constants_table, newnode, 1)->index;
+        idx = cp_insert(list, newnode, 1)->index;
 
         newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_String;
         newnode->cpnode.String.string_index = idx;
 
-        return cp_insert(constants_table, newnode, 1);
+        return cp_insert(list, newnode, 1);
       }
 
       break;

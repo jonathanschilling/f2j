@@ -34,6 +34,10 @@ char
   *lowercase ( char * ),
   *methodscan (METHODTAB * , char * );
 
+void code_zero_op(enum _opcode),
+     code_one_op(enum _opcode, int),
+     code_one_op_w(enum _opcode, int);
+
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
 /*****************************************************************************
@@ -44,7 +48,9 @@ int gendebug = FALSE;  /* set to TRUE to generate debugging output           */
 
 extern int 
   ignored_formatting,  /* number of FORMAT statements ignored                */
-  bad_format_count;    /* number of bad FORMAT statements encountered        */
+  bad_format_count,    /* number of bad FORMAT statements encountered        */
+  stacksize,           /* current stacksize at some point in execution       */
+  max_stack;           /* maximum stacksize encountered so far               */
 
 char 
   *unit_name,          /* name of this function/subroutine                   */
@@ -82,12 +88,17 @@ SYMTABLE                /* Symbol tables containing...                       */
 
 Dlist cur_const_table;  /* constants designated to go into the constant pool */
 
+struct ClassFile
+  *cur_class_file;      /* class file for the current program unit           */
+
 AST 
   *cur_equivList;       /* list of equivalences                              */
 
 BOOLEAN 
   import_reflection,    /* does this class need to import reflection         */
   import_blas;          /* does it need to import the BLAS library           */
+
+int pc;                 /* current program counter                           */
 
 /*****************************************************************************
  *                                                                           *
@@ -129,6 +140,8 @@ emit (AST * root)
        emit_prolog_comments(AST *),
        emit_javadoc_comments(AST *);
 
+    struct ClassFile * newClassFile();
+
     char * tok2str(int);
 
     int isPassByRef(char *);
@@ -162,8 +175,11 @@ emit (AST * root)
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
           cur_const_table = root->astnode.source.constants_table;
+          cur_class_file = root->astnode.source.class = newClassFile();
        
           cp_initialize(root,cur_const_table);
+         
+          stacksize = max_stack = pc = 0;
           
           if(gendebug)
             print_equivalences(cur_equivList);
@@ -217,7 +233,7 @@ emit (AST * root)
 
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
-          /* cp_dump(cur_const_table); */
+          cp_dump(cur_const_table);
 	  break;
         }
       case Subroutine:
@@ -3078,10 +3094,10 @@ void
 expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
-  enum _opcode cur_opcode;
+  enum _opcode cur_opcode = jvm_nop;
   char *tempname;
   CPNODE * ct;
-  int cp_index;
+  int cp_index, cur_vt;
 
   void name_emit (AST *);
 
@@ -3132,9 +3148,10 @@ expr_emit (AST * root)
 
         ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
 
-        CODE("invokestatic #%d\n", ct->index);
+        code_one_op_w(jvm_invokestatic, ct->index);
+ 
         if(gencast)
-          CODE("d2i\n");
+          code_zero_op(jvm_d2i);
 
       }
       break;
@@ -3142,28 +3159,28 @@ expr_emit (AST * root)
       expr_emit (root->astnode.expression.lhs);
 
       if(root->astnode.expression.lhs->vartype > root->vartype)
-        CODE("%s\n", jvm_opcode[
-          typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]].op);
+        code_zero_op(
+          typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]);
 
       fprintf (curfp, "%c", root->astnode.expression.optype);
       expr_emit (root->astnode.expression.rhs);
 
       if(root->astnode.expression.rhs->vartype > root->vartype)
-        CODE("%s\n", jvm_opcode[
-          typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]].op);
+        code_zero_op(
+          typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]);
 
       switch(root->astnode.expression.optype) {
         case '+':
-          CODE("%s\n",jvm_opcode[add_opcode[root->vartype]].op);
+          code_zero_op(add_opcode[root->vartype]);
           break;
         case '-':
-          CODE("%s\n",jvm_opcode[sub_opcode[root->vartype]].op);
+          code_zero_op(sub_opcode[root->vartype]);
           break;
         case '/':
-          CODE("%s\n",jvm_opcode[div_opcode[root->vartype]].op);
+          code_zero_op(div_opcode[root->vartype]);
           break;
         case '*':
-          CODE("%s\n",jvm_opcode[mul_opcode[root->vartype]].op);
+          code_zero_op(mul_opcode[root->vartype]);
           break;
         default:
           fprintf(stderr,"WARNING: unsupported optype\n");
@@ -3174,8 +3191,10 @@ expr_emit (AST * root)
     case Unaryop:
       fprintf (curfp, "%c", root->astnode.expression.minus);
       expr_emit (root->astnode.expression.rhs);
+
       if(root->astnode.expression.minus == '-')
-        CODE("%s\n", jvm_opcode[neg_opcode[root->vartype]].op);
+        code_zero_op(neg_opcode[root->vartype]);
+
       break;
     case Constant:
 
@@ -3217,7 +3236,7 @@ expr_emit (AST * root)
                   cur_opcode = jvm_iconst_5;
                   break;
                 default:
-                  fprintf(stderr,"WARNING: bad literal in codegen expr_emit()\n");
+                  fprintf(stderr,"WARNING: bad int literal in expr_emit()\n");
                   break;  /* for ANSI compliance */
               }
             }
@@ -3237,7 +3256,7 @@ expr_emit (AST * root)
             else if(dval == 1.0)
               cur_opcode = jvm_dconst_1;
             else
-              fprintf(stderr,"WARNING: bad literal in codegen expr_emit()\n");
+              fprintf(stderr,"WARNING: bad double-prec literal in expr_emit()\n");
           }
           break;
         case TrUE:   /* dont expect to find booleans anyway, so dont try */
@@ -3294,7 +3313,7 @@ expr_emit (AST * root)
 
           if(omitWrappers) {
 
-            CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+            code_one_op(cur_opcode,cp_index);
 
             fprintf (curfp, "\"%s\"", root->astnode.constant.number);
           }
@@ -3305,14 +3324,14 @@ expr_emit (AST * root)
             c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                     full_wrappername[root->vartype]);
 
-            CODE("new #%d\n", c->index);  /* remember 2byte index when generating */
-            CODE("dup\n");
-            CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+            code_one_op_w(jvm_new,c->index);
+            code_zero_op(jvm_dup);
+            code_one_op(cur_opcode,cp_index);
 
             c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
                    wrapper_descriptor[root->vartype]);
 
-            CODE("invokespecial #%d (StringW.<init>)\n",c->index);
+            code_one_op(jvm_invokespecial, c->index);
 
             fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
@@ -3320,9 +3339,9 @@ expr_emit (AST * root)
         else {     /* non-string constant argument to a function call */
           if(omitWrappers) {
             if(cp_index)
-              CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+              code_one_op(cur_opcode,cp_index);
             else
-              CODE("%s\n",jvm_opcode[cur_opcode].op);
+              code_zero_op(cur_opcode);
 
             fprintf (curfp, "%s", root->astnode.constant.number);
           }
@@ -3333,19 +3352,18 @@ expr_emit (AST * root)
             c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                     full_wrappername[root->vartype]);
 
-            CODE("new #%d\n", c->index);  /* remember 2byte index when generating */
-            CODE("dup\n");
+            code_one_op_w(jvm_new,c->index);
+            code_zero_op(jvm_dup);
 
             if(cp_index)
-              CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+              code_one_op(cur_opcode,cp_index);
             else
-              CODE("%s\n",jvm_opcode[cur_opcode].op);
+              code_zero_op(cur_opcode);
             
             c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
                    wrapper_descriptor[root->vartype]);
 
-            CODE("invokespecial #%d (%s.<init>)\n",c->index,
-              full_wrappername[root->vartype]);
+            code_one_op(jvm_invokespecial, c->index);
 
             fprintf (curfp, "new %s(%s)", 
               wrapper_returns[get_type(root->astnode.constant.number)],
@@ -3357,9 +3375,9 @@ expr_emit (AST * root)
       {
 
         if(cp_index)
-          CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+          code_one_op(cur_opcode,cp_index);
         else
-          CODE("%s\n",jvm_opcode[cur_opcode].op);
+          code_zero_op(cur_opcode);
 
         if(root->token == STRING)
           fprintf (curfp, "\"%s\"", root->astnode.constant.number);
@@ -3377,10 +3395,6 @@ expr_emit (AST * root)
       else
         fprintf (curfp, "!");
 
-      /* for bytecode, we have to generate some goofy code
-       * because there's no boolean negation opcode.
-       */
-
       if (root->token == AND)
         fprintf (curfp, " && ");
 
@@ -3388,8 +3402,71 @@ expr_emit (AST * root)
         fprintf (curfp, " || ");
 
       expr_emit (root->astnode.expression.rhs);
+
+      switch(root->token) {
+        case NOT:
+          code_zero_op(jvm_iconst_1);
+          code_zero_op(jvm_ixor);
+          break;
+        case AND:
+          code_zero_op(jvm_iand);
+          break;
+        case OR:
+          code_zero_op(jvm_ior);
+          break;
+      }
       break;
     case Relationalop:
+
+      cur_vt = MIN(root->astnode.expression.lhs->vartype,
+                   root->astnode.expression.rhs->vartype);
+
+      if(((root->astnode.expression.lhs->vartype == String) ||
+          (root->astnode.expression.lhs->vartype == Character)) &&
+         ((root->astnode.expression.rhs->vartype == String) ||
+          (root->astnode.expression.rhs->vartype == Character)))
+      {
+        CPNODE *c;
+
+        if((root->token != rel_eq) && (root->token != rel_ne)) {
+          fprintf(stderr,"WARNING: didn't expect this relop on a STring type!\n");
+          return;
+        }
+
+        cur_vt = root->astnode.expression.lhs->vartype;
+
+        c = newMethodref(cur_const_table,JL_STRING,
+               "trim", TRIM_DESC);
+
+        expr_emit (root->astnode.expression.lhs);
+        code_one_op_w(jvm_invokevirtual, c->index);  /* call trim() */
+      
+        /* after the call to trim, we now have a new string
+         * sitting on top of the stack with our second string
+         * sitting underneath.  so, we issue a swap instruction
+         * and then call trim() on the second string.
+         */
+        code_zero_op(jvm_swap);
+
+        fprintf(curfp,".trim().equalsIgnoreCase(");
+
+        expr_emit (root->astnode.expression.rhs);
+        code_one_op_w(jvm_invokevirtual, c->index);  /* call trim() */
+
+        fprintf(curfp,".trim())");
+
+        c = newMethodref(cur_const_table,JL_STRING,
+               "equalsIgnoreCase", STREQV_DESC);
+        code_one_op_w(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+
+        /* now check the op type & reverse if .NE. */
+        if(root->token == rel_ne) {
+          code_zero_op(jvm_iconst_1);
+          code_zero_op(jvm_ixor);
+        }
+
+        return;   /* nothing more to do for strings here. */
+      }
 
       switch (root->token)
       {
@@ -3407,71 +3484,135 @@ expr_emit (AST * root)
                 returnstring[root->astnode.expression.rhs->vartype]);
           }
 
-          /* Check the data types.  Equality is different for strings
-           * and numbers.  Use == for numbers and .equalsIgnoreCase()
-           * for strings.
-           */
+          expr_emit (root->astnode.expression.lhs);
 
-          if(((root->astnode.expression.lhs->vartype == String) ||
-              (root->astnode.expression.lhs->vartype == Character)) &&
-             ((root->astnode.expression.rhs->vartype == String) ||
-              (root->astnode.expression.rhs->vartype == Character)))
-          {
-            expr_emit (root->astnode.expression.lhs);
-            fprintf(curfp,".trim().equalsIgnoreCase(");
-            expr_emit (root->astnode.expression.rhs);
-            fprintf(curfp,".trim())");
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
-          else
-          {
-            expr_emit (root->astnode.expression.lhs);
-            fprintf (curfp, " == ");
-            expr_emit (root->astnode.expression.rhs);
+
+          fprintf (curfp, " == ");
+
+          expr_emit (root->astnode.expression.rhs);
+
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
+
           break;
         case rel_ne:
 
-          /* As with equality, we check the data types first. */
-
-          if(((root->astnode.expression.lhs->vartype == String) ||
-              (root->astnode.expression.lhs->vartype == Character)) &&
-             ((root->astnode.expression.rhs->vartype == String) ||
-              (root->astnode.expression.rhs->vartype == Character)))
-          {
-            fprintf(curfp,"!");
-            expr_emit (root->astnode.expression.lhs);
-            fprintf(curfp,".trim().equalsIgnoreCase(");
-            expr_emit (root->astnode.expression.rhs);
-            fprintf(curfp,".trim())");
+          expr_emit (root->astnode.expression.lhs);
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
-          else
-          {
-            expr_emit (root->astnode.expression.lhs);
-            fprintf (curfp, " != ");
-            expr_emit (root->astnode.expression.rhs);
+          fprintf (curfp, " != ");
+          expr_emit (root->astnode.expression.rhs);
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
         case rel_lt:
           expr_emit (root->astnode.expression.lhs);
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+          }
           fprintf (curfp, " < ");
           expr_emit (root->astnode.expression.rhs);
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+          }
           break;
         case rel_le:
           expr_emit (root->astnode.expression.lhs);
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+          }
           fprintf (curfp, " <= ");
           expr_emit (root->astnode.expression.rhs);
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+          }
           break;
         case rel_gt:
           expr_emit (root->astnode.expression.lhs);
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+          }
           fprintf (curfp, " > ");
           expr_emit (root->astnode.expression.rhs);
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+          }
           break;
         case rel_ge:
           expr_emit (root->astnode.expression.lhs);
+          if(root->astnode.expression.lhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
+          }
           fprintf (curfp, " >= ");
           expr_emit (root->astnode.expression.rhs);
+          if(root->astnode.expression.rhs->vartype > cur_vt) {
+            code_zero_op(
+              typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
+          }
           break;
       }
+
+      switch(cur_vt) {
+        case String: 
+        case Character: 
+          /* we dont need to do anything here because strings were handled
+           * above already.
+           */
+          break;
+        case Complex: 
+          fprintf(stderr,"WARNING: complex relop not supported yet!\n");
+          break;
+        case Logical:
+          fprintf(stderr,"WARNING: relop not supported on logicals!\n");
+          break;
+        case Float: 
+          fprintf(stderr,"WARNING: single precision not supported!\n");
+          break;
+        case Double: 
+          if((root->token == rel_lt) || (root->token == rel_le))
+            code_zero_op(jvm_dcmpg);
+          else
+            code_zero_op(jvm_dcmpl);
+
+          code_one_op_w(dcmp_opcode[root->token], pc + jvm_opcode[dcmp_opcode[root->token]].width
+                                     + jvm_opcode[jvm_iconst_1].width
+                                     + jvm_opcode[jvm_goto].width);
+          code_zero_op(jvm_iconst_0);
+          code_one_op_w(jvm_goto, pc + jvm_opcode[jvm_goto].width
+                                     + jvm_opcode[jvm_iconst_0].width);
+          code_zero_op(jvm_iconst_1);
+          break;
+        case Integer: 
+          code_one_op_w(icmp_opcode[root->token], pc + jvm_opcode[icmp_opcode[root->token]].width
+                               + jvm_opcode[jvm_iconst_0].width
+                               + jvm_opcode[jvm_goto].width);
+          code_zero_op(jvm_iconst_0);
+          code_one_op_w(jvm_goto, pc+ jvm_opcode[jvm_goto].width
+                                    + jvm_opcode[jvm_iconst_1].width);
+          code_zero_op(jvm_iconst_1);
+          break;
+        default:
+          fprintf(stderr,"WARNING: hit default, relop .eq.\n");
+          break;
+      }
+
       break;
     case Substring:
 
@@ -6433,6 +6574,119 @@ emit_invocations(AST *root)
     fprintf(curfp,"return _retval;\n");
     fprintf(curfp,"}\n"); 
   } 
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * inc_stack                                                                 *
+ *                                                                           *
+ * Increment the stacksize by the specified amount.  If this is the highest  *
+ * stack value encountered, set max_stack to the current stacksize.          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+inc_stack(int inc)
+{
+  stacksize += inc;
+  
+  if(stacksize > max_stack)
+    max_stack = stacksize;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * dec_stack                                                                 *
+ *                                                                           *
+ * Decrement the stacksize by the specified amount.                          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+dec_stack(int dec) {
+  stacksize -= dec;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * code_zero_op                                                              *
+ *                                                                           *
+ * generate code for instructions with no operands (e.g. type conversions).  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+code_zero_op(enum _opcode op)
+{
+  dec_stack(jvm_opcode[op].stack_pre);
+  CODE("%d %s\n", pc, jvm_opcode[op].op);
+  pc += jvm_opcode[op].width;
+  inc_stack(jvm_opcode[op].stack_post);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * code_one_op                                                               *
+ *                                                                           *
+ * generate code for instructions with a single one-byte operand.            *
+ * (e.g. loads,stores,etc).                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+code_one_op(enum _opcode op, int opval)
+{
+  /* if this is a 'wide' op, then call code_one_op_w() */
+
+  if((op == jvm_ldc_w) || (op == jvm_ldc2_w)) {
+    code_one_op_w(op,opval); 
+  }
+  else {
+    dec_stack(jvm_opcode[op].stack_pre);
+    CODE("%d %s %d\n",pc, jvm_opcode[op].op, opval);
+    pc += jvm_opcode[op].width;
+    inc_stack(jvm_opcode[op].stack_post);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * code_one_op_w                                                             *
+ *                                                                           *
+ * generate code for instructions with a single two-byte operand.            *
+ * (e.g. invokevirtual, invokestatic, invokespecial).                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+code_one_op_w(enum _opcode op, int index)
+{
+  dec_stack(jvm_opcode[op].stack_pre);
+  CODE("%d %s #%d\n", pc, jvm_opcode[op].op, index);
+  pc += jvm_opcode[op].width;
+  inc_stack(jvm_opcode[op].stack_post);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newClassFile                                                              *
+ *                                                                           *
+ * Creates a new class file structure.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+struct ClassFile *
+newClassFile()
+{
+  struct ClassFile * tmp;
+ 
+  tmp = (struct ClassFile *)malloc(sizeof(struct ClassFile));
+ 
+  tmp->magic = 0xCAFEBABE;
+  tmp->minor_version = 3;
+  tmp->major_version = 45;
+
+  return tmp;
 }
 
 /*****************************************************************************

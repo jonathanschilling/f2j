@@ -18,11 +18,14 @@
 #include<assert.h>
 #include"symtab.h"
 #include"dlist.h"
+#include"class.h"
 
 typedef int BOOLEAN;
 
 #define FALSE 0
 #define TRUE  1
+
+#define MIN(x,y) ((x)<(y)?(x):(y))       /* the minimum of two numbers       */
 
 /*****************************************************************************
  * Define VCG as 1 if VCG output is desired (VCG == Visualization of         *
@@ -54,12 +57,6 @@ typedef int BOOLEAN;
 
 #define DEBUGGEM 0
 
-/*****************************************************************************
- *  F2J_UTIL defines the default name of the f2java utility package.         *
- *****************************************************************************/
-
-#define F2J_UTIL org.netlib.util
-
 int 
   lineno,                  /* current line number                            */
   statementno,             /* current statement number                       */
@@ -67,7 +64,8 @@ int
   ignored_formatting,      /* number of format statements ignored            */
   bad_format_count,        /* number of invalid format stmts encountered     */
   locals,                  /* number of local variables in current unit      */
-  stacksize;               /* size of stack for current unit                 */
+  stacksize,               /* size of stack for current unit                 */
+  max_stack;               /* maximum stacksize for current unit             */
 
 FILE 
   *ifp,                    /* input file pointer                             */
@@ -223,6 +221,9 @@ struct _source
     needs_blas;                     /* does this unit call any BLAS routines */
  
   int scalarOptStatus;              /* status of optimization on this unit   */
+
+  struct ClassFile
+    *class;                         /* class file for this program unit      */
 };
 
 /*****************************************************************************

@@ -32,7 +32,7 @@ CPNODE * cp_lookup(Dlist, enum _constant_tags, void *);
 CPNODE * cp_find_or_insert(Dlist, enum _constant_tags, void *);
 CPNODE * cp_entry_by_index(Dlist, int);
 CPNODE * cp_insert(Dlist, struct cp_info *, char);
-CPNODE * insert_constant(int, char *);
+CPNODE * insert_constant(Dlist, int, char *);
 CPNODE * newMethodref(Dlist, char *, char *, char *);
 char   * null_term(u1 *, int);
 void     cp_dump(Dlist);

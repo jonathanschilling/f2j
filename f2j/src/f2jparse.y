@@ -46,6 +46,8 @@ AST
   * equivList = NULL,             /* list to keep track of equivalences      */
   * localvarlist;                 /* list of local variables                 */
 
+CPNODE
+  * lastConstant;                 /* last constant inserted into the c.pool  */
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -81,7 +83,7 @@ void
   prepend_minus(char *);
 
 CPNODE *
-  insert_constant(int, char *);
+  insert_constant(Dlist, int, char *);
 
 AST 
   * dl_astnode_examine(Dlist l),
@@ -903,7 +905,19 @@ DataConstant:  Constant
                }
             |  MINUS Constant   
                {
+                 /* in the Constant production, the numeric portion
+                  * of this negated constant may have been inserted.
+                  * if so, we pop it off the list and reinsert the
+                  * negated value. 
+                  */
+
                  prepend_minus($2->astnode.constant.number);
+
+                 if(lastConstant != NULL)
+                   dl_pop(constants_table);
+
+                 insert_constant(constants_table, $2->token,
+                    $2->astnode.constant.number);
                  $$ = $2;
                }
             |  Constant STAR Constant
@@ -2214,7 +2228,19 @@ arith_expr: term
           | MINUS term
             {
               if($2->nodetype == Constant) {
+                /* in the Constant production, the numeric portion
+                 * of this negated constant may have been inserted.
+                 * if so, we pop it off the list and reinsert the
+                 * negated value. 
+                 */
+
                 prepend_minus($2->astnode.constant.number);
+
+                if(lastConstant != NULL)
+                  dl_pop(constants_table);
+
+                insert_constant(constants_table, $2->token, 
+                   $2->astnode.constant.number);
                 $$ = $2;
               }
               else {
@@ -2385,29 +2411,34 @@ Constant:
          { 
            $$ = $1; 
 
-           insert_constant($$->token, $$->astnode.constant.number);
+           lastConstant = insert_constant(constants_table, $$->token, 
+             $$->astnode.constant.number);
          }
        | Double
          { 
            $$ = $1; 
 
-           insert_constant($$->token, $$->astnode.constant.number);
+           lastConstant = insert_constant(constants_table, $$->token, 
+             $$->astnode.constant.number);
          }
        | Exponential
          { 
            $$ = $1; 
 
-           insert_constant($$->token, $$->astnode.constant.number);
+           lastConstant = insert_constant(constants_table, $$->token, 
+             $$->astnode.constant.number);
          }
        | Boolean
          { 
            $$ = $1; 
-           insert_constant($$->token, $$->astnode.constant.number);
+           lastConstant = insert_constant(constants_table, $$->token,
+              $$->astnode.constant.number);
          }
        | String   /* 9-16-97, keith */
          { 
            $$ = $1; 
-           insert_constant($$->token, $$->astnode.constant.number);
+           lastConstant = insert_constant(constants_table, $$->token,
+              $$->astnode.constant.number);
          }
 ; 
 

@@ -1,0 +1,82 @@
+
+**********
+<DIV>    *
+**********
+First the <div> tag. This tag is used to position text or images anywhere you want on the screen.
+JavaScripts cannot be run inside of them(why slideshow is right aligned) and they do not resize so, there is a reload() script that gets
+called when a window is resized. Another issue is they appear at different spots on different screens b/c of
+the screensizes.
+
+I used them b/c we wanted a frame like appearance but we did not want a frame b/c search engines have so much
+trouble viewing the source.
+
+***********
+slideshow *
+***********
+You can use any slideshow you want you just need to name each slide 1.gif, 2.gif, 3.gif, and rename maxsize to be the exact size of the slide show.
+
+***********
+Blank     *
+***********
+An example of the template to start a new page with. 
+*******************************************
+<html>
+<!--  Created by Drew Downey              -->
+<!--  Brewed on 2/13/2001 8:59:24 PM      -->
+
+<!*********************************HEAD*********************************************-->
+<head>
+  <title>Fortran 2 Java(f2j) Project</title>
+  <meta name="description" content="Fortran 2 Java(f2j) Project">
+  <meta name="keywords" content="f77, blas, netlib, lapack, f2j, icl, fortran, java, compiler, translator">
+
+  <script language = "JavaScript">     <!-- check browser, need this b/c of div tags -->
+  function get_browser(){
+        if(document.all){
+           visible = 'visible';
+                }else if(document.layers){
+                   visible = 'show';
+                   }
+  }
+  function reDo(){                     <!-- reload gets called then window resizes -->
+       window.location.reload()
+       window.onresize = reDo;
+  }
+  </SCRIPT>
+</head>
+
+<!*******************************BODY**********************************************-->
+<body bgcolor="#FFFFFF" onResize="window.location.reload()" onload="get_browser()" text="#000000" link="red" vlink="red" background="grey_border.gif">
+
+   <div id="email" style="position: absolute; left: 145; top: 0; visibility: visible">
+         <a href="http://icl.cs.utk.edu"><img src="ICL_logo.jpg" width="455" height="108" align="top"></a>
+   </div>
+
+   <div id="email" style="position: absolute; left: 620; top: 0; visibility: visible">
+         <img src="f2j_logo.jpg">
+   </div>
+
+   <div id="email" style="position: absolute; left: 645; top: 90; visibility: visible">
+      <a href="mailto:seymour@cs.utk.edu">Keith Seymour<br>[seymour@cs.utk.eu]</a>
+   </div>
+
+   <div id="title" style="position: absolute; left: 155; top: 135; visibility: visible">
+      <h2>Whatever</h2>
+   </div>
+
+   <div id="menu" style="position: absolute; left: 10; top: 10; visibility: visible">
+      <h3>
+        <img src="ball.gif"><a href="index.html">Home</a><br><br>
+        <img src="ball.gif"><a href="links.html">Links</a><br><br>
+        <img src="ball.gif"><a href="downloads.html">Downloads</a><br><br>
+        <img src="ball.gif"><a href="slide.html">f2j slide show</a><br><br>
+        <img src="ball.gif"><a href="http://www.cs.utk.edu/f2j/f2jreport/f2jreport.html">Tech Report</a><br><br>
+        <img src="ball.gif"><a href="mail.html">Mailing List</a><br><br>
+        <img src="ball.gif"><a href="paper.html">Papers</a><br><br>
+      </h3>
+   </div>
+</body>
+</html>
+
+
+

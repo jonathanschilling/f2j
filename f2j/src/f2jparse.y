@@ -3290,6 +3290,9 @@ eval_const_expr(AST *root)
   HASHNODE *p;
   double result1, result2;
 
+  if(root == NULL)
+    return 0.0;
+
   switch (root->nodetype)
   {
     case Identifier:
@@ -3319,20 +3322,26 @@ eval_const_expr(AST *root)
       if (root->astnode.expression.lhs != NULL)
         result1 = eval_const_expr (root->astnode.expression.lhs);
 
-      root->vartype = root->astnode.expression.rhs->vartype;
       result2 = eval_const_expr (root->astnode.expression.rhs);
+      root->token = root->astnode.expression.rhs->token;
+      root->nodetype = root->astnode.expression.rhs->nodetype;
+      root->vartype = root->astnode.expression.rhs->vartype;
+      strcpy(root->astnode.constant.number,
+          root->astnode.expression.rhs->astnode.constant.number);
       return (result2);
       break;
     case Power:
       result1 = eval_const_expr (root->astnode.expression.lhs);
       result2 = eval_const_expr (root->astnode.expression.rhs);
-      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,
+                          root->astnode.expression.rhs->vartype);
       return( mypow(result1,result2) );
       break;
     case Binaryop:
       result1 = eval_const_expr (root->astnode.expression.lhs);
       result2 = eval_const_expr (root->astnode.expression.rhs);
-      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,
+                          root->astnode.expression.rhs->vartype);
       if(root->astnode.expression.optype == '-')
         return (result1 - result2);
       else if(root->astnode.expression.optype == '+')
@@ -3361,9 +3370,44 @@ eval_const_expr(AST *root)
       break;
     case ArrayIdxRange:
       /* I dont think it really matters what the type of this node is. --kgs */
-      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,
+                          root->astnode.expression.rhs->vartype);
       return(  eval_const_expr(root->astnode.expression.rhs) - 
                eval_const_expr(root->astnode.expression.lhs) );
+      break;
+    case Logicalop:
+      {
+        int left=0, right=0;
+
+        root->nodetype = Constant;
+        root->vartype = Logical;
+
+        eval_const_expr(root->astnode.expression.lhs);
+        eval_const_expr(root->astnode.expression.rhs);
+
+        if(root->token != NOT)
+          left = root->astnode.expression.lhs->token == TrUE;
+        right = root->astnode.expression.rhs->token == TrUE;
+
+        switch (root->token) {
+          case EQV:
+            root->token = left == right ? TrUE : FaLSE;
+            break;
+          case NEQV:
+            root->token = left != right ? TrUE : FaLSE;
+            break;
+          case AND:
+            root->token = left && right ? TrUE : FaLSE;
+            break;
+          case OR:
+            root->token = left || right ? TrUE : FaLSE;
+            break;
+          case NOT:
+            root->token = ! right ? TrUE : FaLSE;
+            break;
+        }
+        strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
+      }
       break;
     default:
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");

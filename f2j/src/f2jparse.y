@@ -718,7 +718,6 @@ Lhs:     Name {$$=$1;}
 	   /* We don't switch index order.  */
 	   $$->astnode.ident.arraylist = switchem($3);
 	 }
-       | SubstringOp { $$ = $1; }
 ;
 
 

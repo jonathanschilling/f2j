@@ -364,6 +364,18 @@ char *full_wrappername[MAX_RETURNS+1] =  /* fully qualified wrapper names    */
   "java/lang/Object"
 };
 
+char *val_descriptor[MAX_RETURNS+1] = /* desc. of the wrappers .val fields   */
+{
+  "Ljava/lang/String;",
+  "Ljava/lang/String;",
+  "D",
+  "D",
+  "F",
+  "I",
+  "Z",
+  "Ljava/lang/Object;"
+};
+
 char *wrapper_descriptor[MAX_RETURNS+1] =  /* descriptors for the wrapper    */
 {                                          /* classes' constructors.         */
   "(Ljava/lang/String;)V",

@@ -2726,6 +2726,51 @@ getVarDescriptor(AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * pushVar                                                                   *
+ *                                                                           *
+ * Returns the descriptor for this variable.                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc, 
+   int lv, int deref)
+{
+  CPNODE *c;
+
+  if(gendebug) {
+    printf("in pushvar, vartype is %s\n", returnstring[root->vartype]);
+    printf("       local varnum is %d\n", lv);
+  }
+
+  if(isArg) {
+    if(desc[0] == 'L') {
+      /* this is a reference type, so always use aload */
+      if(lv > 3)
+        code_one_op(jvm_aload, lv);
+      else
+        code_zero_op(short_load_opcodes[0][lv]);
+    } else {
+      if(lv > 3)
+        code_one_op(load_opcodes[root->vartype], lv);
+      else
+        code_zero_op(short_load_opcodes[root->vartype][lv]);
+    }
+  }
+  else {
+    c = newFieldref(cur_const_table, class, name, desc);
+    code_one_op_w(jvm_getstatic, c->index);
+  }
+
+  if(deref) {
+    c = newFieldref(cur_const_table, full_wrappername[root->vartype], "val", 
+           val_descriptor[root->vartype]);
+    code_one_op_w(jvm_getfield, c->index);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * scalar_emit                                                               *
  *                                                                           *
  * This function emits a scalar variable.  The first thing that needs        *
@@ -2748,12 +2793,18 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   extern METHODTAB intrinsic_toks[];
   char *com_prefix, *desc, *name, *scalar_class;
   HASHNODE *ht, *isArg, *typenode;
-  CPNODE *c;
+
+  /* if we can't find the identifier name in the hash table, then initialize
+   * descriptor to some junk value.  it should get caught by the
+   * jvm verifier if the real descriptor can't be found below.  note: we
+   * dont always need to be able to find a valid descriptor when this function
+   * gets called (e.g. to emit the name of a function).
+   */
 
   if((typenode = type_lookup(cur_type_table, root->astnode.ident.name)) != NULL)
     desc = getVarDescriptor(typenode->variable);
   else
-    fprintf(stderr,"scalar_emit(): cant find %s in type table.\n",root->astnode.ident.name);
+    desc = "asdf";  
 
   printf("in scalar_emit, name = %s, desc = %s\n",root->astnode.ident.name, desc);
 
@@ -2766,7 +2817,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   isArg = type_lookup(cur_args_table,name);
 
-  if(com_prefix)
+  if(com_prefix[0] != '\0')
   {
     /* if this is a COMMON variable, find out the merged
      * name, if any, that we should use instead.  Names are
@@ -2852,16 +2903,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
           fprintf (curfp, "%s%s", com_prefix, name);
 
-          if(isArg) {
-            if(typenode->variable->astnode.ident.localvnum > 4)
-              code_one_op(load_opcodes[root->vartype], typenode->variable->astnode.ident.localvnum);
-            else
-              code_zero_op(short_load_opcodes[root->vartype][typenode->variable->astnode.ident.localvnum]);
-          }
-          else {
-            c = newFieldref(cur_const_table, scalar_class, name, desc); 
-            code_one_op_w(jvm_getstatic, c->index);
-          }
+          pushVar(root, isArg, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
         }
         else
         {
@@ -2869,10 +2912,16 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             printf("found %s in intrinsics or array table\n",
                root->parent->astnode.ident.name);
 
-          if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+          if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix,name);
-          else
+            pushVar(root, isArg, scalar_class, name, desc,
+               typenode->variable->astnode.ident.localvnum, FALSE);
+          }
+          else {
             fprintf (curfp, "%s%s.val", com_prefix,name);
+            pushVar(root, isArg, scalar_class, name, desc,
+               typenode->variable->astnode.ident.localvnum, TRUE);
+          }
         }
       }
       else if(root->parent->nodetype == Typedec) {
@@ -2880,7 +2929,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         /* Parent is a type declaration - just emit the name itself.
          *
          * For bytecode generation, nothing needs to be done here
-         * because insert_fields() handles all typedecs. */
+         * because insert_fields() handles all typedecs.
+         */
 
         if(gendebug)
           printf("Emitting typedec name: %s\n", name);

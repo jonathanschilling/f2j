@@ -7156,16 +7156,14 @@ emit_interface(AST *root)
 
         dl_insert_b(decs, (void *) strdup(decstr));
 
-        if(cgPassByRef(tempnode->astnode.ident.name)) {
-          /* decstr should already have enough storage for the
-           * following string.
-           */
+        /* decstr should already have enough storage for the
+         * following string.
+         */
 
-          sprintf(decstr,"MatConv.copyOneDintoTwoD(%s,_%s_copy);",
-            tempnode->astnode.ident.name, tempnode->astnode.ident.name);
+        sprintf(decstr,"MatConv.copyOneDintoTwoD(%s,_%s_copy);",
+          tempnode->astnode.ident.name, tempnode->astnode.ident.name);
 
-          dl_insert_b(rest, (void *) strdup(decstr));
-        }
+        dl_insert_b(rest, (void *) strdup(decstr));
       }
 
       if(hashtemp->variable->astnode.ident.dim > 2)

@@ -314,6 +314,57 @@ u2 jvm_array_type[MAX_RETURNS+1] = {
   T_UNUSED
 };
 
+/* table of Java's wrapper classes.  we only expect to use the numeric ones  */
+char * numeric_wrapper[MAX_RETURNS+1] = {
+  "java/lang/String",
+  "java/lang/String",
+  "java/lang/Double",
+  "java/lang/Double",
+  "java/lang/Float",
+  "java/lang/Integer",
+  "java/lang/Boolean",
+  "java/lang/Object"
+};
+
+/* descriptors for the valueOf() method for the various wrapper classes.     */
+char * valueOf_descriptor[MAX_RETURNS+1] = {
+  "(Ljava/lang/Object;)Ljava/lang/String;",
+  "(Ljava/lang/Object;)Ljava/lang/String;",
+  "(Ljava/lang/String;)Ljava/lang/Double;",
+  "(Ljava/lang/String;)Ljava/lang/Double;",
+  "(Ljava/lang/String;)Ljava/lang/Float;",
+  "(Ljava/lang/String;)Ljava/lang/Integer;",
+  "(Ljava/lang/String;)Ljava/lang/Boolean;",
+  "(Ljava/lang/Object;)Ljava/lang/Object;"  /* invalid, but not used */
+};
+
+/* table of numericValue methods (e.g. doubleValue(), intValue(), etc.
+ * again, we do not expect to look up String data types in this table,
+ * so those values may be invalid.                                          
+ */
+char * numericValue_method[MAX_RETURNS+1] = {
+  "toString",
+  "toString",
+  "doubleValue",
+  "doubleValue",
+  "floatValue",
+  "intValue",
+  "booleanValue",
+  "toString"
+};
+
+/* method descriptors corresponding to the above methods.                    */
+char * numericValue_descriptor[MAX_RETURNS+1] = {
+  "()Ljava/lang/String;",
+  "()Ljava/lang/String;",
+  "()D",
+  "()D",
+  "()F",
+  "()I",
+  "()Z",
+  "()Ljava/lang/String;"
+};
+
 #define JSTR     "Ljava/lang/String;"
 #define JSTR_ARR "[Ljava/lang/String;"
 #define JOBJ     "Ljava/lang/Object;"

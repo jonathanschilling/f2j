@@ -4300,22 +4300,22 @@ expr_emit (AST * root)
             code_zero_op(jvm_dcmpl);
 
           code_one_op_w(dcmp_opcode[root->token], 
-                   pc + jvm_opcode[dcmp_opcode[root->token]].width
-                      + jvm_opcode[jvm_iconst_1].width
-                      + jvm_opcode[jvm_goto].width);
+                   jvm_opcode[dcmp_opcode[root->token]].width +
+                   jvm_opcode[jvm_iconst_1].width +
+                   jvm_opcode[jvm_goto].width);
           code_zero_op(jvm_iconst_0);
-          code_one_op_w(jvm_goto, pc + jvm_opcode[jvm_goto].width
-                                     + jvm_opcode[jvm_iconst_0].width);
+          code_one_op_w(jvm_goto, jvm_opcode[jvm_goto].width +
+                        jvm_opcode[jvm_iconst_0].width);
           code_zero_op(jvm_iconst_1);
           break;
         case Integer: 
           code_one_op_w(icmp_opcode[root->token], 
-                   pc + jvm_opcode[icmp_opcode[root->token]].width
-                      + jvm_opcode[jvm_iconst_0].width
-                      + jvm_opcode[jvm_goto].width);
+                   jvm_opcode[icmp_opcode[root->token]].width +
+                   jvm_opcode[jvm_iconst_0].width +
+                   jvm_opcode[jvm_goto].width);
           code_zero_op(jvm_iconst_0);
-          code_one_op_w(jvm_goto, pc+ jvm_opcode[jvm_goto].width
-                                    + jvm_opcode[jvm_iconst_1].width);
+          code_one_op_w(jvm_goto, jvm_opcode[jvm_goto].width +
+                        jvm_opcode[jvm_iconst_1].width);
           code_zero_op(jvm_iconst_1);
           break;
         default:
@@ -6754,19 +6754,50 @@ assign_emit (AST * root)
       fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
       expr_emit (root->astnode.assignment.rhs);
       fprintf(curfp,").%sValue()",returnstring[ltype]);
+
+      c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
+                      valueOf_descriptor[ltype]);
+
+      code_one_op_w(jvm_invokestatic, c->index);
+
+      c = newMethodref(cur_const_table,numeric_wrapper[ltype], 
+                       numericValue_method[ltype],
+                      numericValue_descriptor[ltype]);
+
+      code_one_op_w(jvm_invokevirtual, c->index);
     }
     else if( (ltype == Logical) && (rtype != String) )
     {
       /* boolean = numeric value */
       expr_emit (root->astnode.assignment.rhs);
       fprintf(curfp," == 0 ? false : true");
+      if(rtype == Integer) {
+        code_one_op_w(jvm_ifeq, 7);
+        code_zero_op(jvm_iconst_0);
+        code_one_op_w(jvm_goto, 4);
+        code_zero_op(jvm_iconst_1);
+      }
+      else if(rtype == Double) {
+        code_zero_op(jvm_dconst_0);
+        code_zero_op(jvm_dcmpl);
+        code_one_op_w(jvm_ifne, 7);
+        code_zero_op(jvm_iconst_1);
+        code_one_op_w(jvm_goto, 4);
+        code_zero_op(jvm_iconst_0);
+      }
+      else
+        fprintf(stderr,"WARNING: unsupported cast.\n");
     }
     else
     {
+      if(typeconv_matrix[rtype][ltype] == jvm_nop)
+        fprintf(stderr,"WARNING: unable to handle this cast!\n");
+
       /* numeric value = numeric value of some other type */
       fprintf(curfp,"(%s)(",returnstring[ltype]);
       expr_emit (root->astnode.assignment.rhs);
       fprintf(curfp,")");
+      code_zero_op(typeconv_matrix[rtype][ltype]);
     }
   }
   else   /* lhs and rhs have same types, everything is cool */

@@ -2074,6 +2074,12 @@ is_static(AST *root)
 
   temp = root;
 
+#ifdef F2J_ARRAYS_STATIC
+  if(type_lookup (cur_array_table, temp->astnode.ident.name)
+     && !type_lookup (cur_args_table, temp->astnode.ident.name))
+    return TRUE;
+#endif
+
   if(type_lookup(cur_args_table,temp->astnode.ident.name)) {
     if(gendebug)
       printf("@@ is_static(): %s: not static (is arg)\n",
@@ -2153,6 +2159,12 @@ is_local(AST *root){
   temp = root;
   hashtemp = type_lookup (cur_args_table, temp->astnode.ident.name);
   isarg = hashtemp != NULL;
+
+#ifdef F2J_ARRAYS_STATIC
+  if(type_lookup (cur_array_table, temp->astnode.ident.name)
+     && !type_lookup (cur_args_table, temp->astnode.ident.name))
+    return FALSE;
+#endif
 
   if(type_lookup(cur_data_table,temp->astnode.ident.name)) {
     if(gendebug)

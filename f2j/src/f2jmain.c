@@ -50,6 +50,7 @@ main (int argc, char **argv)
   char sourcename[130];
   char jasminname[130];
   char vcgname[130];
+  char *tmpname, *indexname;
 
   AST *temp;
   int errflg = 0;
@@ -57,7 +58,8 @@ main (int argc, char **argv)
   int i;
 
   AST *addnode();
-  char *strdup(const char *);
+  char *strdup(const char *),
+       * get_full_classname(char *);
   SYMTABLE * new_symtable (int);
   int yyparse (void);
   extern int getopt(int, char *const *, const char *);
@@ -177,6 +179,20 @@ will most likely not work for other code.\n";
     exit(1);
   }
 #endif
+
+  if(package_name != NULL)
+    tmpname = get_full_classname(truncfilename);
+  else 
+    tmpname = truncfilename;
+
+  indexname = (char *)f2jalloc(strlen(tmpname) + 5);
+  strcpy(indexname, tmpname);
+  strcat(indexname, ".f2j");
+
+  if((indexfp = fopen_fullpath(indexname,"w")) == NULL) {
+    fprintf(stderr,"Error opening index file: '%s'\n", indexname);
+    exit(-1);
+  }
 
   /* the Java keywords are stored in a list of strings.  Store them 
    * all in a hash table for quick lookup. */

@@ -41,7 +41,7 @@
  * routines.                                                                 *
  *****************************************************************************/
 
-int optdebug = FALSE;
+int optdebug = TRUE;
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -1061,9 +1061,6 @@ args_optimize(AST *root, AST *rptr)
     if(optdebug)
       printf("call_optimize(): %s not found in global function table.\n",
         root->astnode.ident.name);
-
-    printf("call_optimize(): %s not found in global function table.\n",
-      root->astnode.ident.name);
 
     temp = root->astnode.ident.arraylist;
 

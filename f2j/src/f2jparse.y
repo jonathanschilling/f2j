@@ -48,6 +48,13 @@ AST
 CPNODE
   * lastConstant;                 /* last constant inserted into the c.pool  */
 
+extern SYMTABLE 
+  * type_table,                   /* externally declared symbol tables.      */
+  * intrinsic_table,
+  * external_table,
+  * args_table,
+  * array_table;
+
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
@@ -2767,7 +2774,6 @@ type_hash(AST * types)
   HASHNODE *hash_entry;
   AST * temptypes, * tempnames;
   int return_type;
-  extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
    
    /* Outer for loop traverses typestmts, inner for()
     * loop traverses declists. Code for stuffing symbol table is
@@ -2948,7 +2954,6 @@ void
 arg_table_load(AST * arglist)
 {
   AST * temp;
-  extern SYMTABLE * args_table;
 
   /* We traverse down `prevstmt' because the arglist is
    * built with right recursion, i.e. in reverse.  This
@@ -3002,7 +3007,6 @@ char * lowercase(char * name)
 void
 store_array_var(AST * var)
 {
-  extern SYMTABLE * array_table;
 
   if(type_lookup(array_table, var->astnode.ident.name) != NULL)
     fprintf(stderr,"Error: more than one array declarator for array '%s'\n",
@@ -3308,7 +3312,7 @@ eval_const_expr(AST *root)
       break;
     case Logicalop:
       {
-        int left=0, right=0;
+        int lhs=0, rhs=0;
 
         root->nodetype = Constant;
         root->vartype = Logical;
@@ -3317,24 +3321,24 @@ eval_const_expr(AST *root)
         eval_const_expr(root->astnode.expression.rhs);
 
         if(root->token != NOT)
-          left = root->astnode.expression.lhs->token == TrUE;
-        right = root->astnode.expression.rhs->token == TrUE;
+          lhs = root->astnode.expression.lhs->token == TrUE;
+        rhs = root->astnode.expression.rhs->token == TrUE;
 
         switch (root->token) {
           case EQV:
-            root->token = left == right ? TrUE : FaLSE;
+            root->token = lhs == rhs ? TrUE : FaLSE;
             break;
           case NEQV:
-            root->token = left != right ? TrUE : FaLSE;
+            root->token = lhs != rhs ? TrUE : FaLSE;
             break;
           case AND:
-            root->token = left && right ? TrUE : FaLSE;
+            root->token = lhs && rhs ? TrUE : FaLSE;
             break;
           case OR:
-            root->token = left || right ? TrUE : FaLSE;
+            root->token = lhs || rhs ? TrUE : FaLSE;
             break;
           case NOT:
-            root->token = ! right ? TrUE : FaLSE;
+            root->token = ! rhs ? TrUE : FaLSE;
             break;
         }
         strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
@@ -3348,12 +3352,12 @@ eval_const_expr(AST *root)
 }
 
 void
-printbits(char *header, void *var, int len)
+printbits(char *header, void *var, int datalen)
 {
   int i;
 
   printf("%s: ", header);
-  for(i=0;i<len;i++) {
+  for(i=0;i<datalen;i++) {
       printf("%1x", ((unsigned char *)var)[i] >> 7 );
       printf("%1x", ((unsigned char *)var)[i] >> 6 & 1 );
       printf("%1x", ((unsigned char *)var)[i] >> 5 & 1 );

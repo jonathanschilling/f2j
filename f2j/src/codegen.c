@@ -132,6 +132,9 @@ FILE
   *savefp,              /* temp var for saving the current file pointer      */
   *devnull;             /* pointer to the file /dev/null                     */
 
+extern FILE
+  *indexfp;             /* index of methods & descriptors for all prog units */
+
 SYMTABLE                /* Symbol tables containing...                       */
   *cur_type_table,      /* type information                                  */
   *cur_external_table,  /* external functions                                */
@@ -196,7 +199,7 @@ void
 emit (AST * root)
 {
     void 
-       open_output_file(AST *),
+       open_output_file(AST *, char *),
        emit_adapters(),
        constructor (AST *),
        typedec_emit (AST *),
@@ -266,6 +269,8 @@ emit (AST * root)
 
           classname[0] = toupper(classname[0]);
 
+          cur_filename = get_full_classname(classname);
+
           /* needs initializing before creating the <init> method */
           exc_table = make_dl();
 
@@ -318,7 +323,7 @@ emit (AST * root)
           else
             import_blas = FALSE; 
 
-          open_output_file(root->astnode.source.progtype);
+          open_output_file(root->astnode.source.progtype, classname);
           devnull = fopen("/dev/null","w");
           savefp = curfp;
           set_bytecode_status(JAVA_AND_JVM);
@@ -737,12 +742,16 @@ emit (AST * root)
 char *
 get_full_classname(char *thisclass)
 {
+  extern char *package_name;
   char * pname;
 
   if(package_name != NULL) {
     pname = (char *)f2jalloc(strlen(thisclass) + strlen(package_name) + 2);
-    if(!isalnum(package_name[strlen(package_name)-1]))
+
+    /* issue a warning if the package name has some trailing junk. */
+    if(!isalnum((int)*(package_name + (strlen(package_name)-1))))
       fprintf(stderr,"WARNING: last char of package name not alphanumeric.\n");
+
     strcpy(pname, char_substitution(package_name, '.', '/'));
     strcat(pname, "/");
     strcat(pname, thisclass);
@@ -5492,22 +5501,11 @@ expr_emit (AST * root)
  *****************************************************************************/
 
 void
-open_output_file(AST *root)
+open_output_file(AST *root, char *classname)
 {
   char * filename;
-  char * classname;
   char import_stmt[60];
   
-  /* allocate some space for the filename */
-
-  classname = (char *)
-     f2jalloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
-
-  strcpy(classname,lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
-  *classname = toupper (*classname);
-
-  cur_filename = get_full_classname(classname);
-
   filename = (char *) f2jalloc(strlen(cur_filename) + 6);
   strcpy(filename, cur_filename);
   strcat(filename,".java");
@@ -8253,10 +8251,9 @@ get_method_name(AST *root, BOOLEAN adapter)
 void
 call_emit (AST * root)
 {
-  AST *temp;
-  char *com_prefix;
-  HASHNODE *hashtemp, *ht, *ht2;
   BOOLEAN adapter = FALSE;
+
+  void emit_call_arguments(AST *, BOOLEAN);
 
   assert (root != NULL);
 
@@ -8303,235 +8300,7 @@ call_emit (AST * root)
       fprintf(curfp,",");
   }
 
-  /* look up the function that we are calling so that we may compare
-   * the parameters.
-   */
-
-  if(gendebug)
-    printf("Looking up function name %s, ", root->astnode.ident.name);
-
-  if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
-  {
-    AST *t2;
-
-    if(gendebug)
-      printf("Found!!\n");
-
-    temp = root->astnode.ident.arraylist;
-    t2=hashtemp->variable->astnode.source.args;
-
-    for( ; temp != NULL; temp = temp->nextstmt)
-    {
-
-       com_prefix = get_common_prefix(temp->astnode.ident.name);
-
-         /* 
-          * if the arg is an identifier  AND
-          *    it looks like an array access AND
-          *    it is in the array table
-          */
-
-       if((temp->nodetype == Identifier) && 
-          (temp->astnode.ident.arraylist != NULL) && 
-          (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
-       {
-         ht2 = type_lookup(cur_args_table, temp->astnode.ident.name);
-
-         if(gendebug)
-           printf("CAlling func-array_emit\n");
-
-         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
-         {
-           fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
-           func_array_emit(temp->astnode.ident.arraylist,ht,
-              temp->astnode.ident.name, ht2!=NULL, TRUE);
-         }
-         else                                /* it is not expecting an array */
-         {
-           /* In this case we are passing the array element to the
-            * adapter, so we dont wrap it in an object.
-            */
-
-           fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
-
-           if(omitWrappers) {
-             if(adapter && t2->astnode.ident.passByRef)
-               func_array_emit(temp->astnode.ident.arraylist,ht,
-                 temp->astnode.ident.name, ht2!=NULL, TRUE);
-             else
-               func_array_emit(temp->astnode.ident.arraylist,ht,
-                 temp->astnode.ident.name, ht2!=NULL, FALSE);
-           }
-           else
-           {
-             if(adapter)
-               func_array_emit(temp->astnode.ident.arraylist,ht,
-                 temp->astnode.ident.name, ht2!=NULL, TRUE);
-             else
-               func_array_emit(temp->astnode.ident.arraylist,ht,
-                 temp->astnode.ident.name, ht2!=NULL, FALSE);
-           }
-         }
-       }
-         /* 
-          * else if the arg is an identifier AND
-          *      it does not look like an array access AND
-          *      it is in the array table
-          */
-
-       else if((temp->nodetype == Identifier) &&
-               (temp->astnode.ident.arraylist == NULL) && 
-               type_lookup(cur_array_table, temp->astnode.ident.name) )
-       {
-         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
-         {
-           if(gendebug)
-             printf("expecting array\n");
-
-           expr_emit(temp);
-         }
-         else
-         {
-           if(gendebug)
-             printf("NOT expecting array\n");
-
-           if(omitWrappers && !t2->astnode.ident.passByRef) {
-             fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
-           }
-           else
-           {
-             fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-             fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
-             fprintf(curfp,")");
-           }
-         }
-       }
-
-         /* 
-          * else if the arg is an identifier AND
-          *      it does not look like an array access AND
-          *      it is not in the array table
-          */
-
-       else if(omitWrappers && ((temp->nodetype == Identifier) &&
-               (temp->astnode.ident.arraylist == NULL) && 
-               !type_lookup(cur_array_table, temp->astnode.ident.name) ))
-       {
-         if(t2->astnode.ident.passByRef != 
-            isPassByRef(temp->astnode.ident.name))
-         {
-           if(isPassByRef(temp->astnode.ident.name))
-             fprintf(curfp,"%s%s.val",com_prefix,temp->astnode.ident.name);
-           else
-             fprintf(stderr,"Internal error: %s should not be primitive\n",
-               temp->astnode.ident.name);
-         }
-         else
-         {
-           if( temp->vartype != t2->vartype )
-             fprintf(curfp,"(%s) ( ",returnstring[t2->vartype]);
-
-           expr_emit(temp);
-
-           if( temp->vartype != t2->vartype )
-             fprintf(curfp,")");
-         }
-       }
-       else if(omitWrappers && (temp->nodetype == Constant))
-       {
-         if(t2->astnode.ident.passByRef) {
-           fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-           expr_emit(temp);
-           fprintf(curfp,")"); 
-         }
-         else
-           expr_emit(temp);
-
-       }
-       else if(
-         ((temp->nodetype == Identifier) &&
-          (temp->astnode.ident.arraylist == NULL) )
-          || (temp->nodetype == Constant) )
-       {
-         expr_emit(temp);
-       }
-       else if(temp->nodetype != EmptyArgList)
-       {
-         /* 
-          * Otherwise, use wrappers.
-          */
-         if(omitWrappers) {
-           if(t2->astnode.ident.passByRef)
-             fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-         }
-         else
-         {
-           fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-         }
-
-         if(gendebug) {
-           printf("emitting wrapped expr...\n");
-           printf("   wrapper type is %s\n",wrapper_returns[t2->vartype]);
-           printf("   data type is %s\n",returnstring[temp->vartype]);
-         }
-  
-         /* emit a cast if necessary */
-
-         if( temp->vartype != t2->vartype )
-           fprintf(curfp,"(%s) ( ",returnstring[t2->vartype]);
-
-         expr_emit(temp);
-
-         if( temp->vartype != t2->vartype )
-           fprintf(curfp,")");
-
-         if(omitWrappers) {
-           if(t2->astnode.ident.passByRef)
-             fprintf(curfp,")");
-         }
-         else
-         {
-           fprintf(curfp,")");
-         }
-       }
-       if(t2 != NULL)
-         t2 = t2->nextstmt;
-       if(temp->nextstmt != NULL)
-         fprintf(curfp, ",");
-    }
-  }
-  else
-  {
-    /* General case.  we dont know what the parameters are supposed to be
-     * so we have to guess here.
-     */
-
-    temp = root->astnode.ident.arraylist;
-
-    for( ; temp != NULL; temp = temp->nextstmt)
-    {
-      if(((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL)) ||
-          (temp->nodetype == Constant))
-      {
-        expr_emit (temp);
-      }
-      else
-      {
-        if(omitWrappers) {
-          expr_emit (temp);
-        }
-        else
-        {
-          fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
-          expr_emit (temp);
-          fprintf(curfp,")");
-        }
-      }
-
-      if(temp->nextstmt != NULL)
-        fprintf(curfp, ",");
-    }
-  }
+  emit_call_arguments(root, adapter);
 
   /*  
    *  Problem here, depends on who called this procedure.
@@ -8546,6 +8315,284 @@ call_emit (AST * root)
   else
     fprintf (curfp, ")");
 }				/*  Close call_emit().  */
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_call_arguments                                                       *
+ *                                                                           *
+ * this function attempts to find the method descriptor for the fortran      *
+ * subroutine or function that we are calling.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_call_arguments(AST *root, BOOLEAN adapter)
+{
+  HASHNODE *hashtemp;
+
+  void emit_call_args_known(AST *, HASHNODE *, BOOLEAN);
+  void emit_call_args_unknown(AST *);
+
+  /* look up the function that we are calling so that we may compare
+   * the parameters.
+   */
+
+  if(gendebug)
+    printf("Looking up function name %s, ", root->astnode.ident.name);
+
+  if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
+    emit_call_args_known(root, hashtemp, adapter);
+  else
+    emit_call_args_unknown(root);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_call_args_known                                                      *
+ *                                                                           *
+ * this function emits the arguments to a method call when we know the       *
+ * descriptor for the method.  in this case we can determine whether each    *
+ * arg needs to be passed by reference or not.  e.g. if you pass a constant  *
+ * to a method expecting an intW object, then the constant must be wrapped   *
+ * in an intW before calling the method.                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_call_args_known(AST *root, HASHNODE *hashtemp, BOOLEAN adapter)
+{
+  AST *temp, *t2;
+  char *com_prefix;
+  HASHNODE *ht, *ht2;
+
+  temp = root->astnode.ident.arraylist;
+  t2=hashtemp->variable->astnode.source.args;
+
+  for( ; temp != NULL; temp = temp->nextstmt)
+  {
+
+    com_prefix = get_common_prefix(temp->astnode.ident.name);
+
+      /* 
+       * if the arg is an identifier  AND
+       *    it looks like an array access AND
+       *    it is in the array table
+       */
+
+    if((temp->nodetype == Identifier) && 
+       (temp->astnode.ident.arraylist != NULL) && 
+       (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
+    {
+      ht2 = type_lookup(cur_args_table, temp->astnode.ident.name);
+
+      if(gendebug)
+        printf("CAlling func-array_emit\n");
+
+      if(t2->astnode.ident.arraylist)     /* it is expecting an array */
+      {
+        fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
+        func_array_emit(temp->astnode.ident.arraylist,ht,
+           temp->astnode.ident.name, ht2!=NULL, TRUE);
+      }
+      else                                /* it is not expecting an array */
+      {
+        /* In this case we are passing the array element to the
+         * adapter, so we dont wrap it in an object.
+         */
+
+        fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
+
+        if(omitWrappers) {
+          if(adapter && t2->astnode.ident.passByRef)
+            func_array_emit(temp->astnode.ident.arraylist,ht,
+              temp->astnode.ident.name, ht2!=NULL, TRUE);
+          else
+            func_array_emit(temp->astnode.ident.arraylist,ht,
+              temp->astnode.ident.name, ht2!=NULL, FALSE);
+        }
+        else
+        {
+          if(adapter)
+            func_array_emit(temp->astnode.ident.arraylist,ht,
+              temp->astnode.ident.name, ht2!=NULL, TRUE);
+          else
+            func_array_emit(temp->astnode.ident.arraylist,ht,
+              temp->astnode.ident.name, ht2!=NULL, FALSE);
+        }
+      }
+    }
+      /* 
+       * else if the arg is an identifier AND
+       *      it does not look like an array access AND
+       *      it is in the array table
+       */
+
+    else if((temp->nodetype == Identifier) &&
+            (temp->astnode.ident.arraylist == NULL) && 
+            type_lookup(cur_array_table, temp->astnode.ident.name) )
+    {
+      if(t2->astnode.ident.arraylist)     /* it is expecting an array */
+      {
+        if(gendebug)
+          printf("expecting array\n");
+
+        expr_emit(temp);
+      }
+      else
+      {
+        if(gendebug)
+          printf("NOT expecting array\n");
+
+        if(omitWrappers && !t2->astnode.ident.passByRef) {
+          fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
+        }
+        else
+        {
+          fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+          fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
+          fprintf(curfp,")");
+        }
+      }
+    }
+
+      /* 
+       * else if the arg is an identifier AND
+       *      it does not look like an array access AND
+       *      it is not in the array table
+       */
+
+    else if(omitWrappers && ((temp->nodetype == Identifier) &&
+            (temp->astnode.ident.arraylist == NULL) && 
+            !type_lookup(cur_array_table, temp->astnode.ident.name) ))
+    {
+      if(t2->astnode.ident.passByRef != 
+         isPassByRef(temp->astnode.ident.name))
+      {
+        if(isPassByRef(temp->astnode.ident.name))
+          fprintf(curfp,"%s%s.val",com_prefix,temp->astnode.ident.name);
+        else
+          fprintf(stderr,"Internal error: %s should not be primitive\n",
+            temp->astnode.ident.name);
+      }
+      else
+      {
+        if( temp->vartype != t2->vartype )
+          fprintf(curfp,"(%s) ( ",returnstring[t2->vartype]);
+
+        expr_emit(temp);
+
+        if( temp->vartype != t2->vartype )
+          fprintf(curfp,")");
+      }
+    }
+    else if(omitWrappers && (temp->nodetype == Constant))
+    {
+      if(t2->astnode.ident.passByRef) {
+        fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+        expr_emit(temp);
+        fprintf(curfp,")"); 
+      }
+      else
+        expr_emit(temp);
+
+    }
+    else if(
+      ((temp->nodetype == Identifier) &&
+       (temp->astnode.ident.arraylist == NULL) )
+       || (temp->nodetype == Constant) )
+    {
+      expr_emit(temp);
+    }
+    else if(temp->nodetype != EmptyArgList)
+    {
+      /* 
+       * Otherwise, use wrappers.
+       */
+      if(omitWrappers) {
+        if(t2->astnode.ident.passByRef)
+          fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+      }
+      else
+      {
+        fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+      }
+
+      if(gendebug) {
+        printf("emitting wrapped expr...\n");
+        printf("   wrapper type is %s\n",wrapper_returns[t2->vartype]);
+        printf("   data type is %s\n",returnstring[temp->vartype]);
+      }
+
+      /* emit a cast if necessary */
+
+      if( temp->vartype != t2->vartype )
+        fprintf(curfp,"(%s) ( ",returnstring[t2->vartype]);
+
+      expr_emit(temp);
+
+      if( temp->vartype != t2->vartype )
+        fprintf(curfp,")");
+
+      if(omitWrappers) {
+        if(t2->astnode.ident.passByRef)
+          fprintf(curfp,")");
+      }
+      else
+      {
+        fprintf(curfp,")");
+      }
+    }
+
+    if(t2 != NULL)
+      t2 = t2->nextstmt;
+    if(temp->nextstmt != NULL)
+      fprintf(curfp, ",");
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_call_args_unknown                                                    *
+ *                                                                           *
+ * this function emits the arguments to a method call when the descriptor    *
+ * of the method is unknown.  in this case, we must guess at the appropriate *
+ * types - sometimes we are correct but most of the time, there is an error. *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_call_args_unknown(AST *root)
+{
+  AST *temp;
+
+  temp = root->astnode.ident.arraylist;
+
+  for( ; temp != NULL; temp = temp->nextstmt)
+  {
+    if(((temp->nodetype == Identifier) && 
+        (temp->astnode.ident.arraylist == NULL))
+       ||
+        (temp->nodetype == Constant))
+    {
+      expr_emit (temp);
+    }
+    else
+    {
+      if(omitWrappers) {
+        expr_emit (temp);
+      }
+      else
+      {
+        fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
+        expr_emit (temp);
+        fprintf(curfp,")");
+      }
+    }
+
+    if(temp->nextstmt != NULL)
+      fprintf(curfp, ",");
+  }
+}
 
 /*****************************************************************************
  *                                                                           *
@@ -9867,6 +9914,8 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
   int idx;
 
   void traverse_code(Dlist); 
+
+  fprintf(indexfp,"%s:%s:%s\n",cur_filename, name, desc);
 
   /* at the end of the method, the stacksize should always be zero.
    * if not, we're gonna have verification problems at the very least.

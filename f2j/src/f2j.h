@@ -93,7 +93,8 @@ int
 FILE 
   *ifp,                    /* input file pointer                             */
   *jasminfp,               /* jasmin output file pointer                     */
-  *vcgfp;                  /* VCG output file pointer                        */
+  *vcgfp,                  /* VCG output file pointer                        */
+  *indexfp;                /* method and descriptor index for all prog units */
 
 char 
   *inputfilename,          /* name of the input file                         */

@@ -26,7 +26,9 @@
 
 char 
   * strdup ( const char * ),
-  * print_nodetype ( AST * ),
+  * print_nodetype ( AST * );
+
+METHODTAB
   * methodscan (METHODTAB *, char *);
 
 void 
@@ -49,6 +51,10 @@ SYMTABLE
   * chk_external_table,              /* ptr to table of external functions   */
   * chk_intrinsic_table,             /* ptr to table of intrinsics           */
   * chk_array_table;                 /* ptr to array table                   */
+
+char bitfields[] = {                 /* for typechecking intrinsics          */
+  STRING_ARG,CHAR_ARG,COMPLEX_ARG,DOUBLE_ARG,REAL_ARG,INT_ARG,LOGICAL_ARG
+};
 
 /*****************************************************************************
  *                                                                           *
@@ -908,8 +914,9 @@ void
 external_check(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
-  char *tempname, *javaname;
+  char *tempname;
   AST *temp;
+
   void name_check (AST *);
   void expr_check (AST *);
   void call_check (AST *);
@@ -919,9 +926,7 @@ external_check(AST *root)
 
   /* first, make sure this isn't in the list of intrinsic functions... */
 
-  javaname = (char *) methodscan (intrinsic_toks, tempname);
-
-  if (javaname == NULL)
+  if (methodscan(intrinsic_toks,tempname) == NULL)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_check (root);
@@ -975,162 +980,92 @@ intrinsic_check(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
   AST *temp;
+  METHODTAB *entry;
   char *tempname, *javaname;
+  enum _intrinsics id;
+  enum returntype min_type = Integer;
+
   void expr_check (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
-  javaname = (char *)methodscan (intrinsic_toks, tempname);
+  printf("MIN? looking for intrinsic %s\n",tempname);
 
-  if (!strcmp (tempname, "MAX") || !strcmp(tempname,"DMAX1"))
-  {
-    for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt)
-      expr_check (temp);
+  entry = methodscan (intrinsic_toks, tempname);
 
-    root->vartype = Double;
-
-    return;
+  if(!entry) {
+    fprintf(stderr,"Error: not expecting null entry at this point.\n");
+    exit(-1);
   }
 
-  if (!strcmp (tempname, "MIN"))
-  {
-    for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt)
-      expr_check (temp);
+  printf("MIN? found entry: %s %s %s %s (intrinsic # %d)\n", entry->fortran_name,
+         entry->class_name, entry->method_name, entry->descriptor, entry->intrinsic);
 
-    root->vartype = Double;
+  javaname = entry->java_method;
+  id = entry->intrinsic;
 
-    return;
-  }
+  if(root->astnode.ident.arraylist == NULL)
+    fprintf(stderr,"WARNING: intrinsic with no args!\n");
 
-  if (!strcmp (tempname, "ABS"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"ABS: calling expr_check with null pointer!\n");
-
+  /* check each argument to this intrinsic and determine the widest type
+   * in case this is a generic intrinsic (so we may correctly determine
+   * which typecasts to make).
+   */
+  for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt) {
     expr_check (temp);
-    root->vartype = Double;
-    return;
+
+    if(temp->vartype < min_type)
+      min_type = temp->vartype;
+
+    if(! (bitfields[temp->vartype] & entry->args)) {
+      fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
+              entry->fortran_name);
+      exit(-1);
+    }
   }
 
-  if (!strcmp (tempname, "DABS"))
-  {
-    temp = root->astnode.ident.arraylist;
+  printf("&intrinsic... min_type of %s is %s\n", intrinsic_toks[id].fortran_name,
+          returnstring[min_type]);
 
-    if(temp == NULL)
-      fprintf(stderr,"DABS: calling expr_check with null pointer!\n");
+  /* if this is a generic intrinsic, then set the return type of the
+   * intrinsic to the type of the widest argument.
+   */
 
-    expr_check (temp);
-    root->vartype = Double;
-    return;
+  if(type_lookup(generic_table, intrinsic_toks[id].fortran_name) != NULL) {
+
+    /* we must make a special case for type conversion intrinsics because
+     * they always have the same return type regardless of whether the
+     * generic form is used.
+     */
+
+    switch(id) {
+      case ifunc_INT:
+        root->vartype = Integer;
+        break;
+      case ifunc_REAL:
+        root->vartype = Float;
+        break;
+      case ifunc_DBLE:
+        root->vartype = Double;
+        break;
+      case ifunc_CMPLX:
+        root->vartype = Complex;
+        break;
+      case ifunc_NINT:
+        root->vartype = Integer;
+        break;
+      default:
+        root->vartype = min_type;
+        break; /* ansi c */
+    }
+
   }
+  else
+    root->vartype = intrinsic_toks[id].ret;
 
-  if (!strcmp (tempname, "DSQRT")
-   || !strcmp (tempname, "SIN")
-   || !strcmp (tempname, "EXP")
-   || !strcmp (tempname, "COS"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"DSQRT,etc: calling expr_check with null pointer!\n");
-
-    expr_check (temp);
-    root->vartype = Double;
-    return;
-  }
-
-  if (!strcmp (tempname, "SQRT")
-   || !strcmp (tempname, "LOG")
-   || !strcmp (tempname, "LOG10"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"SQRT,etc: calling expr_check with null pointer!\n");
-
-    expr_check (temp);
-    root->vartype = Double;
-    return;
-  }
-
-  if(!strcmp (tempname, "MOD"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"MOD: calling expr_check with null pointer!\n");
-
-    expr_check(temp);
-
-    if(temp->nextstmt == NULL)
-      fprintf(stderr,"MOD2: calling expr_check with null pointer!\n");
-
-    expr_check(temp->nextstmt);
-
-    root->vartype = Integer;
-    return;
-  }
-
-  if(!strcmp (tempname, "SIGN"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"SIGN: calling expr_check with null pointer!\n");
-
-    expr_check(temp);
-
-    if(temp->nextstmt == NULL)
-      fprintf(stderr,"SIGN2: calling expr_check with null pointer!\n");
-
-    expr_check(temp->nextstmt);
-
-    root->vartype = Double;
-    return;
-  }
-
-  if (!strcmp (tempname, "CHAR"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"CHAR: calling expr_check with null pointer!\n");
-
-    expr_check(temp);
-    root->vartype = Character;
-    return;
-  }
-
-  if (!strcmp (tempname, "ICHAR")
-   || !strcmp (tempname, "INT")
-   || !strcmp (tempname, "LEN")
-   || !strcmp (tempname, "NINT"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"%s: calling expr_check with null pointer!\n",tempname);
-
-    expr_check(temp);
-    root->vartype = Integer;
-    return;
-  }
-
-  if(!strcmp (tempname, "REAL") ||
-     !strcmp (tempname, "DBLE"))
-  {
-    temp = root->astnode.ident.arraylist;
-
-    if(temp == NULL)
-      fprintf(stderr,"REAL: calling expr_check with null pointer!\n");
-
-    expr_check(temp);
-    root->vartype = Double;
-    return;
-  }
+  printf("&intrinsic... final return type of %s is %s\n", intrinsic_toks[id].fortran_name,
+          returnstring[root->vartype]);
 }
 
 /*****************************************************************************

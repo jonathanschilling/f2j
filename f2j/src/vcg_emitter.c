@@ -449,7 +449,7 @@ vcg_name_emit (AST * root, int parent)
   int my_node = node_num;
   int temp_num;
   void vcg_call_emit (AST *, int);
-  char *methodscan (METHODTAB *, char *);
+  METHODTAB *methodscan (METHODTAB *, char *), *entry;
   void vcg_expr_emit (AST *, int);
 
   if(vcg_debug)
@@ -469,15 +469,13 @@ vcg_name_emit (AST * root, int parent)
    */
 
   if (hashtemp != NULL) {
-    javaname = (char *) methodscan (intrinsic_toks, root->astnode.ident.name);
-
     /*  This block of code is only called if the identifier
      *  absolutely does not have an entry in any table,
      *  and corresponds to a method invocation of
      *  something in the blas or lapack packages.  
      */
 
-    if (javaname == NULL) {
+    if (methodscan(intrinsic_toks,root->astnode.ident.name) == NULL) {
       if (root->astnode.ident.arraylist != NULL) {
         vcg_call_emit (root, my_node);
         return my_node;
@@ -501,7 +499,8 @@ vcg_name_emit (AST * root, int parent)
   if(vcg_debug)
     printf ("Tempname  %s\n", tempname);
 
-  javaname = (char *) methodscan (intrinsic_toks, tempname);
+  entry = methodscan (intrinsic_toks, tempname);
+  javaname = entry->java_method;
 	  
   if (javaname != NULL) {
     if (!strcmp (root->astnode.ident.name, "MAX")) {

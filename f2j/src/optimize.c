@@ -50,7 +50,9 @@ int optdebug = FALSE;
 char 
   * strdup ( const char * ),
   * print_nodetype ( AST * ),
-  * lowercase ( char * ),
+  * lowercase ( char * );
+
+METHODTAB
   * methodscan (METHODTAB * , char * );
 
 void 
@@ -381,7 +383,7 @@ void
 external_optimize(AST *root, AST *rptr)
 {
   extern METHODTAB intrinsic_toks[];
-  char *tempname, *javaname;
+  char *tempname;
   void call_optimize(AST *, AST *);
 
   if(optdebug) {
@@ -393,10 +395,6 @@ external_optimize(AST *root, AST *rptr)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
-  /* First, make sure this isn't some intrinsic function. */
-
-  javaname = (char *) methodscan (intrinsic_toks, tempname);
-
   /*
    *  This block of code is only called if the identifier
    *  absolutely does not have an entry in any table,
@@ -404,7 +402,7 @@ external_optimize(AST *root, AST *rptr)
    *  something in the blas or lapack packages.
    */
 
-  if (javaname == NULL)
+  if (methodscan(intrinsic_toks,tempname) == NULL)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_optimize (root, rptr);

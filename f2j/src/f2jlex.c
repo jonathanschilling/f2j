@@ -1024,7 +1024,7 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
  * This is surely a hack.                                                    *
  *****************************************************************************/
 
-char *
+METHODTAB *
 methodscan (METHODTAB * tab, char * name)
 {
 
@@ -1038,18 +1038,18 @@ methodscan (METHODTAB * tab, char * name)
 
   while (tab->fortran_name != NULL) { 
     if (tab->fortran_name == NULL) 
-      return 0;
+      return NULL;
 
     if (!strcmp (tab->fortran_name,name)) {
       if(lexdebug)
         printf("java_name: %s\n", tab->java_method); 
 
-      return tab->java_method; 
+      return tab; 
     }
     tab++;
   }                           /* Close for() loop.   */
 
-  return 0;                   /* Not in table.       */
+  return NULL;                   /* Not in table.       */
 }                             /* Close methodscan(). */
 
 

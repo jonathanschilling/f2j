@@ -54,6 +54,27 @@ typedef int BOOLEAN;
 #define FINISHED    2
 
 /*****************************************************************************
+ * bitfields representing the valid arguments to intrinsics.   the generic   *
+ * intrinsics may take many different valid types, so we OR them together in *
+ * some cases.                                                               *
+ *****************************************************************************/
+
+#define STRING_ARG   64
+#define CHAR_ARG     32
+#define COMPLEX_ARG  16
+#define DOUBLE_ARG    8
+#define REAL_ARG      4
+#define INT_ARG       2
+#define LOGICAL_ARG   1
+
+#define IRDC_ARGS (INT_ARG | REAL_ARG | DOUBLE_ARG | COMPLEX_ARG)
+#define IRD_ARGS (INT_ARG | REAL_ARG | DOUBLE_ARG)
+#define IR_ARGS (INT_ARG | REAL_ARG)
+#define RD_ARGS (REAL_ARG | DOUBLE_ARG)
+#define RDC_ARGS (REAL_ARG | DOUBLE_ARG | COMPLEX_ARG)
+#define CS_ARGS (STRING_ARG | CHAR_ARG)
+
+/*****************************************************************************
  *  If DEBUGGEM is defined as 1, yyparse produces voluminous, detailed       *
  *  output to stderr during parsing.                                         *
  *****************************************************************************/
@@ -524,18 +545,38 @@ KWDTAB;
  * Java intrinsic methods.                                                   *
  *****************************************************************************/
 
+enum _intrinsics {
+  ifunc_INT, ifunc_IFIX, ifunc_IDINT, ifunc_REAL, ifunc_FLOAT, ifunc_SNGL,
+  ifunc_DBLE, ifunc_CMPLX, ifunc_ICHAR, ifunc_CHAR, ifunc_AINT, ifunc_DINT,
+  ifunc_ANINT, ifunc_DNINT, ifunc_NINT, ifunc_IDNINT, ifunc_ABS, ifunc_IABS,
+  ifunc_DABS, ifunc_CABS, ifunc_MOD, ifunc_AMOD, ifunc_DMOD, ifunc_SIGN,
+  ifunc_ISIGN, ifunc_DSIGN, ifunc_DIM, ifunc_IDIM, ifunc_DDIM, ifunc_DPROD,
+  ifunc_MAX, ifunc_MAX0, ifunc_AMAX1, ifunc_DMAX1, ifunc_AMAX0, ifunc_MAX1,
+  ifunc_MIN, ifunc_MIN0, ifunc_AMIN1, ifunc_DMIN1, ifunc_AMIN0, ifunc_MIN1,
+  ifunc_LEN, ifunc_INDEX, ifunc_AIMAG, ifunc_CONJG, ifunc_SQRT, ifunc_DSQRT,
+  ifunc_CSQRT, ifunc_EXP, ifunc_DEXP, ifunc_CEXP, ifunc_LOG, ifunc_ALOG,
+  ifunc_DLOG, ifunc_CLOG, ifunc_LOG10, ifunc_ALOG10, ifunc_DLOG10, ifunc_SIN,
+  ifunc_DSIN, ifunc_CSIN, ifunc_COS, ifunc_DCOS, ifunc_CCOS, ifunc_TAN,
+  ifunc_DTAN, ifunc_ASIN, ifunc_DASIN, ifunc_ACOS, ifunc_DACOS, ifunc_ATAN,
+  ifunc_DATAN, ifunc_ATAN2, ifunc_DATAN2, ifunc_SINH, ifunc_DSINH, ifunc_COSH,
+  ifunc_DCOSH, ifunc_TANH, ifunc_DTANH, ifunc_LGE, ifunc_LGT, ifunc_LLE,
+  ifunc_LLT, ifunc_LSAME, ifunc_LSAMEN
+};
+
 typedef struct method_tab
 {
-  char *fortran_name;               /* name of the Fortran intrinsic         */
+  enum _intrinsics intrinsic;      /* id of this intrinsic                  */
+  char *fortran_name;              /* name of the Fortran intrinsic         */
 
-  /* used for Java source generation: */
+  /* for Java source generation: */
   char *java_method;                /* name of the corresponding Java func   */
 
-  /* used for bytecode generation: */
+  /* for bytecode generation: */
   char *class_name;                 /* fully qualified Java class name       */
   char *method_name;                /* fully qualified Java class name       */
   char *descriptor;                 /* corresponding Java func descriptor    */
 
+  char args;                        /* bitfield of valid args to intrinsic   */
   enum returntype ret;              /* return type of this intrinsic         */
 }
 METHODTAB;

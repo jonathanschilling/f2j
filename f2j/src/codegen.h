@@ -39,6 +39,7 @@
  *****************************************************************************/
 
 #define JL_STRING "java/lang/String"
+#define JL_CHAR "java/lang/Character"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "()Z"
@@ -52,6 +53,10 @@
 #define STRINGBUFFER "java/lang/StringBuffer"
 #define STRBUF_DESC "(Ljava/lang/String;)V"
 #define TOSTRING_DESC "()Ljava/lang/String;"
+#define CHARAT_DESC "(I)C"
+
+#define THREEARG_MAX_FUNC "Util.max"
+#define THREEARG_MIN_FUNC "Util.min"
 
 /*****************************************************************************
  * Definitions for an expandable string structure.  STR_INIT is the initial  *

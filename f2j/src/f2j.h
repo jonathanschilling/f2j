@@ -626,4 +626,7 @@ void
   * f2jcalloc(size_t, size_t),
   * f2jrealloc(void *, size_t);
 
+Dlist
+  build_method_table(char *);
+
 #endif

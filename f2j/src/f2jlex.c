@@ -613,8 +613,6 @@ methodscan (METHODTAB * tab, char * name)
     tab++;
   }                           /* Close for() loop.   */
 
-  printf("Segfault after here\n");
-
   return 0;                     /* Not in table.       */
 }				/* Close methodscan(). */
 

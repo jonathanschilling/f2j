@@ -11564,7 +11564,7 @@ getStackIncrement(enum _opcode op, u4 index)
 
     stack_increment = stackinf->ret_len;
 
-    f2jfree(stackinf, sizeof(stackinf));
+    f2jfree(stackinf, sizeof(struct stack_info));
     f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
@@ -11652,7 +11652,7 @@ getStackDecrement(enum _opcode op, u4 index)
     else
       stack_decrement = stackinf->arg_len + 1;
 
-    f2jfree(stackinf, sizeof(stackinf));
+    f2jfree(stackinf, sizeof(struct stack_info));
     f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 

@@ -436,6 +436,17 @@ enum _opcode short_load_opcodes[MAX_RETURNS+1][4] = /* shorthand local loads */
   {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3}
 };
 
+enum _opcode iconst_opcodes[7] =  /* shorthand iconst_X opcodes              */
+{
+  jvm_iconst_m1,
+  jvm_iconst_0,
+  jvm_iconst_1,
+  jvm_iconst_2,
+  jvm_iconst_3,
+  jvm_iconst_4,
+  jvm_iconst_5
+};
+
 char *init_vals[MAX_RETURNS+1] =    /* initial values for above data types   */
 {
   "\" \"",

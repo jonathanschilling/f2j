@@ -2726,9 +2726,35 @@ getVarDescriptor(AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * pushIntConstant                                                           *
+ *                                                                           *
+ * pushes an integer constant onto the stack.                                *
+ *                                                                           *
+ *****************************************************************************/
+
+enum _opcode
+get_iconst_opcode(CPNODE *ct, int ival)
+{
+  if(ct) {
+    if(ct->index > CPIDX_MAX)
+      return(jvm_ldc_w);
+    else
+      return(jvm_ldc);
+  } else {   /* not found, use literal */
+    if((ival < -1) || (ival > 5)) {
+      fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n", ival);
+      return jvm_nop;
+    }
+    else
+      return(iconst_opcodes[ival+1]);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * pushVar                                                                   *
  *                                                                           *
- * Returns the descriptor for this variable.                                 *
+ * pushes a local variable onto the stack.                                   *
  *                                                                           *
  *****************************************************************************/
 
@@ -2767,6 +2793,23 @@ pushVar(AST *root, HASHNODE *isArg, char *class, char *name, char *desc,
            val_descriptor[root->vartype]);
     code_one_op_w(jvm_getfield, c->index);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * pushOffsetArg                                                             *
+ *                                                                           *
+ * pushes an integer offset to an array onto the stack.                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pushOffsetArg(int lv)
+{
+  if(lv > 3)
+    code_one_op(jvm_iload, lv);
+  else
+    code_zero_op(short_load_opcodes[Integer][lv]);
 }
 
 /*****************************************************************************
@@ -2966,17 +3009,38 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       else {
        
         /* General case - just generate the name, with the 
-         * .val suffix if applicable.
+         * .val suffix if applicable.  the global_sub stuff is
+         * for implied DO loops in data statements.  in that
+         * case, we dont want to actually emit a variable name,
+         * so we substitute its corresponding number.
          */
 
-        if( (global_sub.name != NULL) && 
+        if((global_sub.name != NULL) && 
             !strcmp(global_sub.name, name))
+        {
+          CPNODE *c;
+
           fprintf (curfp, " %d ", global_sub.val);
+          
+          c=cp_find_or_insert(cur_const_table,CONSTANT_Integer,
+                              (void*)&global_sub.val);
+          if(c) {
+            code_one_op(get_iconst_opcode(c, global_sub.val),c->index);
+          } else {
+            code_zero_op(get_iconst_opcode(c, global_sub.val));
+          }
+        }
         else {
-          if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+          if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix, name);
-          else
+            pushVar(root, isArg, scalar_class, name, desc,
+               typenode->variable->astnode.ident.localvnum, FALSE);
+          }
+          else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
+            pushVar(root, isArg, scalar_class, name, desc,
+               typenode->variable->astnode.ident.localvnum, TRUE);
+          }
         }
       }
     }
@@ -3006,14 +3070,24 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       if((root->parent->nodetype == Call) && 
          (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
       {
-        if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
-          fprintf (curfp, "%s,_%s_offset", name,
-             name);
-        else
+        if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL ) {
+          fprintf (curfp, "%s,_%s_offset", name, name);
+          pushVar(root, isArg, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+          pushOffsetArg(typenode->variable->astnode.ident.localvnum + 1);
+        }
+        else {
           fprintf (curfp, "%s,0", name);
+          pushVar(root, isArg, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+          code_zero_op(jvm_iconst_0);
+        }
       }
-      else 
+      else {
         fprintf (curfp, "%s", name);
+        pushVar(root, isArg, scalar_class, name, desc,
+           typenode->variable->astnode.ident.localvnum, FALSE);
+      }
     }
   }
 }
@@ -3586,41 +3660,7 @@ expr_emit (AST * root)
             int ival = atoi(root->astnode.constant.number);
 
             ct=cp_find_or_insert(cur_const_table,CONSTANT_Integer,(void*)&ival);
-
-            if(ct) {
-              if(ct->index > CPIDX_MAX)
-                cur_opcode = jvm_ldc_w;
-              else
-                cur_opcode = jvm_ldc;
-            } else {   /* not found, use literal */
-              switch(ival) {
-                case -1:
-                  cur_opcode = jvm_iconst_m1;
-                  break;
-                case 0:
-                  cur_opcode = jvm_iconst_0;
-                  break;
-                case 1:
-                  cur_opcode = jvm_iconst_1;
-                  break;
-                case 2:
-                  cur_opcode = jvm_iconst_2;
-                  break;
-                case 3:
-                  cur_opcode = jvm_iconst_3;
-                  break;
-                case 4:
-                  cur_opcode = jvm_iconst_4;
-                  break;
-                case 5:
-                  cur_opcode = jvm_iconst_5;
-                  break;
-                default:
-                  fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n",
-                          ival);
-                  break;  /* for ANSI compliance */
-              }
-            }
+            cur_opcode = get_iconst_opcode(ct, ival);
           }
           break;
         case EXPONENTIAL:
@@ -7023,8 +7063,11 @@ code_one_op(enum _opcode op, int opval)
   }
   else {
     /* check for loss of information in the int->u1 cast */
-    if( (int)this_operand != opval )
-      fprintf(stderr,"WARNING: code_one_op() opval lost information.\n");
+    if( (int)this_operand != opval ) {
+      fprintf(stderr,"WARNING: code_one_op() opval lost information.  ");
+      fprintf(stderr,"  opcode = %s, ", jvm_opcode[op].op);
+      fprintf(stderr,"  index = %d\n", opval);
+    }
 
     dec_stack(jvm_opcode[op].stack_pre);
     check_code_size(jvm_opcode[op].width);

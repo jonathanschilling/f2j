@@ -1494,6 +1494,7 @@ Lhs:     Name
            $5->parent = $$;
            strcpy($$->astnode.ident.name, $1->astnode.ident.name);
            $$->nodetype = Substring;
+           $$->token = NAME;
            $$->prevstmt = NULL;
            $$->nextstmt = NULL;
            $$->astnode.ident.arraylist = $3;
@@ -2076,6 +2077,7 @@ SubstringOp: Name OP Exp COLON Exp CP
               $5->parent = $$;
               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
               $$->nodetype = Substring;
+              $$->token = NAME;
               $$->astnode.ident.arraylist = $3;
               $3->nextstmt = $5;
            }

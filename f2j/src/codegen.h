@@ -30,6 +30,7 @@
 #define JL_STRING "java/lang/String"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "()Z"
+#define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define F2J_UTIL "org/netlib/util"
 
 

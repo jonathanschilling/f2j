@@ -1948,6 +1948,15 @@ subcall_emit(AST *root)
   char *tempstr;
   void expr_emit (AST *);
 
+  /* check whether this node is a Substring operation.  if so, just emit
+   * the variable name becuase the calls to substring() are generated in
+   * expr_emit().
+   */
+  if(root->nodetype == Substring) {
+    fprintf(curfp,"%s",root->astnode.ident.name);
+    return;
+  }
+
   /* captialize the first letter of the subroutine name to get the 
    * class name. 
    */
@@ -3674,18 +3683,20 @@ expr_emit (AST * root)
           else
             code_zero_op(jvm_dcmpl);
 
-          code_one_op_w(dcmp_opcode[root->token], pc + jvm_opcode[dcmp_opcode[root->token]].width
-                                     + jvm_opcode[jvm_iconst_1].width
-                                     + jvm_opcode[jvm_goto].width);
+          code_one_op_w(dcmp_opcode[root->token], 
+                   pc + jvm_opcode[dcmp_opcode[root->token]].width
+                      + jvm_opcode[jvm_iconst_1].width
+                      + jvm_opcode[jvm_goto].width);
           code_zero_op(jvm_iconst_0);
           code_one_op_w(jvm_goto, pc + jvm_opcode[jvm_goto].width
                                      + jvm_opcode[jvm_iconst_0].width);
           code_zero_op(jvm_iconst_1);
           break;
         case Integer: 
-          code_one_op_w(icmp_opcode[root->token], pc + jvm_opcode[icmp_opcode[root->token]].width
-                               + jvm_opcode[jvm_iconst_0].width
-                               + jvm_opcode[jvm_goto].width);
+          code_one_op_w(icmp_opcode[root->token], 
+                   pc + jvm_opcode[icmp_opcode[root->token]].width
+                      + jvm_opcode[jvm_iconst_0].width
+                      + jvm_opcode[jvm_goto].width);
           code_zero_op(jvm_iconst_0);
           code_one_op_w(jvm_goto, pc+ jvm_opcode[jvm_goto].width
                                     + jvm_opcode[jvm_iconst_1].width);
@@ -3698,24 +3709,37 @@ expr_emit (AST * root)
 
       break;
     case Substring:
-
-      /* Substring operations are handled with java.lang.String.substring */
-
-      if(omitWrappers) {
-        if(isPassByRef(root->astnode.ident.name))
-          fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
-        else
-          fprintf(curfp,"%s.substring((",root->astnode.ident.name);
-      }
-      else
       {
-        fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
-      }
+        CPNODE *c;
 
-      expr_emit(root->astnode.ident.arraylist);
-      fprintf(curfp,")-1,");
-      expr_emit(root->astnode.ident.arraylist->nextstmt);
-      fprintf(curfp,")");
+        /* Substring operations are handled with java.lang.String.substring */
+
+        name_emit(root);
+        if(omitWrappers) {
+          if(isPassByRef(root->astnode.ident.name))
+            fprintf(curfp,".val.substring((");
+          else
+            fprintf(curfp,".substring((");
+        }
+        else
+        {
+          fprintf(curfp,".val.substring((");
+        }
+
+        expr_emit(root->astnode.ident.arraylist);
+        fprintf(curfp,")-1,");
+
+        code_zero_op(jvm_iconst_m1);  /* decrement start idx by one */
+        code_zero_op(jvm_iadd);
+
+        expr_emit(root->astnode.ident.arraylist->nextstmt);
+        fprintf(curfp,")");
+
+        c = newMethodref(cur_const_table,JL_STRING,
+                 "substring", SUBSTR_DESC);
+        code_one_op_w(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+
+      }
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",

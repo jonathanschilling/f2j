@@ -117,7 +117,8 @@ struct attribute_info
   *cur_code;            /* current code attr. to which f2j writes code       */
 
 AST 
-  *cur_equivList;       /* list of equivalences                              */
+  *cur_equivList,       /* list of equivalences                              */
+  *cur_unit;            /* program unit currently being translated.          */
 
 BOOLEAN 
   import_reflection,    /* does this class need to import reflection         */
@@ -185,6 +186,7 @@ emit (AST * root)
         {
           char *tmpname;
           char *classname;
+          char *methodname;
 
           if (gendebug)
             printf ("Source.\n");
@@ -194,6 +196,7 @@ emit (AST * root)
 
           classname = strdup(tmpname);
           lowercase(classname);
+          methodname = strdup(classname);
           classname[0] = toupper(classname[0]);
 
           /* First set up the local hash tables. */
@@ -296,11 +299,9 @@ emit (AST * root)
            */
 
           if(pc > 0) {
-            /*
-            endNewMethod(main_method, "<clinit>", "()V", 1);
+            endNewMethod(main_method, methodname, method_desc, locals);
             cur_class_file->methods_count++;
-            dl_insert_b(cur_class_file->methods, clinit_method);
-            */
+            dl_insert_b(cur_class_file->methods, main_method);
           }
 
           /* following line is only temporary... */
@@ -330,6 +331,7 @@ emit (AST * root)
 	        printf ("Subroutine.\n");
 
         returnname = NULL;	/* Subroutines return void. */
+        cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
         constructor (root);
         break;
@@ -338,11 +340,12 @@ emit (AST * root)
           printf ("Function.\n");
 
         returnname = root->astnode.source.name->astnode.ident.name;
+        cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
         if(gendebug)
           printf ("Function name: %s\n", 
-        root->astnode.source.name->astnode.ident.name);
+            root->astnode.source.name->astnode.ident.name);
 
         constructor (root);
         break;
@@ -351,6 +354,7 @@ emit (AST * root)
           printf ("Program.\n");
 
         returnname = NULL;	/* programs return void. */
+        cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
         if (gendebug)
@@ -480,6 +484,27 @@ emit (AST * root)
          */
 
         fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
+
+        /* for bytecode, check if the current program unit is a
+         * Function.  if so, we push the implicit return value
+         * on the stack and return.  otherwise, just return void.
+         */
+
+        if(returnname) {
+          if(omitWrappers && !isPassByRef(returnname)) {
+            pushVar(cur_unit->vartype, FALSE, cur_filename,
+                    returnname, field_descriptor[cur_unit->vartype][0],
+                    0, FALSE);
+          }
+          else {
+            pushVar(cur_unit->vartype, FALSE, cur_filename,
+                    returnname, wrapped_field_descriptor[cur_unit->vartype][0],
+                    0, TRUE);
+          }
+          code_zero_op(return_opcodes[cur_unit->vartype]);
+        }
+        else
+          code_zero_op(jvm_return);
 
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);

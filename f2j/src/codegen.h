@@ -487,6 +487,19 @@ enum _opcode array_store_opcodes[MAX_RETURNS+1] =
   jvm_aastore
 };
 
+/* opcodes to return a value from a function:  */
+enum _opcode return_opcodes[MAX_RETURNS+1] =
+{
+  jvm_areturn,
+  jvm_areturn,
+  jvm_dreturn,
+  jvm_dreturn,
+  jvm_freturn,
+  jvm_ireturn,
+  jvm_ireturn,
+  jvm_areturn
+};
+
 /* shorthand opcodes for loading local variables:  */
 enum _opcode short_load_opcodes[MAX_RETURNS+1][4] =
 {

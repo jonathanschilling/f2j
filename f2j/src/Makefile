@@ -47,7 +47,7 @@ depend:
 	rm -f f2j.dep
 	$(CC) -M $(SRC) > f2j.dep
 
--include f2j.dep
+include f2j.dep
 
 clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \

@@ -576,8 +576,6 @@ subcall_optimize(AST *root, AST *rptr)
 void
 expr_optimize (AST * root, AST *rptr)
 {
-  char *tempname;
-
   if(root == NULL)
   {
     fprintf(stderr,"Warning: NULL root in expr_optimize\n");
@@ -601,11 +599,13 @@ expr_optimize (AST * root, AST *rptr)
        * constant.   10/9/97  -- Keith 
        */
 
-      if(root->parent != NULL)
-      {
-        tempname = strdup(root->parent->astnode.ident.name);
-        uppercase(tempname);
-      }
+/*
+ *    if(root->parent != NULL)
+ *    {
+ *      tempname = strdup(root->parent->astnode.ident.name);
+ *      uppercase(tempname);
+ *    }
+ */
       break;
     case Expression:
     case Logicalop:
@@ -643,11 +643,13 @@ void
 forloop_optimize (AST * root, AST *rptr)
 {
   char *indexname;
-  int *tmp_int;
-
-  tmp_int = (int*)f2jalloc(sizeof(int));
-
-  *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
+/*
+ *  int *tmp_int;
+ *
+ *  tmp_int = (int*)f2jalloc(sizeof(int));
+ *
+ *  *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
+ */
 
    /*  
     *  Some point I will need to test whether this is really a name

@@ -5185,7 +5185,7 @@ get_type(char *num)
 void
 expr_emit (AST * root)
 {
-  char *tempname;
+  char *tempname = NULL;
   CPNODE * ct;
   int cur_vt;
 
@@ -5396,6 +5396,9 @@ expr_emit (AST * root)
         else
           fprintf (curfp, "%s", root->astnode.constant.number);
       }
+
+      if(tempname != NULL)
+        f2jfree(tempname, strlen(tempname)+1);
       break;
     case Logicalop:
       /* 

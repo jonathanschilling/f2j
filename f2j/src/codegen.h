@@ -247,6 +247,7 @@ void
   adapter_assign_emit_from_descriptor(AST *, int, char *),
   adapter_tmp_assign_emit(int, enum returntype),
   adapter_assign_emit(int, int, int, char *),
+  adapter_array_assign_emit(int, int, int, char *),
   arrayacc_arg_emit(AST *, char *, char *, BOOLEAN),
   arrayref_arg_emit(AST *, char *, char *),
   scalar_arg_emit(AST *, char *, char *),

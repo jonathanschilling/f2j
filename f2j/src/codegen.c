@@ -5918,12 +5918,11 @@ constructor (AST * root)
 
   /* set global descriptor variable (method_desc) */
 
-/*
- *if(root->nodetype == Program)
- *  method_desc = MAIN_DESCRIPTOR;
- *else
- */
-    method_desc = root->astnode.source.descriptor;
+  if((hashtemp=type_lookup(function_table, 
+         root->astnode.source.name->astnode.ident.name)))
+    method_desc = hashtemp->variable->astnode.source.descriptor;
+  else
+    method_desc = MAIN_DESCRIPTOR;
 
   /* 
    * In fortran, functions return a value implicitly
@@ -9138,9 +9137,9 @@ void
 scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 {
   if(gendebug)
-    printf("scalar_arg_emit.. name = %s, dptr = %s, pass by ref = %s\n",
-      temp->astnode.ident.name, dptr, cgPassByRef(temp->astnode.ident.name)?
-      "yes" : "no");
+    printf("scalar_arg_emit.. name = %s (pass by ref = %s), dptr = %s (pass by ref = %s)\n",
+      temp->astnode.ident.name, cgPassByRef(temp->astnode.ident.name)?
+      "yes" : "no", dptr, isPassByRef_desc(dptr) ? "yes" : "no");
 
   if(isPassByRef_desc(dptr) != cgPassByRef(temp->astnode.ident.name))
   {
@@ -9151,12 +9150,19 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 
       isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
 
-      fprintf(curfp,"%s%s.val",com_prefix,temp->astnode.ident.name);
+      if(dptr[0] == '[')
+        fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
+      else
+        fprintf(curfp,"%s%s.val",com_prefix,temp->astnode.ident.name);
 
       ainf = get_var_info(temp);
 
-      pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
-        ainf->desc, ainf->localvar, TRUE);
+      if(dptr[0] == '[')
+        pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
+          ainf->desc, ainf->localvar, FALSE);
+      else
+        pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
+          ainf->desc, ainf->localvar, TRUE);
 
       free_var_info(ainf);
     }
@@ -9469,7 +9475,7 @@ needs_adapter(AST *root)
      *    the function IS expecting an array
      */
     if( ! type_lookup(cur_array_table, temp->astnode.ident.name)  &&
-          dptr[0] != '[')
+          dptr[0] == '[')
       return 1;
 
     /* consume the offset arg if necessary */
@@ -9478,6 +9484,7 @@ needs_adapter(AST *root)
     dptr = skipToken(dptr);
   }
 
+    printf("needs_adapter:returning 0\n");
   return 0;
 }
 
@@ -10350,12 +10357,9 @@ printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
       }
       else {
         fprintf(curfp,"%s arg%d ",
-          returnstring[get_type_from_field_desc(dptr+1)], i);
+          wrapper_returns[get_type_from_field_desc(dptr+1)], i);
 
-        if(ctype == Double)
-          lvnum+=2;
-        else
-          lvnum++;
+        lvnum++;
       }
       
       /* consume the offset arg */
@@ -10458,12 +10462,16 @@ adapter_tmp_assign_emit(int arglocal, enum returntype argtype)
 void
 adapter_tmp_array_assign_emit(int arglocal, enum returntype argtype)
 {
+  CPNODE *c;
 
   bytecode0(jvm_iconst_1);
   newarray_emit(argtype);
   bytecode0(jvm_dup);
   bytecode0(jvm_iconst_0);
-  gen_load_op(arglocal, argtype);
+  gen_load_op(arglocal, Object);
+  c = newFieldref(cur_const_table, full_wrappername[argtype], "val",
+         val_descriptor[argtype]);
+  bytecode1(jvm_getfield, c->index);
   bytecode0(array_store_opcodes[argtype]);
   gen_store_op(getNextLocal(Object), Object);
 }
@@ -10519,7 +10527,7 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       if(! type_lookup(cur_array_table,arg->astnode.ident.name)) {
         enum returntype ctype = get_type_from_field_desc(dptr);
 
-        fprintf(curfp,"%s _f2j_tmp%d = { arg%d };\n", returnstring[ctype], i, i);
+        fprintf(curfp,"%s [] _f2j_tmp%d = { arg%d.val };\n", returnstring[ctype], i, i);
 
         adapter_tmp_array_assign_emit(arg->astnode.ident.localvnum,
           ctype);
@@ -10622,8 +10630,9 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
   else if( ! type_lookup(cur_array_table,arg->astnode.ident.name) &&
           (dptr[0] == '['))
   {
-    fprintf(curfp,"_f2j_tmp%d",i);
+    fprintf(curfp,"_f2j_tmp%d, 0",i);
     gen_load_op(lv++, Object);
+    bytecode0(jvm_iconst_0);
   }
   else if((arg->nodetype == Identifier) &&
           (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
@@ -10682,8 +10691,15 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
       }
     }
       /* skip extra field desc to compensate for offset arg */
-    else if(dptr[0] == '[')
+    else if(dptr[0] == '[') {
       dptr = skipToken(dptr);
+
+      if( !type_lookup(cur_array_table,arg->astnode.ident.name) )
+      {
+        adapter_array_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
+      }
+      
+    }
 
     dptr = skipToken(dptr);
   }
@@ -10716,6 +10732,36 @@ adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
   bytecode1(jvm_getfield, c->index);
 
   bytecode0(array_store_opcodes[vt]);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_array_assign_emit                                                 *
+ *                                                                           *
+ * emit the assignment back to the wrapper from the array element.           *
+ *                                                                           *
+ *   arg3.val = _f2j_tmp3[0];                                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_array_assign_emit(int i, int argvnum, int lv, char *dptr)
+{
+  enum returntype vt;
+  CPNODE *c;
+
+  fprintf(curfp,"arg%d.val = _f2j_tmp%d[0];\n",i,i);
+
+  vt = get_type_from_field_desc(dptr);
+
+  gen_load_op(argvnum, Object);
+  gen_load_op(lv, Object);
+  bytecode0(jvm_iconst_0);
+  bytecode0(array_load_opcodes[vt]);
+
+  c = newFieldref(cur_const_table, full_wrappername[vt], "val",
+         val_descriptor[vt]);
+  bytecode1(jvm_putfield, c->index);
 }
 
 /*****************************************************************************
@@ -12710,9 +12756,16 @@ get_adapter_desc(char *dptr, AST *arg)
     }
 
     if(dptr[0] == '[') {
-      temp_desc = strAppend(temp_desc, 
+      if(!type_lookup(cur_array_table,arg->astnode.ident.name)) {
+        temp_desc = strAppend(temp_desc,
+            wrapped_field_descriptor[get_type_from_field_desc(dptr+1)][0]);
+      }
+      else {
+        temp_desc = strAppend(temp_desc, 
            field_descriptor[get_type_from_field_desc(dptr+1)][1]);
-      temp_desc = strAppend(temp_desc, "I");
+        temp_desc = strAppend(temp_desc, "I");
+      }
+
       dptr = skipToken(dptr);
     }
     else if ( (arg->nodetype == Identifier) && 

@@ -587,6 +587,7 @@ insert_fields(AST *root)
   struct field_info * tmpfield;
   AST *temp, *dec;
   HASHNODE *ht;
+  char * desc;
   int returns;
   CPNODE * c;
  
@@ -595,16 +596,20 @@ insert_fields(AST *root)
 
     if(temp->nodetype == Typedec) {
       for(dec = temp->astnode.typeunit.declist; dec; dec = dec->nextstmt) {
-        if( ! type_lookup (cur_external_table, dec->astnode.ident.name)
+        if(  ! type_lookup (cur_external_table, dec->astnode.ident.name)
           && ! type_lookup (cur_intrinsic_table, dec->astnode.ident.name)
-          && ! type_lookup (cur_args_table, dec->astnode.ident.name))
+          && ! type_lookup (cur_args_table, dec->astnode.ident.name)
+          && ! type_lookup (cur_param_table, dec->astnode.ident.name)
+          && ! type_lookup (cur_common_table, dec->astnode.ident.name))
         {
-          /* we should check if this var is a parameter... if so, then
-           * the parameter variable will be emitted as a literal, so there
-           * is no need to insert this variable as a field.
-           */
-          if(type_lookup(cur_param_table, dec->astnode.ident.name))
-            continue;
+          if(omitWrappers) {
+            if(dec->astnode.ident.passByRef)
+              desc = wrapped_field_descriptor[dec->vartype][dec->astnode.ident.dim];
+            else
+              desc = field_descriptor[dec->vartype][dec->astnode.ident.dim];
+          }
+          else
+            desc = wrapped_field_descriptor[dec->vartype][dec->astnode.ident.dim];
 
           tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
           tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
@@ -613,8 +618,7 @@ insert_fields(AST *root)
                   dec->astnode.ident.name);
           tmpfield->name_index = c->index;
  
-          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
-                  field_descriptor[returns][dec->astnode.ident.dim]);
+          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, desc);
           tmpfield->descriptor_index = c->index;
   
           tmpfield->attributes_count = 0;
@@ -622,7 +626,9 @@ insert_fields(AST *root)
           
           dl_insert_b(cur_class_file->fields, tmpfield);
 
-          if((ht=type_lookup(cur_type_table,dec->astnode.ident.name))!=NULL)
+          ht=type_lookup(cur_type_table,dec->astnode.ident.name);
+
+          if(ht != NULL)
             ht->variable->astnode.ident.fieldnum = cur_class_file->fields_count;
           else
             fprintf(stderr,"WARNING: can't set field num for '%s'\n",

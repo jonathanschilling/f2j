@@ -280,6 +280,33 @@ char *field_descriptor[MAX_RETURNS+1][3] = {
   {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[[Ljava/lang/Object;"}
 };
 
+char *wrapped_field_descriptor[MAX_RETURNS+1][3] = {
+  {"Lorg/netlib/util/StringW;",
+   "[Lorg/netlib/util/StringW;",
+   "[[Lorg/netlib/util/StringW;"},
+  {"Lorg/netlib/util/StringW;",
+   "[Lorg/netlib/util/StringW;",
+   "[[Lorg/netlib/util/StringW;"},
+  {"Lorg/netlib/util/doubleW;",
+   "[Lorg/netlib/util/doubleW;",
+   "[[Lorg/netlib/util/doubleW;"},
+  {"Lorg/netlib/util/doubleW;",
+   "[Lorg/netlib/util/doubleW;",
+   "[[Lorg/netlib/util/doubleW;"},
+  {"Lorg/netlib/util/floatW;",
+   "[Lorg/netlib/util/floatW;",
+   "[[Lorg/netlib/util/floatW;"},
+  {"Lorg/netlib/util/integerW;",
+   "[Lorg/netlib/util/integerW;",
+   "[[Lorg/netlib/util/integerW;"},
+  {"Lorg/netlib/util/booleanW;",
+   "[Lorg/netlib/util/booleanW;",
+   "[[Lorg/netlib/util/booleanW;"},
+  {"Ljava/lang/Object;",
+   "[Ljava/lang/Object;",
+   "[[Ljava/lang/Object;"}
+};
+
 char *wrapper_returns[MAX_RETURNS+1] =  /* types for pass by ref scalars     */
 {
   "StringW",

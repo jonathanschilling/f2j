@@ -86,7 +86,7 @@ in alphabetic order. */
 %type <ptnode> Arrayindexlist Arrayindex Arrayindexop
 %type <ptnode> Binaryop Blockif Boolean
 %type <ptnode> Call /* Char */ Complex Constant  Constantlist Continue
-%type <ptnode> Data DataList DataItem DataElement Do_incr Doloop 
+%type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
 %type <ptnode> Do_vals Do_statements Do_statement Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -142,25 +142,27 @@ Sourcecode :    Fprogram
                   printf("Sourcecode -> Fprogram\n"); 
                   format_table = (SYMTABLE *) new_symtable (100);
                   data_table = (SYMTABLE *) new_symtable (100);
+                  save_table = (SYMTABLE *) new_symtable (100);
                 }
               | Fsubroutine
                 { 
                   printf("Sourcecode -> Fsubroutine\n"); 
                   format_table = (SYMTABLE *) new_symtable (100);
                   data_table = (SYMTABLE *) new_symtable (100);
+                  save_table = (SYMTABLE *) new_symtable (100);
                 }
               | Ffunction
                 { 
                   printf("Sourcecode -> Ffunction\n"); 
                   format_table = (SYMTABLE *) new_symtable (100);
                   data_table = (SYMTABLE *) new_symtable (100);
+                  save_table = (SYMTABLE *) new_symtable (100);
                 }
 ;
 
 Fprogram:   Program  Specstmts  Statements End 
               {
-printf("Fprogram -> Program  Specstmts  Statements End\n");
-printf("***calling type_hash!\n");
+                printf("Fprogram -> Program  Specstmts  Statements End\n");
 		$2 = switchem($2);
         	type_hash($2); 
                 $$ = addnode();
@@ -199,16 +201,15 @@ printf("***calling type_hash!\n");
 
 Fsubroutine: Subroutine Specstmts Statements End 
               {
-printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
+                printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
                 $$ = addnode();
-	        $1->parent = $$; /* 9-4-97 - Keith */
-	        $2->parent = $$; /* 9-4-97 - Keith */
-	        $3->parent = $$; /* 9-4-97 - Keith */
-	        $4->parent = $$; /* 9-4-97 - Keith */
+	        $1->parent = $$; 
+	        $2->parent = $$;
+	        $3->parent = $$;
+	        $4->parent = $$;
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
-printf("***calling type_hash!\n");
         	type_hash($2); 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -218,9 +219,9 @@ printf("***calling type_hash!\n");
 #endif
 #if THISWORKS
                 if(JAS) {
-		  assign_local_vars(localvarlist); 
-		  assign_local_vars($2); 
-                  assign($$); 
+		  assign_local_vars(localvarlist);
+		  assign_local_vars($2);
+                  assign($$);
                   if(emittem) jas_emit($$);
                 }else {
                   if(emittem) emit($$);
@@ -231,9 +232,8 @@ printf("***calling type_hash!\n");
 
 Ffunction:   Function Specstmts Statements  End
               {
-printf("Ffunction ->   Function Specstmts Statements  End\n");
+                printf("Ffunction ->   Function Specstmts Statements  End\n");
                 $2 = switchem($2);
-printf("***calling type_hash!\n");
 		type_hash($2);
                 $$ = addnode();
 	        $1->parent = $$; /* 9-4-97 - Keith */
@@ -264,7 +264,7 @@ printf("***calling type_hash!\n");
 
 Program:      PROGRAM Name NL
               {
-printf("Program ->  PROGRAM Name\n");
+                 printf("Program ->  PROGRAM Name\n");
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
@@ -278,7 +278,7 @@ printf("Program ->  PROGRAM Name\n");
 /*  Subroutine is handled correctly.  */
 Subroutine:   SUBROUTINE Name Functionargs NL
               {
-printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
+                 printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 	         $3->parent = $$; /* 9-4-97 - Keith */
@@ -292,7 +292,7 @@ printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
 
 Function:  Type FUNCTION Name Functionargs NL 
            {
-printf("Function ->  Type FUNCTION Name Functionargs NL\n");
+             printf("Function ->  Type FUNCTION Name Functionargs NL\n");
              $$ = addnode();
 
   	     $3->parent = $$;  /* 9-4-97 - Keith */
@@ -334,23 +334,52 @@ Specstmt:  DIMENSION
 	    printf("COMMON is not implemented.\n");
 	    exit(-1);
 	   }
-         | Save      {$$=$1;}
-         | Intrinsic {$$=$1;}
-         | Typestmt  {$$=$1;}
-         | External  {$$=$1;}
-         | Parameter {$$=$1;}
-         | Implicit  {$$=$1;}
-         | Data NL 
-           { 
+         | Save      
+           {
+             $$=$1;
+           }
+         | Intrinsic
+           {
+             $$=$1;
+           }
+         | Typestmt
+           {
+             $$=$1;
+           }
+         | External
+           {
+             $$=$1;
+           }
+         | Parameter
+           {
+             $$=$1;
+           }
+         | Implicit
+           {
+             $$=$1;
+           }
+         | Data NL
+           {
              $$=$1;
            }
 ;
 
 Save:   SAVE Namelist NL
-	   {
-	    $$ = addnode();
-	    $2->parent = $$; /* 9-4-97 - Keith */
-	    $$->nodetype = Unimplemented;
+           {
+             AST *temp;
+             int idx;
+
+             $$ = addnode();
+             $2->parent = $$; /* 9-4-97 - Keith */
+             $$->nodetype = Save;
+
+             for(temp=$2;temp!=NULL;temp=temp->prevstmt) {
+               idx = hash(temp->astnode.ident.name) % save_table->num_entries;
+               if(debug)
+                 printf("@@insert %s into save table\n",
+                    temp->astnode.ident.name);
+               type_insert(&(save_table->entry[idx]), temp, Float);
+             }
 	   }
 ;
 Implicit:   IMPLICIT
@@ -422,17 +451,28 @@ Constantlist: DataElement
               }
 ;
 
-DataElement:  Constant
+DataElement:  DataConstant
               {
                 $$ = $1;
               }
-           |  Constant STAR Constant
+           |  DataConstant STAR DataConstant
               {
                 $$=addnode();
                 $$->astnode.expression.lhs = $1;
                 $$->astnode.expression.rhs = $3;
                 $$->nodetype = Binaryop;
                 $$->astnode.expression.optype = '*';
+              }
+;
+
+DataConstant: Constant
+              {
+                $$ = $1;
+              }
+           |  MINUS Constant
+              {
+                $$ = $2;
+                $$->astnode.constant.sign = 1;
               }
 ;
 
@@ -884,6 +924,26 @@ Label: Integer Doloop
          $2->astnode.label.number = $$->astnode.label.number;
          printf("@@ inserting format line num %d\n",$$->astnode.label.number);
          hash_insert(format_table,$2);
+       }
+      | Integer Return
+       {
+         $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
+	 $$->nodetype = Return;
+	 $$->astnode.label.number = atoi($1->astnode.constant.number);
+         $2->nodetype = Return;
+	 $$->astnode.label.stmt = $2;
+       }
+      | Integer Write
+       {
+         $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
+	 $$->nodetype = Write;
+	 $$->astnode.label.number = atoi($1->astnode.constant.number);
+         $2->nodetype = Return;
+	 $$->astnode.label.stmt = $2;
        }
 ;
 
@@ -1475,25 +1535,29 @@ Power:   POW {
 Boolean:  TrUE
  {
                $$ = addnode();
+               $$->token = TrUE;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, "true");
                $$->astnode.constant.type = INTEGER;
+               $$->astnode.constant.sign = 0;
              }
          | FaLSE
  {
                $$ = addnode();
+               $$->token = FaLSE;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, "false");
                $$->astnode.constant.type = INTEGER;
+               $$->astnode.constant.sign = 0;
              }
 
 ;
 
-Constant:   Integer
-       | Double
-       | Exponential
-       | Boolean
-       | String   /* 9-16-97, keith */
+Constant:   Integer  { $$ = $1; }
+       | Double      { $$ = $1; }
+       | Exponential { $$ = $1; }
+       | Boolean     { $$ = $1; }
+       | String      { $$ = $1; } /* 9-16-97, keith */
 ; 
 
 Integer :     INTEGER 
@@ -1504,6 +1568,7 @@ Integer :     INTEGER
                strcpy($$->astnode.constant.number, yylval.lexeme);
 	       /*              $$->astnode.constant.type = INTEGER; */
 	       $$->astnode.constant.type = Integer;
+               $$->astnode.constant.sign = 0;
              }
 ;
 
@@ -1515,6 +1580,7 @@ Double:       DOUBLE
                strcpy($$->astnode.constant.number, yylval.lexeme);
 	       /*               $$->astnode.constant.type = DOUBLE; */
 	       $$->astnode.constant.type = Double;
+               $$->astnode.constant.sign = 0;
              }
 ;
                
@@ -1525,10 +1591,12 @@ Double:       DOUBLE
 Exponential:   EXPONENTIAL
              {
                $$ = addnode();
+	       $$->token = EXPONENTIAL;
                $$->nodetype = Constant;
 	       exp_to_double(yylval.lexeme, tempname);
                strcpy($$->astnode.constant.number, tempname);
                $$->astnode.constant.type = EXPONENTIAL;
+               $$->astnode.constant.sign = 0;
              }
 ;
 
@@ -1691,8 +1759,6 @@ type_hash(AST * types)
   intrinsic_table = (SYMTABLE*)new_symtable(211);
   external_table = (SYMTABLE*)new_symtable(211);
    
-printf("***in type_hash!\n");
-
    /* Outer for loop traverses typestmts, inner for()
       loop traverses declists. Code for stuffing symbol table is
       is in inner for() loop.  */
@@ -1719,8 +1785,6 @@ printf("***in type_hash!\n");
         if(debug)printf("Duplicate entry.\n");  
         /*  exit(-1);  */
       }
-
-      printf("***inserting into type_table!\n");
 
       /* All names go into the name table.  */
 

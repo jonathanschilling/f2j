@@ -38,6 +38,7 @@ SYMTABLE *args_table;
 SYMTABLE *array_table; 
 SYMTABLE *format_table; 
 SYMTABLE *data_table; 
+SYMTABLE *save_table; 
 
 int locals;
 int stacksize;
@@ -109,6 +110,7 @@ typedef struct ast_node
 	    Binaryop,
 	    Power,
 	    Unaryop,
+            Save,
 	    Specification,
 	    Substring,
 	    End,
@@ -168,6 +170,11 @@ typedef struct ast_node
 		  int type;
 		  char *opcode;	/* e.g., iconst_1, bipush 121.23  */
 		  char number[30];
+                  int sign;     /* sign used for data statements when we dont
+                                   want to allow full expressions, but we
+                                   need to allow negative constants.  if
+                                   sign == 1, the constant is negative.
+                                                    9/30/97  --Keith */
 	      }
 	    constant;
 

@@ -8,7 +8,7 @@
 
 /*  codegen.c
    Generates java source code for checking.
- */
+*/
 
 #include<stdio.h>
 #include<string.h>
@@ -20,6 +20,10 @@
 #define ONED 1
 #define TWOD 0
 
+#define NONSTATIC 0
+#define STATIC_NODATA 1
+#define STATIC_WITHDATA 2
+
 char * strdup ( const char * );
 char * print_nodetype ( AST * ); 
 char * lowercase ( char * );
@@ -28,7 +32,7 @@ void format_name_emit(AST *);
 
 char *progname;
 char *returnname;
-int gendebug = 0;
+int gendebug = 1;
 int cur_idx = 0;
 EntryList *doloop = NULL;
 EntryList *while_list = NULL;
@@ -44,7 +48,6 @@ char *returnstring[] =
 void
 emit (AST * root)
 {
-
     switch (root->nodetype)
       {
       case 0:
@@ -52,8 +55,30 @@ emit (AST * root)
 	      printf ("Bad node\n");
 	  emit (root->nextstmt);
       case Progunit:
+        {
+          AST *tmp;
+
 	  if (gendebug)
 	      printf ("Source.\n");
+
+          open_output_file(root->astnode.source.progtype);
+          
+          /* At the beginning of each program unit, we look for
+             any variables that are listed in a SAVE statement.
+             These variables will be emitted as static class
+             variables, so we must do that now, before the
+             method header has been emitted.   10/3/97 -- Keith */
+
+          fprintf(javafp,"// Static variables (fortran SAVE stmt)\n");
+
+          tmp = root->astnode.source.typedecs;
+          while(tmp != NULL)
+          {
+            if(tmp->nodetype == Typedec)
+              static_var_emit(tmp);
+            tmp = tmp->nextstmt;
+          }
+
 	  emit (root->astnode.source.progtype);
 	  fprintf (javafp, "// Type declarations.\n");
 	  emit (root->astnode.source.typedecs);
@@ -62,6 +87,7 @@ emit (AST * root)
           fprintf(javafp,"} // End class.\n");
           fclose(javafp);
 	  break;
+        }
       case Subroutine:
 	  if (gendebug)
 	      printf ("Subroutine.\n");
@@ -200,14 +226,24 @@ emit (AST * root)
 	      emit (root->nextstmt);
           break;
       case Stop:
-	  if (gendebug)
-	      printf ("Stop.\n");
-	  fprintf (javafp, "   }\n");
+          if (gendebug)
+            printf ("Stop.\n");
+
+          fprintf (javafp, "System.exit(1);\n");
+
+          if (root->nextstmt != NULL)
+            emit (root->nextstmt);
 	  break;
       case End:
 	  if (gendebug)
 	      printf ("End.\n");
 	  fprintf (javafp, "   }\n");
+	  break;
+      case Save:
+	  if (gendebug)
+	      printf ("Save (ignoring).\n");
+          if (root->nextstmt != NULL)
+            emit (root->nextstmt);
 	  break;
       case Unimplemented:
 	  fprintf (javafp, "// WARNING: Unimplemented statement in Fortran source.\n");
@@ -216,14 +252,46 @@ emit (AST * root)
 	  break;
       case Constant:
       default:
-	  if (gendebug)
-	      printf ("Default\n");
+          fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
+            print_nodetype(root));
       }				/* switch on nodetype.  */
+}
+
+/* This function emits declarations for static class variables. 
+   First, loop through each variable for which there exists a
+   declaration and look in the SAVE table to see if that variable
+   should be static.  If so, emit it here.  If the variable also
+   has a DATA statement associated with it, the declaration should
+   not need to initialize the variable here since we'll worry about
+   that when emitting the DATA statement.   10/3/97 -- Keith */
+
+int
+static_var_emit(AST *root)
+{
+  AST *temp;
+
+  for(temp=root->astnode.typeunit.declist;temp!=NULL;temp=temp->nextstmt)
+  {
+    if(type_lookup(save_table,temp->astnode.ident.name))
+    {
+      if(type_lookup (args_table, temp->astnode.ident.name))
+      {
+        fprintf(stderr,"Can't save non-static argument %s\n",
+           temp->astnode.ident.name);
+        exit(1);
+      }
+
+      if(type_lookup(data_table, temp->astnode.ident.name))
+        vardec_emit(temp, root->astnode.typeunit.returns, STATIC_WITHDATA);
+      else
+        vardec_emit(temp, root->astnode.typeunit.returns, STATIC_NODATA);
+    }
+  }
 }
 
 /* Emit all the type declarations.  This procedure checks
    whether variables are typed in the argument list, and
-   does not redeclare thoose arguments. */
+   does not redeclare those arguments. */
 int
 typedec_emit (AST * root)
 {
@@ -262,6 +330,12 @@ typedec_emit (AST * root)
              printf("@@ Variable %s: Corresponding data stmt not found\n",
                temp->astnode.ident.name);
 
+          if(type_lookup(save_table,temp->astnode.ident.name)) {
+             /* we already emitted this variable as a static variable 
+                (aka 'class variable'), so we don't emit it here. */
+             continue;
+          }
+
 	  /* Let's do the argument lookup first. No need to retype variables
 	     that are already declared in the argument list, or declared
 	     as externals.  So if it is already declared, loop again.  */
@@ -270,68 +344,105 @@ typedec_emit (AST * root)
 	  if (hashtemp)
 	      continue;
 
-          /* check to see if this is an array declaration or not. 
-             if so, we must generate the appropriate "new" statement.
-             otherwise, just declare & initialize in one statement. --keith */
+          vardec_emit(temp, returns, NONSTATIC);
 
-          if(temp->astnode.ident.arraylist != NULL) {
-            fprintf (javafp, "%s [] ", returnstring[returns]);
-            if (gendebug)
-              printf ("%s\n", returnstring[returns]);
-	    name_emit (temp);
-
-	    if (returns == Integer)
-	      fprintf (javafp, "= new int[");
-            else if (returns == Double)
-	      fprintf (javafp, "= new double[");
-	    else if (returns == Logical)
-	      fprintf (javafp, "= new boolean[");
-            else
-              fprintf(stderr,"typdec_emit():  Unknown type!\n");
-         
-            for(temp2=temp->astnode.ident.arraylist;temp2!=NULL;temp2=temp2->nextstmt) {
-              if(temp2 != temp->astnode.ident.arraylist)
-                fprintf(javafp, " * ");   /* if not the first iteration */
-              expr_emit(temp2);
-            }
-
-	    fprintf (javafp, "];\n");
-          } else {
-	     fprintf (javafp, "%s ", returnstring[returns]);
-	     if (gendebug)
-	       printf ("%s\n", returnstring[returns]);
-	     name_emit (temp);
-
-	     /*  initialize local variables to zero or
-	        false to keep the java compiler from
-	        squawking.  */
-
-	     if (returns == Integer || returns == Double)
-	       fprintf (javafp, "= 0");
-	     else if (returns == Logical)
-	       fprintf (javafp, "= false");
-
-	     fprintf (javafp, ";\n");
-          }
       }
 }				/* Close typedec_emit(). */
 
+/* the body of this function used to be in typedec_emit, but
+   I moved it so that I could use the same code to emit static
+   or nonstatic variables.   10/3/97  -- Keith */
+
+int
+vardec_emit(AST *root, enum returntype returns, int only_static)
+{
+  AST *temp2;
+  char *prefix;
+
+  if(only_static)         /* true if only_static is either  */
+    prefix = "static ";   /*   STATIC_WITHDATA or STATIC_NODATA */
+  else
+    prefix = "";
+
+  /* check to see if this is an array declaration or not. 
+     if so, we must generate the appropriate "new" statement.
+     otherwise, just declare & initialize in one statement. --keith */
+
+  if(root->astnode.ident.arraylist != NULL) {
+    fprintf (javafp, "%s%s [] ",prefix, returnstring[returns]);
+
+    if (gendebug)
+      printf ("%s\n", returnstring[returns]);
+    name_emit (root);
+
+    if(only_static == STATIC_WITHDATA) {
+      fprintf (javafp, ";\n");
+    }
+    else {
+      if (returns == Integer)
+        fprintf (javafp, "= new int[");
+      else if (returns == Double)
+        fprintf (javafp, "= new double[");
+      else if (returns == Logical)
+        fprintf (javafp, "= new boolean[");
+      else
+        fprintf(stderr,"typdec_emit():  Unknown type!\n");
+         
+      for(temp2=root->astnode.ident.arraylist;temp2!=NULL;temp2=temp2->nextstmt) {
+        if(temp2 != root->astnode.ident.arraylist)
+          fprintf(javafp, " * ");   /* if not the first iteration */
+        expr_emit(temp2);
+      }
+
+      fprintf (javafp, "];\n");
+    }
+      
+  } else {
+    fprintf (javafp, "%s%s ", prefix,returnstring[returns]);
+    if (gendebug)
+      printf ("%s\n", returnstring[returns]);
+    name_emit (root);
+
+    if(only_static == STATIC_WITHDATA) {
+      fprintf (javafp, ";\n");
+    } else {
+      /*  initialize local variables to zero or
+        false to keep the java compiler from
+        squawking.  */
+
+      if (returns == Integer || returns == Double)
+        fprintf (javafp, "= 0");
+      else if (returns == Logical)
+        fprintf (javafp, "= false");
+      fprintf (javafp, ";\n");
+    }
+  }
+}
+
+/* This function handles emitting DATA statements, which consist of a
+   list of names and a list of data items.  We start with the first name
+   and assign as many data items from the list as the size allows.  for
+   example if the first name is a 5 element array, we assign the first 5
+   data items to the first name.  then we go to the second name, third 
+   name, etc. and assign values in the same way.     10/3/97  --Keith
+*/
 int
 data_emit(AST *root)
 {
   enum returntype returnval;
   AST *Dtemp, *Ntemp, *Ctemp;
   HASHNODE *hashtemp;
-  int i, length=1, is_array=FALSE;
+  int i, length=1, is_array=FALSE, count=1;
 
-    /* foreach Data spec... */
+  /* foreach Data spec... */
   for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt) 
   {
     Ctemp = Dtemp->astnode.data.clist;
 
-      /* foreach variable... */    
+    /* foreach variable... */    
     for(Ntemp = Dtemp->astnode.data.nlist; Ntemp != NULL; Ntemp = Ntemp->nextstmt) 
     {
+      /* This variable should have a type declaration associated with it */
       if((hashtemp = type_lookup(type_table,Ntemp->astnode.ident.name)) == NULL)
       {
         fprintf(stderr,"No typedec associated with this DATA variable: %s\n",
@@ -354,6 +465,8 @@ data_emit(AST *root)
 
       if( hashtemp->variable->astnode.ident.leaddim != NULL )
       {
+        /* Check for attempts to initialize dummy argument: */
+
         if(hashtemp->variable->astnode.ident.leaddim[0] == '*')
         {
           fprintf(stderr,"Attempt to initialize dummy argument: %s\n",
@@ -373,6 +486,7 @@ data_emit(AST *root)
 
           length = 1;
 
+          /* determine the number of elements in this variable */
  
           temp2=hashtemp->variable->astnode.ident.arraylist;
           for( ; temp2 != NULL ; temp2=temp2->nextstmt ) {
@@ -392,87 +506,74 @@ data_emit(AST *root)
    
       if( is_array ) {
         fprintf(javafp,"[] ");
-        fprintf(javafp,"%s = {",Ntemp->astnode.ident.name);
 
-        for(i=0;i<length;i++) {
-          fprintf(javafp,"%s ",Ctemp->astnode.constant.number);
+        /* if this variable is static, we can't declare it here 
+           because it has been declared already as a class variable.
+           so we use the "_temp_" prefix and emit the initialization.
+           later we assign the temp variable to the class variable.
+           10/3/97  --Keith */
+
+        if(type_lookup(save_table,Ntemp->astnode.ident.name))
+          fprintf(javafp,"_temp_%s = {",Ntemp->astnode.ident.name);
+        else
+          fprintf(javafp,"%s = {",Ntemp->astnode.ident.name);
+
+        for(i=0, count=0;i<length;i++,count++) {
+          if(Ctemp->token == STRING)
+            fprintf(javafp,"\"%s\" ",Ctemp->astnode.ident.name);
+          else {
+            fprintf(javafp,"%s%s ",  
+              Ctemp->astnode.constant.sign == 1 ? "-" : "",
+              Ctemp->astnode.constant.number);
+          }
+
+          /* Every now and then, emit a newline for readability.
+             I have run across some lines that end up so long that
+             they screw up 'vi'.   9/30/97  --Keith */
+          if( count % 5 == 0 )
+            fprintf(javafp,"\n");
+
           if( (Ctemp = Ctemp->nextstmt) == NULL )
             break;
           else if(i != length -1 )
             fprintf(javafp,", ");
         }
         fprintf(javafp,"};\n");
-      } 
+        if(type_lookup(save_table,Ntemp->astnode.ident.name))
+          fprintf(javafp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
+             Ntemp->astnode.ident.name);
+      }
       else {
-        fprintf(javafp,"%s = %s;\n",Ntemp->astnode.ident.name,
-           Ctemp->astnode.constant.number);
+        /* this case is for initialization of scalar items */
+
+        if(Ctemp->token == STRING) {
+          if(type_lookup(save_table,Ntemp->astnode.ident.name))
+            fprintf(javafp,"_temp_%s = \"%s\";\n",Ntemp->astnode.ident.name,
+              Ctemp->astnode.ident.name);
+          else
+            fprintf(javafp,"%s = \"%s\";\n",Ntemp->astnode.ident.name,
+              Ctemp->astnode.ident.name);
+        }
+        else {
+          if(type_lookup(save_table,Ntemp->astnode.ident.name))
+            fprintf(javafp,"_temp_%s = %s%s;\n",Ntemp->astnode.ident.name,
+              Ctemp->astnode.constant.sign == 1 ? "-" : "",
+              Ctemp->astnode.constant.number);
+          else
+            fprintf(javafp,"%s = %s%s;\n",Ntemp->astnode.ident.name,
+              Ctemp->astnode.constant.sign == 1 ? "-" : "",
+              Ctemp->astnode.constant.number);
+        }
+
+        if(type_lookup(save_table,Ntemp->astnode.ident.name))
+          fprintf(javafp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
+             Ntemp->astnode.ident.name);
+
         Ctemp = Ctemp->nextstmt;
       }
     }
   }
 }
-
-#ifdef DATAEMIT
-
-/*  Comments, anyone...?  */
-
-int
-data_emit(AST *root)
-{
-  enum returntype returnval;
-  AST *Dtemp, *Ntemp, *Ctemp;
-  HASHNODE *hashtemp;
-
-  for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt) 
-  {
-    for(Ntemp = Dtemp->astnode.data.nlist; Ntemp != NULL; Ntemp = Ntemp->nextstmt) 
-    {
-      if((hashtemp = type_lookup(type_table,Ntemp->astnode.ident.name)) == NULL)
-      {
-        fprintf(stderr,"No typedec associated with this DATA variable: %s\n",
-          Ntemp->astnode.ident.name);
-        continue;
-      }
-
-      returnval = hashtemp->type;
-
-      /*  There really is something screwy about those 
-          hash tables...  -dmd 9/26/97  */
-      if(hashtemp->variable == NULL)
-      {
-        fprintf(stderr,"Wow, hashtemp->variable is NULL!\n");
-        continue;
-      }
-
-      if( hashtemp->variable->astnode.ident.leaddim != NULL )
-      {
-        if((hashtemp->variable->astnode.ident.leaddim[0] == '*')  ||
-         (type_lookup(args_table,Ntemp->astnode.ident.name)))
-        {
-          fprintf(stderr,"Attempt to initialize dummy argument: %s\n",
-            hashtemp->variable->astnode.ident.name);
-          continue;
-        }
-      }
-
-      fprintf(javafp,"%s ", returnstring[ hashtemp->type]);
-   
-      if( hashtemp->variable->astnode.ident.arraylist != NULL )
-        fprintf(javafp,"[] ");
-
-      fprintf(javafp,"%s = {",Ntemp->astnode.ident.name);
-      for(Ctemp = Dtemp->astnode.data.clist; Ctemp != NULL; Ctemp = Ctemp->nextstmt) {
-        fprintf(javafp,"%s ",Ctemp->astnode.constant.number);
-        if(Ctemp->nextstmt != NULL)
-          fprintf(javafp,", ");
-      }
-      fprintf(javafp,"};\n");
-    }
-  }
-}
-
-#endif /*  DATAEMIT  */
-
 
 /* A name will either fly solo or lead off
    a named array.  So far, this code will emit
@@ -520,7 +621,6 @@ printf("** nodetype = %s, token = %s\n", print_nodetype(root),
 
 	  javaname = (char *) methodscan (intrinsic_toks, tempname);
 
-printf("@@ javaname = %s\n",javaname);
 	  /*  This block of code is only called if the identifier
 	     absolutely does not have an entry in any table,
 	     and corresponds to a method invocation of
@@ -537,10 +637,8 @@ printf("@@ javaname = %s\n",javaname);
 
           if (root->astnode.ident.arraylist != NULL)
           {
-printf("@@ tempname = %s\n",tempname);
             if (!strcmp (tempname, "LSAME"))
             {
-printf("@@ tempname matches LSAME\n");
               temp = root->astnode.ident.arraylist;
               fprintf (javafp, "%s", temp->astnode.ident.name);
               fprintf (javafp, "%s(", javaname);
@@ -551,7 +649,6 @@ printf("@@ tempname matches LSAME\n");
             }
             else if (!strcmp (tempname, "LSAMEN"))
             {
-printf("@@ tempname matches LSAMEN\n");
               temp = root->astnode.ident.arraylist;
 
               /* first, make sure there are enough args to work with */
@@ -577,8 +674,6 @@ printf("@@ tempname matches LSAMEN\n");
               /* goto end; *//*  Hack ... */
               return;
             }
- else
-  printf("@@ tempname matches nothing!\n");
           }
       }
 
@@ -597,7 +692,6 @@ printf("@@ tempname matches LSAMEN\n");
     if(gendebug)printf ("Tempname  %s\n", tempname);
 	  javaname = (char *) methodscan (intrinsic_toks, tempname);
 	  
-printf("## ok, java name = %s\n",javaname);
 	  if (javaname != NULL)
 	    {
 	  
@@ -674,18 +768,23 @@ printf("## ok, java name = %s\n",javaname);
 		if (!strcmp (tempname, "MOD"))
 		  {
 		      temp = root->astnode.ident.arraylist;
-/*
-		      fprintf (javafp, "%s(", javaname);
-		      expr_emit (temp);
-		      fprintf (javafp, ", ");
-		      expr_emit (temp->nextstmt);
-		      fprintf (javafp, ")");
-*/
                       fprintf(javafp,"(");
                       expr_emit(temp);
                       fprintf(javafp,")%%(");
                       expr_emit(temp->nextstmt);
                       fprintf(javafp,") ");
+
+                     /*  this chunk of code will emit a call to MOD as a call to
+                        Math.IEEERemainder().  usually that is not appropriate
+                        since IEEERemainder returns double, whereas the expected
+                        type is int.   -- keith
+
+		          fprintf (javafp, "%s(", javaname);
+		          expr_emit (temp);
+		          fprintf (javafp, ", ");
+		          expr_emit (temp->nextstmt);
+		          fprintf (javafp, ")");
+                      */
 		      return;
 		  }
 	    }
@@ -698,7 +797,8 @@ printf("## ok, java name = %s\n",javaname);
 
     switch (root->token)
       {
-      /* I think these first two cases are obsolete now.  9/23/97, Keith */
+      /* I think these first two cases are obsolete now since string and char 
+         constants were moved to the Constant production.  9/23/97, Keith */
 
       case STRING:
           printf("** I am going to emit a String literal!\n");
@@ -1014,6 +1114,28 @@ expr_emit (AST * root)
 }
 
 int
+open_output_file(AST *root)
+{
+  char * filename;
+  char * classname;
+  
+  filename = lowercase(strdup(root->astnode.source.name->astnode.ident.name));
+  *filename = toupper (*filename);
+  classname = strdup(filename);
+  strcat(filename,".java");
+
+  printf("filename is %s\n",filename);
+
+  if((javafp = fopen(filename,"w"))==NULL) {
+    fprintf(stderr,"Cannot open output file '%s'.\n",filename);
+    perror("Reason");
+    exit(1);
+  }
+
+  javaheader(javafp,classname);  /* print header to output file */
+}
+
+int
 constructor (AST * root)
 {
     enum returntype returns;
@@ -1022,28 +1144,11 @@ constructor (AST * root)
     extern SYMTABLE *type_table;
     char *tempstring;
     HASHNODE *hashtemp;
-    char * filename;
-    char * classname;
 
-    /* In fortran, functions return a value implicitely
+    /* In fortran, functions return a value implicitly
        associated with there own name. In java, we declare a
        variable in the constructor that shadows the class
        (function) name and returns the same type. */
-
-    filename = lowercase(strdup(root->astnode.source.name->astnode.ident.name));
-    *filename = toupper (*filename);
-    classname = strdup(filename);
-    strcat(filename,".java");
-
-    printf("filename is %s\n",filename);
-
-    if((javafp = fopen(filename,"w"))==NULL) {
-      fprintf(stderr,"Cannot open output file '%s'.\n",filename);
-      perror("Reason");
-      exit(1);
-    }
-
-    javaheader(javafp,classname);  /* print header to output file */
 
     if (root->nodetype == Function)
     {
@@ -1101,7 +1206,7 @@ constructor (AST * root)
 
 	  /* I haven't yet decided how the pass-by-reference
 	     pass-by-value problem will be resolved.  It may
-	     not ba an issue at all in a java calling java
+	     not be an issue at all in a java calling java
 	     situation.  The next line, when used, will list
 	     all the arguments to the method as references.
 	     This means that primitives such as int and
@@ -1195,69 +1300,39 @@ forloop_emit (AST * root)
    cases.  so, if we are within a loop, and we are trying to goto the CONTINUE 
    statement of an enclosing loop, then we can just emit a labeled continue 
    statement.  --Keith       
+
+   I think I fixed a previous problem emitting gotos within nested 
+   simulated while loops by keeping track of all if statements rather than
+   just the ones identified as while statements.   10/3/97 -- Keith
 */
 
 goto_emit (AST * root)
 {
-    /* fprintf (javafp, "goto label%d;\n", root->astnode.go_to.label); 
-    fprintf(stderr,"WARNING: ignoring goto encountered in fortran source.\n");
-    fprintf (javafp, " break label%d; // was \"goto label%d\"\n;\n", 
-         root->astnode.go_to.label, root->astnode.go_to.label);
-    */
- 
-/* this code isn't working under the following condition:
+  if( (doloop != NULL) && list_search(&doloop, root->astnode.go_to.label) )
+  {
+     /* we are inside a do loop and we are looking at a goto
+        statement to the 'continue' statement of an enclosing loop.
+        what we want to do here is just emit a 'labeled continue' */ 
 
-   10  continue
-       if(i .lt. 10) then
-         write(*,*) i
-         i = i + 1
-   20    continue
-         if(j .lt. 20) then
-           write(*,*) j
-           j = j + 1
-           goto 10
-         endif
-         go to 10
-       endif
-  
-   The outer loop should be translated to a java while loop, but
-   the inner loop should remain an if statement.  that is not 
-   happening yet.
-*/
+    fprintf(javafp,"continue forloop%d;\n",root->astnode.go_to.label);
+  }
+  else if((while_list != NULL) && 
+     (list_examine(&while_list) == root->astnode.go_to.label ))
+  {
+       /* we are inside a simulated while loop and we are looking at 
+          a goto statement to the 'beginning' statement of the most
+          enclosing if statment.  Since we are translating this to an 
+          actual while loop, we ignore this goto statement */
 
-    if(doloop != NULL)
-    {
-      if( list_search(&doloop, root->astnode.go_to.label ) )
-      {
-         /* we are inside a do loop and we are looking at a goto
-            statement to the 'continue' statement of an enclosing loop.
-            what we want to do here is just emit a 'labeled continue' */ 
+    fprintf(javafp,"// goto %d (end while)\n",root->astnode.go_to.label);
+  }
+  else 
+  {
+    /* otherwise, not quite sure what to do with this one, so
+       we'll just emit a dummy goto */
 
-         fprintf(javafp,"continue forloop%d;\n",root->astnode.go_to.label);
-      }    
-    }
-    else if(while_list != NULL)
-    {
-      if( list_examine(&while_list) == root->astnode.go_to.label )
-      {
-         /* we are inside a simulated while loop and we are looking at 
-            a goto statement to the 'beginning' statement of the most
-            enclosing if statment.  Since we are translating this to an 
-            actual while loop, we ignore this goto statement */
- 
-        fprintf(javafp,"// goto %d (end while)\n",root->astnode.go_to.label);
-         ;
-      }    
-      else
-        fprintf(javafp,"Dummy.go_to(%d);\n",root->astnode.go_to.label);
-    }
-    else 
-    {
-      /* otherwise, not quite sure what to do with this one, so
-         we'll just emit a dummy goto */
-
-      fprintf(javafp,"Dummy.go_to(%d);\n",root->astnode.go_to.label);
-    }
+    fprintf(javafp,"Dummy.go_to(%d);\n",root->astnode.go_to.label);
+  }
 }
 
 logicalif_emit (AST * root)
@@ -1304,10 +1379,6 @@ write_emit (AST * root)
 
   if( (hnode = format_lookup(format_table,tmp)) != NULL ) {
     printf("****FOUND****\n");
-    if(hnode->variable == NULL)
-      printf("###temp is NULL\n");
-    else
-      printf("###temp is non-NULL\n");
 
     nodeptr = root->astnode.io_stmt.arg_list; 
 
@@ -1437,7 +1508,9 @@ format_name_emit(AST *node)
       /* in the write statement is an array, with no index specified.
          so we will keep grabbing data from the array until the end
          of the format specification */
-/*
+
+/*  gotta get this part finished someday   10/3/97 -- Keith
+
     if( (node->token == NAME) && 
         (type_lookup(array_table, root->astnode.ident.name) != NULL) &&
         (root->astnode.ident.arraylist == NULL) )
@@ -1460,6 +1533,10 @@ blockif_emit (AST * root)
 
   if(prev != NULL)
     if(prev->nodetype == Label)
+    {
+      /* push this while loop's number on the stack */
+      list_push(&while_list, root->prevstmt->astnode.label.number);
+
       if(prev->astnode.label.stmt == NULL)
         if((root->astnode.blockif.elseifstmts == NULL) &&
            (root->astnode.blockif.elsestmts == NULL))
@@ -1478,6 +1555,10 @@ blockif_emit (AST * root)
             }
         }
 
+      /* pop this while loop's label number off the stack */
+      list_pop(&while_list);
+    }
+
   fprintf (javafp, "if (");
   if (root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
@@ -1493,11 +1574,28 @@ blockif_emit (AST * root)
     emit (root->astnode.blockif.elsestmts);
 }
 
+/* while_emit() is called when an if statement has been identified
+   as a simulated while loop, e.g.:
+
+     10 continue
+        if(x < 10) then
+           do something
+           x = x+1
+        goto 10
+
+   this can be translated into java as:
+ 
+     while(x<10) {
+       do something
+       x = x+1
+     }
+
+   that just gives us one less goto statement to worry about.  --Keith
+*/
+
 void 
 while_emit(AST *root)
 {
-  /* push this while loop's number on the stack */
-  list_push(&while_list, root->prevstmt->astnode.label.number);
 
   fprintf(javafp, "while (");
   if (root->astnode.blockif.conds != NULL)
@@ -1506,10 +1604,6 @@ while_emit(AST *root)
   emit (root->astnode.blockif.stmts);
   fprintf (javafp, "}              // Close if()\n");
 
-  /* finally pop this while loop's label number off the stack 
-     and emit the label (for experimental goto resolution) */
-   
-  fprintf(javafp,"Dummy.label(%d);\n",list_pop(&while_list));
 }
 
 void
@@ -1543,7 +1637,6 @@ call_emit (AST * root)
 
     assert (root != NULL);
 
-printf("HERE IN CALL_EMIT\n");
     lowercase (root->astnode.ident.name);
     tempname = strdup (root->astnode.ident.name);
     *tempname = toupper (*tempname);
@@ -1616,7 +1709,6 @@ assign_emit (AST * root)
 {
     name_emit (root->astnode.assignment.lhs);
     fprintf (javafp, " = ");
-printf("**rhs nodetype is %s\n",print_nodetype(root->astnode.assignment.rhs));
     expr_emit (root->astnode.assignment.rhs);
 }
 
@@ -1632,6 +1724,8 @@ char * print_nodetype (AST *root)
       return("Source");
     case Progunit:
       return("Progunit");
+    case Program:
+      return("Program");
     case Subroutine:
       return("Subroutine");
     case Function:
@@ -1682,8 +1776,14 @@ char * print_nodetype (AST *root)
       return("Unimplemented");
     case Constant:
       return("Constant");
+    case Write:
+      return("Write");
     case Format:
       return("Format");
+    case Save:
+      return("Save");
+    case DataList:
+      return("DataList");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

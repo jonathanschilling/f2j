@@ -15,7 +15,7 @@
 /* Had a segfault on a very long continued line
    in a lapack routine.  This is a hack, should
    reallaoc when buffer overflows instead.  */
-#define BIGBUFF 1000
+#define BIGBUFF 2000
 
 #define FUNKYCOMMENTS 1
 
@@ -216,7 +216,7 @@ yylex ()
 
 	    /*  Scan for a labeled (numbered) statement. */
             if (isdigit (*buffer.stmt))
-	      token = number_scan (&buffer);
+	      token = number_scan (&buffer,format_stmt);
               if (token)
 		{
 		  firsttoken = token;
@@ -304,7 +304,8 @@ yylex ()
             if (token)  
 	      {
 		tokennumber++;
-                format_stmt = 1;
+                if(token == FORMAT)
+                  format_stmt = 1;
                 if(lexdebug)
                   printf("8: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
 	        return token;
@@ -348,12 +349,19 @@ yylex ()
           }
 
           if( (yylval.lexeme[0] == 'A') ||
+              (yylval.lexeme[0] == 'a') ||
               (yylval.lexeme[0] == 'F') ||
+              (yylval.lexeme[0] == 'f') ||
               (yylval.lexeme[0] == 'I') ||
+              (yylval.lexeme[0] == 'i') ||
               (yylval.lexeme[0] == 'D') ||
+              (yylval.lexeme[0] == 'd') ||
               (yylval.lexeme[0] == 'G') ||
+              (yylval.lexeme[0] == 'g') ||
               (yylval.lexeme[0] == 'E') ||
-              (yylval.lexeme[0] == 'L'))
+              (yylval.lexeme[0] == 'e') ||
+              (yylval.lexeme[0] == 'L') ||
+              (yylval.lexeme[0] == 'l'))
           {
             token = EDIT_DESC;
 
@@ -372,8 +380,12 @@ yylex ()
               bufptr[len+1] = '\0';
               strcat(yylval.lexeme,bufptr);
               free(bufptr);
-              bufptr = buffer.stmt + len + 1;
+              bufptr = strdup(buffer.stmt + len + 1);
+
               strcpy(buffer.stmt,bufptr);
+              strcpy(buffer.text,bufptr);
+
+              free(bufptr);
             }
             if(lexdebug)
               printf("8.5: lexer returns %s (%s)\n", 
@@ -391,7 +403,7 @@ yylex ()
   	return token;
       }
     if (isdigit (*buffer.stmt)) {
-	token = number_scan (&buffer);
+	token = number_scan (&buffer,format_stmt);
     }
     if (token)
       {
@@ -430,7 +442,7 @@ yylex ()
     if (token)
 	return token;
     if (isdigit (*buffer.stmt))
-	token = number_scan (&buffer);
+	token = number_scan (&buffer,format_stmt);
     if (token)
 	return token;
     token = string_or_char_scan (&buffer);
@@ -555,26 +567,53 @@ collapse_white_space (BUFFER * bufstruct)
 	     the string in the prelexed statement.  This was
 	     handled with at hack.
 	   */
-	  if (*cp == '\'')  /* Escape the tick mark with a slash "\" */
-	    {
-		*tcp = *cp;
-		 tcp++;
-                 /* Hack... */
-		*yycp = *cp;
-		*yycp++;
-		 cp++;
-		 while (*cp != '\'')  /* Literal copy until next tick. */
-		  {
-		      *tcp = *cp;
-		       tcp++;
+          if (*cp == '\'')  /* Escape the tick mark with a slash "\" */
+          {
+            int done=FALSE;
+
+            *tcp = *cp;
+            tcp++;
+            /* Hack... */
+            *yycp = *cp;
+            *yycp++;
+            cp++;
+
+            while(!done) 
+            {
+              while (*cp != '\'')  /* Literal copy until next tick. */
+              {
+                *tcp = *cp;
+                tcp++;
                        /*  Hack...  All this while loop does is increment
 			   without using the toupper function.  The next
 			   two lines were left out originally. */
-		      *yycp = *cp;
-		      *yycp++;
-		       cp++;
-		  }  /*  End while() for copying strings.  */
-	    }  /* End if() for copying character strings. */
+                *yycp = *cp;
+                *yycp++;
+                cp++;
+              }  /*  End while() for copying strings.  */
+
+              /* At this point, we have seen a tick, but now we
+                 determine whether it is really the end of the string
+                 or an escape sequence e.g. 
+                    str = 'doesn''t parse' 
+                 9/30/97 --Keith  */
+              if(*(cp+1) == '\'')   /* if next char after tick is a tick */
+              {
+                *tcp = *cp;
+                tcp++;
+                *yycp = *cp;
+                *yycp++;
+                cp++;
+                *tcp = *cp;
+                tcp++;
+                *yycp = *cp;
+                *yycp++;
+                cp++;
+              }
+              else
+                done = TRUE;
+            } /* end while(not done) */
+	  }  /* End if() for copying character strings. */
 
 	  /* We need to track the number of opening and closing
 	     parentheses "(" and ")" to implement Sale's algorithm. */
@@ -800,9 +839,18 @@ name_scan (BUFFER * bufstruct)
 /*  Scan a card image for a numerical constant.
     Need to add code in here to change exp numbers
     to doubles, or at least to replace the instances
-    of 'd' and 'D' with 'e'.  */
+    of 'd' and 'D' with 'e'.  
+ 
+    9/30/97 -  Added fmt parameter which is a boolean
+      representing whether or not this number occurs
+      within a format statement.   If so, we only
+      want to return the integer part of the spec...
+      e.g., if our input is 2D36.8, just return 2  
+      --Keith
+*/
+
 int
-number_scan (BUFFER * bufstruct)
+number_scan (BUFFER * bufstruct, int fmt)
 {
   extern KWDTAB tab_toks[];
   
@@ -820,18 +868,26 @@ number_scan (BUFFER * bufstruct)
       printf("   buf.text = '%s'\n",bufstruct->text);
     }
 
-/*  Test and see whether it is a number (constant).
-   If so, store the literal text in yytext.  These
-   long logical expressions are probably not very 
-   efficient, but they should be easy to read.
- */
-    while (isdigit (*ncp) ||
+   if(fmt) {
+     while(isdigit (*ncp)) {
+       ncp++;
+       tokenlength++;
+     }
+   }
+   else {
+
+     /*  Test and see whether it is a number (constant).
+         If so, store the literal text in yytext.  These
+         long logical expressions are probably not very 
+         efficient, but they should be easy to read.
+     */
+     while (isdigit (*ncp) ||
 	   *ncp == '.' ||
 	   *ncp == 'D' ||
 	   *ncp == 'd' ||
 	   *ncp == 'E' ||
 	   *ncp == 'e')
-      {
+     {
 	  switch (*ncp)
 	    {
 	    case '.':
@@ -908,20 +964,21 @@ number_scan (BUFFER * bufstruct)
 		continue;	/*  Loop again.  */
 	    }			/* Close switch(). */
 	  break;
-      }				/* Close while() loop. */
+     }				/* Close while() loop. */
+   }
 
-    if(lexdebug) {
-      printf("ok that was fun, ncp = '%s', tcp = '%s'",ncp,tcp);
-      printf(" and tokenlength = %d\n",tokenlength);
-    }
+   if(lexdebug) {
+     printf("ok that was fun, ncp = '%s', tcp = '%s'",ncp,tcp);
+     printf(" and tokenlength = %d\n",tokenlength);
+   }
 
-    strncpy (yylval.lexeme, tcp, tokenlength);
-    yylval.lexeme[tokenlength] = '\0';
-    if(lexdebug)printf ("Number: %s\n", yytext);
-    tcp += tokenlength;
-    strcpy (bufstruct->text, tcp);
-    strcpy (bufstruct->stmt, ncp);
-    return type;
+   strncpy (yylval.lexeme, tcp, tokenlength);
+   yylval.lexeme[tokenlength] = '\0';
+   if(lexdebug)printf ("Number: %s\n", yytext);
+   tcp += tokenlength;
+   strcpy (bufstruct->text, tcp);
+   strcpy (bufstruct->stmt, ncp);
+   return type;
 }				/* Close name_ident_scan().  */
 
 
@@ -936,15 +993,36 @@ string_or_char_scan (BUFFER * bufstruct)
 /*  Test and see if there is a tic (`'') mark.  */
     if (*scp == '\'')
       {
+          int done = FALSE;
+
 	  scp++;
 	  textcp++;
 	  if(lexdebug)printf ("scp: %s\n", scp);
+
 	  /* Loop until we find another tick (') mark. */
-	  while (*scp != '\'')
-	    {
-		scp++;
-		tokenlength++;
-	    }
+          while(!done)
+          {
+            while (*scp != '\'')
+            {
+              scp++;
+              tokenlength++;
+            }
+
+            /* Now we determine whether this is the final tick
+               or just an escape sequence to actually print a
+               tick.  If it's an escape, substitute a backslash
+               for the first tick.  that is,  '' -> /'
+               9/30/97 --Keith */
+
+            if( *(scp + 1) == '\'' )
+            {
+              *(textcp + tokenlength) = '\\';
+              scp+=2;
+              tokenlength+=2;
+            }
+            else
+              done = TRUE;
+          }
 	  strncpy (yytext, textcp, tokenlength);
 	  yytext[tokenlength] = '\0'; /* Terminate the string at tick. */
 	  strcpy(yylval.lexeme, yytext); 
@@ -1127,6 +1205,11 @@ tok2str(int tok)
     case REPEAT:
       return("REPEAT");
     default:
-      return("Unknown token");
+    {
+      static char asdf[20];
+
+      sprintf(asdf,"Unknown token: %d\n",tok);
+      return(asdf);
+    }
   }
 }

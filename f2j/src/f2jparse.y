@@ -912,6 +912,10 @@ DataConstant:  Constant
                {
                  $$ = $1;
                }
+            |  Name
+               {
+                 
+               }   
             |  MINUS Constant   
                {
                  prepend_minus($2->astnode.constant.number);

@@ -2074,7 +2074,7 @@ vardec_emit(AST *root, enum returntype returns)
   AST *temp2;
   CPNODE *c;
 
-  prefix = "static ";
+  prefix = "public static ";
 
   if(gendebug)
     printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
@@ -3708,6 +3708,8 @@ get_var_info(AST *root)
 
   if(com_prefix[0] != '\0')
   {
+    char *idx;
+
     /* if this is a COMMON variable, find out the merged
      * name, if any, that we should use instead.  Names are
      * merged when different declarations of a common
@@ -3722,7 +3724,9 @@ get_var_info(AST *root)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    tmpclass = get_full_classname(com_prefix);
+    tmpclass = strdup(com_prefix);
+    while( (idx = strchr(tmpclass, '.')) != NULL )
+      *idx = '/';
     tmpclass[strlen(tmpclass)-1] = '\0';
   }
   else
@@ -3784,6 +3788,7 @@ get_common_prefix(char *varname)
   char * prefix = strtok(inf,".");
   static char * cprefix;
   METHODREF *mtmp;
+  char * idx;
 
   /* Look up this variable name in the table of COMMON variables */
 
@@ -3802,16 +3807,25 @@ printf("commonblockname = '%s'\n",ht->variable->astnode.ident.commonBlockName);
       sprintf(cprefix,"%s.", mtmp->classname);
     }
     else {
+      char * full_prefix = get_full_classname(prefix);
+
       cprefix = (char *) f2jalloc(
          strlen(ht->variable->astnode.ident.commonBlockName) +
-         strlen(prefix) + 3);
+         strlen(full_prefix) + 3);
 
-      sprintf(cprefix,"%s_%s.", prefix,
+      sprintf(cprefix,"%s_%s.", full_prefix,
         ht->variable->astnode.ident.commonBlockName);
     }
   }
   else
     cprefix = strdup("");  /* dup so we can free() later */
+
+  /* convert fully-qualified class name to dotted notation */
+  while( (idx = strchr(cprefix, '/')) != NULL )
+    *idx = '.';                                                              
+
+if(cprefix && strlen(cprefix) > 0)
+ printf("get_common_prefix returning '%s'\n", cprefix);
 
   f2jfree(inf, strlen(inf)+1);
   return(cprefix);
@@ -4032,6 +4046,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   if(com_prefix[0] != '\0')
   {
+    char *idx;
+
     /* if this is a COMMON variable, find out the merged
      * name, if any, that we should use instead.  Names are
      * merged when different declarations of a common
@@ -4045,7 +4061,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    scalar_class = get_full_classname(com_prefix);
+    scalar_class = strdup(com_prefix);
+    while( (idx = strchr(scalar_class, '.')) != NULL )
+      *idx = '/';
     scalar_class[strlen(scalar_class)-1] = '\0';
   }
   else
@@ -9900,6 +9918,8 @@ LHS_bytecode_emit(AST *root)
 
   if(com_prefix[0] != '\0')
   {
+    char *idx;
+
     /* if this is a COMMON variable, find out the merged
      * name, if any, that we should use instead.  Names are
      * merged when different declarations of a common
@@ -9912,7 +9932,9 @@ LHS_bytecode_emit(AST *root)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    class = get_full_classname(com_prefix);
+    class = strdup(com_prefix);
+    while( (idx = strchr(class, '.')) != NULL )
+      *idx = '/';
     class[strlen(class)-1] = '\0';
   }
   else {

@@ -923,7 +923,7 @@ DataConstant:  Constant
                     $$->vartype = hash_temp->variable->vartype;
                     $$->token = hash_temp->variable->token;
                     strcpy($$->astnode.constant.number,
-                    hash_temp->variable->astnode.constant.number);
+                      hash_temp->variable->astnode.constant.number);
                  }
                  else{
                     printf("Error: '%s' is not a constant\n",yylval.lexeme);
@@ -2874,6 +2874,7 @@ Pdecs:    Pdec
 
 Pdec:     Assignment
           {
+            void add_decimal_point(char *);
             double constant_eval;
             char *cur_id;
             AST *temp;
@@ -2885,7 +2886,8 @@ Pdec:     Assignment
             $$->nodetype = Assignment;
 
             constant_eval = eval_const_expr($$->astnode.assignment.rhs);
-printf("### constant_eval is %20.80g\n", constant_eval);
+printf("### constant_eval is %.40g\n", constant_eval);
+printf("### constant_eval is %.40e\n", constant_eval);
             
             temp = addnode();
             temp->nodetype = Constant;
@@ -2909,8 +2911,10 @@ printf("### constant_eval is %20.80g\n", constant_eval);
               case Float:
               case Double:
                 temp->token = DOUBLE;
-                /*sprintf(temp->astnode.constant.number,"%#g",constant_eval);*/
+
                 sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
+                add_decimal_point(temp->astnode.constant.number);
+                
                 break;
               case Integer:
                 temp->token = INTEGER;
@@ -2987,6 +2991,41 @@ yyerror(char *s)
   printf("%d: %s\n", lineno, s);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * add_decimal_point                                                         *
+ *                                                                           *
+ * this is just a hack to compensate for the fact that there's no printf     *
+ * specifier that does exactly what we want.  assume the given string        *
+ * represents a floating point number.  if there's no decimal point in the   *
+ * string, then append ".0" to it.  However, if there's an 'e' in the string *
+ * then javac will interpret it as floating point.  The only real problem    *
+ * that occurs is when the constant is too big to fit as an integer, but has *
+ * no decimal point, so javac flags it as an error (int constant too big).   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+add_decimal_point(char *str)
+{
+  BOOLEAN found_dec = FALSE;
+  char *p = str;
+
+  while( *p != '\0' ) {
+    if( *p == '.' ) {
+      found_dec = TRUE;
+      break;
+    }
+
+    if( *p == 'e' )
+      return;
+    
+    p++;
+  }
+
+  if(!found_dec)
+    strcat(str, ".0");
+}
 
 /*****************************************************************************
  *                                                                           *

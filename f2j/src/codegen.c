@@ -72,7 +72,8 @@ CodeGraphNode
 
 AST
   * label_search(Dlist, int),
-  * dl_astnode_examine(Dlist);
+  * dl_astnode_examine(Dlist),
+  * find_label(Dlist, int);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -97,7 +98,8 @@ Dlist
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
   methcall_list = NULL, /* list of methods to be called by reflection        */
-  label_list = NULL;    /* list of statements with label numbers             */
+  label_list = NULL,    /* list of statements with label numbers             */
+  unresolved_gotos=NULL;/* list of gotos whose branch targets are not known  */
 
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
@@ -265,6 +267,7 @@ emit (AST * root)
           adapter_list = make_dl();
           methcall_list = make_dl();
           label_list = make_dl();
+          unresolved_gotos = make_dl();
 
           assign_local_vars(
              root->astnode.source.progtype->astnode.source.args); 
@@ -5476,8 +5479,7 @@ forloop_emit (AST * root)
  *                                                                           *
  *****************************************************************************/
 
-void
-forloop_bytecode_emit(AST *root) 
+void forloop_bytecode_emit(AST *root) 
 {
   void gen_istore_op(int);
 
@@ -5519,37 +5521,48 @@ forloop_bytecode_emit(AST *root)
 void
 goto_emit (AST * root)
 {
+  CodeGraphNode *goto_node;
   int dl_int_examine(Dlist);
   AST *loop;
 
+  /* for bytecode, maintain a list of the gotos so that we can come back
+   * later and resolve the branch targets.
+   */
+  goto_node = bytecode0(jvm_goto);
+  goto_node->branch_target = NULL;
+  goto_node->branch_label = root->astnode.go_to.label;
+   
+printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
+  dl_insert_b(unresolved_gotos, goto_node);
+
   if( (loop = label_search(doloop, root->astnode.go_to.label)) != NULL)
   {
-     /*
-      *  we are inside a do loop and we are looking at a goto
-      *  statement to the 'continue' statement of an enclosing loop.
-      *  what we want to do here is just emit a 'labeled continue' 
-      */ 
+    /*
+     *  we are inside a do loop and we are looking at a goto
+     *  statement to the 'continue' statement of an enclosing loop.
+     *  what we want to do here is just emit a 'labeled continue' 
+     */ 
 
     fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
   }
   else if((!dl_empty(while_list)) && 
      (dl_int_examine(while_list) == root->astnode.go_to.label ))
   {
-     /* 
-      *  we are inside a simulated while loop and we are looking at 
-      *  a goto statement to the 'beginning' statement of the most
-      *  enclosing if statment.  Since we are translating this to an 
-      *  actual while loop, we ignore this goto statement 
-      */
+    /* 
+     *  we are inside a simulated while loop and we are looking at 
+     *  a goto statement to the 'beginning' statement of the most
+     *  enclosing if statment.  Since we are translating this to an 
+     *  actual while loop, we ignore this goto statement 
+     */
 
     fprintf(curfp,"// goto %d (end while)\n",root->astnode.go_to.label);
   }
   else 
   {
-     /*  
-      *  otherwise, not quite sure what to do with this one, so
-      *  we'll just emit a dummy goto 
-      */
+    /*  
+     *  otherwise, not quite sure what to do with this one, so
+     *  we'll just emit a dummy goto 
+     */
 
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.go_to.label);
@@ -7751,6 +7764,31 @@ dl_astnode_examine(Dlist l)
 
 /*****************************************************************************
  *                                                                           *
+ * find_label                                                                *
+ *                                                                           *
+ * searches a list of Label nodes for the one corresponding to the given     *
+ * number.  from this label node, we can get the PC of the statement         *
+ * corresponding to this node.                                               *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+find_label(Dlist l, int val)
+{
+  Dlist tmp;
+  AST *v;
+
+  dl_traverse(tmp,l) {
+    v = (AST *) tmp->val;
+    if(v->astnode.label.number == val)
+      return v;
+  }
+
+  return NULL;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * label_search                                                              *
  *                                                                           *
  * searches a list of Forloop nodes for the one corresponding to the given   *
@@ -8247,8 +8285,6 @@ inc_stack(int inc)
 {
   stacksize += inc;
   
-  printf("incrementing stack by %d\n", inc);
-
   if(stacksize > cur_code->attr.Code->max_stack)
     cur_code->attr.Code->max_stack = stacksize;
 }
@@ -8264,8 +8300,6 @@ inc_stack(int inc)
 void
 dec_stack(int dec) {
   stacksize -= dec;
-
-  printf("decrementing stack by %d\n", dec);
 
   if(stacksize < 0)
     fprintf(stderr,"WARNING: negative stacksize!\n");
@@ -8546,8 +8580,9 @@ releaseLocal()
 void
 traverse_code(Dlist cgraph) 
 {
-  Dlist tmp;
   CodeGraphNode *val;
+  char *warn;
+  Dlist tmp;
 
   void calcOffsets(CodeGraphNode *);
 
@@ -8565,10 +8600,16 @@ traverse_code(Dlist cgraph)
   dl_traverse(tmp,cgraph) {
     val = (CodeGraphNode *) tmp->val;
   
-    if(jvm_opcode[val->op].width > 1)
-      printf("%d: %s %d\n", val->pc, jvm_opcode[val->op].op, val->operand);
+    if(!val->visited)
+      warn = "(UNVISITED!!)";
     else
-      printf("%d: %s\n", val->pc, jvm_opcode[val->op].op);
+      warn = "";
+
+    if(jvm_opcode[val->op].width > 1)
+      printf("%d: %s %d %s\n", val->pc, jvm_opcode[val->op].op, 
+         val->operand, warn);
+    else
+      printf("%d: %s %s\n", val->pc, jvm_opcode[val->op].op, warn);
   }
 }
 
@@ -8617,7 +8658,17 @@ calcOffsets(CodeGraphNode *val)
      *  - set/check the stack depth for the target of this goto
      */
     if(val->branch_target == NULL) {
-      fprintf(stderr,"warning, fortran gotos not implemented yet.\n");
+      AST *label_node;
+
+      printf("looking at GOTO %d\n", val->branch_label);
+      
+      if( (label_node = find_label(label_list, val->branch_label)) != NULL)
+      {
+        printf(" **found** target pc is %d\n", label_node->astnode.label.pc); 
+        val->operand = label_node->astnode.label.pc - val->pc;
+      }
+      else
+        fprintf(stderr,"WARNING: cannot find label %d\n", val->branch_label);
     }
     else {
       printf("goto branching to pc %d\n", val->branch_target->pc);

@@ -5529,34 +5529,60 @@ expr_emit (AST * root)
         f2jfree(tempname, strlen(tempname)+1);
       break;
     case Logicalop:
-      /* 
-       * Change all of this code to switch on the tokens.
-       * The parser code will have to store the NOT token.
-       */
-      if (root->astnode.expression.lhs != NULL)
-        expr_emit (root->astnode.expression.lhs);
-      else
-        fprintf (curfp, "!");
+      {
+        CodeGraphNode *if_node1, *if_node2, *goto_node, *next_node;
 
-      if (root->token == AND)
-        fprintf (curfp, " && ");
+        switch(root->token) {
+          case NOT:
+            fprintf (curfp, "!");
+            expr_emit (root->astnode.expression.rhs);
 
-      if (root->token == OR)
-        fprintf (curfp, " || ");
+            bytecode0(jvm_iconst_1);
+            bytecode0(jvm_ixor);
+            break;
+          case AND:
+            expr_emit (root->astnode.expression.lhs);
+            if_node1 = bytecode0(jvm_ifeq);
 
-      expr_emit (root->astnode.expression.rhs);
+            fprintf (curfp, " && ");
 
-      switch(root->token) {
-        case NOT:
-          bytecode0(jvm_iconst_1);
-          bytecode0(jvm_ixor);
-          break;
-        case AND:
-          bytecode0(jvm_iand);
-          break;
-        case OR:
-          bytecode0(jvm_ior);
-          break;
+            expr_emit (root->astnode.expression.rhs);
+            if_node2 = bytecode0(jvm_ifeq);
+
+            bytecode0(jvm_iconst_1);
+            goto_node = bytecode0(jvm_goto);
+            next_node = bytecode0(jvm_iconst_0);
+
+            if_node1->branch_target = next_node;
+            if_node2->branch_target = next_node;
+
+            next_node = bytecode0(jvm_impdep1);
+
+            goto_node->branch_target = next_node;
+            
+            break;
+          case OR:
+            expr_emit (root->astnode.expression.lhs);
+            if_node1 = bytecode0(jvm_ifne);
+
+            fprintf (curfp, " || ");
+
+            expr_emit (root->astnode.expression.rhs);
+            if_node2 = bytecode0(jvm_ifne);
+
+            bytecode0(jvm_iconst_0);
+            goto_node = bytecode0(jvm_goto);
+            next_node = bytecode0(jvm_iconst_1);
+
+            if_node1->branch_target = next_node;
+            if_node2->branch_target = next_node;
+
+            next_node = bytecode0(jvm_impdep1);
+
+            goto_node->branch_target = next_node;
+            
+            break;
+        }
       }
       break;
     case Relationalop:

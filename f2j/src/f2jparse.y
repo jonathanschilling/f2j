@@ -3478,13 +3478,13 @@ eval_const_expr(AST *root)
         result1 = eval_const_expr (root->astnode.expression.lhs);
 
       result2 = eval_const_expr (root->astnode.expression.rhs);
-      /*
-       * root->token = root->astnode.expression.rhs->token;
-       * root->nodetype = root->astnode.expression.rhs->nodetype;
-       * root->vartype = root->astnode.expression.rhs->vartype;
-       * strcpy(root->astnode.constant.number,
-       *     root->astnode.expression.rhs->astnode.constant.number);
-	*/
+
+      root->token = root->astnode.expression.rhs->token;
+      root->nodetype = root->astnode.expression.rhs->nodetype;
+      root->vartype = root->astnode.expression.rhs->vartype;
+      strcpy(root->astnode.constant.number,
+          root->astnode.expression.rhs->astnode.constant.number);
+
       return (result2);
       break;
     case Power:
@@ -3554,22 +3554,23 @@ printf("### its a constant.. %s\n", root->astnode.constant.number);
 
         switch (root->token) {
           case EQV:
-            root->token = lhs == rhs ? TrUE : FaLSE;
+            root->token = (lhs == rhs) ? TrUE : FaLSE;
             break;
           case NEQV:
-            root->token = lhs != rhs ? TrUE : FaLSE;
+            root->token = (lhs != rhs) ? TrUE : FaLSE;
             break;
           case AND:
-            root->token = lhs && rhs ? TrUE : FaLSE;
+            root->token = (lhs && rhs) ? TrUE : FaLSE;
             break;
           case OR:
-            root->token = lhs || rhs ? TrUE : FaLSE;
+            root->token = (lhs || rhs) ? TrUE : FaLSE;
             break;
           case NOT:
-            root->token = ! rhs ? TrUE : FaLSE;
+            root->token = (! rhs) ? TrUE : FaLSE;
             break;
         }
         strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
+        return root->token;
       }
       break;
     default:

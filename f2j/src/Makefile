@@ -5,8 +5,8 @@
 
 .PHONY: depend clean goto
 
-CFLAGS= -g -ansi -Wall -pedantic
-#CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
+#CFLAGS= -g -ansi -Wall -pedantic
+CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
 
 # overkill CFLAGS:
 #CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs

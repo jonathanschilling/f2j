@@ -4101,6 +4101,9 @@ initialize_name(char *id)
   HASHNODE *hashtemp;
   AST *tmp;
 
+  if(debug)
+    fprintf(stderr,"initialize_name: '%s'\n",id);
+
   tmp=addnode();
   tmp->token = NAME;
   tmp->nodetype = Identifier;
@@ -4120,6 +4123,8 @@ initialize_name(char *id)
     hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
     if(hashtemp)
     {
+      if(debug)
+        fprintf(stderr,"'%s' in already hash table..\n",id);
       tmp->vartype = hashtemp->variable->vartype;
       tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
     }
@@ -4127,12 +4132,14 @@ initialize_name(char *id)
     {
       enum returntype ret;
   
-printf("cannot find name %s in hash table..",id);
+      if(debug)
+        fprintf(stderr,"cannot find name %s in hash table..",id);
       
       ret = implicit_table[tolower(id[0]) - 'a'].type;
   
-printf("going to insert with default implicit type %s\n",
- returnstring[ret]);
+      if(debug)
+        fprintf(stderr,"going to insert with default implicit type %s\n",
+          returnstring[ret]);
   
       type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
     }

@@ -64,6 +64,7 @@ main (int argc, char **argv)
   char vcgname[130];
   char *indexname;
   char *f2jpath;
+  char *search_path;
 
   AST *temp;
   int errflg = 0;
@@ -73,9 +74,12 @@ main (int argc, char **argv)
   char f2java_help[] = "The program is used as follows:\n\n\
 To compile a program into Java source code:\n\
     f2java filename\n\n\
+The -c option may also be used to specify the search\n\
+path for \".f2j\" files.  For example:\n\n\
+    f2java -c .:../objects filename\n\n\
 The -p option may also be used to specify the name\n\
 of the package.  For example:\n\n\
-    f2java -java -p org.netlib.blas filename\n\n\
+    f2java -p org.netlib.blas filename\n\n\
 The -o option specifies the destination directory\n\
 to which the code should be written.\n\n\
 The -w option forces all scalars to be generated as\n\
@@ -105,12 +109,16 @@ will most likely not work for other code.\n";
   package_name  = NULL;
   bigEndian     = isBigEndian();
   output_dir    = NULL; 
+  search_path   = NULL; 
 
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"p:wisdho:")) != EOF)
+  while((c = getopt(argc,argv,"c:p:wisdho:")) != EOF)
     switch(c) {
+      case 'c':
+        search_path = optarg;
+        break;
       case 'p':
         package_name = optarg;
         break;
@@ -143,7 +151,8 @@ will most likely not work for other code.\n";
 
   if(errflg || (argc < 2))
   {
-    fprintf(stderr, "Usage: f2java [-p package name] [-o output dir]");
+    fprintf(stderr, "Usage: f2java [-c search path] [-p package name]");
+    fprintf(stderr, " [-o output dir]");
     fprintf(stderr, " [-w] [-i] [-s] [-d] <filename>\n");
     fprintf(stderr,
      "For help: f2java -h\n");
@@ -221,12 +230,19 @@ will most likely not work for other code.\n";
   for(i=0;generic_intrinsics[i] != NULL; i++)
     type_insert(generic_table,temp,0,generic_intrinsics[i]);
 
-  f2jpath = getenv(F2J_PATH_VAR);
+  /* if search path was not specified on command line, then
+   * check for environment variable.
+   */
+  if(search_path == NULL) {
+    f2jpath = getenv(F2J_PATH_VAR);
 
-  if(f2jpath == NULL) {
-    /* can't use strtok on constant strings, so create a new one here */
-    f2jpath = strdup(".");
+    if(f2jpath == NULL) {
+      /* can't use strtok on constant strings, so create a new one here */
+      f2jpath = strdup(".");
+    }
   }
+  else
+    f2jpath = search_path;
 
   descriptor_table = build_method_table(f2jpath);
 

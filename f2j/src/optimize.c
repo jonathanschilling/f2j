@@ -53,6 +53,8 @@ char
   * lowercase ( char * ),
   * methodscan (METHODTAB * , char * );
 
+void expr_optimize (AST *, AST *);
+
 /*****************************************************************************
  *                                                                           *
  * optScalar                                                                 *
@@ -233,6 +235,16 @@ optimize (AST * root, AST * rptr)
         printf ("Logicalif.\n");
 
       logicalif_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Arithmeticif:
+      if (optdebug)
+        printf ("ArithmeticIf.\n");
+
+      if (root->astnode.arithmeticif.cond != NULL)
+        expr_optimize (root->astnode.arithmeticif.cond, rptr);
 
       if (root->nextstmt != NULL)	/* End of typestmt list. */
         optimize (root->nextstmt, rptr);
@@ -503,7 +515,6 @@ subcall_optimize(AST *root, AST *rptr)
 {
   AST *temp;
   char *tempstr;
-  void expr_optimize (AST *, AST *);
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
@@ -895,7 +906,6 @@ call_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
-  void expr_optimize(AST *, AST *);
   int cnt;
 
   if(optdebug)

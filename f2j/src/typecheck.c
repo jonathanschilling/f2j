@@ -31,7 +31,8 @@ char
 
 void 
   elseif_check(AST *),
-  else_check (AST *);
+  else_check (AST *),
+  expr_check (AST * root);
 
 /*****************************************************************************
  * Global variables.                                                         *
@@ -141,6 +142,16 @@ typecheck (AST * root)
     case Equivalence:
       if(checkdebug)
         printf("ignoring equivalence in typechecking\n");
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Arithmeticif:
+      if(checkdebug)
+        printf("typecheck(): ArithmeticIf.\n");
+
+      if (root->astnode.arithmeticif.cond != NULL)
+        expr_check (root->astnode.arithmeticif.cond);
 
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
@@ -971,7 +982,7 @@ intrinsic_check(AST *root)
 
   javaname = (char *)methodscan (intrinsic_toks, tempname);
 
-  if (!strcmp (tempname, "MAX"))
+  if (!strcmp (tempname, "MAX") || !strcmp(tempname,"DMAX1"))
   {
     for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt)
       expr_check (temp);

@@ -306,8 +306,9 @@ struct _constant
 
 struct _label
 {
-  int number,                       /* the label number                      */
-    pc;                             /* bytecode PC of this statement         */
+  int 
+    number,                         /* the label number                      */
+    pc;                             /* pc of this instruction                */
 
   struct ast_node *stmt;            /* the statement after this label        */
 };

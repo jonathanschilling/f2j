@@ -158,6 +158,7 @@ METHODTAB intrinsic_toks[]=
   {"LSAME", ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z"}, 
   {"LSAMEN", ".regionMatches", "java/lang/String", "regionMatches", "(ZILjava/lang/String;II)Z"}, 
   {"MAX", "Math.max", "java/lang/Math", "max", "(II)I"},
+  {"DMAX1", "Math.max", "java/lang/Math", "max", "(DD)D"},
   {"MIN", "Math.min", "java/lang/Math", "min", "(II)I"},
   {"ABS", "Math.abs", "java/lang/Math", "abs", "(D)D"},
   {"DABS", "Math.abs", "java/lang/Math", "abs", "(D)D"},

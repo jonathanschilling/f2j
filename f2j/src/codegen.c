@@ -68,7 +68,8 @@ struct method_info
 
 CodeGraphNode
   * bytecode0(enum _opcode),
-  * bytecode1(enum _opcode, u4);
+  * bytecode1(enum _opcode, u4),
+  * nodeAtPC(int);
 
 AST
   * label_search(Dlist, int),
@@ -98,8 +99,7 @@ Dlist
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
   methcall_list = NULL, /* list of methods to be called by reflection        */
-  label_list = NULL,    /* list of statements with label numbers             */
-  unresolved_gotos=NULL;/* list of gotos whose branch targets are not known  */
+  label_list = NULL;    /* list of statements with label numbers             */
 
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
@@ -267,7 +267,6 @@ emit (AST * root)
           adapter_list = make_dl();
           methcall_list = make_dl();
           label_list = make_dl();
-          unresolved_gotos = make_dl();
 
           assign_local_vars(
              root->astnode.source.progtype->astnode.source.args); 
@@ -577,7 +576,7 @@ emit (AST * root)
 
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
-          break;
+        break;
       case Stop:
         if (gendebug)
           printf ("Stop.\n");
@@ -981,6 +980,14 @@ emit_prolog_comments(AST *root)
     temp = temp->nextstmt;
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_javadoc_comments                                                     *
+ *                                                                           *
+ * generate comments in javadoc format.                                      *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 emit_javadoc_comments(AST *root)
@@ -2505,7 +2512,6 @@ substring_emit(AST *root)
 {
   void scalar_emit(AST *, HASHNODE *);
   HASHNODE *hashtemp;
-  CPNODE *ct;
 
   hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
 
@@ -2525,8 +2531,7 @@ substring_emit(AST *root)
     return;
   }
 
-  ct = newMethodref(cur_const_table,JL_STRING, "substring", SUBSTR_DESC);
-  bytecode1(jvm_invokevirtual, ct->index);
+  fprintf(curfp,".substring(");
 
   return;
 }
@@ -3897,7 +3902,7 @@ intrinsic_emit(AST *root)
   /*put end brace here when KJGKJKJKKJH defined*/ 
 #endif	  
 
-  if( !strcmp (tempname, "MAX") || !strcmp (tempname, "MIN"))
+  if( !strcmp(tempname, "DMAX1") || !strcmp (tempname, "MAX") || !strcmp (tempname, "MIN"))
   {
     int ii,arg_count = 0;
 
@@ -3924,7 +3929,7 @@ intrinsic_emit(AST *root)
       temp = root->astnode.ident.arraylist;
       fprintf (curfp, "%s((", javaname);
       expr_emit (temp);
-      if( !strcmp (tempname, "MAX"))
+      if( !strcmp (tempname, "MAX") || !strcmp (tempname, "DMAX1") )
         fprintf (curfp, ") > (");
       else
         fprintf (curfp, ") < (");
@@ -4583,6 +4588,7 @@ expr_emit (AST * root)
 
         name_emit(root);
 
+        fprintf(curfp,"(");
         expr_emit(root->astnode.ident.arraylist);
         fprintf(curfp,")-1,");
 
@@ -5533,7 +5539,6 @@ goto_emit (AST * root)
   goto_node->branch_label = root->astnode.go_to.label;
    
 printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
-  dl_insert_b(unresolved_gotos, goto_node);
 
   if( (loop = label_search(doloop, root->astnode.go_to.label)) != NULL)
   {
@@ -5543,7 +5548,17 @@ printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
      *  what we want to do here is just emit a 'labeled continue' 
      */ 
 
+    /*
     fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
+    */
+
+    /* well... in order to allow the continuation statement of the DO loop
+     * to be any arbitrary statement, we cannot translate this to a labeled
+     * continue because the statement must be executed before continuing
+     * the loop (and JAva's continue statement will not do that for us).
+     */
+    fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.go_to.label);
   }
   else if((!dl_empty(while_list)) && 
      (dl_int_examine(while_list) == root->astnode.go_to.label ))
@@ -5671,78 +5686,107 @@ arithmeticif_emit (AST * root)
 void
 label_emit (AST * root)
 {
-  int dl_int_examine(Dlist), num;
+  AST *loop;
+  int num;
+
+  void forloop_end_bytecode(AST *);
+  int dl_int_examine(Dlist);
 
   num = root->astnode.label.number;
-  root->astnode.label.pc = pc;
 
-  if (root->astnode.label.stmt != NULL) {
-    if (root->astnode.label.stmt->nodetype != Format) {
+  printf("looking at label %d, pc is %d\n", num, pc);
+
+  /* if the last node was impdep1, then that node will be replaced with
+   * whatever is the next generated opcode, so we set the PC appropriately.
+   */
+  if(lastOp == jvm_impdep1)
+    root->astnode.label.pc = pc - jvm_opcode[jvm_impdep1].width;
+  else
+    root->astnode.label.pc = pc;
+
+
+  /* if this continue statement corresponds with the most
+   * recent DO loop, then this is the end of the loop - pop
+   * the label off the doloop list.
+   */
+  loop = dl_astnode_examine(doloop);
+
+  if((loop != NULL) &&
+     (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
+  {
+
+    /*
+     * finally pop this loop's label number off the stack and
+     * emit the label (for experimental goto resolution)
+     */
+
+    fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
+    dl_pop(doloop);
+
+    if((root->astnode.label.stmt != NULL) &&
+       (root->astnode.label.stmt->nodetype != Format))
+      emit (root->astnode.label.stmt);
+
+    fprintf(curfp, "}              //  Close for() loop. \n");
+    fprintf(curfp, "}\n");
+
+    forloop_end_bytecode(loop);
+  }
+  else {
+    /* this labeled statement is not associated with a DO loop */
+
+
+    if((root->astnode.label.stmt != NULL) &&
+       (root->astnode.label.stmt->nodetype != Format))
+    {
       fprintf (curfp, "label%d:\n   ", num);
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename, num);
       emit (root->astnode.label.stmt);
-      dl_insert_b(label_list, root);
     }
-  } 
-  else {
-    /* if this continue statement corresponds with the most
-     * recent DO loop, then this is the end of the loop - pop
-     * the label off the doloop list.
-     */
-    AST *loop = dl_astnode_examine(doloop);
-
-    if((loop != NULL) &&
-       (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
-    {
-      CodeGraphNode *if_node, *iload_node;
-      int icount = loop->astnode.forloop.localvar;
-
-      /*
-       * finally pop this loop's label number off the stack and
-       * emit the label (for experimental goto resolution)
-       */
-
-      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
-      dl_pop(doloop);
-
-      fprintf(curfp, "}              //  Close for() loop. \n");
-      fprintf(curfp, "}\n");
-
-      set_bytecode_status(JVM_ONLY);
-
-      /* increment loop variable */
-      assign_emit(loop->astnode.forloop.incr_expr);
-
-      /* decrement iteration count */
-      iinc_emit(icount, -1);
-
-      if(icount <= 3)
-        iload_node = bytecode0(short_load_opcodes[Integer][icount]);
-      else
-        iload_node = bytecode1(jvm_iload, icount);
-
-      loop->astnode.forloop.goto_node->branch_target = iload_node;
-
-      if_node = bytecode0(jvm_ifgt);
-      if_node->branch_target = loop->astnode.forloop.goto_node->next;
-
-      releaseLocal();
-
-      set_bytecode_status(JAVA_AND_JVM);
-    }
-    else {
-      /* since the stmt pointer is null, this node must be
-       * a CONTINUE statement (but not associated with a
-       * DO loop).
-       */
-
-      fprintf (curfp, "label%d:\n   ", num);
-      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
-        root->astnode.label.number);
-    }
-
-    dl_insert_b(label_list, root);
   }
+
+  dl_insert_b(label_list, root);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * forloop_end_bytecode                                                      *
+ *                                                                           *
+ * bytecode-only generation of the final components of a DO loop:            *
+ *  - increment loop variable                                                *
+ *  - decrement and check the iteration count                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+forloop_end_bytecode(AST *root)
+{
+  CodeGraphNode *if_node, *iload_node;
+  int icount;
+   
+  icount = root->astnode.forloop.localvar;
+
+  set_bytecode_status(JVM_ONLY);
+
+  /* increment loop variable */
+  assign_emit(root->astnode.forloop.incr_expr);
+
+  /* decrement iteration count */
+  iinc_emit(icount, -1);
+
+  if(icount <= 3)
+    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
+  else
+    iload_node = bytecode1(jvm_iload, icount);
+
+  root->astnode.forloop.goto_node->branch_target = iload_node;
+
+  if_node = bytecode0(jvm_ifgt);
+  if_node->branch_target = root->astnode.forloop.goto_node->next;
+
+  releaseLocal();
+
+  set_bytecode_status(JAVA_AND_JVM);
 }
 
 /*****************************************************************************
@@ -8570,6 +8614,32 @@ releaseLocal()
 
 /*****************************************************************************
  *                                                                           *
+ * nodeAtPC                                                                  *
+ *                                                                           *
+ * this function searches the list of nodes for the given PC.  returns the   *
+ * node if found, otherwise NULL.
+ *                                                                           *
+ *****************************************************************************/
+
+CodeGraphNode *
+nodeAtPC(int num)
+{
+  CodeGraphNode *nodeptr;
+  Dlist tmp;
+
+  dl_traverse(tmp, cur_code->attr.Code->code) {
+    nodeptr = (CodeGraphNode *)tmp->val;
+    if(nodeptr->pc == num)
+      return nodeptr;
+    if(nodeptr->pc > num)
+      return NULL;
+  }
+
+  return NULL;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * traverse_code                                                             *
  *                                                                           *
  * this function traverses the code graph and determines the max stack and   *
@@ -8658,14 +8728,29 @@ calcOffsets(CodeGraphNode *val)
      *  - set/check the stack depth for the target of this goto
      */
     if(val->branch_target == NULL) {
-      AST *label_node;
+      CodeGraphNode *label_node;
+      AST *label_ast;
 
       printf("looking at GOTO %d\n", val->branch_label);
       
-      if( (label_node = find_label(label_list, val->branch_label)) != NULL)
+      if( (label_ast = find_label(label_list, val->branch_label)) != NULL)
       {
-        printf(" **found** target pc is %d\n", label_node->astnode.label.pc); 
-        val->operand = label_node->astnode.label.pc - val->pc;
+        label_node = nodeAtPC(label_ast->astnode.label.pc);
+
+        if(label_node != NULL) {
+          printf(" **found** target pc is %d\n", label_node->pc); 
+          if(label_node->stack_depth == -1)
+            label_node->stack_depth = stacksize;
+          else if(label_node->stack_depth != stacksize)
+            fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
+                    label_node->pc);
+
+          val->operand = label_node->pc - val->pc;
+          calcOffsets(label_node);
+        }
+        else 
+          fprintf(stderr,"WARNING: cannot find node for pc %d\n", 
+                  label_ast->astnode.label.pc);
       }
       else
         fprintf(stderr,"WARNING: cannot find label %d\n", val->branch_label);

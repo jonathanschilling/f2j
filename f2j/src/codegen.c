@@ -5849,16 +5849,12 @@ write_emit(AST * root)
   void format_emit(AST *, AST **),
        write_implied_loop_emit(AST *);
 
-  if(root->astnode.io_stmt.format_num != NULL) {
-    /* look for a format statement */
-    sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
-    if(gendebug)
-      printf("***Looking for format statement number: %s\n",tmp);
+  /* look for a format statement */
+  sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
+  if(gendebug)
+    printf("***Looking for format statement number: %s\n",tmp);
 
-    hnode = format_lookup(cur_format_table,tmp);
-  }
-  else
-    hnode = NULL;
+  hnode = format_lookup(cur_format_table,tmp);
 
   /* check if there are no args to this WRITE statement */
   if((root->astnode.io_stmt.arg_list == NULL) &&

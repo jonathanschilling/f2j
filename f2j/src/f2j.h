@@ -9,14 +9,16 @@
 typedef int BOOLEAN;
 #define TRUE 1
 #define FALSE 0
-#define VCG 1    /* define VCG to get graph output */
+#define VCG 1   /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
-#define DEFAULT_TARGET_LANG 0   /* 0 == Java, 1 == Jasmin */
+#define JAVA 0
+#define JASMIN 1
+#define DEFAULT_TARGET_LANG JAVA
 
 /*  If 1, yyparse produces voluminous, detailed
     output to stderr during parsing.  */
-#define DEBUGGEM 1
+#define DEBUGGEM 0
 
 BOOLEAN typedecs;
 int lineno;
@@ -76,6 +78,7 @@ typedef struct ast_node
       enum _nodetype
 	{
 	    Source = 1,
+	    Progunit,
 	    Subroutine,
 	    Function,
 	    Blockif,

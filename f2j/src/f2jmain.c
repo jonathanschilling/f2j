@@ -7,19 +7,20 @@
 #include"f2jparse.tab.h"
 
 /* extern yydebug; */
-char *inputfilename;		/* Hack for getting input file to write
-				   output header.  */
+
 main (int argc, char **argv)
 {
     /* I loath all these character arrays.  There has to be
        a better way to do this using char *.  */
     char classname[130];
     extern char *inputfilename;
+    extern char *package_name;
     extern char *java_reserved_words[];
     extern char *jasmin_reserved_words[];
     extern FILE *ifp;
     extern FILE *jasminfp;
-/*    extern FILE *javafp;  9-11-97, Keith*/
+    /*    extern FILE *javafp;  9-11-97, Keith*/
+
     AST *addnode();
     extern FILE *vcgfp;
     extern int lineno;
@@ -33,82 +34,73 @@ main (int argc, char **argv)
     char vcgname[130];
 
     char *strdup(const char *);
+
+    extern char *optarg;
+    extern int optind;
+    int errflg = 0;
+    int c;
+
     /* yydebug = DEBUGGEM; */
 
     /* 
-       The program is used as follows:
+     * The program is used as follows:
+     *
+     * To compile a program into Java source code:
+     *     f2java -java filename
+     *
+     * To compile a program into Jasmin assembly code:
+     *     f2java -jas filename
+     *
+     * If no language is specified (e.g. "f2java filename"),
+     * the default behavior is to generate Java source code.
+     *
+     * The -p option may also be used to specify the name
+     * of the package.  For example:
+     *     f2java -java -p org.netlib.blas filename
+     */
 
-       To compile a program into Java source code:
-           f2java -java filename
-           f2java filename -java
+    package_name = NULL;
+    JAS = 0;   /* default to Java output */
 
-       To compile a program into Jasmin assembly code:
-           f2java -jas filename
-           f2java filename -jas
+    while((c = getopt(argc,argv,"j:p:")) != EOF)
+      switch(c) {
+        case 'j':
+          if(!strcmp(optarg,"ava"))
+            JAS = 0;
+          else if(!strcmp(optarg,"as"))
+            JAS = 1;
+          else
+          {
+            fprintf(stderr,"Error: use either \"-java\" or \"-jas\"\n");
+            errflg++;
+          }
+          break;
+        case 'p':
+          package_name = optarg;
+          break;
+        case '?':
+          errflg++;
+          break;
+        default:
+          printf("hit default case\n");
+          break;
+      }
 
-       If no language is specified (e.g. "f2java filename"),
-       the default behavior is to generate Java source code.
-    */
-
-    if((argc < 2) || (argc > 3)) {  
-
-      /* 
-         If there are fewer than 2 or more than 3 args, they
-         can't be correct - print an error message and exit. 
-      */
-      fprintf(stderr,"Usage: f2java [-java/-jas] <filename>\n");
-      exit(1);
+    if(errflg)
+    {
+      fprintf(stderr,
+        "Usage: f2java [-java/-jas] [-p package name] <filename>\n");
+      exit(2);
     }
-    else if(argc == 2) {
 
-      /* 
-         Only two args specified.  If one is -jas or -java,
-         generate an error message, otherwise assume that the
-         arg represents the filename and use the default
-         selection for the target language.
-      */
-    
-      if((strcmp(argv[1], "-jas") == 0) ||
-         (strcmp(argv[1],"-java") == 0)) {
-           fprintf(stderr,"You must specify a filename.\n");
-           fprintf(stderr,"Usage: f2java [-java/-jas] <filename>\n");
-           exit(1);
-      }
-
-      inputfilename = strdup(argv[1]);
-      JAS = DEFAULT_TARGET_LANG;
+    if(argc - optind != 1)
+    {
+      fprintf(stderr,
+        "Usage: f2java [-java/-jas] [-p package name] <filename>\n");
+      exit(2);
     }
-    else {
 
-      /* 
-          There are three args, the first of which is the
-          name of the program (f2java).  Of the remaining two,
-          one must be the filename and the other must be the
-          target language selection.  If not, generate an
-          error message.
-      */
-      if(strcmp(argv[1],"-jas") == 0) {
-        JAS = 1;
-        inputfilename = strdup(argv[2]);
-      }
-      else if(strcmp(argv[1],"-java") == 0) {
-        JAS = 0;
-        inputfilename = strdup(argv[2]);
-      }
-      else if(strcmp(argv[2],"-jas") == 0) {
-        JAS = 1;
-        inputfilename = strdup(argv[1]);
-      }
-      else if(strcmp(argv[2],"-java") == 0) {
-        JAS = 0;
-        inputfilename = strdup(argv[1]);
-      }
-      else {
-        fprintf(stderr,"Invalid target language specification!\n");
-        fprintf(stderr,"Use either -jas or -java\n");
-        exit(1);
-      }        
-    }
+    inputfilename = argv[optind];
 
     printf("Ok... compiling '%s' to %s\n", inputfilename, 
        JAS == 1 ? "JAS" : "JAVA");
@@ -279,20 +271,14 @@ javaheader (FILE * fp, char *classname)
     fprintf (fp, " *  David M. Doolin (doolin@cs.utk.edu) and\n");
     fprintf (fp, " *  Keith  Seymour (seymour@cs.utk.edu)\n");
     fprintf (fp, " */\n\n");
-#if LAPACK
-    fprintf (fp, "// package lapack;\n");
-    fprintf (fp, "// import blas.*;\n");
-#endif
-#if BLAS
-    fprintf (fp, "// package blas;\n");
-#endif
+
+    if(package_name != NULL)
+      fprintf(fp,"package %s;\n",package_name);
+
     fprintf (fp, "import java.lang.*;\n");
     fprintf (fp, "import org.netlib.util.*;\n\n");
     fprintf (fp, "public class %s {\n\n", classname);
 }
-
-
-
 
 /* Take care of some other crap that cannot be handled in the
    parser.  Basically, I should initialize ALL of the symbol

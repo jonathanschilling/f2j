@@ -27,6 +27,8 @@ FILE *jasminfp;
 /* FILE *javafp; */
 FILE *vcgfp;
 int JAS;
+char *inputfilename;
+char *package_name;
 
 /* Dlist tokenstack; */
 SYMTABLE *type_table;

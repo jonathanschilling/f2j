@@ -581,8 +581,7 @@ vardec_emit(AST *root, enum returntype returns)
   AST *temp2;
   char *prefix;
   int count;
-
-  only_static = STATIC_NODATA;
+  int only_static = STATIC_NODATA;
 
   if(only_static)         /* true if only_static is either  */
     prefix = "static ";   /*   STATIC_WITHDATA or STATIC_NODATA */

@@ -15,22 +15,21 @@ YACC=bison -t
 JFILES = *.j
 JAVAFILES = *.java
 GOTO_TRANS=../goto_trans
+JAVAB=../bin/javab
 
 #  The main executable.
-f2java: f2j.h f2jparse.y $(OBJS) javab
+../bin/f2java: f2j.h f2jparse.y $(OBJS) $(JAVAB)
 	${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
-	mv $@ ../bin
-
 
 #  The purify version...
-puref2j:	f2j.h f2jparse.y $(OBJS) javab
+puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB)
 	$(PURIFY) ${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 	mv $@ ../bin
 
 
 #  Fortran has gotos, java does not.  So we need to 
 #  translate goto statements.
-javab:	
+$(JAVAB):	
 	cd $(GOTO_TRANS);make
 
 f2jmain.o:  f2jmain.c f2j.h f2jparse.y

@@ -101,6 +101,19 @@ struct stack_info {
 };
 
 /*****************************************************************************
+ * this structure holds information about an array access, including the     *
+ * full name of the array, local variable number, etc.                       *
+ *****************************************************************************/
+
+struct var_info {
+  char *name;        /* name of variable incl common prefix if appropriate   */
+  char *desc;        /* field descriptor of variable                         */
+  char *class;       /* class name of variable                               */
+  int localvar;      /* local variable num of this variable, if appropriate  */
+  BOOLEAN is_arg;    /* is this variable an arg to the current prog unit?    */ 
+};
+
+/*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
 
@@ -297,5 +310,9 @@ METHODREF
 
 BOOLEAN
   adapter_insert_from_descriptor(AST *, AST *, char *);
+
+struct var_info
+ * get_var_info(AST *),
+ * push_array_var(AST *);
 
 #endif

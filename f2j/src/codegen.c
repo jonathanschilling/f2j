@@ -3134,16 +3134,133 @@ void
 array_emit(AST *root, HASHNODE *hashtemp)
 {
   AST *temp;
-  int is_arg=FALSE;
-  unsigned int varnum=0;
-  char *com_prefix;
-  char *name, *tmpclass, *desc;
-  HASHNODE *ht;
+  struct var_info *arrayinf;
 
   if (gendebug)
     printf ("Array... %s, My node type is %s\n", 
       root->astnode.ident.name,
       print_nodetype(root));
+
+  arrayinf = push_array_var(root);
+
+  temp = root->astnode.ident.arraylist;
+
+  if(root->parent == NULL) {
+
+    /* Under normal circumstances, I dont think this should 
+     * be reached.
+     */
+
+    fprintf (stderr,"Array... %s, NO PARENT - ", arrayinf->name);
+    fprintf (stderr,"This is not good!\n");
+  } else {
+    if(gendebug)
+      printf ("Array... %s, Parent node type... %s\n", 
+        arrayinf->name, print_nodetype(root->parent));
+    printf ("Array... %s, Parent node type... %s\n", 
+      arrayinf->name, print_nodetype(root->parent));
+
+    if((root->parent->nodetype == Call)) 
+    {
+      /* following is a LAPACK specific hack.  we dont want to treat
+       * calls to LSAME or LSAMEN as real external calls since we
+       * translate them to inline expressions.    3-9-98 -- Keith
+       */
+
+      if((type_lookup(cur_external_table, root->parent->astnode.ident.name) 
+       && strcmp(root->parent->astnode.ident.name,"lsame") 
+       && strcmp(root->parent->astnode.ident.name,"lsamen"))
+       && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
+      {
+        func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+           arrayinf->is_arg, TRUE);
+      }
+      else {
+        func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+           arrayinf->is_arg,FALSE);
+        bytecode0(array_load_opcodes[root->vartype]);
+      }
+    }
+    else if(((root->parent->nodetype == Assignment) &&
+             (root->parent->astnode.assignment.lhs == root)) ||
+            (root->parent->nodetype == DataStmt) ||
+            (root->parent->nodetype == DataImpliedLoop))
+    {
+      func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+         arrayinf->is_arg, FALSE);
+    }
+    else if((root->parent->nodetype == Typedec)) 
+    {
+      /*  Just a declaration, don't emit index. */
+      if(gendebug)
+        printf("I guess this is just an array declaration\n");
+    }
+    else {
+      func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+         arrayinf->is_arg, FALSE);
+      bytecode0(array_load_opcodes[root->vartype]);
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * push_array_var                                                            *
+ *                                                                           *
+ * this function pushes a reference to the array variable onto the stack.    *
+ *                                                                           *
+ *****************************************************************************/
+
+struct var_info *
+push_array_var(AST *root)
+{
+  struct var_info *ainf;
+
+  ainf = get_var_info(root);
+
+  /* 
+   * Now, what needs to happen here is the context of the
+   * array needs to be determined.  If the array is being
+   * passed as a parameter to a method, then the array index
+   * needs to be passed separately and the array passed as
+   * itself.  If not, then an array value is being set,
+   * so dereference with index arithmetic.  
+   */
+
+  if((root->parent != NULL) && (root->parent->nodetype == Typedec))
+    fprintf (curfp, "%s", ainf->name);   /* for typedec, generate no bytecode */
+  else {
+    char *com_prefix;
+
+    com_prefix = get_common_prefix(root->astnode.ident.name);
+
+    fprintf (curfp, "%s%s", com_prefix, ainf->name);
+    pushVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+        ainf->desc, ainf->localvar, FALSE);
+  }
+
+  return ainf;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_var_info                                                              *
+ *                                                                           *
+ * this function returns information about an identifier (name, desc, etc).  *
+ *                                                                           *
+ *****************************************************************************/
+
+struct var_info *
+get_var_info(AST *root)
+{
+  int is_arg=FALSE;
+  unsigned int varnum=0;
+  char *com_prefix;
+  char *name, *tmpclass, *desc;
+  HASHNODE *ht;
+  struct var_info *new_array_inf;
+
+  new_array_inf = (struct var_info *)f2jalloc(sizeof(struct var_info));
 
   /* find the descriptor & local var number (if applicable) for this var   */
 
@@ -3152,7 +3269,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
     varnum = ht->variable->astnode.ident.localvnum;
   }
   else {
-    fprintf(stderr,"WARNING: array_emit() can't find '%s' in hash table!\n",
+    fprintf(stderr,"WARNING: push_array_var() '%s' not in hash table!\n",
       root->astnode.ident.name);
     desc = "asdfjkl";
   }
@@ -3175,7 +3292,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
-      fprintf(stderr,"array_emit:Cant find %s in type_table\n",
+      fprintf(stderr,"push_array_var:Cant find %s in type_table\n",
           root->astnode.ident.name);
 
     if(ht->variable->astnode.ident.merged_name != NULL)
@@ -3196,12 +3313,12 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
   if (name == NULL)
   {
-    fprintf(stderr,"array_emit: setting name to NULL!\n");
+    fprintf(stderr,"push_array_var: setting name to NULL!\n");
     name = root->astnode.ident.name;
   }
 
   if(gendebug)
-    printf("### #in array_emit, setting name = %s\n",name);
+    printf("### #in push_array_var, setting name = %s\n",name);
 
   /* Determine whether this variable is an argument to the current
    * program unit.
@@ -3212,76 +3329,13 @@ array_emit(AST *root, HASHNODE *hashtemp)
   else
     is_arg = FALSE;
 
-  /* 
-   * Now, what needs to happen here is the context of the
-   * array needs to be determined.  If the array is being
-   * passed as a parameter to a method, then the array index
-   * needs to be passed separately and the array passed as
-   * itself.  If not, then an array value is being set,
-   * so dereference with index arithmetic.  
-   */
+  new_array_inf->name = strdup(name);
+  new_array_inf->desc = strdup(desc);
+  new_array_inf->localvar = varnum;
+  new_array_inf->is_arg = is_arg;
+  new_array_inf->class = strdup(tmpclass);
 
-  if((root->parent != NULL) && (root->parent->nodetype == Typedec))
-    fprintf (curfp, "%s", name);   /* for typedec, generate no bytecode */
-  else {
-    fprintf (curfp, "%s%s", com_prefix, name);
-    pushVar(root->vartype,is_arg,tmpclass,name,desc,varnum,FALSE);
-  }
-
-  temp = root->astnode.ident.arraylist;
-
-  if(root->parent == NULL) {
-
-    /* Under normal circumstances, I dont think this should 
-     * be reached.
-     */
-
-    fprintf (stderr,"Array... %s, NO PARENT - ", name);
-    fprintf (stderr,"This is not good!\n");
-  } else {
-    if(gendebug)
-      printf ("Array... %s, Parent node type... %s\n", 
-        name, print_nodetype(root->parent));
-    printf ("Array... %s, Parent node type... %s\n", 
-      name, print_nodetype(root->parent));
-
-    if((root->parent->nodetype == Call)) 
-    {
-      /* following is a LAPACK specific hack.  we dont want to treat
-       * calls to LSAME or LSAMEN as real external calls since we
-       * translate them to inline expressions.    3-9-98 -- Keith
-       */
-
-      if((type_lookup(cur_external_table, root->parent->astnode.ident.name) 
-       && strcmp(root->parent->astnode.ident.name,"lsame") 
-       && strcmp(root->parent->astnode.ident.name,"lsamen"))
-       && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
-      {
-        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
-      }
-      else {
-        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg,FALSE);
-        bytecode0(array_load_opcodes[root->vartype]);
-      }
-    }
-    else if(((root->parent->nodetype == Assignment) &&
-             (root->parent->astnode.assignment.lhs == root)) ||
-            (root->parent->nodetype == DataStmt) ||
-            (root->parent->nodetype == DataImpliedLoop))
-    {
-      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
-    }
-    else if((root->parent->nodetype == Typedec)) 
-    {
-      /*  Just a declaration, don't emit index. */
-      if(gendebug)
-        printf("I guess this is just an array declaration\n");
-    }
-    else {
-      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
-      bytecode0(array_load_opcodes[root->vartype]);
-    }
-  }
+  return new_array_inf;
 }
 
 /*****************************************************************************
@@ -3586,7 +3640,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
      */
 
     if(gendebug) {
-      printf("here we are emitting a scalar: %s, len = %d",
+      printf("here we are emitting a scalar: %s, len = %d, ",
         root->astnode.ident.name, root->astnode.ident.len);
       printf("The parent node is : %s\n",print_nodetype(root->parent));
     }
@@ -8246,6 +8300,13 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
     {
       wrapped_arg_emit(temp, dptr);
     }
+   
+    /* if this arg is an array, then skip an extra token to compensate
+     * for the additional integer offset arg.
+     */
+
+    if(dptr[0] == '[')
+      dptr = skipToken(dptr);
 
     dptr = skipToken(dptr);
 
@@ -8269,7 +8330,7 @@ void
 arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
 {
   HASHNODE *ht;
-  BOOLEAN isarg;
+  BOOLEAN isarg, isext;
 
   isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
 
@@ -8280,9 +8341,11 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
 
   if(dptr[0] == '[')     /* it is expecting an array */
   {
-    fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
+    /* fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name); */
+    push_array_var(temp);
     func_array_emit(temp->astnode.ident.arraylist,ht,
        temp->astnode.ident.name, isarg, TRUE);
+    bytecode0(array_load_opcodes[temp->vartype]);
   }
   else                                /* it is not expecting an array */
   {
@@ -8290,25 +8353,27 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
      * adapter, so we dont wrap it in an object.
      */
 
-    fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
+    /* fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name); */
+    push_array_var(temp);
 
     if(omitWrappers) {
       if(adapter && (dptr[0] == 'L'))
-        func_array_emit(temp->astnode.ident.arraylist,ht,
-          temp->astnode.ident.name, isarg, TRUE);
+        isext = TRUE;
       else
-        func_array_emit(temp->astnode.ident.arraylist,ht,
-          temp->astnode.ident.name, isarg, FALSE);
+        isext = FALSE;
     }
-    else
-    {
+    else {
       if(adapter)
-        func_array_emit(temp->astnode.ident.arraylist,ht,
-          temp->astnode.ident.name, isarg, TRUE);
+        isext = TRUE;
       else
-        func_array_emit(temp->astnode.ident.arraylist,ht,
-          temp->astnode.ident.name, isarg, FALSE);
+        isext = FALSE;
     }
+
+    func_array_emit (temp->astnode.ident.arraylist,ht, 
+      temp->astnode.ident.name, isarg, isext);
+
+    if(!isext)
+      bytecode0(array_load_opcodes[temp->vartype]);
   }
 }
 
@@ -8340,14 +8405,28 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
       printf("NOT expecting array\n");
 
     if(omitWrappers && (dptr[0] != 'L')) {
-      fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
+      /* fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name); */
+      push_array_var(temp);
+      fprintf(curfp,"[0]");
+      pushIntConst(0);
+      bytecode0(array_load_opcodes[temp->vartype]);
     }
     else
     {
-      fprintf(curfp,"new %s(",
-           wrapper_returns[get_type_from_field_desc(dptr)]);
-      fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
-      fprintf(curfp,")");
+      /* in this case, the array has no index and the corresponding
+       * parameter is pass-by-reference, so we assume an index of 0
+       * which would be the behavior of fortran.
+       */
+
+      push_array_var(temp);
+      pushIntConst(0);
+      fprintf(curfp,",0");
+      /* 
+       * fprintf(curfp,"new %s(",
+       *      wrapper_returns[get_type_from_field_desc(dptr)]);
+       * fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
+       * fprintf(curfp,")");
+       */
     }
   }
 }
@@ -8366,11 +8445,25 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
 void
 scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 {
+printf("scalar_arg_emit.. %s\n",temp->astnode.ident.name);
+
   if((dptr[0] == 'L') != 
      isPassByRef(temp->astnode.ident.name,cur_type_table))
   {
-    if(isPassByRef(temp->astnode.ident.name,cur_type_table))
+
+    if(isPassByRef(temp->astnode.ident.name,cur_type_table)) {
+      struct var_info *ainf;
+      BOOLEAN isarg;
+
+      isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
+
       fprintf(curfp,"%s%s.val",com_prefix,temp->astnode.ident.name);
+
+      ainf = get_var_info(temp);
+
+      pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
+        ainf->desc, ainf->localvar, TRUE);
+    }
     else
       fprintf(stderr,"Internal error: %s should not be primitive\n",
         temp->astnode.ident.name);
@@ -8382,8 +8475,10 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 
     expr_emit(temp);
 
-    if( temp->vartype != get_type_from_field_desc(dptr) )
+    if( temp->vartype != get_type_from_field_desc(dptr) ) {
       fprintf(curfp,")");
+      bytecode0(typeconv_matrix[temp->vartype][get_type_from_field_desc(dptr)]);
+    }
   }
 }
 
@@ -9503,8 +9598,9 @@ printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
       dptr = skipToken(dptr);
     }
     else if ( (arg->nodetype == Identifier) &&
-              (arg->astnode.ident.arraylist != NULL) &&
-              type_lookup(cur_array_table,arg->astnode.ident.name) )
+              /* (arg->astnode.ident.arraylist != NULL) && */
+              type_lookup(cur_array_table,arg->astnode.ident.name) &&
+              (dptr[0] != '[') )
     {
       if(omitWrappers && (dptr[0] != 'L')) {
         fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
@@ -9608,7 +9704,7 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       break;
 
     if((arg->nodetype == Identifier) &&
-       (arg->astnode.ident.arraylist != NULL) &&
+       /* (arg->astnode.ident.arraylist != NULL) && */
        (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
        (dptr[0] != '['))
     {
@@ -9709,7 +9805,7 @@ int
 adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
 {
   if((arg->nodetype == Identifier) &&
-     (arg->astnode.ident.arraylist != NULL) &&
+     /* (arg->astnode.ident.arraylist != NULL) && */
      (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
      (dptr[0] != '['))
   {
@@ -9727,7 +9823,7 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
           (dptr[0] == '['))
   {
     fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr+1));
+    gen_load_op(arg->astnode.ident.localvnum, Object);
     gen_load_op(arg->astnode.ident.localvnum+1, Integer);
   }
   else
@@ -9762,7 +9858,7 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
       break;
 
     if((arg->nodetype == Identifier) &&
-       (arg->astnode.ident.arraylist != NULL) &&
+       /* (arg->astnode.ident.arraylist != NULL) && */
        (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
        (dptr[0] != '['))
     {
@@ -11145,10 +11241,14 @@ assign_local_vars(AST * root)
      * Doubles take up two stack entries, so we increment by 2.  Arrays
      * only take up one stack entry, but we add an integer offset 
      * parameter which takes up an additional entry.
+     *
+     * also check whether this is pass by reference, because objects
+     * always occupy 1 stack entry, even if the data type is double.
      */
 
-    if (hashtemp->type == Double ||
-        hashtemp->variable->astnode.ident.arraylist != NULL)
+    if((hashtemp->type == Double ||
+        hashtemp->variable->astnode.ident.arraylist != NULL) &&
+       (!hashtemp->variable->astnode.ident.passByRef))
       localnum += 2;
     else
       localnum++;
@@ -11567,8 +11667,8 @@ get_adapter_desc(AST *temp, AST *arg)
       temp_desc = strAppend(temp_desc, "I");
     }
     else if ( (arg->nodetype == Identifier) && 
-              (arg->astnode.ident.arraylist != NULL) &&
-              type_lookup(cur_array_table,arg->astnode.ident.name) )
+              /* (arg->astnode.ident.arraylist != NULL) && */
+              type_lookup(cur_array_table,arg->astnode.ident.name))
     {
       if(omitWrappers && !temp->astnode.ident.passByRef) {
         temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][0]);

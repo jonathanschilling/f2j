@@ -9278,32 +9278,43 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 void
 emit_adapters()
 {
+  char *ret, *tmpdesc, *ret_desc, *cur_name, *cur_desc;
   struct method_info *adapter_method;
-  char *tmpdesc;
   HASHNODE *hashtemp;
+  METHODREF *mref;
   Dlist p;
+  AST *cval;
 
   dl_traverse(p,adapter_list)
   {
+    cval = (AST *)dl_val(p);
+
+    cur_name = cval->astnode.ident.name;
+
     adapter_method = beginNewMethod(ACC_PRIVATE | ACC_STATIC);
 
-    hashtemp = type_lookup(function_table, 
-        ((AST *)dl_val(p))->astnode.ident.name);
+    hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
     ret = get_return_type_from_descriptor(mref->descriptor);
 
-    tmpdesc = get_desc_from_arglist(((AST *)dl_val(p))->astnode.ident.arraylist);
+    if(ret[0] == 'V')
+      ret_desc = "V";
+    else
+      ret_desc = returnstring[get_type_from_field_desc(ret[0])];
+
+    tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist);
     cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
-      strlen(field_descriptor[temp->vartype][0]) + 10);
+      strlen(ret_desc) + 10);
 
     strcpy(cur_desc,"(");
     strcat(cur_desc,tmpdesc);
     strcat(cur_desc,")");
+    strcat(cur_desc,ret_desc);
 
     if(hashtemp)
-      adapter_emit_from_table((AST *)dl_val(p),hashtemp);
+      adapter_emit_from_table(cval,hashtemp);
     else
-      adapter_emit_from_descriptor((AST *)dl_val(p));
+      adapter_emit_from_descriptor(cval);
 
     endNewMethod(cur_class_file, adapter_method, cur_name, cur_desc,
          num_locals, NULL );
@@ -9374,7 +9385,6 @@ adapter_emit_from_descriptor(AST *node)
   }
 
   fprintf(curfp,"}\n\n");
-
 }
 
 /*****************************************************************************

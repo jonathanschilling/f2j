@@ -134,6 +134,25 @@ free_var_info(struct var_info *v)
 
 /*****************************************************************************
  *                                                                           *
+ * free_method_info                                                          *
+ *                                                                           *
+ * frees a method info structure.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+free_method_info(struct method_info *m)
+{
+  /* actually we're assuming the attributes list will be null since 
+   * otherwise this would be freed through free_class(). 
+   */
+  dl_delete_list(m->attributes);
+
+  f2jfree(m, sizeof(struct method_info));
+}
+
+/*****************************************************************************
+ *                                                                           *
  * freeFieldref                                                              *
  *                                                                           *
  * this function frees memory previously allocated for a fieldref.           *
@@ -280,19 +299,10 @@ free_attributes(Dlist attr_list, Dlist const_pool)
 
     if(!strcmp(attr_name,"SourceFile")) {
       f2jfree(tmpattr->attr.SourceFile, sizeof(struct SourceFile_attribute));
+      f2jfree(tmpattr, sizeof(struct attribute_info));
     }
     else if(!strcmp(attr_name,"Code")) {
-      free_code(tmpattr->attr.Code->code);
-
-      if(tmpattr->attr.Code->exception_table_length > 0)
-        f2jfree(tmpattr->attr.Code->exception_table, 
-           sizeof(struct ExceptionTable) *
-           tmpattr->attr.Code->exception_table_length); 
-
-      if(tmpattr->attr.Code->attributes_count > 0)
-        free_attributes(tmpattr->attr.Code->attributes, const_pool);
-
-      f2jfree(tmpattr->attr.Code, sizeof(struct Code_attribute));
+      free_code_attribute(tmpattr, const_pool);
     }
     else if(!strcmp(attr_name,"Exceptions")) {
       dl_traverse(tmpPtr2, tmpattr->attr.Exceptions->exception_index_table)
@@ -300,13 +310,36 @@ free_attributes(Dlist attr_list, Dlist const_pool)
 
       dl_delete_list(tmpattr->attr.Exceptions->exception_index_table);
       f2jfree(tmpattr->attr.Exceptions, sizeof(struct Exceptions_attribute));
+      f2jfree(tmpattr, sizeof(struct attribute_info));
     }
 
-    f2jfree(tmpattr, sizeof(struct attribute_info));
     f2jfree(attr_name, strlen(attr_name)+1);
   }
 
   dl_delete_list(attr_list);
+}
+
+/*****************************************************************************
+ * free_code_attribute                                                       *
+ *                                                                           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+free_code_attribute(struct attribute_info *attr, Dlist const_pool)
+{
+  free_code(attr->attr.Code->code);
+
+  if(attr->attr.Code->exception_table_length > 0)
+    f2jfree(attr->attr.Code->exception_table,
+       sizeof(struct ExceptionTable) *
+       attr->attr.Code->exception_table_length);
+
+  if((attr->attr.Code->attributes_count > 0) && (const_pool != NULL))
+    free_attributes(attr->attr.Code->attributes, const_pool);
+
+  f2jfree(attr->attr.Code, sizeof(struct Code_attribute));
+  f2jfree(attr, sizeof(struct attribute_info));
 }
 
 /*****************************************************************************

@@ -511,6 +511,7 @@ printf("going to write class file: '%s'\n", filename);
     exit(1);
   }
 
+  f2jfree(filename, c->val->cpnode.Utf8.length +  7);
   return newfp;
 }
 

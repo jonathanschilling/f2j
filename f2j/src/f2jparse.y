@@ -182,7 +182,7 @@ F2java:   Sourcecodes
 
             if(debug)
               printf("F2java -> Sourcecodes\n");
-	    $$ = addnode();
+	    /* $$ = addnode(); */
 	    $$ = switchem($1);
 
 #if VCG
@@ -757,6 +757,7 @@ CommonSpec: DIV Name DIV Namelist
               }
 
               type_insert(global_common_table, $$, Float, $$->astnode.common.name);
+              free_ast_node($2);
            }
          | CAT Namelist     /* CAT is // */
            {
@@ -1254,8 +1255,7 @@ Typestmt:      Types Typevarlist NL
                  AST *temp;
 
                  $$ = addnode();
-	         $2->parent = $$; /* 9-4-97 - Keith */
-                 /* store_local_var($2);  */
+                 free_ast_node($2->parent);
                  $2 = switchem($2);
                  $$->nodetype = Typedec;
 
@@ -1263,6 +1263,7 @@ Typestmt:      Types Typevarlist NL
                  {
                    temp->vartype = $1;
                    temp->astnode.ident.len = len;
+                   temp->parent = $$;
                  }
 
                  $$->astnode.typeunit.declist = $2;
@@ -1280,12 +1281,15 @@ Types:       Type
              {
                $$ = $1;
                len = atoi($3->astnode.constant.number);
+               free_ast_node($2);
                free_ast_node($3);
              }
 	  |  Type Star OP Star CP
              {
                $$ = $1;
                len = 1;
+               free_ast_node($2);
+               free_ast_node($4);
              }
 ;
 
@@ -1303,11 +1307,8 @@ Type:  TYPE
 
 Typevarlist: Typevar
              {
-               AST *temp;
-
-               temp = addnode();
-               temp->nodetype = Typedec;
-               $1->parent = temp;
+               $1->parent = addnode();
+               $1->parent->nodetype = Typedec;
 
                $$ = $1;
              }
@@ -1536,6 +1537,8 @@ Lhs:     Name
          }
       |  Name OP Arrayindexlist CP
          {
+           AST *temp;
+
            /*   Use the following declaration in case we 
             *   need to switch index order. 
             *
@@ -1544,11 +1547,14 @@ Lhs:     Name
 
            $$ = addnode();
            $1->parent = $$; /* 9-4-97 - Keith */
-           $3->parent = $$; /* 9-4-97 - Keith */
            $$->nodetype = Identifier;
            $$->astnode.ident.lead_expr = NULL;
            $$->prevstmt = NULL;
            $$->nextstmt = NULL;
+
+           free_ast_node($3->parent);
+           for(temp = $3; temp != NULL; temp = temp->prevstmt)
+             temp->parent = $$;
 
            strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 
@@ -1564,6 +1570,7 @@ Lhs:     Name
            /* We don't switch index order.  */
 
            $$->astnode.ident.arraylist = switchem($3);
+           free_ast_node($1);
          }
       |  Name OP Exp COLON Exp CP
          {
@@ -1578,17 +1585,15 @@ Lhs:     Name
            $$->nextstmt = NULL;
            $$->astnode.ident.arraylist = $3;
            $3->nextstmt = $5;
+           free_ast_node($1);
          }
 ;
 
 Arrayindexlist:   Exp 
                   { 
-                    AST *temp;
-
-                    temp = addnode();
-                    temp->nodetype = Identifier;
-                    temp->astnode.ident.lead_expr = NULL;
-                    $1->parent = temp;
+                    $1->parent = addnode();
+                    $1->parent->nodetype = Identifier;
+                    $1->parent->astnode.ident.lead_expr = NULL;
 
                     $$ = $1;
                   }
@@ -1855,14 +1860,18 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          if($5->nodetype == Constant)
          {
-           if($5->astnode.constant.number[0] == '*') 
+           if($5->astnode.constant.number[0] == '*') {
              $$->astnode.io_stmt.format_num = -1;
+             free_ast_node($5);
+           }
            else if($5->token == STRING) {
              $$->astnode.io_stmt.format_num = -1;
              $$->astnode.io_stmt.fmt_list = $5;
            }
-           else
+           else {
              $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+             free_ast_node($5);
+           }
          }
          else
          {
@@ -2232,6 +2241,8 @@ Subroutinecall:   Name OP Explist CP
                     }
                     else
                       $$->astnode.ident.arraylist = switchem($3);
+
+                    free_ast_node($1);
                   }
 ;
 
@@ -2248,6 +2259,7 @@ SubstringOp: Name OP Exp COLON Exp CP
               $$->token = NAME;
               $$->astnode.ident.arraylist = $3;
               $3->nextstmt = $5;
+              free_ast_node($1);
            }
 ;
 
@@ -2300,6 +2312,7 @@ Call:     CALL   Subroutinecall  NL
             strcpy($$->astnode.ident.name, $2->astnode.ident.name);
             $$->astnode.ident.arraylist = addnode();
             $$->astnode.ident.arraylist->nodetype = EmptyArgList;
+            free_ast_node($2);
           }
 ;
 
@@ -2423,7 +2436,7 @@ arith_expr: term
                 $$->astnode.expression.lhs = 0;
                 $$->astnode.expression.minus = '-';   
                 $$->nodetype = Unaryop;
-		  $$->vartype = $2->vartype;
+                $$->vartype = $2->vartype;
               }
             }
           | PLUS term
@@ -3312,8 +3325,10 @@ merge_common_blocks(AST *root)
         strcat(und_var_und,"_");
       }
 
-      if(ht == NULL)
-        name_array[count] = strdup(var);
+      if(ht == NULL) {
+        /* name_array[count] = strdup(var); */
+        strcpy(name_array[count], var);
+      }
       else {
         if(!strcmp(var,comvar) || 
              strstr(comvar,und_var_und) ||
@@ -3321,7 +3336,8 @@ merge_common_blocks(AST *root)
              (((t=strstr(comvar,und_var)) != NULL) && 
                (t+strlen(t) == comvar+strlen(comvar))))
         {
-          name_array[count] = strdup(comvar);
+          /* name_array[count] = strdup(comvar); */
+          strcpy(name_array[count], comvar);
         }
         else {
           name_array[count] = (char *) f2jalloc(strlen(temp->astnode.ident.name) 

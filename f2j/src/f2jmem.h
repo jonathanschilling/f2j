@@ -9,6 +9,7 @@ void
   f2jfree(void *, size_t),
   free_fieldref(METHODREF *),
   free_var_info(struct var_info *),
+  free_method_info(struct method_info *),
   * f2jalloc(size_t),
   * f2jcalloc(size_t, size_t),
   * f2jrealloc(void *, size_t),
@@ -19,6 +20,7 @@ void
   free_methods(struct ClassFile *),
   free_attributes(Dlist, Dlist),
   free_ast_node(AST *),
+  free_code_attribute(struct attribute_info *, Dlist),
   free_code(Dlist);
 
 #endif

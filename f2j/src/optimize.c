@@ -935,16 +935,12 @@ void
 call_optimize (AST * root, AST *rptr)
 {
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
-  char *tempname;
   AST *temp;
 
   if(optdebug)
     printf("enter call_optimize\n");
 
   assert (root != NULL);
-
-  tempname = strdup (root->astnode.ident.name);
-  *tempname = toupper (*tempname);
 
   /* If this function was passed in as an argument, we call an
    * 'adapter' which performs the reflective method invocation..

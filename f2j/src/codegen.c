@@ -145,7 +145,10 @@ emit (AST * root)
            */
            
           if(root->astnode.source.progtype->nodetype == Program) {
-            methodname = "main";
+            /* dup so that we can free() later & 
+             * not try to free non-heap memory
+             */
+            methodname = strdup("main");
             locals = 1;
           }
           else
@@ -238,8 +241,10 @@ emit (AST * root)
             bytecode0(jvm_return);
             endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
           }
-          else
-            f2jfree(cur_code, sizeof(struct attribute_info));
+          else {
+            free_method_info(clinit_method);
+            free_code_attribute(cur_code, NULL);
+          }
 
           main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
 
@@ -308,6 +313,8 @@ emit (AST * root)
             endNewMethod(cur_class_file, main_method,methodname,method_desc,num_locals,NULL);
           }
 
+          f2jfree(methodname, strlen(methodname)+1);
+
           emit_invocations(root->astnode.source.progtype);
 
           emit_adapters();
@@ -328,6 +335,9 @@ emit (AST * root)
           cur_const_table = NULL;
 
           free_lists();
+
+          f2jfree(classname, strlen(classname)+1);
+          f2jfree(cur_filename, strlen(cur_filename)+1);
 
           break;
         }
@@ -686,7 +696,7 @@ free_lists()
 char *
 get_full_classname(char *thisclass)
 {
-  char * pname;
+  char * pname, *t;
 
   if(package_name != NULL) {
     pname = (char *)f2jalloc(strlen(thisclass) + strlen(package_name) + 2);
@@ -695,10 +705,13 @@ get_full_classname(char *thisclass)
     if(!isalnum((int)*(package_name + (strlen(package_name)-1))))
       fprintf(stderr,"WARNING: last char of package name not alphanumeric.\n");
 
-    strcpy(pname, char_substitution(package_name, '.', '/'));
+    t = char_substitution(package_name, '.', '/');
+
+    strcpy(pname, t);
     strcat(pname, "/");
     strcat(pname, thisclass);
 
+    f2jfree(t, strlen(t)+1);
     return pname;
   }
   else
@@ -2765,7 +2778,7 @@ subcall_emit(AST *root)
 {
   METHODREF *mref;
   AST *temp;
-  char *tempstr;
+  char *tempstr, * t;
   char *desc;
   CPNODE *c;
 
@@ -2793,9 +2806,11 @@ subcall_emit(AST *root)
    * possible that the elements may be null.
    */
 
-  if((mref->classname != NULL) && (strlen(mref->classname) > 0))
-    fprintf (curfp, "%s.%s", char_substitution(mref->classname, '/', '.'),
-      root->astnode.ident.name);
+  if((mref->classname != NULL) && (strlen(mref->classname) > 0)) {
+    t = char_substitution(mref->classname, '/', '.');
+    fprintf (curfp, "%s.%s", t, root->astnode.ident.name);
+    f2jfree(t, strlen(t)+1);
+  }
   else
     fprintf (curfp, "%s.%s", tempstr, root->astnode.ident.name);
 
@@ -2821,6 +2836,8 @@ subcall_emit(AST *root)
   bytecode1(jvm_invokestatic, c->index);
 
   fprintf (curfp, ")");
+
+  free_fieldref(mref);
 }
 
 /*****************************************************************************
@@ -3547,7 +3564,7 @@ get_common_prefix(char *varname)
   ht = type_lookup(cur_common_table, varname);
 
   if(ht == NULL)
-    cprefix = "";
+    cprefix = strdup("");  /* dup so we can free() later */
   else {
     cprefix = (char *) f2jalloc(
        strlen(ht->variable->astnode.ident.commonBlockName) +
@@ -3772,7 +3789,6 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   com_prefix = get_common_prefix(root->astnode.ident.name);
 
   name = root->astnode.ident.name;
-  scalar_class = cur_filename;
 
   isArg = type_lookup(cur_args_table,name);
 
@@ -3791,10 +3807,11 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    /* scalar_class = strdup(com_prefix); */
     scalar_class = get_full_classname(com_prefix);
     scalar_class[strlen(scalar_class)-1] = '\0';
   }
+  else
+    scalar_class = strdup(cur_filename);
 
   if(gendebug)
     printf("scalar_emit: scalar_class is '%s'\n",scalar_class);
@@ -4039,6 +4056,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       }
     }
   }
+
+  f2jfree(scalar_class, strlen(scalar_class)+1);
+  f2jfree(com_prefix, strlen(com_prefix)+1);
 }
 
 /*****************************************************************************
@@ -4142,6 +4162,7 @@ external_emit(AST *root)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_emit (root);
+    f2jfree(tempname, strlen(tempname)+1);
     return;
   }
 
@@ -4170,10 +4191,12 @@ printf("args = %p\n", root->astnode.ident.arraylist);
 
       if(temp == NULL) {
         fprintf(stderr,"No args to LSAME\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       } 
       else if(temp->nextstmt == NULL) {
         fprintf(stderr,"Not enough args to LSAME\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       }
 
@@ -4229,6 +4252,7 @@ printf("args = %p\n", root->astnode.ident.arraylist);
       next_node = bytecode0(jvm_impdep1);
       goto_node->branch_target = next_node;
 
+      f2jfree(tempname, strlen(tempname)+1);
       return;
     }
     else if (!strcmp (tempname, "LSAMEN"))
@@ -4241,14 +4265,17 @@ printf("args = %p\n", root->astnode.ident.arraylist);
       /* first, make sure there are enough args to work with */
       if(temp == NULL) {
         fprintf(stderr,"No args to LSAMEN\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       } 
       else if(temp->nextstmt == NULL) {
         fprintf(stderr,"Not enough args to LSAMEN\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       }
       else if(temp->nextstmt->nextstmt == NULL) {
         fprintf(stderr,"Not enough args to LSAMEN\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       }
 
@@ -4267,12 +4294,14 @@ printf("args = %p\n", root->astnode.ident.arraylist);
 
       bytecode1(jvm_invokevirtual, c->index);
 
+      f2jfree(tempname, strlen(tempname)+1);
       return;
     }
     else if(!strcmp(tempname, "ETIME")) {
       /* first, make sure there are enough args to work with */
       if(temp == NULL) {
         fprintf(stderr,"No args to ETIME\n");
+        f2jfree(tempname, strlen(tempname)+1);
         return;
       } 
 
@@ -4299,6 +4328,8 @@ printf("args = %p\n", root->astnode.ident.arraylist);
       bytecode0(jvm_ddiv);
     }
   }
+
+  f2jfree(tempname, strlen(tempname)+1);
 }
 
 /*****************************************************************************
@@ -5791,6 +5822,8 @@ printf("open_output_file.1: set curfp = %p\n", curfp);
     emit_javadoc_comments(root);
 
   fprintf(javafp,"public class %s {\n\n", classname);
+
+  f2jfree(filename, strlen(cur_filename) + 6);
 }
 
 /*****************************************************************************
@@ -8274,6 +8307,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
         }
       }
 
+      f2jfree(tempname, strlen(tempname)+1);
       return 1;
     }
     else if (root->nodetype == Call) {
@@ -8386,6 +8420,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
       releaseLocal(Object);
 
       bytecode0(jvm_pop);
+      f2jfree(tempname, strlen(tempname)+1);
       return 1;
     }
     else   /* function with args. */
@@ -8421,13 +8456,20 @@ method_name_emit (AST *root, BOOLEAN adapter)
      * possible that the elements may be null.
      */
 
-    if((mref->classname != NULL) && (strlen(mref->classname) > 0))
-      fprintf (curfp, "%s.%s", char_substitution(mref->classname, '/', '.'),
-        root->astnode.ident.name);
+    if((mref->classname != NULL) && (strlen(mref->classname) > 0)) {
+      char *t;
+
+      t = char_substitution(mref->classname, '/', '.');
+      fprintf (curfp, "%s.%s", t, root->astnode.ident.name);
+      f2jfree(t, strlen(t)+1);
+    }
     else
       fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
+
+    free_fieldref(mref);
   }
 
+  f2jfree(tempname, strlen(tempname)+1);
   return 0;
 }
 
@@ -8456,8 +8498,6 @@ get_method_name(AST *root, BOOLEAN adapter)
         (strlen(root->astnode.ident.name) + 9)) + 5);
   buf[0] = '\0';
 
-  newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
-
   if(type_lookup(cur_args_table, root->astnode.ident.name)) {
     if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
        (root->astnode.ident.arraylist == NULL)) {
@@ -8468,6 +8508,8 @@ get_method_name(AST *root, BOOLEAN adapter)
     }
     else {
       sprintf(buf,"%s_methcall",root->astnode.ident.name);
+      newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
+
       newmeth->classname = strdup(cur_filename);
       newmeth->methodname = strdup(buf);
 
@@ -8491,6 +8533,7 @@ get_method_name(AST *root, BOOLEAN adapter)
     HASHNODE *hashtemp;
 
     sprintf (buf, "%s_adapter", root->astnode.ident.name);
+    newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
     newmeth->classname = strdup(cur_filename);
     newmeth->methodname = strdup(buf);
 
@@ -8533,6 +8576,7 @@ get_method_name(AST *root, BOOLEAN adapter)
   f2jfree(buf,
     MAX((strlen(tempname) + strlen(root->astnode.ident.name)), 
         (strlen(root->astnode.ident.name) + 9)) + 5);
+  f2jfree(tempname, strlen(tempname)+1);
 
   return newmeth;
 }
@@ -8602,6 +8646,9 @@ get_methodref(AST *node)
     }
   }
 
+  if(tempname != NULL)
+    f2jfree(tempname, strlen(tempname)+1);
+
   return new_mref;
 }
 
@@ -8658,6 +8705,8 @@ call_emit (AST * root)
     else
       fprintf (curfp, "()");
 
+    free_fieldref(mref);
+
     return;
   }
 
@@ -8706,6 +8755,8 @@ call_emit (AST * root)
     fprintf (curfp, ");\n");
   else
     fprintf (curfp, ")");
+
+  free_fieldref(mref);
 }				/*  Close call_emit().  */
 
 /*****************************************************************************
@@ -10682,6 +10733,8 @@ emit_invocations(AST *root)
     endNewMethod(cur_class_file, inv_method, cur_name, cur_desc,
          num_locals, exc_list );
   }
+
+  dl_delete_list(exc_list);
 }
 
 /*****************************************************************************
@@ -11123,6 +11176,8 @@ printf("##creating new entry, this -> %s\n",fullclassname);
   
   endNewMethod(tmp, meth_tmp, "<init>", "()V", 1, NULL);
 
+  f2jfree(fullclassname, strlen(fullclassname)+1);
+
   return tmp;
 }
 
@@ -11177,6 +11232,15 @@ printf("access flags = %d\n", flags);
   tmp->attributes_count = 1;
 
   cur_code = newCodeAttribute();
+  if(exc_table != NULL)  {
+    Dlist tmp;
+
+    dl_traverse(tmp, exc_table)
+      f2jfree(tmp->val, sizeof(ExceptionTableEntry));
+
+    dl_delete_list(exc_table);
+  }
+
   exc_table = make_dl();
 
   stacksize = pc = num_handlers = 0;
@@ -11263,8 +11327,13 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth, char * name, c
       cur_code->attr.Code->exception_table[idx].handler_pc = et_entry->target->pc;
       cur_code->attr.Code->exception_table[idx].catch_type = et_entry->catch_type;
       idx++;
+
+      f2jfree(et_entry, sizeof(ExceptionTableEntry));
     }
   }
+
+  dl_delete_list(exc_table);
+  exc_table = NULL;
 
   /* attribute_length is calculated as follows:
    *   max_stack               =  2 bytes

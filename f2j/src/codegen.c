@@ -1333,6 +1333,7 @@ void
 common_emit(AST *root)
 {
   HASHNODE *hashtemp;
+  METHODREF *mtmp;
   AST *Ctemp, *Ntemp, *temp;
   char *common_classname=NULL, *filename=NULL;
   FILE *commonfp;
@@ -1344,6 +1345,7 @@ common_emit(AST *root)
   int save_stack, save_pc, save_handlers;
   char *save_filename;
   struct method_info *save_clinit;
+  char *temp_commonblockname;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1372,6 +1374,19 @@ common_emit(AST *root)
   {
     if(Ctemp->astnode.common.name != NULL) 
     {
+      printf("common_emit.2: lookin for common block '%s'\n", 
+         Ctemp->astnode.common.name);
+
+      temp_commonblockname = (char *) f2jalloc(strlen(Ctemp->astnode.common.name) + 
+         strlen(CB_PREFIX) + 1);
+      sprintf(temp_commonblockname, "%s%s", CB_PREFIX, Ctemp->astnode.common.name);
+
+      mtmp = find_method(temp_commonblockname, descriptor_table);
+      if(mtmp) {
+        printf("common_emit.3: %s,%s,%s\n", mtmp->classname, mtmp->methodname,
+           mtmp->descriptor);
+      }
+
       /* common block filename will be a concatenation of
        * the original input filename and the name of this
        * common block.
@@ -1415,6 +1430,8 @@ printf("common_emit.1: set curfp = %p\n", curfp);
         fprintf(curfp,"public class %s_%s\n{\n",prefix,
           Ctemp->astnode.common.name);
 
+      fprintf(indexfp,"%s:common_block/%s:",cur_filename, Ctemp->astnode.common.name);
+
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
       {
         needs_dec = FALSE;
@@ -1444,6 +1461,8 @@ printf("common_emit.1: set curfp = %p\n", curfp);
 
         temp = hashtemp->variable;
 
+        fprintf(indexfp,"%s",getVarDescriptor(temp));
+
         field_emit(temp);
 
         if(temp->astnode.ident.needs_declaration)
@@ -1455,6 +1474,8 @@ printf("common_emit.1: set curfp = %p\n", curfp);
 
         vardec_emit(temp, temp->vartype);
       }
+      fprintf(indexfp,"\n");
+
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"}\n");
   

@@ -83,6 +83,8 @@
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"
 
+#define CB_PREFIX "common_block/"
+
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 /*****************************************************************************

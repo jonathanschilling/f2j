@@ -5,6 +5,8 @@
  * $Author$
  */
 
+/* Jim Plank's dlist routines.  Contact plank@cs.utk.edu  */
+
 #include <stdio.h>    /* Basic includes and definitions */
 #include "dlist.h"
 

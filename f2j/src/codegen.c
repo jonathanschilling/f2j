@@ -37,7 +37,7 @@ void format_name_emit(AST *);
  * yacc. 
  */
 
-char *progname;
+char *unit_name;
 char *returnname;
 char *cur_filename;
 int gendebug = 1;
@@ -45,6 +45,8 @@ int cur_idx = 0;
 int return_label = 0;
 Dlist doloop = NULL;
 Dlist while_list = NULL;
+Dlist adapter_list = NULL;
+
 SUBSTITUTION global_sub = { NULL, 0 };
 
 extern char *inputfilename;
@@ -63,8 +65,6 @@ SYMTABLE *cur_save_table;
 SYMTABLE *cur_common_table; 
 SYMTABLE *cur_param_table; 
 AST *cur_dataList;
-
-AST *adapter_list;
 
 /* data types for arrays */
 
@@ -123,8 +123,7 @@ emit (AST * root)
 
           while_list = make_dl();
           doloop = make_dl();
-
-          adapter_list = NULL;
+          adapter_list = make_dl();
 
           open_output_file(root->astnode.source.progtype);
           curfp = javafp;
@@ -135,6 +134,9 @@ emit (AST * root)
 	  emit (root->astnode.source.progtype);
 	  fprintf (curfp, "\n// Executable code.\n");
 	  emit (root->astnode.source.statements);
+
+          emit_adapters();
+
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
 	  break;
@@ -143,12 +145,14 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Subroutine.\n");
 	  returnname = NULL;	/* Subroutines return void. */
+          unit_name = root->astnode.source.name->astnode.ident.name;
 	  constructor (root);
 	  break;
       case Function:
 	  if (gendebug)
 	      printf ("Function.\n");
 	  returnname = root->astnode.source.name->astnode.ident.name;
+          unit_name = root->astnode.source.name->astnode.ident.name;
           if(gendebug)
             printf ("Function name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
@@ -158,6 +162,7 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Program.\n");
 	  returnname = NULL;	/* programs return void. */
+          unit_name = root->astnode.source.name->astnode.ident.name;
 	  if (gendebug)
 	    printf ("Program name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
@@ -2917,15 +2922,6 @@ call_emit (AST * root)
 
   assert (root != NULL);
 
-  /* first analyze this function call to determine if we need to generate
-   * an 'adapter' which will simulate passing array elements by reference.
-   */
-
-  if( needs_adapter(root) )
-  {
-    printf("wow, guess we need an adapter for %s.\n", root->astnode.ident.name);
-  }
-
   /* shouldn't be necessary to lowercase the name
    *   lowercase (root->astnode.ident.name);
    */
@@ -2933,8 +2929,20 @@ call_emit (AST * root)
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
 
-  /* Assume all methods that are invoked are static.  */
-  fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
+  /* first analyze this function call to determine if we need to generate
+   * an 'adapter' which will simulate passing array elements by reference.
+   */
+
+  if( needs_adapter(root) )
+  {
+    printf("wow, guess we need an adapter for %s.\n", root->astnode.ident.name);
+    insert_adapter(root);
+
+    /* Assume all methods that are invoked are static.  */
+    fprintf (curfp, "%s_adapter", root->astnode.ident.name);
+  }
+  else
+    fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
 
   if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
      (root->astnode.ident.arraylist == NULL))
@@ -2983,16 +2991,22 @@ call_emit (AST * root)
          }
          else                                /* it is not expecting an array */
          {
-           fprintf(stderr,"Warning: potential problem passing element of array %s ",
-             temp->astnode.ident.name);
-           fprintf(stderr,"to function %s.\n", root->astnode.ident.name);
-           fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+           /* In this case we are passing the array element to the
+            * adapter, so we dont wrap it in an object.
+            */
+
+/* fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]); */
+
            fprintf(curfp,"%s",temp->astnode.ident.name);
 
            func_array_emit(temp->astnode.ident.arraylist,ht,
+              temp->astnode.ident.name, ht2!=NULL, TRUE);
+/*
+           func_array_emit(temp->astnode.ident.arraylist,ht,
               temp->astnode.ident.name, ht2!=NULL, FALSE);
+*/
 
-           fprintf(curfp,")");
+/* fprintf(curfp,")"); */
          }
        }
          /* 
@@ -3097,7 +3111,7 @@ int
 needs_adapter(AST *root)
 {
   AST *temp;
-  HASHNODE *hashtemp, *ht, *ht2;
+  HASHNODE *hashtemp;
 
   /* first, check for a null parameter list.  if there are no parameters, 
    * we certainly wont need an adapter.
@@ -3120,21 +3134,16 @@ needs_adapter(AST *root)
     {
          /*
           * if the arg is an identifier  AND
-          *    it looks like an array access AND
-          *    it is in the array table
+          *    it is in the array table  AND
+          *    the function is not expecting an array
           */
-       if((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist != NULL)
-          && (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
-       {
-         ht2 = type_lookup(cur_args_table, temp->astnode.ident.name);
+       if((temp->nodetype == Identifier) && 
+           type_lookup(cur_array_table, temp->astnode.ident.name) &&
+           !t2->astnode.ident.arraylist)
+              return 1;
 
-         printf("CAlling func-array_emit\n");
-
-         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
-           continue;
-         else                                /* it is not expecting an array */
-           return 1;
-       }
+       if(t2 != NULL)
+         t2 = t2->nextstmt;
     }
   }
 
@@ -3347,11 +3356,22 @@ substring_assign_emit(AST *root)
   fprintf(curfp,"}\n");
 }
 
+/*
+ * This function returns the last item in a dlist
+ * of integers.
+ */
+
 int
 dl_int_examine(Dlist l)
 {
   return ( *( (int *) dl_val(dl_last(l)) ) );
 }
+
+/*
+ * This function searches for a value in a dlist of
+ * integers.  Returns TRUE if the value is found, FALSE
+ * otherwise.
+ */
 
 int
 dl_int_search(Dlist l, int val)
@@ -3363,6 +3383,283 @@ dl_int_search(Dlist l, int val)
       return TRUE;
 
   return FALSE;
+}
+
+/*
+ * This function searches for a value in a dlist of
+ * AST nodes.  Returns the node if it is found, NULL
+ * otherwise.
+ */
+
+AST *
+dl_name_search(Dlist l, char *name)
+{
+  Dlist p;
+
+  dl_traverse(p,l)
+    if( !strcmp(((AST *)p->val)->astnode.ident.name,name) )
+      return p->val;
+
+  return NULL;
+}
+
+int
+insert_adapter(AST *node)
+{
+  HASHNODE *hashtemp;
+  AST *ptr, *t2, *this_call, *other_call;
+  int i, found = FALSE, diff = FALSE;
+  int this_arg_is_arrayacc, other_arg_is_arrayacc;
+  Dlist p;
+
+  /* if there is not an adapter for this function call already in the list,
+   * insert it now 
+   */
+
+  printf("** here we are in insert_adapter\n");
+  printf("** \n");
+
+  dl_traverse(p, adapter_list )
+  {
+    ptr = (AST *) dl_val(p);
+
+    if( !strcmp(ptr->astnode.ident.name, node->astnode.ident.name) )
+    {
+      found = TRUE;
+
+      /* this function call is already in the list.  now we must determine whether
+       * the prototypes of the adapters would be the same.  If so, there's no need
+       * to insert this node in the adapter list.  If the prototypes would be 
+       * different, then we must insert this node.
+       */
+  
+      printf("** %s is already in adapter_list.  now checking args.\n",
+        node->astnode.ident.name);
+
+      if((hashtemp=type_lookup(function_table, node->astnode.ident.name)) != NULL)
+      {
+        printf("** \n");
+        printf("** found prototype.\n");
+  
+        this_call = node->astnode.ident.arraylist;
+        other_call = ptr->astnode.ident.arraylist;
+  
+        t2 = hashtemp->variable->astnode.source.args;
+  
+        diff = FALSE;
+
+        for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
+        {
+          printf("** arg %d\n",i);
+  
+          if( other_call == NULL )
+          {
+            fprintf(stderr,"2:Function calls to %s in unit %s ", 
+              node->astnode.ident.name, unit_name);
+            fprintf(stderr,"don't have same number of params\n");
+            return -1;
+          }
+
+          this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
+                (this_call->astnode.ident.arraylist != NULL) &&
+                type_lookup(cur_array_table, this_call->astnode.ident.name);
+          printf("** this_arg_is_arrayacc = %d\n",this_arg_is_arrayacc);
+
+          other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
+                (other_call->astnode.ident.arraylist != NULL) &&
+                type_lookup(cur_array_table, other_call->astnode.ident.name);
+          printf("** other_arg_is_arrayacc = %d\n",other_arg_is_arrayacc);
+
+          if( (! t2->astnode.ident.arraylist) &&
+              (this_arg_is_arrayacc != other_arg_is_arrayacc ))
+          {
+            printf("** setting diff = TRUE\n");
+            diff = TRUE;
+          }
+  
+          printf("** blah\n");
+
+          other_call = other_call->nextstmt;
+        }
+  
+        if(!diff) {
+          printf("** found an equivalent adapter.  no need to insert.\n");
+          return 1;
+        }
+      }
+      else {
+        printf("** cant find prototype...returning.\n");  
+  
+                      /* cant find the prototype.  normally, I dont think */
+        return -1;    /* this case will be reached.                       */
+      }
+    }
+  }
+
+/*
+  if( ! found ) {
+    printf("** Could not find %s in adapter_list... inserting now.\n",
+      node->astnode.ident.name);
+*/
+    printf("** inserting '%s' into adapter_list now.\n",
+      node->astnode.ident.name);
+    dl_insert_b(adapter_list,node);
+/*  } */
+}
+
+/*
+ * This function generates any adapters necessary to
+ * allow functions to pass array elements by reference.
+ */
+
+int
+emit_adapters()
+{
+  HASHNODE *hashtemp;
+  AST * arg, * temp;
+  char *tempname;
+  Dlist p;
+  int i;
+
+
+  dl_traverse(p,adapter_list)
+  {
+    hashtemp = type_lookup(function_table, ((AST *)dl_val(p))->astnode.ident.name);
+
+    if(hashtemp == NULL) {
+      fprintf(stderr,"Error: cant generate adapter for %s\n",
+         ( (AST *) dl_val(p) )->astnode.ident.name);
+      continue;
+    }
+
+    fprintf(curfp,"// adapter for %s\n", 
+      ( (AST *) dl_val(p) )->astnode.ident.name);
+  
+    /* first generate the method header */
+
+    if(hashtemp->variable->nodetype == Function)
+      fprintf(curfp,"private static %s %s_adapter(", 
+          returnstring[hashtemp->variable->astnode.source.returns],
+          hashtemp->variable->astnode.source.name->astnode.ident.name);
+    else
+      fprintf(curfp,"private static void %s_adapter(", 
+          hashtemp->variable->astnode.source.name->astnode.ident.name);
+
+    temp = hashtemp->variable->astnode.source.args;
+    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
+    
+    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    {
+      if(temp == NULL) {
+        fprintf(stderr,"Error: mismatch between call to %s and prototype\n",
+           ( (AST *) dl_val(p) )->astnode.ident.name);
+        break;
+      }
+
+      if( (temp->astnode.ident.arraylist) ||
+          ( (arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
+            type_lookup(cur_array_table,arg->astnode.ident.name)) )
+        fprintf(curfp,"%s [] arg%d , int arg%d_offset ", returnstring[temp->vartype], i, i);
+      else
+        fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
+
+      if(temp != NULL)
+        temp = temp->nextstmt;
+      if(arg->nextstmt != NULL)
+        fprintf(curfp,",");
+    }
+
+    fprintf(curfp,")\n{\n");
+
+    temp = hashtemp->variable->astnode.source.args;
+    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
+    
+    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    {
+      if(temp == NULL)
+        break;
+
+      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
+            type_lookup(cur_array_table,arg->astnode.ident.name) &&
+            !temp->astnode.ident.arraylist)
+         fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+           wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
+
+      if(temp != NULL)
+        temp = temp->nextstmt;
+    }
+
+    /*  now emit the call here */
+
+    tempname = strdup( ((AST *) dl_val(p))->astnode.ident.name );
+    *tempname = toupper(*tempname);
+
+    if(hashtemp->variable->nodetype == Function)
+    {
+      fprintf(curfp,"%s %s_retval;\n\n", 
+          returnstring[hashtemp->variable->astnode.source.returns],
+          hashtemp->variable->astnode.source.name->astnode.ident.name);
+
+      fprintf(curfp,"%s_retval = %s.%s(", ((AST *) dl_val(p))->astnode.ident.name,
+         tempname,  ((AST *) dl_val(p))->astnode.ident.name );
+    }
+    else
+      fprintf(curfp,"\n%s.%s(",tempname,  ((AST *) dl_val(p))->astnode.ident.name );
+    
+    temp = hashtemp->variable->astnode.source.args;
+    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
+    
+    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    {
+      if(temp == NULL)
+        break;
+
+      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
+            type_lookup(cur_array_table,arg->astnode.ident.name) &&
+            !temp->astnode.ident.arraylist)
+         fprintf(curfp,"_f2j_tmp%d",i);
+      else if((arg->nodetype == Identifier) &&
+            type_lookup(cur_array_table,arg->astnode.ident.name) &&
+            temp->astnode.ident.arraylist)
+         fprintf(curfp,"arg%d, arg%d_offset",i,i);
+      else
+         fprintf(curfp,"arg%d",i);
+
+      if(temp != NULL)
+        temp = temp->nextstmt;
+      if(arg->nextstmt != NULL)
+        fprintf(curfp,",");
+    }
+
+    fprintf(curfp,");\n\n");
+
+    /*  assign the temp variable to the array element */
+
+    temp = hashtemp->variable->astnode.source.args;
+    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
+    
+    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    {
+      if(temp == NULL)
+        break;
+
+      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
+            type_lookup(cur_array_table,arg->astnode.ident.name) &&
+            !temp->astnode.ident.arraylist)
+         fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+
+      if(temp != NULL)
+        temp = temp->nextstmt;
+    }
+
+    if(hashtemp->variable->nodetype == Function)
+    {
+      fprintf(curfp,"\nreturn %s_retval;\n", 
+          hashtemp->variable->astnode.source.name->astnode.ident.name);
+    }
+
+    fprintf(curfp,"}\n\n");
+  }
 }
 
 /*

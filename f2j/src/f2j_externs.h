@@ -39,6 +39,7 @@ extern BOOL
   genJavadoc,              /* should we generate javadoc-compatible comments */
   noOffset,                /* should we generate offset args in interfaces   */
   bigEndian,               /* byte order (1 = big, 0 = little)               */
+  f2j_arrays_static,       /* force all arrays to be declared static         */
   save_all_override;       /* force all variables to be declared static      */
 
 extern SYMTABLE 

@@ -2080,26 +2080,26 @@ is_static(AST *root)
 
   temp = root;
 
-#ifdef F2J_ARRAYS_STATIC
-  if(type_lookup (cur_array_table, temp->astnode.ident.name)
-     && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
+  if(f2j_arrays_static) {
+    if(type_lookup (cur_array_table, temp->astnode.ident.name)
+       && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
 
-    ht = type_lookup(cur_type_table,temp->astnode.ident.name);
+      ht = type_lookup(cur_type_table,temp->astnode.ident.name);
 
-    if(ht == NULL)
-      return FALSE;
+      if(ht == NULL)
+        return FALSE;
 
-    if(type_lookup(cur_data_table,temp->astnode.ident.name) &&
-       !ht->variable->astnode.ident.needs_declaration)
-    {
-      if(gendebug)
-        printf("is_static: declared data statement\n");
-      return FALSE;
+      if(type_lookup(cur_data_table,temp->astnode.ident.name) &&
+         !ht->variable->astnode.ident.needs_declaration)
+      {
+        if(gendebug)
+          printf("is_static: declared data statement\n");
+        return FALSE;
+      }
+
+      return TRUE;
     }
-
-    return TRUE;
   }
-#endif
 
   if(type_lookup(cur_args_table,temp->astnode.ident.name)) {
     if(gendebug)
@@ -2181,13 +2181,13 @@ is_local(AST *root){
   hashtemp = type_lookup (cur_args_table, temp->astnode.ident.name);
   isarg = hashtemp != NULL;
 
-#ifdef F2J_ARRAYS_STATIC
-  if(type_lookup (cur_array_table, temp->astnode.ident.name)
-     && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
+  if(f2j_arrays_static) {
+    if(type_lookup (cur_array_table, temp->astnode.ident.name)
+       && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
 
-    return FALSE;
+      return FALSE;
+    }
   }
-#endif
 
   if(type_lookup(cur_data_table,temp->astnode.ident.name)) {
     if(gendebug)

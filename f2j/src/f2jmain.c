@@ -160,6 +160,10 @@ will most likely not work for other code.\n\n";
  to generate all variables\nas static class variables.\
   By default f2j generates\nvariables as locals.\n\n";
 
+  char f2java_help_va_option[] = "The -va option causes f2j\
+ to generate arrays\nas static class variables,\
+  but other\nvariables are generated as locals.\n\n";
+
   signal(SIGSEGV,handle_segfault);
 
   omitWrappers      = TRUE;
@@ -171,6 +175,7 @@ will most likely not work for other code.\n\n";
   output_dir        = NULL; 
   search_path       = NULL; 
   save_all_override = FALSE;
+  f2j_arrays_static = FALSE;
 
   file_stack = make_dl();
   include_paths = make_dl();
@@ -205,6 +210,7 @@ will most likely not work for other code.\n\n";
         printf("%s",f2java_help_s_option);
         printf("%s",f2java_help_d_option);
         printf("%s",f2java_help_vs_option);
+        printf("%s",f2java_help_va_option);
         exit(EXIT_SUCCESS);
         break;
       case 'i':
@@ -217,12 +223,14 @@ will most likely not work for other code.\n\n";
         noOffset = TRUE;
         break;
       case 'v':
-        if(strcmp("s", optarg)) {
+        if(!strcmp("s", optarg))
+          save_all_override = TRUE;
+        else if(!strcmp("a", optarg))
+          f2j_arrays_static = TRUE;
+        else {
           fprintf(stderr,"-v%s: bad argument\n",optarg);
           errflg++;
         }
-        else
-          save_all_override = TRUE;
 
         break;
       case 'o':
@@ -240,9 +248,8 @@ will most likely not work for other code.\n\n";
   {
     fprintf(stderr, "Usage: f2java [-I include path] [-c search path]");
     fprintf(stderr, "  [-p package name] [-o output dir]");
-    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] <filename>\n");
-    fprintf(stderr,
-     "For help: f2java -h\n");
+    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] [-va] <filename>\n");
+    fprintf(stderr, "For help: f2java -h\n");
     exit(EXIT_FAILURE);
   }
 

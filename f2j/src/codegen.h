@@ -54,17 +54,6 @@
 #define TOSTRING_DESC "()Ljava/lang/String;"
 
 /*****************************************************************************
- * When we're generating the byte array to hold the jvm opcodes, we dont     *
- * know the size ahead of time.  so we allocate an initial piece of memory   *
- * whose size is specified by CODE_ALLOC_INIT.  if the size of the code      *
- * exceeds the amount currently allocated, we add CODE_ALLOC_CHUNK bytes     *
- * and reallocate.                                                           *
- *****************************************************************************/
-
-#define CODE_ALLOC_INIT    2048
-#define CODE_ALLOC_CHUNK   1024
-
-/*****************************************************************************
  * Definitions for an expandable string structure.  STR_INIT is the initial  *
  * size of the string, while STR_CHUNK is the number of bytes by which we    *
  * increment the string when it is too small.                                *
@@ -77,6 +66,15 @@ struct _str {
   int size;
   char *val;
 };
+
+/*****************************************************************************
+ * Definitions of code generation status.  These are used to set the target  *
+ * language that f2java is currently generating.                             *
+ *****************************************************************************/
+
+#define JAVA_ONLY     1
+#define JVM_ONLY      2
+#define JAVA_AND_JVM  3
 
 /*****************************************************************************
  * enumeration of all the java opcodes.                                      *

@@ -42,7 +42,8 @@ void
   pushStringConst(char *),
   pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
   dec_stack(int),
-  invoke_constructor(char *, AST *, char *);
+  invoke_constructor(char *, AST *, char *),
+  set_bytecode_status(int);
 
 int
   isPassByRef(char *);
@@ -95,7 +96,9 @@ extern char
 
 FILE 
   *javafp,              /* the class file currently generating               */
-  *curfp;               /* the file currently being written to               */
+  *curfp,               /* the file currently being written to               */
+  *savefp,              /* temp var for saving the current file pointer      */
+  *devnull;             /* pointer to the file /dev/null                     */
 
 SYMTABLE                /* Symbol tables containing...                       */
   *cur_type_table,      /* type information                                  */
@@ -125,7 +128,8 @@ AST
 
 BOOLEAN 
   import_reflection,    /* does this class need to import reflection         */
-  import_blas;          /* does it need to import the BLAS library           */
+  import_blas,          /* does it need to import the BLAS library           */
+  bytecode_gen=TRUE;    /* is bytecode generation currently enabled          */
 
 int pc;                 /* current program counter                           */
 
@@ -267,6 +271,9 @@ emit (AST * root)
             import_blas = FALSE; 
 
           open_output_file(root->astnode.source.progtype);
+          devnull = fopen("/dev/null","w");
+          savefp = curfp;
+          set_bytecode_status(JAVA_AND_JVM);
 
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
@@ -613,6 +620,38 @@ emit (AST * root)
         fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
           print_nodetype(root));
     }				/* switch on nodetype.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * set_bytecode_status                                                       *
+ *                                                                           *
+ * allow temporarily suspending generation of bytecode for situations where  *
+ * the code generation ordering is very different between Java source and    *
+ * JVM bytecode.  this way, f2java may suspend bytecode, generate the java   *
+ * source, then generate the JVM bytecode differently.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+set_bytecode_status(int mode)
+{
+  switch(mode) {
+    case JVM_ONLY:
+      bytecode_gen=TRUE;
+      savefp = curfp;
+      curfp = devnull;
+      break;
+    case JAVA_ONLY:
+      bytecode_gen=FALSE;
+      curfp = savefp;
+      break;
+    case JAVA_AND_JVM:
+    default:
+      bytecode_gen=TRUE;
+      curfp = savefp;
+      break;
+  }
 }
 
 /*****************************************************************************
@@ -7847,229 +7886,6 @@ dec_stack(int dec) {
 
 /*****************************************************************************
  *                                                                           *
- * check_code_size                                                           *
- *                                                                           *
- * determines whether the byte array is large enough to include an           *
- * instruction with the given width.  if so...fine, just return.  if not...  *
- * then we must reallocate cur_code with more memory.                        *
- *                                                                           *
- *****************************************************************************/
-
-/*
-void
-check_code_size(int width)
-{
-*/
-  /* note that we're somewhat misusing the cur_code->code_length variable.
-   * it should hold the length of the code, not the amount of memory allocated.
-   * however, we will temporarily use it to keep track of memory allocation
-   * and after generating all the code for this method, we will replace the
-   * code_length variable with the correct number.  --kgs 4/26/00
-   */
-/*
-  if(cur_code->attr.Code->code == NULL) {
-    cur_code->attr.Code->code = (u1 *)f2jalloc(CODE_ALLOC_INIT * sizeof(u1));
-    cur_code->attr.Code->code_length = CODE_ALLOC_INIT;
-    return;
-  }
-
-  if(pc+width > cur_code->attr.Code->code_length) {
-    cur_code->attr.Code->code_length += CODE_ALLOC_CHUNK;
-    cur_code->attr.Code->code = (u1 *)f2jrealloc(cur_code->attr.Code->code,
-                  cur_code->attr.Code->code_length);
-  }
-}
-*/
-
-/*****************************************************************************
- *                                                                           *
- * code_zero_op                                                              *
- *                                                                           *
- * generate code for instructions with no operands (e.g. type conversions).  *
- *                                                                           *
- *****************************************************************************/
-
-/*
-void
-code_zero_op(enum _opcode op)
-{
-  u1 this_opcode = op;
-
-  dec_stack(jvm_opcode[op].stack_pre);
-  check_code_size(jvm_opcode[op].width);
-  lastOp = op;
-  memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
-  printf("%d %s\n", pc, jvm_opcode[op].op);
-  pc += jvm_opcode[op].width;
-  inc_stack(jvm_opcode[op].stack_post);
-}
-*/
-
-/*****************************************************************************
- *                                                                           *
- * code_one_op                                                               *
- *                                                                           *
- * generate code for instructions with a single one-byte operand.            *
- * (e.g. loads,stores,etc).                                                  *
- *                                                                           *
- *****************************************************************************/
-
-/*
-void
-code_one_op(enum _opcode op, int opval)
-{
-  u1 this_opcode = op;
-  u1 this_operand = (u1)opval;
-
-*/
-  /* if this is a 'wide' op, then call code_one_op_w() */
-
-/*
-  if(jvm_opcode[op].width > 2) {
-    code_one_op_w(op,opval); 
-  }
-  else {
-  */
-    /* check for loss of information in the int->u1 cast */
-/*
-    if( (int)this_operand != opval ) {
-      fprintf(stderr,"WARNING: code_one_op() opval lost information.  ");
-      fprintf(stderr,"  opcode = %s, ", jvm_opcode[op].op);
-      fprintf(stderr,"  index = %d\n", opval);
-    }
-
-    dec_stack(jvm_opcode[op].stack_pre);
-    check_code_size(jvm_opcode[op].width);
-    lastOp = op;
-    memcpy(cur_code->attr.Code->code + pc,
-           &this_opcode, sizeof(this_opcode));
-    memcpy(cur_code->attr.Code->code + pc + 1, 
-           &this_operand, sizeof(this_operand));
-    printf("%d %s %d\n",pc, jvm_opcode[op].op, this_operand);
-    pc += jvm_opcode[op].width;
-    inc_stack(jvm_opcode[op].stack_post);
-  }
-}
-
-*/
-/*****************************************************************************
- *                                                                           *
- * code_one_op_w                                                             *
- *                                                                           *
- * generate code for instructions with a single two-byte operand.            *
- * (e.g. invokevirtual, invokestatic, invokespecial).                        *
- *                                                                           *
- *****************************************************************************/
-
-/*
-void
-code_one_op_w(enum _opcode op, u2 index)
-{
-  u1 this_opcode = op;
-  u2 u2BigEndian(u2);
-  u2 this_operand = u2BigEndian(index);
-  char *this_desc;
-  CPNODE *c;
-  struct stack_info * calcStack(char *), *stackinf;
-  int stack_increment, stack_decrement;
-
-*/
-  /* unfortunately, must first check some special cases to determine proper
-   * stack increment and decrement.
-   */
-
-/*
-  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
-   || (op == jvm_invokestatic))
-  {
-  */
-    /* now we need to determine how many parameters are sitting on the stack */
-
-/*
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
-    stackinf = calcStack(this_desc);
-
-*/
-    /* if the opcode is invokespecial or invokevirtual, then there is one
-     * object reference + parameters on the stack.  if this is an invokestatic
-     * instruction, then there's just parameters. 
-     */
-
-/*
-    if(op == jvm_invokestatic)
-      stack_decrement = stackinf->arg_len;
-    else
-      stack_decrement = stackinf->arg_len + 1;
-
-    stack_increment = stackinf->ret_len;
-  }
-  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
-          (op == jvm_putfield)  || (op == jvm_getfield))
-  {
-    int tmpsize;
-
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
-
-    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
-      tmpsize = 2;
-    else 
-      tmpsize = 1;
-
-    switch(op) {
-      case jvm_getstatic:
-        stack_increment = tmpsize;
-        stack_decrement = 0;
-        break;
-      case jvm_putstatic:
-        stack_increment = 0;
-        stack_decrement = tmpsize;
-        break;
-      case jvm_getfield:
-        stack_increment = tmpsize;
-        stack_decrement = 1;
-        break;
-      case jvm_putfield:
-        stack_increment = 0;
-        stack_decrement = tmpsize + 1;
-        break;
-      default:
-        fprintf(stderr,"code_one_op_w(): unexpected op type\n");
-        break; */ /* ansi compliance */
-/*
-    }
-  }
-  else {
-  */
-    /* else we can determine the stack decrement from a table.  */
-/*
-    stack_decrement = jvm_opcode[op].stack_pre;
-    stack_increment = jvm_opcode[op].stack_post;
-  }
-
-  dec_stack(stack_decrement);
-  check_code_size(jvm_opcode[op].width);
-  lastOp = op;
-  memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
-  memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));
-  printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);
-  pc += jvm_opcode[op].width;
-  inc_stack(stack_increment);
-}
-
-*/
-
-/*****************************************************************************
- *                                                                           *
  * newCodeAttribute                                                          *
  *                                                                           *
  * creates a new attribute_info structure and initializes the Code_attribute *
@@ -8320,6 +8136,7 @@ traverse_code(Dlist cgraph)
   val = (CodeGraphNode *) dl_val(dl_first(cgraph));
   val->stack_depth = 0;
 
+  /* traverse the whole graph calculating branch target offsets. */
   calcOffsets(val);
 
   /* now print the instructions */

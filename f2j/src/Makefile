@@ -3,12 +3,12 @@
 # $Source$
 # Revision:$
 
-HOME=/shag/homes/doolin
-CFLAGS= -g -ansi #-p
+CFLAGS= -g -ansi 
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
-OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o list.o typecheck.o
+OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
+     codegen.o vcg_emitter.o typeassign.o opcode.o list.o typecheck.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -16,13 +16,20 @@ JFILES = *.j
 JAVAFILES = *.java
 
 
-
-f2java: f2j.h f2jparse.y $(OBJS)
+#  The main executable.
+f2java: f2j.h f2jparse.y $(OBJS) javab
 	${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+	mv $@ ../bin
 
-puref2j:	f2j.h f2jparse.y $(OBJS)
+
+#  The purify version...
+puref2j:	f2j.h f2jparse.y $(OBJS) javab
 	$(PURIFY) ${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+	mv $@ ../bin
 
+
+#  Fortran has gotos, java does not.  So we need to 
+#  translate goto statements.
 javab:	
 	cd goto_trans;make
 
@@ -48,6 +55,7 @@ dlist.o: dlist.c
  
 codegen.o:  codegen.c f2j.h
 
+#  vcg = visualization of compiler graphs.
 vcg_emitter.o:  vcg_emitter.c f2j.h
 
 opcode.o: opcode.c f2j.h
@@ -63,12 +71,12 @@ typecheck.o: typecheck.c f2j.h
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 
 
-#%.o:	%.c
-#	${CC} -c ${CFLAGS} $<
-
-clean:
+clean: goto
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
               tmp f2j core a.out *.output *~  *.vcg
+
+goto:
+	cd goto_trans; $(MAKE) clean
 
 realclean: clean
 	rm -f f2java 

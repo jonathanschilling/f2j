@@ -7,7 +7,7 @@
 
 
 /*****************************************************************************
- * codegen                                                                   *
+ * codegen.c                                                                 *
  *                                                                           *
  * Generates Java source code from the AST representation of a Fortran       *
  * program.                                                                  *

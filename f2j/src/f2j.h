@@ -1,415 +1,550 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
+/*****************************************************************************
+ * f2j.h                                                                     *
+ *                                                                           *
+ * Header file for the Fortran-to-Java translator.                           *
+ *                                                                           *
+ *****************************************************************************/
+
 #include<assert.h>
 #include"symtab.h"
 #include"dlist.h"
 
-/*  Fortran is context sensitive.  These 
-   boolean values are an attempt to deal 
-   with that sensitivity.
- */
-
 typedef int BOOLEAN;
+
 #define FALSE 0
 #define TRUE  1
-#define VCG 0   /* define VCG to get graph output */
-#define BLAS 0
-#define LAPACK 1
-#define DEFAULT_TARGET_LANG 0 /* 0 for JAVA, 1 for JAS */
 
-/* defines for optimization of the use of object wrappers */
+/*****************************************************************************
+ * Define VCG as 1 if VCG output is desired (VCG == Visualization of         *
+ *   Compiler Graphs)                                                        *
+ *                                                                           *
+ * Define DEFAULT_TARGET_LANG as 0 to generate Java code by default.         *
+ * Define DEFAULT_TARGET_LANG as 1 to generate Jasmin code by default.       *
+ * DEFAULT_TARGET_LANG can be overridden by the command-line options.        *
+ *****************************************************************************/
+
+#define VCG 0
+#define DEFAULT_TARGET_LANG 0
+
+/*****************************************************************************
+ * Defines for optimization of the use of object wrappers:                   *
+ *   NOT_VISITED - f2j has not started optimizing this routine               *
+ *   VISITED     - f2j has started optimizing, but has not finished          *
+ *   FINISHED    - optimization is complete for this routine                 *
+ *****************************************************************************/
 
 #define NOT_VISITED 0
 #define VISITED     1
 #define FINISHED    2
 
-/*  If 1, yyparse produces voluminous, detailed
-    output to stderr during parsing.  */
+/*****************************************************************************
+ *  If DEBUGGEM is defined as 1, yyparse produces voluminous, detailed       *
+ *  output to stderr during parsing.                                         *
+ *****************************************************************************/
+
 #define DEBUGGEM 0
 
-BOOLEAN typedecs;
-int lineno;
-int statementno;
-int func_stmt_num;
-FILE *ifp;
-FILE *jasminfp;
-FILE *vcgfp;
-int JAS;
-char *inputfilename;
-char *package_name;
-BOOLEAN omitWrappers;
-BOOLEAN genInterfaces;
-BOOLEAN noOffset;
+int 
+  lineno,                  /* current line number                            */
+  statementno,             /* current statement number                       */
+  func_stmt_num,           /* current statement number within this function  */
+  ignored_formatting,      /* number of format statements ignored            */
+  bad_format_count,        /* number of invalid format stmts encountered     */
+  locals,                  /* number of local variables in current unit      */
+  stacksize;               /* size of stack for current unit                 */
 
-/* Dlist tokenstack; */
-SYMTABLE *type_table;
-SYMTABLE *external_table;
-SYMTABLE *intrinsic_table;
-SYMTABLE *args_table;
-SYMTABLE *array_table; 
-SYMTABLE *format_table; 
-SYMTABLE *data_table; 
-SYMTABLE *save_table; 
-SYMTABLE *common_table; 
-SYMTABLE *parameter_table; 
-SYMTABLE *function_table; 
-SYMTABLE *java_keyword_table; 
-SYMTABLE *jasmin_keyword_table; 
-SYMTABLE *blas_routine_table; 
-SYMTABLE *common_block_table;
-SYMTABLE *global_func_table;
-SYMTABLE *global_common_table;
+FILE 
+  *ifp,                    /* input file pointer                             */
+  *jasminfp,               /* jasmin output file pointer                     */
+  *vcgfp;                  /* VCG output file pointer                        */
 
-int ignored_formatting;
-int bad_format_count;
+char 
+  *inputfilename,          /* name of the input file                         */
+  *package_name;           /* what to name the package, e.g. org.netlib.blas */
 
-int locals;
-int stacksize;
+BOOLEAN 
+  omitWrappers,            /* should we try to optimize use of wrappers      */
+  genInterfaces,           /* should we generate simplified interfaces       */
+  noOffset,                /* should we generate offset args in interfaces   */
+  JAS;                     /* should we generate Jasmin code                 */
+
+SYMTABLE 
+  *type_table,             /* General symbol table                           */
+  *external_table,         /* external functions                             */
+  *intrinsic_table,        /* intrinsic functions                            */
+  *args_table,             /* arguments to the current unit                  */
+  *array_table,            /* array variables                                */
+  *format_table,           /* format statements                              */
+  *data_table,             /* variables contained in DATA statements         */
+  *save_table,             /* variables contained in SAVE statements         */
+  *common_table,           /* variables contained in COMMON statements       */
+  *parameter_table,        /* PARAMETER variables                            */
+  *function_table,         /* table of functions                             */
+  *java_keyword_table,     /* table of Java reserved words                   */
+  *jasmin_keyword_table,   /* table of Jasmin reserved words                 */
+  *blas_routine_table,     /* table of BLAS routines                         */
+  *common_block_table,     /* COMMON blocks                                  */
+  *global_func_table,      /* Global function table                          */
+  *global_common_table;    /* Global COMMON table                            */
+
+
+/* Enumeration of the different kinds of Specification statements */
+
 enum spectype
-  {
-      External,
-      Intrinsic,
-      Implicit,
-      Parameter
-  };
+{
+  External, Intrinsic, Implicit, Parameter
+};
 
+/* Enumeration of the different return types */
 
 enum returntype
-  {
-      String,
-      Character,
-      Complex,
-      Double,
-      Float,
-      Integer,
-      Logical
-  };
+{
+  String, Character, Complex, Double, Float, Integer, Logical
+};
 
-/*  The main data structure, a "tagged union". */
+/* Represents whether an expression is on the lhs or rhs. */
+
+enum _expr_side
+{
+  left, right
+};
+
+/* Enumeration of all the different kinds of nodes in the AST */
+
+enum _nodetype
+{
+  Source = 1,
+  Progunit,
+  Subroutine,
+  Function,
+  Program,
+  Blockif,
+  Comment,
+  Common,
+  DataStmt,
+  DataList,
+  Elseif,
+  Else,
+  Forloop,
+  Format,
+  Constant,
+  Method,
+  Identifier,
+  Label,
+  Logicalif,
+  Arithmeticif,
+  Typedec,
+  Assignment,
+  Expression,
+  Equivalence,
+  Return,
+  Goto,
+  Call,
+  Statement,
+  Relationalop,
+  Logicalop,
+  Binaryop,
+  Power,
+  Unaryop,
+  Save,
+  Specification,
+  Substring,
+  End,
+  Write,
+  Read,
+  Stop,
+  ComputedGoto,
+  ArrayAccess,
+  ArrayDec,
+  ArrayIdxRange,
+  EmptyArgList,
+  IoExplist,
+  ImpliedLoop,
+  Unimplemented
+};
+
+/*****************************************************************************
+ * Structure for program units (program, function, subroutine).              *
+ *****************************************************************************/
+
+struct _source
+{
+  enum returntype returns;          /* The return type of this program unit  */
+
+  struct ast_node 
+    *name,                          /* node representing this unit's name    */
+    *progtype,                      /* type of unit (e.g. PROGRAM, FUNCTION) */
+    *typedecs,                      /* type declarations                     */
+    *statements,                    /* executable statements                 */
+    *args,                          /* argument list                         */
+    *equivalences,                  /* list of equivalences                  */
+    *prologComments;                /* comments preceding unit header        */
+
+  SYMTABLE 
+    *type_table,                    /* general symbol table for this unit    */
+    *external_table,                /* external funcs called from this unit  */
+    *intrinsic_table,               /* intrinsic funcs called from this unit */
+    *args_table,                    /* table of this unit's arguments        */
+    *array_table,                   /* variables that are declared as arrays */
+    *format_table,                  /* FORMAT statements                     */
+    *data_table,                    /* variables declared in a DATA stmt     */
+    *save_table,                    /* variables declared in a SAVE stmt     */
+    *common_table,                  /* variables declared in a COMMON stmt   */
+    *parameter_table,               /* variables declared as PARAMETERS      */
+    *equivalence_table;             /* variables that are equivalenced       */
+
+  BOOLEAN 
+    needs_input,                    /* does this unit read any data          */
+    needs_reflection,               /* does this unit call a passed-in func  */
+    needs_blas;                     /* does this unit call any BLAS routines */
+ 
+  int scalarOptStatus;              /* status of optimization on this unit   */
+};
+
+/*****************************************************************************
+ * Structure for expressions and assignment statements.                      *
+ *****************************************************************************/
+
+struct _assignment
+{
+  BOOLEAN parens;                   /* is this expr surrounded by parens     */
+
+  int label;                        /* label for this expr (used w/Jasmin)   */
+
+  char  
+    minus,                          /* unary sign of this expression         */
+    optype,                         /* kind of operation (e.g. +, -, *, etc) */
+    *opcode;                        /* Jasmin opcode for this operation      */
+
+  struct ast_node 
+    *lhs,                           /* left-hand side of expr or assignment  */
+    *rhs;                           /* right-hand side of expr or assignment */
+};
+
+/*****************************************************************************
+ * This structure represents variable declarations.                          *
+ *****************************************************************************/
+
+struct _typeunit
+{
+  enum spectype specification;      /* what kind of declaration this is      */
+
+  enum returntype returns;          /* the data type of this declaration     */
+
+  struct ast_node *declist;         /* list of variables being declared      */
+};
+
+/*****************************************************************************
+ * This structure represents DO loops.                                       *
+ *****************************************************************************/
+
+struct _forloop
+{
+  int 
+    startlabel,                     /* label of beginning of loop (Jasmin)   */
+    stoplabel;                      /* label of end of loop (Jasmin)         */
+
+  struct ast_node 
+    *counter,                       /* the loop variable                     */
+    *Label,                         /* label of the CONTINUE for this loop   */
+    *start,                         /* initial loop assignment (e.g. i = 0)  */
+    *stop,                          /* stop when counter equals stop         */
+    *incr;                          /* amount to increment each iteration    */
+};
+
+/*****************************************************************************
+ * This structure represents constants.                                      *
+ *****************************************************************************/
+
+struct _constant
+{
+  int 
+    type,                           /* data type of this constant            */
+    sign;                           /* sign used for data statements when we * 
+                                     * dont want to allow full expressions,  * 
+                                     * but we need to allow negative         * 
+                                     * constants.  if sign == 1, the         * 
+                                     * constant is negative.                 */
+  char 
+    *opcode,                        /* e.g., iconst_1, bipush 121.23         */
+    number[80];                     /* the constant                          */
+};
+
+/*****************************************************************************
+ * This structure represents labels.                                         *
+ *****************************************************************************/
+
+struct _label
+{
+  int number;                       /* the label number                      */
+  struct ast_node *stmt;            /* the statement after this label        */
+};
+
+/*****************************************************************************
+ * This structure represents identifiers.  An identifier can be a scalar     *
+ * variable, array variable, function name, or subroutine name.              *
+ *****************************************************************************/
+
+struct _ident
+{
+  int 
+    dim,                            /* number of dimensions (for arrays)     */
+    D[3],                           /* num elements in each dim (up to 3)    */
+    len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
+    position,                       /* ident's position in COMMON block      */
+    localvnum;                      /* local variable number (for Jasmin)    */ 
+
+  BOOLEAN
+    passByRef,                      /* is this ident pass by reference       */ 
+    needs_declaration;              /* does this ident need a declaration    */
+
+  struct ast_node 
+    *arraylist,                     /* expression representing array size    */
+    *lead_expr;                     /* leading dimension expression          */
+
+  char 
+    *leaddim,                       /* leading dimension variable or const   */
+    *opcode,	                    /* A string records the appropriate      * 
+                                     * method to invoke on the stack when    * 
+                                     * opcode is emitted.                    * 
+                                     * e.g., opcode = strdup("iload_1");     */
+    *commonBlockName,               /* name of COMMON block this ident is in */
+    name[80],                       /* this ident's name                     */
+    *merged_name;                   /* this ident's merged name (e.g. in     *
+                                     * cases of equivalence or COMMON)       */
+};
+
+/*****************************************************************************
+ * This structure represents Logical IF statements and Block IF statements.  *
+ * A logical if is a one-line IF statement with no ELSE or ELSE IF.          *
+ * For example,                                                              * 
+ *   IF(a.eq.b) x=12                                                         *
+ *                                                                           * 
+ * A Block if is an IF-THEN statement with optional ELSE and ELSE IF         *
+ * blocks.  For example,                                                     *
+ *   IF(a.eq.b) THEN                                                         *
+ *     x=12                                                                  *
+ *   ELSE                                                                    *
+ *     x=0                                                                   *
+ *   END IF                                                                  *
+ *****************************************************************************/
+
+struct _logicalif
+{
+  int 
+    skip_label,                     /* go to this label if expr is FALSE     */
+    fall_label,                     /* fall through label (expr is TRUE)     */
+    break_label;                    /* for block if, the label after all IF, *
+                                     * ELSEIF, and ELSE blocks.              */
+
+  struct ast_node 
+    *conds,                         /* the conditional expression to test    */
+    *stmts,                         /* statements to execute if expr is TRUE */
+    *elseifstmts,                   /* list of ELSE IF statements            */
+    *elsestmts;                     /* stmts to exectue if no IF or ELSE IF  *
+                                     * expression was TRUE                   */
+};
+
+/*****************************************************************************
+ * This structure represents the Arithmetic IF.  The arithmetic IF consists  *
+ * of an expression and three labels.  If the expression evaluates to a      *
+ * negative value, control goes to the statement corresponding to the first  *
+ * label.  If the expression is 0, jump to the second label.  If the         *
+ * expression is positive, jump to the third label.                          *
+ *****************************************************************************/
+
+struct _arithmeticif
+{
+  struct ast_node *cond;            /* the conditional expression            */
+
+  int 
+    neg_label,                      /* branch to this label if expr < 0      */
+    zero_label,                     /* branch to this label if expr == 0     */
+    pos_label;                      /* branch to this label if expr > 0      */
+};
+
+/*****************************************************************************
+ * This structure represents the GOTO statement.                             *
+ *****************************************************************************/
+
+struct _goto
+{
+  int label;                        /*  which label to branch to             */
+};
+
+/*****************************************************************************
+ * This structure represents IO statements (READ and WRITE).                 *
+ *****************************************************************************/
+
+struct _io
+{
+  int 
+    io_type,                        /* is this a READ or WRITE statement     */
+    file_desc,                      /* file descriptor (not currently used)  */
+    format_num,                     /* FORMAT desc for this statement        */
+    end_num;                        /* where to branch on error              */
+
+  struct ast_node 
+    *fmt_list,                      /* inline FORMAT info (w/ WRITE)         */
+    *arg_list;                      /* list of expressions to read or write  */
+};
+
+/*****************************************************************************
+ * This structure represents DATA statements.                                *
+ *****************************************************************************/
+
+struct _data_stmt
+{
+  struct ast_node 
+    *nlist,                         /* list of variable initializations      */
+    *clist;                         /* list of values to initialize with     */
+};
+
+/*****************************************************************************
+ * This structure represents COMMON blocks.                                  *
+ *****************************************************************************/
+
+struct _commonblock
+{
+  char *name;                       /* the name of the common block          */
+  struct ast_node *nlist;           /* list of variables in this block       */
+};
+
+/*****************************************************************************
+ * This structure represents the computed GOTO.  The computed GOTO consists  *
+ * of a list of labels followed by an expression.  The expression is         *
+ * evaluated and control flows to the Nth label in the list, where N is the  *
+ * integer value of the expression.  For example,                            *
+ *   X = 3                                                                   *
+ *   GOTO (10, 20, 30, 40) X                                                 *
+ *****************************************************************************/
+
+struct _computed_goto
+{
+  struct ast_node 
+    *name,                          /* expr that determines where to branch  */
+    *intlist;                       /* list of labels (targets)              */
+};
+
+/*****************************************************************************
+ *  The main data structure, a "tagged union". This represents a node        *
+ * of the AST.                                                               *
+ *****************************************************************************/
 
 typedef struct ast_node
-  {
-
-      int token;
-      enum returntype vartype;
+{
+  int token;                        /* this node's token (from lexer)        */
+  enum returntype vartype;          /* data type of this node                */
       
-      struct ast_node *nextstmt;
-      struct ast_node *prevstmt;
-      struct ast_node *parent;
+  struct ast_node 
+    *nextstmt,                      /* statement or item following this one  */
+    *prevstmt,                      /* statement or item preceding this one  */
+    *parent;                        /* parent of this node                   */
 
-      enum _expr_side
-      {
-	left,
-	right
-      }expr_side;
+  enum _expr_side expr_side;        /* which side this node is on            */
 
-      enum _nodetype
-	{
-	    Source = 1,
-	    Progunit,
-	    Subroutine,
-	    Function,
-            Program,
-	    Blockif,
-            Comment,
-            Common,
-            DataStmt,
-            DataList,
-	    Elseif,
-	    Else,
-	    Forloop,
-            Format,
-	    Constant,
-	    Method,
-	    Identifier,
-	    Label,
-	    Logicalif,
-	    Arithmeticif,
-	    Typedec,
-	    Assignment,
-	    Expression,
-	    Equivalence,
-	    Return,
-	    Goto,
-	    Call,
-	    Statement,
-	    Relationalop,
-	    Logicalop,
-	    Binaryop,
-	    Power,
-	    Unaryop,
-            Save,
-	    Specification,
-	    Substring,
-	    End,
-            Write,
-            Read,
-            Stop,
-            ComputedGoto,
-            ArrayAccess,
-            ArrayDec,
-            ArrayIdxRange,
-            EmptyArgList,
-            IoExplist,
-            ImpliedLoop,
-	    Unimplemented
-	}
-      nodetype;
+  enum _nodetype nodetype;          /* what kind of node this is             */
 
-      union
-	{
-	    struct _source
-	      {
-		  enum returntype returns;
-		  struct ast_node *name;
-		  struct ast_node *progtype;
-		  struct ast_node *typedecs;
-		  struct ast_node *statements;
-		  struct s_table *nametable;
-		  struct ast_node *args;
-                  SYMTABLE *type_table;
-                  SYMTABLE *external_table;
-                  SYMTABLE *intrinsic_table;
-                  SYMTABLE *args_table;
-                  SYMTABLE *array_table; 
-                  SYMTABLE *format_table; 
-                  SYMTABLE *data_table; 
-                  SYMTABLE *save_table; 
-                  SYMTABLE *common_table; 
-                  SYMTABLE *parameter_table; 
-                  SYMTABLE *equivalence_table; 
-                  struct ast_node *equivalences;
-                  struct ast_node *prologComments;
-                  int needs_input;
-                  int needs_reflection;
-                  int needs_blas;
-                  int scalarOptStatus;
-	      }
-	    source;
+  /* 
+   * For any given node, one of the following structures should apply,
+   * depending on the node type.
+   */
 
-	    struct _assignment
-	      {
-		  BOOLEAN parens;
-                  int label;
-		  char minus;
-		  char optype;
-		  char *opcode;
-		  struct ast_node *lhs;
-		  struct ast_node *rhs;
-	      }
-	    assignment, expression;
-
-	    struct _typeunit
-	      {
-		  int tokentype;
-		  enum spectype specification;
-		  enum returntype returns;
-		  struct ast_node *declist;
-	      }
-	    typeunit;
-
-	    struct _forloop
-	      {
-		  /* char indexname[30]; */
-                  int startlabel, stoplabel;
-		  struct ast_node *counter;
-		  struct ast_node *Label;
-		  struct ast_node *start, *stop, *incr;
-	      }
-	    forloop;
-
-	    struct _constant
-	      {
-		  int type;
-		  char *opcode;	/* e.g., iconst_1, bipush 121.23  */
-		  char number[80];
-                  int sign;     /* sign used for data statements when we dont
-                                   want to allow full expressions, but we
-                                   need to allow negative constants.  if
-                                   sign == 1, the constant is negative.
-                                                    9/30/97  --Keith */
-	      }
-	    constant;
-
-	    struct _label
-	      {
-		  int number;
-		  struct ast_node *stmt;
-/* To construct a flow graph, need an array of "called_from"
-   pointers, that point back to the appropriate goto statements. */
-	      }
-	    label;
-
-	    struct _ident
-	      {
-		  struct ast_node *arraylist;
-		  char  * leaddim;
-                  struct ast_node *lead_expr;
-                  int dim;
-                  int D[3];
-		  char *opcode;	/* e.g., opcode = strdup("iload_1"); */
-		  /*  A string records the appropriate method
-		     to invoke on the stack when opcode is
-		     emitted.  */
-		  char *invokemethod;
-                  char *commonBlockName;
-		  int localvnum;
-		  char name[80];
-                  char *merged_name;
-                  int needs_declaration;
-                  int len;
-                  int passByRef;
-                  int isLhs;
-                  int position;
-	      }
-	    ident;
-
-	    struct _logicalif
-	      {
-		  int skip_label, fall_label, break_label;
-		  struct ast_node *conds, *stmts;
-		  struct ast_node *elseifstmts, *elsestmts;
-	      }
-	    logicalif, blockif;
-
-	    struct _arithmeticif
-	      {
-		  int neg_label, zero_label, pos_label;
-		  struct ast_node *cond;
-	      }
-	    arithmeticif;
-
-	    struct _goto
-	      {
-		  int label;
-		  /*  Use for the `label' node.  */
-		  struct ast_node *callingstmt;
-		  /*  Use for the `goto' node.  */
-		  struct ast_node *labelstmt;
-/*  Using the name "targetnode" might be less confusing. */
-	      }
-	    go_to;		/*, label; *//* goto is a reserved word! */
-
-            struct _io
-              {
-                int io_type, file_desc, format_num, end_num;
-                struct ast_node *fmt_list;
-                struct ast_node *arg_list;
-              }
-            io_stmt;
-
-	    struct _data_stmt
-	      {
-		  struct ast_node *nlist;
-		  struct ast_node *clist;
-	      }
-            data, equiv;
-
-	    struct _commonblock
-	      {
-		  char *name;
-		  struct ast_node *nlist;
-	      }
-            common;
-
-	    struct _computed_goto
-	      {
-		  struct ast_node *name;
-		  struct ast_node *intlist;
-	      }
-            computed_goto;
-	}
-      astnode;
-
-
+  union
+  {
+    struct _goto           go_to;             /* goto is a reserved word!    */
+    struct _io             io_stmt;
+    struct _label          label;
+    struct _ident          ident;
+    struct _source         source;
+    struct _forloop        forloop;
+    struct _typeunit       typeunit;
+    struct _constant       constant;
+    struct _commonblock    common;
+    struct _data_stmt      data, equiv;
+    struct _arithmeticif   arithmeticif;
+    struct _computed_goto  computed_goto;
+    struct _logicalif      logicalif, blockif;
+    struct _assignment     assignment, expression;
   }
+  astnode;
+}
 AST;
 
 
-/* A struct to keep track of compiler and translation
-   options.  */
-typedef struct _options 
-{
-  BOOLEAN lapack;
-  BOOLEAN blas;
-  BOOLEAN arrays1D;
-  BOOLEAN arrays2D;
-} OPTIONS;
+/*****************************************************************************
+ * keyword lookup table.                                                     *
+ *****************************************************************************/
 
-/* I don't think I use this struct anymore.  */
-typedef struct _list_node
-  {
-      int token;
-      char name[30];
-  }
-List_node;
-
-
-/* The Fortran lexical analyzer is very context dependent, here we list the
-   various contexts that it knows about.
- */
-
-enum contexts
-  {
-      none = 0,
-      type			/* Need to type the following tokens.  */
-  }
-context;
-
-/* keyword lookup table */
 typedef struct _kwdtab
-  {
-      char *kwd;		/* text of the keyword */
-      int ktok;			/* token code */
-      int klex;			/* lexical value */
-  }
+{
+  char *kwd;                        /* text of the keyword                   */
+  int ktok;                         /* token code                            */
+  int klex;                         /* lexical value                         */
+}
 KWDTAB;
 
-/* Java intrinsic methods.. */
+/*****************************************************************************
+ * Java intrinsic methods.                                                   *
+ *****************************************************************************/
+
 typedef struct method_tab
-  {
-      char *fortran_name;
-      char *java_method;  /*  Some of the jasmin names are long. */
-  }
+{
+  char *fortran_name;               /* name of the Fortran intrinsic         */
+  char *java_method;                /* name of the corresponding Java func   */
+}
 METHODTAB;
 
-/* 
-typedef struct method_tab
-  {
-      char fortran_name[30];
-      char java_method[150];
-  }
-METHODTAB;
-*/
+/*****************************************************************************
+ * Enumeration of the relational operators.                                  *
+ *****************************************************************************/
 
-/* relops */
 enum relops
-  {
-      rel_eq = 1,
-      rel_ne,
-      rel_lt,
-      rel_le,
-      rel_gt,
-      rel_ge
-  };
+{
+  rel_eq = 1,                       /* equals                                */
+  rel_ne,                           /* not equal                             */
+  rel_lt,                           /* less than                             */
+  rel_le,                           /* less than or equal                    */
+  rel_gt,                           /* greater than                          */
+  rel_ge                            /* greater than or equal                 */
+};
+
+/*****************************************************************************
+ * This structure represents a 'substitution'.  This associates an integer   *
+ * value with a variable name.                                               *
+ *****************************************************************************/
 
 typedef struct {
-  char *name;
-  int val;
+  char *name;                       /* variable name                         */
+  int val;                          /* value                                 */
 } SUBSTITUTION;
 
-/*  Prototypes to keep the compiler from complaining.  */
 
-void jasminheader (FILE *, char *);
-void javaheader (FILE *, char *, char *);
-void return_emit (AST *);
-void logicalop_assign(AST *);
-void relationalop_assign(AST *);
-void logicalop_emit(AST *);
-void elseif_emit(AST *);
-void elseif_assign(AST *);
-void else_emit(AST *);
-void else_assign(AST *);
-void store_array_var(AST *);
-void initialize();
-void uppercase(char *);
-void while_emit(AST *);
+/*****************************************************************************
+ * Function prototypes to keep the compiler from complaining.                *
+ *****************************************************************************/
+
+void 
+  jasminheader (FILE *, char *),
+  javaheader (FILE *, char *, char *),
+  return_emit (AST *),
+  logicalop_assign(AST *),
+  relationalop_assign(AST *),
+  logicalop_emit(AST *),
+  elseif_emit(AST *),
+  elseif_assign(AST *),
+  else_emit(AST *),
+  else_assign(AST *),
+  store_array_var(AST *),
+  initialize(),
+  uppercase(char *),
+  while_emit(AST *);
+
 AST *format_item_emit(AST *, AST**);

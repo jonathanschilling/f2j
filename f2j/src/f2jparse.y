@@ -6,76 +6,96 @@
  */
 
 %{
+
+/*****************************************************************************
+ * f2jparse                                                                  *
+ *                                                                           *
+ * This is a yacc parser for a subset of Fortran 77.  It builds an AST       *
+ * which is used by codegen() to generate Java code.                         *
+ *                                                                           *
+ *****************************************************************************/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<ctype.h>
 #include "f2j.h"
 #include<string.h>
 
+/*****************************************************************************
+ * Define YYDEBUG as 1 to get debugging output from yacc.                    *
+ *****************************************************************************/
+
 #define YYDEBUG 0
 
-int debug = FALSE;
+/*****************************************************************************
+ * Global variables.                                                         *
+ *****************************************************************************/
 
-extern char yytext[]; 
-extern enum contexts context;
-extern BOOLEAN typedecs;
+int 
+  debug = FALSE,                  /* set to TRUE for debugging output        */
+  emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
+  len = 1,                        /* keeps track of the size of a data type  */
+  temptok;                        /* temporary token for an inline expr      */
 
-int yylex();
+char
+  tempname[60];                   /* temporary string                        */
 
-char *strdup(const char *);
-char *strcat(char *, const char*);
-void yyerror(char *);
-AST * addnode();
-AST * switchem();
-char funname[30];
-char tempname[60];
-char * tname;
-int temptok;
-char * lowercase(char * );
-void start_vcg();
-void emit();
-void jas_emit();
-void init_tables();
-void addEquiv(AST *);
-AST * tempnode;
-AST * headnode;
-AST * localvarlist; 
-enum returntype typetemp;
+AST 
+  * equivList = NULL,             /* list to keep track of equivalences      */
+  * localvarlist;                 /* list of local variables                 */
 
-SYMTABLE *ident_table; 
-SYMTABLE *jasmin_table;
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
 
-int emittem = 1;
-int len = 1;
+int 
+  yylex(),
+  hash(char *),
+  eval_const_expr(AST *, int),
+  hash_insert (SYMTABLE * , AST *);
 
-AST *equivList = NULL;
+char 
+  * strdup(const char *),
+  * strcat(char *, const char*),
+  * lowercase(char * ),
+  * print_nodetype (AST *),
+  * tok2str(int );
 
-void assign_local_vars(AST *);
-void assign(AST *);
-void typecheck(AST *);
-void optScalar(AST *);
-int hash(char *);
-void type_insert (HASHNODE ** , AST * , int , char *);
-void type_hash(AST *);
-void merge_common_blocks(AST *);
-void arg_table_load(AST *);
-int eval_const_expr(AST *, int);
-char * print_nodetype (AST *);
-int hash_insert (SYMTABLE * , AST *);
-char * tok2str(int );
-void exp_to_double (char *, char *);
-SYMTABLE * new_symtable (int );
+void 
+  yyerror(char *),
+  start_vcg(),
+  emit(),
+  jas_emit(),
+  init_tables(),
+  addEquiv(AST *),
+  assign_local_vars(AST *),
+  assign(AST *),
+  typecheck(AST *),
+  optScalar(AST *),
+  type_insert (HASHNODE ** , AST * , int , char *),
+  type_hash(AST *),
+  merge_common_blocks(AST *),
+  arg_table_load(AST *),
+  exp_to_double (char *, char *);
+
+AST 
+  * addnode(),
+  * switchem();
+
+SYMTABLE 
+  * new_symtable (int );
 
 %}
 
 %union {
-       struct ast_node *ptnode;
-       int tok;
-       enum returntype type;
-       char lexeme[80];
+   struct ast_node *ptnode;
+   int tok;
+   enum returntype type;
+   char lexeme[80];
 }
 
 /* generic tokens */
+
 %token PLUS MINUS OP CP STAR POW DIV CAT CM EQ COLON NL
 %token NOT AND OR
 %token  RELOP EQV NEQV
@@ -84,6 +104,7 @@ SYMTABLE * new_symtable (int );
 %token FLOAT CHARACTER LOGICAL COMPLEX NONE
 
 /* a zillion keywords */
+
 %token IF THEN ELSE ELSEIF ENDIF DO GOTO ASSIGN TO CONTINUE STOP
 %token RDWR END  STRING CHAR
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
@@ -93,15 +114,18 @@ SYMTABLE * new_symtable (int );
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE FMT EDIT_DESC REPEAT
 
+/* these are here to silence conflicts related to parsing comments */
+
 %nonassoc RELOP 
 %nonassoc LOWER_THAN_COMMENT
 %nonassoc COMMENT
 
 /*  All of my additions or changes to Levine's code. These 
-non-terminals are in alphabetic order because I have had to 
-change the grammar quite a bit.  It is tiring trying to root
-out the location of a non-terminal, much easier to find when
-in alphabetic order. */
+ * non-terminals are in alphabetic order because I have had to 
+ * change the grammar quite a bit.  It is tiring trying to root
+ * out the location of a non-terminal, much easier to find when
+ * in alphabetic order. 
+ */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
 %type <ptnode> Arrayindexlist Arithmeticif
@@ -134,7 +158,6 @@ in alphabetic order. */
 
 %%
 
-/*  The new stuff is here.  */
 F2java:   Sourcecodes
           {
             AST *temp, *prev, *commentList = NULL;
@@ -198,10 +221,15 @@ Sourcecodes:   Sourcecode
                    printf("Sourcecodes -> Sourcecode\n"); 
                  $$=$1;
 
+                 /* insert the name of the program unit into the
+                  * global function table.  this will allow optScalar()
+                  * to easily get a pointer to a function. 
+                  */
+
                  if(omitWrappers && ($1->nodetype != Comment)) {
                    temp = $1->astnode.source.progtype->astnode.source.name;
 
-                   hashid =temp->astnode.ident.name;
+                   hashid = temp->astnode.ident.name;
                    index = hash(hashid) % global_func_table->num_entries;
                    type_insert(&(global_func_table->entry[index]), $1, 0,
                      temp->astnode.ident.name);
@@ -217,6 +245,11 @@ Sourcecodes:   Sourcecode
                    printf("Sourcecodes -> Sourcecodes Sourcecode\n");
                  $2->prevstmt = $1; 
                  $$=$2;
+
+                 /* insert the name of the program unit into the
+                  * global function table.  this will allow optScalar()
+                  * to easily get a pointer to a function. 
+                  */
 
                  if(omitWrappers && ($2->nodetype != Comment)) {
                    temp = $2->astnode.source.progtype->astnode.source.name;
@@ -262,6 +295,10 @@ Fprogram:   Program Specstmts Statements End
 
                 $$ = addnode();
 
+                /* store the tables built during parsing into the
+                 * AST node for access during code generation.
+                 */
+
                 $$->astnode.source.type_table = type_table;
                 $$->astnode.source.external_table = external_table;
                 $$->astnode.source.intrinsic_table = intrinsic_table;
@@ -273,6 +310,8 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
+
+                /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
@@ -315,6 +354,10 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 
+                /* store the tables built during parsing into the
+                 * AST node for access during code generation.
+                 */
+
                 $$->astnode.source.type_table = type_table;
                 $$->astnode.source.external_table = external_table;
                 $$->astnode.source.intrinsic_table = intrinsic_table;
@@ -327,6 +370,8 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
 
+                /* initialize some values in this node */
+
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
@@ -337,6 +382,11 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
+
+                /* foreach arg to this program unit, store the array 
+                 * size, if applicable, from the hash table into the
+                 * node itself.
+                 */
 
                 for(temp=$1->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
                 {
@@ -366,6 +416,10 @@ Ffunction:   Function Specstmts Statements  End
 
                 $$ = addnode();
 
+                /* store the tables built during parsing into the
+                 * AST node for access during code generation.
+                 */
+
                 $$->astnode.source.type_table = type_table;
                 $$->astnode.source.external_table = external_table;
                 $$->astnode.source.intrinsic_table = intrinsic_table;
@@ -377,6 +431,8 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.equivalences = equivList; 
+
+                /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
@@ -393,6 +449,11 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.typedecs = $2;
 		$4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
+
+                /* foreach arg to this program unit, store the array 
+                 * size, if applicable, from the hash table into the
+                 * node itself.
+                 */
 
                 for(temp=$1->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
                 {
@@ -414,6 +475,7 @@ Program:      PROGRAM Name NL
               {
                  if(debug)
                    printf("Program ->  PROGRAM Name\n");
+
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
@@ -421,6 +483,7 @@ Program:      PROGRAM Name NL
                  $$->nodetype = Program;
                  $$->token = PROGRAM;
                  $$->astnode.source.args = NULL;
+
                  init_tables();
 
                  fprintf(stderr," MAIN %s:\n",$2->astnode.ident.name);
@@ -431,6 +494,7 @@ Subroutine: SUBROUTINE Name Functionargs NL
               {
                  if(debug)
                    printf("Subroutine ->  SUBROUTINE Name Functionargs NL\n");
+
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
                  if($3 != NULL)
@@ -453,6 +517,7 @@ Subroutine: SUBROUTINE Name Functionargs NL
               {
                  if(debug)
                    printf("Subroutine ->  SUBROUTINE Name NL\n");
+
                  init_tables();
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
@@ -491,6 +556,12 @@ Function:  Type FUNCTION Name Functionargs NL
                $$->astnode.source.args = switchem($4);
 
              if(omitWrappers) {
+
+               /* since the function name is the implicit return value
+                * and it can be treated as a variable, we insert it into
+                * the hash table for lookup later.
+                */
+
                hashid = $3->astnode.ident.name;
 
                /*  Hash...  */
@@ -664,6 +735,8 @@ CommonSpec: DIV Name DIV Namelist
               $$->astnode.common.nlist = switchem($4);
 
               pos = 0;
+
+              /* foreach variable in the COMMON block... */
               for(temp=$$->astnode.common.nlist;temp!=NULL;temp=temp->nextstmt)
               {
                 temp->astnode.ident.commonBlockName = 
@@ -672,6 +745,7 @@ CommonSpec: DIV Name DIV Namelist
                 if(omitWrappers)
                   temp->astnode.ident.position = pos++;
 
+                /* insert this name into the common table */
                 idx = hash(temp->astnode.ident.name)%common_table->num_entries;
                 if(debug)
                   printf("@insert %s (block = %s) into common table (idx=%d)\n",
@@ -689,13 +763,19 @@ CommonSpec: DIV Name DIV Namelist
               AST *temp;
               int idx;
 
+              /* This is an unnamed common block */
+
               $$ = addnode();
               $$->nodetype = Common;
               $$->astnode.common.name = strdup("Blank");
               $$->astnode.common.nlist = switchem($2);
 
+              /* foreach variable in the COMMON block... */
               for(temp=$2;temp!=NULL;temp=temp->prevstmt) {
                 temp->astnode.ident.commonBlockName = "Blank";
+
+                /* insert this name into the common table */
+
                 idx = hash(temp->astnode.ident.name) % common_table->num_entries;
                 if(debug)
                   printf("@@insert %s (block = unnamed) into common table\n",
@@ -709,6 +789,8 @@ CommonSpec: DIV Name DIV Namelist
                  $$->astnode.common.name);
            }
 ;
+
+/* SAVE is ignored by the code generator. */
 
 Save: SAVE NL
        {
@@ -917,50 +999,21 @@ LoopBounds:  Integer CM Integer
              }
 ;
 
-/*
-Constantlist: DataElement
-              { 
-                $$ = $1;
-              }
-            | Constantlist CM DataElement
-              {
-                $3->prevstmt = $1;
-                $$ = $3;
-              }
-;
-
-DataElement:  DataConstant
-              {
-                $$ = $1;
-              }
-           |  DataConstant STAR DataConstant
-              {
-                $$=addnode();
-                $$->astnode.expression.lhs = $1;
-                $$->astnode.expression.rhs = $3;
-                $$->nodetype = Binaryop;
-                $$->astnode.expression.optype = '*';
-              }
-;
-
-DataConstant: Constant
-              {
-                $$ = $1;
-              }
-           |  MINUS Constant
-              {
-                $$ = $2;
-                $$->astnode.constant.sign = 1;
-              }
-;
-*/
-
 /*  Here is where the fun begins.  */
+
 /*  No newline token here.  Newlines have to be dealt with at 
-    a lower level.
+ *  a lower level.
  */
-Statements:    Statement  { $$ = $1; }
-             | Statements  Statement { $2->prevstmt = $1; $$ = $2; }
+
+Statements:    Statement  
+               {  
+                 $$ = $1; 
+               }
+             | Statements  Statement 
+               { 
+                 $2->prevstmt = $1; 
+                 $$ = $2; 
+               }
 ;
 
 Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
@@ -1215,10 +1268,8 @@ Name:    NAME
            $$->astnode.ident.needs_declaration = FALSE;
            $$->astnode.ident.lead_expr = NULL;
 
-           if(omitWrappers) {
+           if(omitWrappers)
              $$->astnode.ident.passByRef = FALSE;
-             $$->astnode.ident.isLhs     = FALSE;
-           }
 
            lowercase(yylval.lexeme);
 
@@ -1235,25 +1286,7 @@ Name:    NAME
              $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
            }
          }
-
-/*
-       | Char {$$ = $1;}
-       | String {$$ = $1;}
-*/
-
 ;
-
-/*
-Char:     CHAR
-         {
-           $$=addnode();
-           $$->token = CHAR; 
-           $$->nodetype = Identifier;
-           $$->astnode.ident.lead_expr = NULL;
-           strcpy($$->astnode.ident.name, yylval.lexeme);
-         }
-;
-*/
 
 String:  STRING
          {
@@ -1355,24 +1388,27 @@ Arraynamelist:    Arrayname
                   }
 ;
 
-Arrayname: Exp {$$ = $1; }
-         | Star {$$=$1;}
-         | Exp COLON Exp { 
+Arrayname: Exp 
+           {
+             $$ = $1; 
+           }
+         | Star 
+           {
+             $$=$1;
+           }
+         | Exp COLON Exp 
+           {
              $$ = addnode();
              $$->nodetype = ArrayIdxRange;
              $$->astnode.expression.lhs = $1;
              $$->astnode.expression.rhs = $3;
            }
-/*
-Arrayname:   Name {$$=$1;}
-           | Star {$$=$1;}
-           | Integer {$$=$1;}
-;
-*/
 
 /*  We reduce STAR here, make changes in the Binaryops
-    reductions for that.  This handles the fortran array
-    declaration, e.g., array(*).  */
+ *  reductions for that.  This handles the fortran array
+ *  declaration, e.g., array(*).  
+ */
+
 Star:  STAR 
        {
          $$=addnode();
@@ -1391,20 +1427,12 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
                           *  declaration, where it is not followed by a NL.
                           */
              { 
-                HASHNODE *ht;
-
                 $$ = addnode();
                 $1->parent = $$; /* 9-4-97 - Keith */
                 $3->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Assignment;
                 $$->astnode.assignment.lhs = $1;
                 $$->astnode.assignment.rhs = $3;
-
-                if(omitWrappers) {
-                  ht = type_lookup(type_table, $1->astnode.ident.name);
-                  if(ht)
-                    ht->variable->astnode.ident.isLhs = TRUE;                    
-                }
              }
 ;
 
@@ -1480,7 +1508,8 @@ Arrayindexlist:   Exp
 ;
 
 /*  New do loop productions.  Entails rewriting in codegen.c
-    to emit java source code.  */
+ *  to emit java source code.  
+ */
 
 Doloop:   Do_incr Do_vals
           {
@@ -1556,7 +1585,8 @@ Label: Integer Statement
        }
 
 /*  The following productions for FORMAT parsing are derived
-    from Robert K. Moniot's grammar (see ftnchek-2.9.4) */
+ *  from Robert K. Moniot's grammar (see ftnchek-2.9.4) 
+ */
 
 Format: FORMAT OP FormatExplist CP
        {
@@ -1730,9 +1760,8 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
        }
 ;
 
-/* 
-   Maybe I'll implement this stuff someday. 
-*/
+/* Maybe I'll implement this stuff someday. */
+
 WriteFileDesc: 
       Exp
        {
@@ -1854,8 +1883,9 @@ EndSpec: END EQ Integer
 ;
 
 /*  Got a problem when a Blockif opens with a Blockif.  The
-    first statement of the second Blockif doesn't get into the
-    tree.  Might be able to use do loop for example to fix this. */
+ *  first statement of the second Blockif doesn't get into the
+ *  tree.  Might be able to use do loop for example to fix this. 
+ */
 
 Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
            {
@@ -1870,9 +1900,11 @@ Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
              $$->astnode.blockif.conds = $3;
              if($7 != 0) $7 = switchem($7);
              $$->astnode.blockif.stmts = $7;
+
              /*  If there are any `else if' statements,
-                 switchem. Otherwise, NULL pointer checked
-                 in code generating functions. */
+              *  switchem. Otherwise, NULL pointer checked
+              *  in code generating functions. 
+              */
              if($8 != 0) $8 = switchem($8); 
              $$->astnode.blockif.elseifstmts = $8; /* Might be NULL. */
              $$->astnode.blockif.elsestmts = $9;   /* Might be NULL. */
@@ -1941,45 +1973,6 @@ Arithmeticif: IF OP Exp CP Integer CM Integer CM Integer NL
                 $$->astnode.arithmeticif.pos_label  = atoi($9->astnode.constant.number);
               }
 ;
-
-/******************************************************************
-
-changed Logicalif production to IF OP Exp CP Statement, so there's
- no longer a need for this production.
-
-Logicalifstmts:  Assignment NL 
-                 {
-                   $$=$1;
-                   $$->nodetype = Assignment;
-                 }
-                | Return
-                  {
-                    $$=$1;
-
-                    if(debug) 
-                       printf("Return from lif.\n");
-
-                    $$->nodetype = Return;
-                    $$->token = RETURN;
-                  }
-                | Goto 
-                  {
-                    $$=$1;
-                    $$->nodetype = Goto;
-                  }
-                | Call 
-                  {
-                    $$=$1;
-                    $$->nodetype = Call;
-                  }
-                | Write 
-                  {
-                    $$=$1;
-                    $$->nodetype = Write;
-                  }
-;
-
-*******************************************************************/
 
 /* 
  * This _may_ have to be extended to deal with 
@@ -2358,7 +2351,8 @@ Complex: OP Constant CM Constant CP {$$=addnode();}
 */
 
 /* `TRUE' and `FALSE' have already been typedefed
-   as BOOLEANs.  */
+ * as BOOLEANs.  
+ */
 Boolean:  TrUE
              {
                $$ = addnode();
@@ -2431,19 +2425,19 @@ Double:       DOUBLE
 ;
                
 /*  Since jasmin doesn't have an EXPONENTIAL data type,
-    the function exp_to_double rewrite numbers in the
-    nn.dde+nn as floats.  The float is written back into
-    the string temp.  
-
-    For small numbers, exp_to_double isn't good.  e.g., 
-    something like 5.5e-15 would be transformed into
-    "0.00000".
-    
-    I'll just change the 'D' to 'e' and emit as-is for
-    Java.  With Jasmin, I'll still use exp_to_double
-    for now, but it will be wrong.
-
-    3/11/98  -- Keith 
+ *  the function exp_to_double rewrite numbers in the
+ *  nn.dde+nn as floats.  The float is written back into
+ *  the string temp.  
+ *
+ *  For small numbers, exp_to_double isn't good.  e.g., 
+ *  something like 5.5e-15 would be transformed into
+ *  "0.00000".
+ *  
+ *  I'll just change the 'D' to 'e' and emit as-is for
+ *  Java.  With Jasmin, I'll still use exp_to_double
+ *  for now, but it will be wrong.
+ *
+ *  3/11/98  -- Keith 
  */
 
 Exponential:   EXPONENTIAL
@@ -2595,61 +2589,86 @@ Intrinsic: INTRINSIC Namelist NL
 %%
 
 
-/* The standard error routine, which is not currently implemented. */
+/*****************************************************************************
+ *                                                                           *
+ * yyerror                                                                   *
+ *                                                                           *
+ * The standard error routine, which is not currently implemented.           *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 yyerror(char *s)
 {
   printf("%d: %s\n", lineno, s);
 }
 
-/* To keep things simple, there is only one type of parse tree
-   node.  If there is any way to ensure that all the pointers
-   in this are NULL, it would be a good idea to do that.  I am
-   not sure what the default behavior is.
-   */
+
+/*****************************************************************************
+ *                                                                           *
+ * addnode                                                                   *
+ *                                                                           *
+ * To keep things simple, there is only one type of parse tree               *
+ * node.  If there is any way to ensure that all the pointers                *
+ * in this are NULL, it would be a good idea to do that.  I am               *
+ * not sure what the default behavior is.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
 AST * 
 addnode() 
 {
-AST * newnode;
+  AST * newnode;
 
-    if ((newnode = (AST*)calloc(1,sizeof(AST))) == NULL) 
-    {
-        perror("calloc\n");
-        exit(1);
-    }
-    return newnode;
+  if ((newnode = (AST*)calloc(1,sizeof(AST))) == NULL) 
+  {
+    perror("calloc\n");
+    exit(1);
+  }
+
+  return newnode;
 } 
 
 
-/*  
- * Need to turn the linked list around,
- * so that it can traverse forward instead of in reverse.
- * What I do here is create a doubly linked list. 
- * Note that there is no `sentinel' or `head' node
- * in this list.  It is acyclic and terminates in 
- * NULL pointers.
- */
+/*****************************************************************************
+ *                                                                           *
+ * switchem                                                                  *
+ *                                                                           *
+ * Need to turn the linked list around,                                      *
+ * so that it can traverse forward instead of in reverse.                    *
+ * What I do here is create a doubly linked list.                            *
+ * Note that there is no `sentinel' or `head' node                           *
+ * in this list.  It is acyclic and terminates in                            *
+ * NULL pointers.                                                            *
+ *                                                                           *
+ *****************************************************************************/
 
 AST * 
 switchem(AST * root) 
 {
 
-if (root->prevstmt == NULL) 
-return root;
+  if (root->prevstmt == NULL) 
+    return root;
 
-  while ( root->prevstmt != 0) 
-    {
-      root->prevstmt->nextstmt = root;
-      root = root->prevstmt;
-    }
+  while (root->prevstmt != 0) 
+  {
+    root->prevstmt->nextstmt = root;
+    root = root->prevstmt;
+  }
+
   return root;
 }
 
-/* 
- * For now, type_hash takes a tree (linked list) of type
- * declarations from the Decblock rule.  It will need to
- * get those from Intrinsic, External, Parameter, etc.
- */
+/*****************************************************************************
+ *                                                                           *
+ * type_hash                                                                 *
+ *                                                                           *
+ * For now, type_hash takes a tree (linked list) of type                     *
+ * declarations from the Decblock rule.  It will need to                     *
+ * get those from Intrinsic, External, Parameter, etc.                       *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 type_hash(AST * types)
 {
@@ -2719,87 +2738,124 @@ type_hash(AST * types)
 }      /* Close type_hash().       */
 
 
-/*  Since jasmin doesn't have any EXPONENTIAL data types, these
-   have to be turned into floats.  exp_to_double really just
-   replaces instances of 'd' and 'D' in the exponential number
-   with 'e' so that c can convert it on a string scan and
-   string print.  Java does recognize numbers of the
-   form 1.0e+1, so the `d' and `d' need to be replaced with
-   `e'.  For now, leave as double for uniformity with jasmin.  */
+/*****************************************************************************
+ *                                                                           *
+ * exp_to_double                                                             *
+ *                                                                           *
+ *  Since jasmin doesn't have any EXPONENTIAL data types, these              *
+ * have to be turned into floats.  exp_to_double really just                 *
+ * replaces instances of 'd' and 'D' in the exponential number               *
+ * with 'e' so that c can convert it on a string scan and                    *
+ * string print.  Java does recognize numbers of the                         *
+ * form 1.0e+1, so the `d' and `d' need to be replaced with                  *
+ * `e'.  For now, leave as double for uniformity with jasmin.                *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 exp_to_double (char *lexeme, char *temp)
 {
-    float tempnum;
-    char *cp = lexeme;
-    while (*cp)                /* While *cp != '\0'...  */
-      {
-         if (*cp == 'd' ||     /*  sscanf can recognize 'E'. */
-             *cp == 'D')
-           {
-              *cp = 'e';       /* Replace the 'd' or 'D' with 'e'. */
-              break;           /* Should be only one 'd', 'D', etc. */
-           }
-         cp++;                 /* Examine the next character. */
-      }
-    /* Java should be able to handle exponential notation as part
-       of the float or double constant. */
-   if(JAS) {
-     sscanf(lexeme,"%e", &tempnum); /* Read the string into a number.  */
-     sprintf(temp,"%f", tempnum);   /* Reformat the number into a string. */
-   } else {
-     strcpy(temp,lexeme);
-   }
+  float tempnum;
+  char *cp = lexeme;
 
+  while (*cp)           /* While *cp != '\0'...  */
+  {
+    if (*cp == 'd' ||   /*  sscanf can recognize 'E'. */
+        *cp == 'D')
+    {
+       *cp = 'e';       /* Replace the 'd' or 'D' with 'e'. */
+       break;           /* Should be only one 'd', 'D', etc. */
+    }
+    cp++;               /* Examine the next character. */
+  }
+
+  /* Java should be able to handle exponential notation as part
+   * of the float or double constant. 
+   */
+
+ if(JAS) {
+   sscanf(lexeme,"%e", &tempnum); /* Read the string into a number.  */
+   sprintf(temp,"%f", tempnum);   /* Reformat the number into a string. */
+ } else {
+   strcpy(temp,lexeme);
+ }
 }  /*  Close exp_to_double().  */
 
 
-/* Initialize and fill a table with the names of the
-   variables passed in as arguments to the function or
-   subroutine.  This table is later checked when variable
-   types are declared so that variables are not declared
-   twice.  */
+/*****************************************************************************
+ *                                                                           *
+ * arg_table_load                                                            *
+ *                                                                           *
+ * Initialize and fill a table with the names of the                         *
+ * variables passed in as arguments to the function or                       *
+ * subroutine.  This table is later checked when variable                    *
+ * types are declared so that variables are not declared                     *
+ * twice.                                                                    *  
+ *                                                                           *
+ *****************************************************************************/
 
 void
 arg_table_load(AST * arglist)
 {
-   char * hashid;
-   int index;
-   AST * temp;
-   extern SYMTABLE * args_table;
+  char * hashid;
+  int index;
+  AST * temp;
+  extern SYMTABLE * args_table;
 
-   /* We traverse down `prevstmt' because the arglist is
-      built with right recursion, i.e. in reverse.  This
-      procedure, 'arg_table_load()' is called when the non-
-      terminal `functionargs' is reduced, before the
-      argument list is reversed. Note that a NULL pointer
-      at either end of the list terminates the for() loop. */
+  /* We traverse down `prevstmt' because the arglist is
+   * built with right recursion, i.e. in reverse.  This
+   * procedure, 'arg_table_load()' is called when the non-
+   * terminal `functionargs' is reduced, before the
+   * argument list is reversed. Note that a NULL pointer
+   * at either end of the list terminates the for() loop. 
+   */
+
    for(temp = arglist; temp; temp = temp->nextstmt)
-     {
-       hashid = temp->astnode.ident.name;
-       index = hash(hashid) % args_table->num_entries;
-       type_insert(&(args_table->entry[index]), temp, 0,
-             temp->astnode.ident.name);
-       if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
-     }
-
+   {
+     hashid = temp->astnode.ident.name;
+     index = hash(hashid) % args_table->num_entries;
+     type_insert(&(args_table->entry[index]), temp, 0,
+           temp->astnode.ident.name);
+     if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
+   }
 }
 
+
+/*****************************************************************************
+ *                                                                           *
+ * lowercase                                                                 *
+ *                                                                           *
+ * This function takes a string and converts all characters to               *
+ * lowercase.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 char * lowercase(char * name)
 {
   char *ptr = name;
 
   while (*name)
-    {
-     *name = tolower(*name);
-      name++;
-    }
+  {
+    *name = tolower(*name);
+     name++;
+  }
+
   return ptr;
 }
 
 
-/* Horribly kludged routines with massive loop of
-   duplicated code.  */
+/*****************************************************************************
+ *                                                                           *
+ * assign_local_vars                                                         *
+ *                                                                           *
+ * This routine numbers the local variables for generating Jasmin            *
+ * assembly code.                                                            *
+ *                                                                           *
+ * Horribly kludged routines with massive loop of                            *
+ * duplicated code.                                                          *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 assign_local_vars(AST * root)
 {
@@ -2809,103 +2865,119 @@ assign_local_vars(AST * root)
   static int localnum = 0;
   extern int locals;
 
-locallist = root;
+  locallist = root;
 
-if (root->nodetype == Typedec || root->nodetype == Specification)
+  if (root->nodetype == Typedec || root->nodetype == Specification)
   {
     for (; locallist; locallist = locallist->nextstmt)
+    {
+      declist = locallist->astnode.typeunit.declist;
+      for (; declist; declist = declist->nextstmt)
       {
-	declist = locallist->astnode.typeunit.declist;
-	for (; declist; declist = declist->nextstmt)
-	  {
-	    if(debug)printf("dec list name: %s\n", declist->astnode.ident.name);
-            hashtemp = type_lookup(type_table, declist->astnode.ident.name);
-            if(hashtemp == NULL)
-	     {
-	       fprintf(stderr,"Type table is screwed in assign locals.\n");
-	       exit(-1);
-             }
-            if(hashtemp->localvarnum > -1)
-	      {
-	       /* printf("Duplicate local found.\n"); */
-	       continue;
-	      }
-  
-             /* Check to see if it is a double, but make sure it isn't
-	        an array of doubles. */
-            if (hashtemp->type == Double &&
-	    hashtemp->variable->astnode.ident.arraylist == NULL)
-            {
-              hashtemp->localvarnum = localnum;
-              hashtemp->variable->astnode.ident.localvnum = localnum;
-	      if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
-              localnum += 2;
-           }
-           else
-           {
-             hashtemp->localvarnum = localnum;
-              hashtemp->variable->astnode.ident.localvnum = localnum;
-	     if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
-             localnum++;
-           }
+        if(debug)printf("dec list name: %s\n", declist->astnode.ident.name);
+        hashtemp = type_lookup(type_table, declist->astnode.ident.name);
+        if(hashtemp == NULL)
+        {
+          fprintf(stderr,"Type table is screwed in assign locals.\n");
+          exit(-1);
+        }
+        if(hashtemp->localvarnum > -1)
+        {
+          /* printf("Duplicate local found.\n"); */
+          continue;
+        }
+        /* Check to see if it is a double, but make sure it isn't
+         * an array of doubles. */
+        if (hashtemp->type == Double &&
+            hashtemp->variable->astnode.ident.arraylist == NULL)
+        {
+          hashtemp->localvarnum = localnum;
+          hashtemp->variable->astnode.ident.localvnum = localnum;
+          if(debug)
+            printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
+          localnum += 2;
+        }
+        else
+        {
+          hashtemp->localvarnum = localnum;
+          hashtemp->variable->astnode.ident.localvnum = localnum;
+          if(debug)
+            printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
+          localnum++;
         }
       }
+    }
   }
 
 /*  I added this else {} to block this code out.  It was
-    executing after the previous loop.  Also, for some 
-    reason, the `localvnum' field of the of the hashed
-    ident structure is not being initialized properly. */
- else 
+ *  executing after the previous loop.  Also, for some 
+ *  reason, the `localvnum' field of the of the hashed
+ *  ident structure is not being initialized properly. 
+ */
+
+  else 
   {
 	
-/*  This loop takes care of the stuff coming in from the
-    argument list.  */
-  for (; locallist; locallist = locallist->nextstmt)
+    /* This loop takes care of the stuff coming in from the
+     * argument list.  
+     */
+    for (; locallist; locallist = locallist->nextstmt)
     {
 
-      if(debug)printf("arg list name: %s\n", locallist->astnode.ident.name);
+      if(debug)
+        printf("arg list name: %s\n", locallist->astnode.ident.name);
+
       hashtemp = type_lookup(type_table, locallist->astnode.ident.name);
       if(hashtemp == NULL)
-	{
-	  fprintf(stderr,"Type table is screwed in assign locals.\n");
-	  exit(-1);
-	}
+      {
+        fprintf(stderr,"Type table is screwed in assign locals.\n");
+        exit(-1);
+      }
       if(hashtemp->localvarnum > -1)
-	{
-	  /* printf("Duplicate local found.\n"); */
-	  continue;
-	}
+      {
+        /* printf("Duplicate local found.\n"); */
+        continue;
+      }
   
       /* Check to see if it is a double, but make sure it isn't
-	 an array of doubles. */
+       * an array of doubles. 
+       */
+
       if (hashtemp->type == Double &&
-	  hashtemp->variable->astnode.ident.arraylist == NULL)
-        {
-          hashtemp->localvarnum = localnum;
-              hashtemp->variable->astnode.ident.localvnum = localnum;
-	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, 
-                                     localnum);
-          localnum += 2;
-        }
+          hashtemp->variable->astnode.ident.arraylist == NULL)
+      {
+        hashtemp->localvarnum = localnum;
+        hashtemp->variable->astnode.ident.localvnum = localnum;
+        if(debug)
+          printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
+        localnum += 2;
+      }
       else
-        {
-          hashtemp->localvarnum = localnum;
-              hashtemp->variable->astnode.ident.localvnum = localnum;
-	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, 
-                                     localnum); 
-          localnum++;
-        }
-     }
+      {
+        hashtemp->localvarnum = localnum;
+        hashtemp->variable->astnode.ident.localvnum = localnum;
+        if(debug)
+          printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
+        localnum++;
+      }
+    }
   }
-locals = localnum;
+
+  locals = localnum;
 } /* Close assign_local_vars().  */
 
 
-/* We need to make a table of array variables, because
-   fortran accesses arrays by columns instead of rows
-   as C and java does.  During code generation, the array
-   variables are emitted in reverse to get row order. */
+/*****************************************************************************
+ *                                                                           *
+ * store_array_var                                                           *
+ *                                                                           *
+ * We need to make a table of array variables, because                       *
+ * fortran accesses arrays by columns instead of rows                        *
+ * as C and java does.  During code generation, the array                    *
+ * variables are emitted in reverse to get row order.                        *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 store_array_var(AST * var)
 {
@@ -2922,10 +2994,15 @@ store_array_var(AST * var)
     printf("Array name: %s\n", var->astnode.ident.name);
 }
 
-/*
- * integer power function.  writing this here so that we
- * dont have to include the math library.
- */
+/*****************************************************************************
+ *                                                                           *
+ * mypow                                                                     *
+ *                                                                           *
+ * Integer power function.  writing this here so that we                     *
+ * dont have to include the math library.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
 int
 mypow(int x, int y)
 {
@@ -2949,6 +3026,15 @@ mypow(int x, int y)
   return x;
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * init_tables                                                               *
+ *                                                                           *
+ * This function initializes all the symbol tables we'll need during         *
+ * parsing and code generation.                                              *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 init_tables()
 {
@@ -2964,6 +3050,19 @@ init_tables()
   args_table      = (SYMTABLE *) new_symtable(211);
   equivList       = NULL;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * merge_common_blocks                                                       *
+ *                                                                           *
+ * In Fortran, different declarations of the same COMMON block may use       *
+ * differently named variables.  Since f2j is going to generate only one     *
+ * class file to represent the COMMON block, we can only use one of these    *
+ * variable names.  What we attempt to do here is take the different names   *
+ * and merge them into one name, which we use wherever that common variable  *
+ * is used.                                                                  *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 merge_common_blocks(AST *root)
@@ -2994,10 +3093,16 @@ merge_common_blocks(AST *root)
       exit(1);
     }
 
+    /* foreach COMMON variable */
+
     for(temp=Clist->astnode.common.nlist, count = 0; 
                temp!=NULL; temp=temp->nextstmt, count++) 
     {
       var = temp->astnode.ident.name;
+
+      /* to merge two names we concatenate the second name
+       * to the first name, separated by an underscore.
+       */
 
       if(ht != NULL) {
         comvar = ((char **)ht->variable)[count];
@@ -3043,10 +3148,21 @@ merge_common_blocks(AST *root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * addEquiv                                                                  *
+ *                                                                           *
+ * Insert the given node (which is itself a list of variables) into a list   *
+ * of equivalences.  We end up with a list of lists.                         *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 addEquiv(AST *node)
 {
   static int id = 1;
+
+  /* if the list is NULL, create one */
 
   if(equivList == NULL) {
     equivList = addnode(); 
@@ -3069,6 +3185,15 @@ addEquiv(AST *node)
     equivList = temp;
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * eval_const_expr                                                           *
+ *                                                                           *
+ * This function evaluates an integer expression which should consist of     *
+ * only parameters and constants.  The integer value is returned.            *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 eval_const_expr(AST *root, int dims)

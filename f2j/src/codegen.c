@@ -5846,18 +5846,48 @@ write_emit(AST * root)
   char tmp[100];
   CPNODE *c;
 
-  void format_list_emit(AST *, AST **),
+  void format_emit(AST *, AST **),
        write_implied_loop_emit(AST *);
+
+  if(root->astnode.io_stmt.format_num != NULL) {
+    /* look for a format statement */
+    sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
+    if(gendebug)
+      printf("***Looking for format statement number: %s\n",tmp);
+
+    hnode = format_lookup(cur_format_table,tmp);
+  }
+  else
+    hnode = NULL;
 
   /* check if there are no args to this WRITE statement */
   if((root->astnode.io_stmt.arg_list == NULL) &&
      (root->astnode.io_stmt.fmt_list == NULL))
   {
-    fprintf(curfp,"System.out.println();\n");
     c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
     bytecode1(jvm_getstatic, c->index);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+
+    if(hnode) {
+      nodeptr = root->astnode.io_stmt.arg_list; 
+
+      fprintf (curfp, "System.out.println(");
+      format_emit(hnode->variable->astnode.label.stmt,&nodeptr);
+      fprintf(curfp,");\n");
+
+      c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+             TOSTRING_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+          println_descriptor[String]);
+    }
+    else {
+      fprintf(curfp,"System.out.println();\n");
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+    }
+
     bytecode1(jvm_invokevirtual, c->index);
+
     return;
   }
 
@@ -5875,13 +5905,6 @@ write_emit(AST * root)
       break;
     }
       
-  /* look for a format statement */
-  sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
-  if(gendebug)
-    printf("***Looking for format statement number: %s\n",tmp);
-
-  hnode = format_lookup(cur_format_table,tmp);
-
   /* check if this WRITE statement has only one arg.  treat this as
    * a special case because we do not need to generate a StringBuffer
    * if there's only one arg.
@@ -5923,7 +5946,7 @@ write_emit(AST * root)
 
     nodeptr = root->astnode.io_stmt.arg_list; 
 
-    format_list_emit(hnode->variable->astnode.label.stmt,&nodeptr);
+    format_emit(hnode->variable->astnode.label.stmt,&nodeptr);
   }
   else {
     if(gendebug)
@@ -6297,6 +6320,32 @@ gen_istore_op(int lvnum)
 
 /*****************************************************************************
  *                                                                           *
+ * format_emit                                                               *
+ *                                                                           *
+ * this function sets up the StringBuffer to hold this WRITE statement's     *
+ * text and calls format_list_emit() to emit the string.                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+format_emit(AST *node, AST **nptr)
+{
+  CPNODE *c;
+
+  void format_list_emit(AST *, AST **);
+
+  /* create a new stringbuffer with no initial value.  */
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
+  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", "()V");
+  bytecode1(jvm_invokespecial, c->index);
+
+  format_list_emit(node,nptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * format_list_emit                                                          *
  *                                                                           *
  * This function loops through each format item and generates the            *
@@ -6325,7 +6374,9 @@ format_list_emit(AST *node, AST **nptr)
 AST *
 format_item_emit(AST *temp, AST **nodeptr)
 {
+  CPNODE *c;
   int i;
+
   void format_list_emit(AST *, AST **);
   void format_name_emit(AST *);
   char * tok2str(int);
@@ -6349,6 +6400,12 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("STring: %s\n",temp->astnode.constant.number);
       fprintf(curfp,"\"%s\" ",temp->astnode.constant.number);
+
+      pushStringConst(temp->astnode.constant.number);
+      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            append_descriptor[String]);
+      bytecode1(jvm_invokevirtual, c->index);
+
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -6372,10 +6429,29 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL) {
         if(temp->nextstmt->token != REPEAT) {
           if(temp->nextstmt->astnode.ident.name[0] == 'X') {
-            fprintf(curfp,"\"");
-            for(i=0;i< atoi(temp->astnode.constant.number);i++)
-              fprintf(curfp," ");
-            fprintf(curfp,"\"");
+            char *tmpbuf, *bi;
+ 
+            /* allocate enough space for the given repeat spec, plus
+             * 2 quotes, plus a null terminator.
+             */
+            tmpbuf = (char *)f2jalloc(atoi(temp->astnode.constant.number)+3);
+
+            sprintf(tmpbuf,"\"%*s\"",atoi(temp->astnode.constant.number)," ");
+
+            fprintf(curfp,"%s",tmpbuf);
+
+            bi = (char *)f2jalloc(strlen(tmpbuf) - 1);
+            strncpy(bi, tmpbuf + 1, strlen(tmpbuf) -2);
+            bi[strlen(tmpbuf) - 2] = '\0';
+
+            pushStringConst(bi);
+            c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+                  append_descriptor[String]);
+            bytecode1(jvm_invokevirtual, c->index);
+
+            free(tmpbuf);
+            free(bi);
+
             if(temp->nextstmt->nextstmt != NULL)
               fprintf(curfp," + ");
             temp=temp->nextstmt;  /* consume edit desc */
@@ -6402,6 +6478,10 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("Div\n");
       fprintf(curfp,"\"\\n\" ");
+      pushStringConst("\n ");
+      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            append_descriptor[String]);
+      bytecode1(jvm_invokevirtual, c->index);
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -6410,6 +6490,10 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(gendebug)
         printf("two divs\n");
       fprintf(curfp,"\"\\n\\n\" ");
+      pushStringConst("\n\n ");
+      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            append_descriptor[String]);
+      bytecode1(jvm_invokevirtual, c->index);
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
@@ -6437,12 +6521,16 @@ void
 format_name_emit(AST *node)
 {
   extern int bad_format_count;
+  CPNODE *c;
 
   if(node == NULL) {
     if(gendebug)
       printf("*** BAD FORMATTING\n");
     bad_format_count++;
     fprintf(curfp,"\" NULL \"");
+    pushStringConst(" NULL ");
+    c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+          append_descriptor[String]);
   }
   else {
       /* 
@@ -6465,10 +6553,19 @@ format_name_emit(AST *node)
     else
 */
 
-  fprintf(curfp,"(");
-      expr_emit(node);
-  fprintf(curfp,")");
+    fprintf(curfp,"(");
+    expr_emit(node);
+    c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+          append_descriptor[node->vartype]);
+    fprintf(curfp,")");
   }
+  bytecode1(jvm_invokevirtual, c->index);
+
+  pushStringConst(" ");
+  c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+        append_descriptor[String]);
+  bytecode1(jvm_invokevirtual, c->index);
+
   fprintf(curfp," + \" \" ");
 }
 

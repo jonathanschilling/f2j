@@ -32,7 +32,8 @@ char
   *strdup ( const char * ),
   *print_nodetype ( AST * ),
   *lowercase ( char * ),
-  *methodscan (METHODTAB * , char * );
+  *methodscan (METHODTAB * , char * ),
+  *getVarDescriptor(AST *);
 
 void code_zero_op(enum _opcode),
      code_one_op(enum _opcode, int),
@@ -151,7 +152,8 @@ emit (AST * root)
        print_equivalences(AST *),
        emit_prolog_comments(AST *),
        emit_javadoc_comments(AST *),
-       insert_fields(AST *);
+       insert_fields(AST *),
+       assign_local_vars(AST *);
 
     struct attribute_info * newCodeAttribute();
     char * tok2str(int);
@@ -205,6 +207,9 @@ emit (AST * root)
           doloop = make_dl();
           adapter_list = make_dl();
           methcall_list = make_dl();
+
+          assign_local_vars(
+             root->astnode.source.progtype->astnode.source.args); 
 
           /* needs_reflection is determined during typecheck */
 
@@ -622,13 +627,7 @@ field_emit(AST *root)
       name = root->astnode.ident.name;
   }
 
-  /* figure out which variable descriptor we need based on the variable's
-   * type and # of dimensions.
-   */
-  if(omitWrappers && !root->astnode.ident.passByRef)
-    desc = field_descriptor[root->vartype][root->astnode.ident.dim];
-  else
-    desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+  desc = getVarDescriptor(root);
 
   if(ht)
     ht->variable->astnode.ident.descriptor = desc;
@@ -2710,6 +2709,23 @@ get_common_prefix(char *varname)
 
 /*****************************************************************************
  *                                                                           *
+ * getVarDescriptor                                                          *
+ *                                                                           *
+ * Returns the descriptor for this variable.                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getVarDescriptor(AST *root)
+{
+  if(omitWrappers && !root->astnode.ident.passByRef)
+    return field_descriptor[root->vartype][root->astnode.ident.dim];
+  else
+    return wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+}
+
+/*****************************************************************************
+ *                                                                           *
  * scalar_emit                                                               *
  *                                                                           *
  * This function emits a scalar variable.  The first thing that needs        *
@@ -2730,15 +2746,23 @@ void
 scalar_emit(AST *root, HASHNODE *hashtemp)
 {
   extern METHODTAB intrinsic_toks[];
-  char *com_prefix;
-  char *name;
-  HASHNODE *ht, *isArg;
+  char *com_prefix, *desc, *name, *scalar_class;
+  HASHNODE *ht, *isArg, *typenode;
+  CPNODE *c;
+
+  if((typenode = type_lookup(cur_type_table, root->astnode.ident.name)) != NULL)
+    desc = getVarDescriptor(typenode->variable);
+  else
+    fprintf(stderr,"scalar_emit(): cant find %s in type table.\n",root->astnode.ident.name);
+
+  printf("in scalar_emit, name = %s, desc = %s\n",root->astnode.ident.name, desc);
 
   /* get the name of the common block class file, if applicable */
 
   com_prefix = get_common_prefix(root->astnode.ident.name);
 
   name = root->astnode.ident.name;
+  scalar_class = cur_filename;
 
   isArg = type_lookup(cur_args_table,name);
 
@@ -2756,6 +2780,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           root->astnode.ident.name);
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
+
+    scalar_class = com_prefix;
   }
 
   /* if this is an equivalenced variable, find out the merged
@@ -2825,6 +2851,17 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
                root->parent->astnode.ident.name);
 
           fprintf (curfp, "%s%s", com_prefix, name);
+
+          if(isArg) {
+            if(typenode->variable->astnode.ident.localvnum > 4)
+              code_one_op(load_opcodes[root->vartype], typenode->variable->astnode.ident.localvnum);
+            else
+              code_zero_op(short_load_opcodes[root->vartype][typenode->variable->astnode.ident.localvnum]);
+          }
+          else {
+            c = newFieldref(cur_const_table, scalar_class, name, desc); 
+            code_one_op_w(jvm_getstatic, c->index);
+          }
         }
         else
         {
@@ -2840,7 +2877,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       }
       else if(root->parent->nodetype == Typedec) {
 
-        /* Parent is a type declaration - just emit the name itself */
+        /* Parent is a type declaration - just emit the name itself.
+         *
+         * For bytecode generation, nothing needs to be done here
+         * because insert_fields() handles all typedecs. */
 
         if(gendebug)
           printf("Emitting typedec name: %s\n", name);
@@ -2850,6 +2890,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
         /* Parent is an EQUIVALENCE statement.  This is handled the 
          * same as a type declaration, except we emit the merged name.
+         *
+         * Nothing needs to be done here for bytecode generation.
          */
 
         if(gendebug)
@@ -2862,6 +2904,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         /* Parent is an array declaration, but we know that the
          * variable we're emitting is not an array, so this must
          * be the size of the array.
+         *
+         * Nothing needs to be done here for bytecode generation.
          */
 
         if(omitWrappers && !isPassByRef(root->astnode.ident.name))
@@ -7372,6 +7416,70 @@ skipToken(char *str)
   /* should never reach here */
   return NULL;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * assign_local_vars                                                         *
+ *                                                                           *
+ * This routine numbers the local variables for generating Jasmin            *
+ * assembly code.                                                            *
+ *                                                                           *
+ * Horribly kludged routines with massive loop of                            *
+ * duplicated code.                                                          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_local_vars(AST * root)
+{
+  AST * locallist;
+  HASHNODE * hashtemp;
+  static int localnum = 0;
+  extern int locals;
+
+  /* if root is NULL, this is probably a PROGRAM (no args) */
+  if(root == NULL)
+    return;
+
+  /* This loop takes care of the stuff coming in from the
+   * argument list.  
+   */
+  for (locallist = root ; locallist; locallist = locallist->nextstmt)
+  {
+    if(gendebug)
+      printf("arg list name: %s\n", locallist->astnode.ident.name);
+
+    hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
+    if(hashtemp == NULL)
+    {
+      fprintf(stderr,"Type table is screwed in assign locals.\n");
+      fprintf(stderr,"could not find %s\n", locallist->astnode.ident.name);
+      exit(-1);
+    }
+
+    /* Check to see if it is a double, but make sure it isn't
+     * an array of doubles. 
+     */
+
+    if (hashtemp->type == Double &&
+        hashtemp->variable->astnode.ident.arraylist == NULL)
+    {
+      hashtemp->variable->astnode.ident.localvnum = localnum;
+      if(gendebug)
+        printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
+      localnum += 2;
+    }
+    else
+    {
+      hashtemp->variable->astnode.ident.localvnum = localnum;
+      if(gendebug)
+        printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
+      localnum++;
+    }
+  }
+
+  locals = localnum;
+} /* Close assign_local_vars().  */
 
 /*****************************************************************************
  *                                                                           *

@@ -72,7 +72,6 @@ void
   jas_emit(),
   init_tables(),
   addEquiv(AST *),
-  assign_local_vars(AST *),
   assign(AST *),
   typecheck(AST *),
   optScalar(AST *),
@@ -189,9 +188,6 @@ F2java:   Sourcecodes
                 }
                 else
                 {
-                  assign_local_vars(
-                     temp->astnode.source.progtype->astnode.source.args); 
-
                   /* commentList may be NULL here so we must check
                    * for that in codegen.
                    */
@@ -2853,73 +2849,6 @@ char * lowercase(char * name)
 
   return ptr;
 }
-
-
-/*****************************************************************************
- *                                                                           *
- * assign_local_vars                                                         *
- *                                                                           *
- * This routine numbers the local variables for generating Jasmin            *
- * assembly code.                                                            *
- *                                                                           *
- * Horribly kludged routines with massive loop of                            *
- * duplicated code.                                                          *
- *                                                                           *
- *****************************************************************************/
-
-void
-assign_local_vars(AST * root)
-{
-  AST * locallist;
-  HASHNODE * hashtemp;
-  extern SYMTABLE * type_table;  
-  static int localnum = 0;
-  extern int locals;
-
-
-  /* if root is NULL, this is probably a PROGRAM (no args) */
-  if(root == NULL)
-    return;
-
-    /* This loop takes care of the stuff coming in from the
-     * argument list.  
-     */
-    for (locallist = root ; locallist; locallist = locallist->nextstmt)
-    {
-      if(debug)
-        printf("arg list name: %s\n", locallist->astnode.ident.name);
-
-      hashtemp = type_lookup(type_table, locallist->astnode.ident.name);
-      if(hashtemp == NULL)
-      {
-        fprintf(stderr,"Type table is screwed in assign locals.\n");
-        exit(-1);
-      }
-  
-      /* Check to see if it is a double, but make sure it isn't
-       * an array of doubles. 
-       */
-
-      if (hashtemp->type == Double &&
-          hashtemp->variable->astnode.ident.arraylist == NULL)
-      {
-        hashtemp->variable->astnode.ident.localvnum = localnum;
-        if(debug)
-          printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
-        localnum += 2;
-      }
-      else
-      {
-        hashtemp->variable->astnode.ident.localvnum = localnum;
-        if(debug)
-          printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
-        localnum++;
-      }
-    }
-
-  locals = localnum;
-} /* Close assign_local_vars().  */
-
 
 /*****************************************************************************
  *                                                                           *

@@ -388,7 +388,7 @@ char *java_wrapper[MAX_RETURNS+1] =  /* names of the standard Java wrappers  */
   "Object"
 };
 
-enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values        */
+enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values */
 {
   jvm_nop,
   jvm_nop,
@@ -398,6 +398,30 @@ enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values    
   jvm_iconst_0,
   jvm_iconst_0,
   jvm_nop
+};
+
+enum _opcode load_opcodes[MAX_RETURNS+1] = /* opcodes to load locals         */
+{
+  jvm_aload,
+  jvm_aload,
+  jvm_dload,
+  jvm_dload,
+  jvm_fload,
+  jvm_iload,
+  jvm_iload,
+  jvm_aload
+};
+
+enum _opcode short_load_opcodes[MAX_RETURNS+1][4] = /* shorthand local loads */
+{
+  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
+  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
+  {jvm_dload_0, jvm_dload_1, jvm_dload_2, jvm_dload_3},
+  {jvm_dload_0, jvm_dload_1, jvm_dload_2, jvm_dload_3},
+  {jvm_fload_0, jvm_fload_1, jvm_fload_2, jvm_fload_3},
+  {jvm_iload_0, jvm_iload_1, jvm_iload_2, jvm_iload_3},
+  {jvm_iload_0, jvm_iload_1, jvm_iload_2, jvm_iload_3},
+  {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3}
 };
 
 char *init_vals[MAX_RETURNS+1] =    /* initial values for above data types   */

@@ -378,7 +378,9 @@ emit (AST * root)
             gen_store_op(stdin_lvar, Object);
           }
 
-          if(type_lookup(cur_external_table,"etime") != NULL) {
+          if((type_lookup(cur_external_table,"etime") != NULL) ||
+             (type_lookup(cur_external_table,"second") != NULL))
+          {
             fprintf(curfp, "  Etime.etime();\n");
 
             c = newMethodref(cur_const_table, ETIME_CLASS, 

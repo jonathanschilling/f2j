@@ -470,7 +470,8 @@ yylex ()
       if(lexdebug)
       printf("****the spec is '%s'\n", yylval.lexeme);
 
-      if((yylval.lexeme[0] == 'X') || (yylval.lexeme[0] == 'P'))  
+      if((yylval.lexeme[0] == 'X') || (yylval.lexeme[0] == 'P') ||
+         (yylval.lexeme[0] == 'x') || (yylval.lexeme[0] == 'p'))
       {
         char *tmp;
     

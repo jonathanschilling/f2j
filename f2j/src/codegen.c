@@ -8173,6 +8173,10 @@ format_item_emit(AST *temp, AST **nodeptr)
         fprintf(curfp," + ");
       return(temp->nextstmt);
       break;
+    case COLON:
+      /* not supported */
+      return(temp->nextstmt);
+      break;
     default:
       fprintf(stderr,"format_item_emit: Unknown token!!! %d (%s) - ",
          temp->token, tok2str(temp->token));

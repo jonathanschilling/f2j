@@ -627,7 +627,14 @@ field_emit(AST *root)
   else
     desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
 
-  ht->variable->astnode.ident.descriptor = desc;
+  if(ht)
+    ht->variable->astnode.ident.descriptor = desc;
+  else {
+    if((ht = type_lookup(cur_type_table,root->astnode.ident.name)) != NULL)
+      ht->variable->astnode.ident.descriptor = desc;
+    else
+      fprintf(stderr,"WARNING: can't find ident to set descriptor\n"); 
+  }
 
   printf("going to emit field %s\n",name);
   printf("\ttype: %s (%d)\n",returnstring[root->vartype], root->vartype);
@@ -1203,6 +1210,26 @@ vardec_emit(AST *root, enum returntype returns)
   if(gendebug)
     printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
 
+  /* the top of the stack now contains the array we just created.
+   * now issue the putstatic instruction to store the array reference
+   * into the static variable.  if this ident is equivalenced, we
+   * need to get the name/descriptor from the merged variable.
+   */
+
+  if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+    name = hashtemp->variable->astnode.ident.merged_name;
+    desc = hashtemp->variable->astnode.ident.descriptor;
+  }
+  else {
+    name = root->astnode.ident.name;
+    if((ht2=type_lookup(cur_type_table,root->astnode.ident.name)))
+      desc = ht2->variable->astnode.ident.descriptor;
+    else {
+      fprintf(stderr,"WARNING: unable to determine descriptor!\n");
+      desc = field_descriptor[returns][root->astnode.ident.dim];
+    }
+  }
+
   /* 
    * check to see if this is an array declaration or not. 
    * if so, we must generate the appropriate "new" statement.
@@ -1307,21 +1334,6 @@ vardec_emit(AST *root, enum returntype returns)
         fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
     }
 
-    /* the top of the stack now contains the array we just created.
-     * now issue the putstatic instruction to store the array reference
-     * into the static variable.  if this ident is equivalenced, we
-     * need to get the name/descriptor from the merged variable.
-     */
-
-    if((ht2 = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
-      name = ht2->variable->astnode.ident.merged_name;
-      desc = ht2->variable->astnode.ident.descriptor;
-    }
-    else {
-      name = root->astnode.ident.name;
-      desc = hashtemp->variable->astnode.ident.name;
-    }
-
     c = newFieldref(cur_const_table,cur_filename, name, desc); 
     code_one_op_w(jvm_putstatic, c->index);
 
@@ -1394,19 +1406,44 @@ vardec_emit(AST *root, enum returntype returns)
 
       if ((returns == String) || (returns == Character))
       {
+        if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                  JL_STRING);
+        else
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                  full_wrappername[returns]);
+
+        code_one_op_w(jvm_new,c->index);
+        code_zero_op(jvm_dup);
+
         print_string_initializer(root);
         fprintf(curfp,";\n");
+
+        c = newFieldref(cur_const_table,cur_filename,name,desc); 
+        code_one_op_w(jvm_putstatic, c->index);
       }
       else {
-        if(omitWrappers) {
-          if(isPassByRef(root->astnode.ident.name))
-            fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
-              init_vals[returns]);
-          else
+        if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
             fprintf(curfp,"= %s;\n", init_vals[returns]);
         }
         else
         {
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                    full_wrappername[returns]);
+
+          code_one_op_w(jvm_new,c->index);
+          code_zero_op(jvm_dup);
+
+          code_zero_op(init_opcodes[returns]);
+
+          c = newMethodref(cur_const_table,full_wrappername[returns],
+                 "<init>", wrapper_descriptor[returns]);
+
+          code_one_op_w(jvm_invokespecial, c->index);
+
+          c = newFieldref(cur_const_table,cur_filename,name,desc); 
+          code_one_op_w(jvm_putstatic, c->index);
+
           fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
             init_vals[returns]);
         }
@@ -1431,7 +1468,9 @@ vardec_emit(AST *root, enum returntype returns)
 void
 print_string_initializer(AST *root)
 {
+  char *src_initializer, *bytecode_initializer;
   HASHNODE *ht;
+  CPNODE *c;
 
   ht = type_lookup(cur_type_table,root->astnode.ident.name);
   if(ht == NULL)
@@ -1444,16 +1483,7 @@ print_string_initializer(AST *root)
      * value found in init_vals.
      */
 
-    if(omitWrappers) {
-      if(isPassByRef(root->astnode.ident.name))
-        fprintf (curfp, "= new StringW(%s)", init_vals[String]);
-      else
-        fprintf (curfp, "= new String(%s)", init_vals[String]);
-    }
-    else
-    {
-      fprintf (curfp, "= new StringW(%s)", init_vals[String]);
-    }
+    src_initializer = init_vals[String];
   }
   else
   {
@@ -1464,23 +1494,41 @@ print_string_initializer(AST *root)
      * assuming it has not been declared with a DATA statement.
      */
 
-    char * buf;
+    src_initializer = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
 
-    buf = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
+    sprintf(src_initializer,"\"%*s\"",ht->variable->astnode.ident.len," ");
 
-    sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
-
-    if(omitWrappers) {
-      if(isPassByRef(root->astnode.ident.name))
-        fprintf(curfp,"= new StringW(%s)", buf);
-      else
-        fprintf(curfp,"= new String(%s)", buf);
-    }
-    else
-    {
-      fprintf(curfp,"= new StringW(%s)", buf);
-    }
   }
+
+  /* we've created the initializer for java source code generation,
+   * but for JVM opcode, we do not need the quotes within the string. 
+   * here we remove them and create a bytecode initializer. 
+   */
+
+  bytecode_initializer = (char *)f2jalloc(strlen(src_initializer - 2));
+  strncpy(bytecode_initializer, src_initializer + 1, strlen(src_initializer) -2);
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, bytecode_initializer);
+
+  if(c->index > CPIDX_MAX)
+    code_one_op_w(jvm_ldc_w, c->index);
+  else
+    code_one_op(jvm_ldc, c->index);
+
+  if(omitWrappers && !isPassByRef(root->astnode.ident.name))
+  {
+    fprintf(curfp,"= new String(%s)", src_initializer);
+    c = newMethodref(cur_const_table,JL_STRING,
+               "<init>", STR_CONST_DESC);
+  }
+  else
+  {
+    fprintf(curfp,"= new StringW(%s)", src_initializer);
+    c = newMethodref(cur_const_table,full_wrappername[String],
+               "<init>", wrapper_descriptor[String]);
+  }
+
+  code_one_op_w(jvm_invokespecial, c->index);
 }
 
 /*****************************************************************************
@@ -3622,10 +3670,10 @@ expr_emit (AST * root)
             code_zero_op(jvm_dup);
             code_one_op(cur_opcode,cp_index);
 
-            c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
-                   wrapper_descriptor[root->vartype]);
+            c = newMethodref(cur_const_table,full_wrappername[root->vartype], 
+                   "<init>", wrapper_descriptor[root->vartype]);
 
-            code_one_op(jvm_invokespecial, c->index);
+            code_one_op_w(jvm_invokespecial, c->index);
 
             fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
@@ -3657,7 +3705,7 @@ expr_emit (AST * root)
             c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
                    wrapper_descriptor[root->vartype]);
 
-            code_one_op(jvm_invokespecial, c->index);
+            code_one_op_w(jvm_invokespecial, c->index);
 
             fprintf (curfp, "new %s(%s)", 
               wrapper_returns[get_type(root->astnode.constant.number)],
@@ -7002,6 +7050,7 @@ code_one_op_w(enum _opcode op, u2 index)
   u2 this_operand = u2BigEndian(index);
 
   dec_stack(jvm_opcode[op].stack_pre);
+  check_code_size(jvm_opcode[op].width);
   memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));
   printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);

@@ -29,6 +29,7 @@
  *****************************************************************************/
 
 #define JL_STRING "java/lang/String"
+#define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "()Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
@@ -372,6 +373,18 @@ char *java_wrapper[MAX_RETURNS+1] =  /* names of the standard Java wrappers  */
   "Integer",
   "Boolean",
   "Object"
+};
+
+enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values        */
+{
+  jvm_nop,
+  jvm_nop,
+  jvm_dconst_0,
+  jvm_dconst_0,
+  jvm_fconst_0,
+  jvm_iconst_0,
+  jvm_iconst_0,
+  jvm_nop
 };
 
 char *init_vals[MAX_RETURNS+1] =    /* initial values for above data types   */

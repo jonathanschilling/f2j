@@ -843,21 +843,49 @@ Save: SAVE NL
              }
 	   }
 ;
-Implicit:   IMPLICIT
+
+Implicit:   IMPLICIT ImplicitSpecList NL
             {
-	      $$=0;
-	      fprintf(stderr,"Must use IMPLICIT NONE.\n");
-	      exit(-1);
+	      $$=addnode();
+	      $$->nodetype = Specification;
+	      $$->token = IMPLICIT;
 	    }
          |  IMPLICIT NONE NL
             {
 	      $$=addnode();
 	      $$->nodetype = Specification;
 	      $$->token = IMPLICIT;
-	      /* $$ = 0; */
 	    }
 ;
 
+ImplicitSpecList: ImplicitSpecItem
+            {
+            }
+                | ImplicitSpecItem CM ImplicitSpecItem
+            {
+            }
+;
+
+ImplicitSpecItem:  Types OP ImplicitLetterList CP
+            {
+            }
+;
+
+ImplicitLetterList: ImplicitLetter
+            {
+            }
+                  | ImplicitLetter CM ImplicitLetter
+            {
+            }
+;
+
+ImplicitLetter: Name
+            {
+            }
+              | Name MINUS Name
+            {
+            }
+;
 
 Data:       DATA DataList
             {

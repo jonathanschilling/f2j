@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -542,7 +542,6 @@ yylex ()
       f2jfree(text_copy, strlen(text_copy)+1);
     }
   }
-    
     
   if (isalpha ((int) *buffer.stmt))
     token = name_scan (&buffer);

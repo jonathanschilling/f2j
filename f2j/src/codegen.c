@@ -150,6 +150,8 @@ emit (AST * root)
        emit_javadoc_comments(AST *),
        insert_fields(AST *);
 
+    struct attribute_info * newCodeAttribute(),
+                          * clinit_attr;
     char * tok2str(int);
 
     switch (root->nodetype)
@@ -187,15 +189,6 @@ emit (AST * root)
           cur_class_file = root->astnode.source.class = 
                 newClassFile(tmpname,inputfilename);
        
-          /* newClassFile alters the pc,stacksize,and cur_code
-           * globals, so we reset them here.
-           */
-          stacksize = pc = 0;
-
-          /* temporary until i get something owrking... */
-          cur_code = (struct Code_attribute *) 
-             f2jalloc(sizeof(struct Code_attribute));
-          
           if(gendebug)
             print_equivalences(cur_equivList);
 
@@ -228,8 +221,31 @@ emit (AST * root)
 
           insert_fields(root->astnode.source.typedecs);
 
+          /* make sure that stacksize and pc are reset before starting
+           * to generate the next method. 
+           */
+          stacksize = pc = 0;
+
+          /* as part of creating a new classfile structure, we have 
+           * already created an <init> method, the default constructor.
+           * the class may also need a <clinit> method, the class
+           * initializer.  the <clinit> method initializes any static
+           * fields, DATA stmts, Strings which require new objects to
+           * be created, etc.  here we create an empty CodeAttribute
+           * structure and then emit the typedecs.  afterwards, we
+           * check to see if any code was generated for <clinit>.
+           * if so, we must create a method_info structure and add
+           * that to the current classfile structure.  if not, we do
+           * nothing.
+           */
+
+          clinit_attr = newCodeAttribute();
+          cur_code = clinit_attr->attr.Code;
+          
 	  emit (root->astnode.source.typedecs);
           
+          /* check - was any code generated? */
+
 	  emit (root->astnode.source.progtype);
 
           /* The 'catch' corresponding to the following try is generated
@@ -584,11 +600,17 @@ field_emit(AST *root)
   HASHNODE *ht;
   CPNODE * c;
 
+  /* check if this variable is EQUIVALENCEd to some other name.  if so,
+   * use that name instead.
+   */
   if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)) != NULL)
     name = ht->variable->astnode.ident.merged_name;
   else
     name = root->astnode.ident.name;
 
+  /* figure out which variable descriptor we need based on the variable's
+   * type and # of dimensions.
+   */
   if(omitWrappers) {
     if(root->astnode.ident.passByRef)
       desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
@@ -598,6 +620,9 @@ field_emit(AST *root)
   else
     desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
 
+  /* the rest of this code creates the field_info structure, assigns the
+   * appropriate values into it, and inserts it into the field list.
+   */
   tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
   tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
 
@@ -658,7 +683,7 @@ insert_fields(AST *root)
 
       for(etmp = temp->astnode.equiv.nlist; etmp != NULL; etmp = etmp->nextstmt)
       {
-        /* only generate a field for the first node. */
+        /* only generate a field entry for the first node. */
 
         if(etmp->astnode.equiv.clist != NULL) {
           hashtemp = type_lookup(cur_type_table,
@@ -2714,7 +2739,6 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             printf("did not find %s in intrinsics table\n",
                root->parent->astnode.ident.name);
 
-printf("com_prefix = %s, merged name = %s\n",com_prefix, name);
           fprintf (curfp, "%s%s", com_prefix, name);
         }
         else

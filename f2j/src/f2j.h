@@ -512,7 +512,14 @@ KWDTAB;
 typedef struct method_tab
 {
   char *fortran_name;               /* name of the Fortran intrinsic         */
+
+  /* used for Java source generation: */
   char *java_method;                /* name of the corresponding Java func   */
+
+  /* used for bytecode generation: */
+  char *class_name;                 /* fully qualified Java class name       */
+  char *method_name;                /* fully qualified Java class name       */
+  char *descriptor;                 /* corresponding Java func descriptor    */
 }
 METHODTAB;
 

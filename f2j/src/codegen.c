@@ -22,18 +22,7 @@
 #include"f2jparse.tab.h"
 #include"class.h"
 #include"constant_pool.h"
-
-/*****************************************************************************
- * MAX_RETURNS represents the number of elements in the returnstring         *
- * array (see below).  OBJECT_TYPE identifies the type 'Object'.             *
- * CPIDX_MAX is the maximum value for a 1-byte constant pool index.          *
- *****************************************************************************/
-
-#define MAX_RETURNS 7
-#define OBJECT_TYPE 7
-#define CPIDX_MAX 255
-
-#define CODE printf
+#include"codegen.h"
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -99,99 +88,6 @@ AST
 BOOLEAN 
   import_reflection,    /* does this class need to import reflection         */
   import_blas;          /* does it need to import the BLAS library           */
-
-char *returnstring[] =  /* data types for arrays                             */
-{ 
-  "String", 
-  "String", 
-  "complex", 
-  "double", 
-  "float", 
-  "int", 
-  "boolean", 
-  "Object"
-};
-
-char *wrapper_returns[] =  /* data types for pass by reference scalars       */
-{ 
-  "StringW", 
-  "StringW", 
-  "complexW", 
-  "doubleW", 
-  "floatW", 
-  "intW", 
-  "booleanW", 
-  "Object"
-};
-
-char *full_wrappername[] =  /* fully qualified names for the wrappers        */
-{
-  "org/netlib/util/StringW", 
-  "org/netlib/util/StringW", 
-  "org/netlib/util/complexW", 
-  "org/netlib/util/doubleW", 
-  "org/netlib/util/floatW", 
-  "org/netlib/util/intW", 
-  "org/netlib/util/booleanW", 
-  "java/lang/Object"
-};
-
-char *wrapper_descriptor[] =
-{
-  "Ljava/lang/String;",
-  "Ljava/lang/String;",
-  "Lorg/netlib/Complex;",
-  "D",
-  "F",
-  "I",
-  "Z",
-  "",
-};
-
-char *java_wrapper[] =  /* names of the standard Java wrappers               */
-{
-  "String", 
-  "String", 
-  "Complex", 
-  "Double", 
-  "Float", 
-  "Integer", 
-  "Boolean", 
-  "Object"
-};
-
-char *init_vals[] =    /* initial values for above data types                */
-{
-  "\" \"", 
-  "\" \"", 
-  "0", 
-  "0.0", 
-  "0.0", 
-  "0", 
-  "false"
-};
-
-char *input_func[] =  /* input functions to read various data types          */
-{
-  "readChars", 
-  "readChars", 
-  "readComplex", 
-  "readDouble", 
-  "readFloat", 
-  "readInt", 
-  "readBoolean"
-};
-
-char *input_func_eof[] = /* input functions that detect EOF                  */
-{
-  "readchars", 
-  "readchars", 
-  "readcomplex", 
-  "readdouble", 
-  "readfloat", 
-  "readint", 
-  "readboolean"
-};
 
 /*****************************************************************************
  *                                                                           *
@@ -3182,6 +3078,7 @@ void
 expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
+  enum _opcode cur_opcode;
   char *tempname;
   CPNODE * ct;
   int cp_index;
@@ -3205,6 +3102,11 @@ expr_emit (AST * root)
       if (root->astnode.expression.parens)
         fprintf (curfp, "(");
 
+      /* is expression.lhs ever really non-null? i dont think so.
+       * in any case, for bytecode generation, we are not concerned
+       * with parens, so it should be ok to just call expr_emit. (kgs)
+       */
+
       if (root->astnode.expression.lhs != NULL)
         expr_emit (root->astnode.expression.lhs);
 
@@ -3214,26 +3116,70 @@ expr_emit (AST * root)
         fprintf (curfp, ")");
       break;
     case Power:
-      /* hack alert: */
-      if((root->parent != NULL) && (root->parent->nodetype == ArrayDec))
-        fprintf (curfp, "(int) Math.pow(");
-      else
-        fprintf (curfp, "Math.pow(");
-      expr_emit (root->astnode.expression.lhs);
-      fprintf (curfp, ", ");
-      expr_emit (root->astnode.expression.rhs);
-      fprintf (curfp, ")");
+      {
+        /* hack alert: determine whether this expression is used as the size
+         *   in an array declaration.  if so, it must be integer.  so we add
+         *   a cast.  it would probably be better to detect this elsewhere.
+         */
+        BOOLEAN gencast = (root->parent != NULL) && (root->parent->nodetype == ArrayDec);
+
+        fprintf (curfp, "%s Math.pow(", gencast ? "(int)" : "");
+           
+        expr_emit (root->astnode.expression.lhs);
+        fprintf (curfp, ", ");
+        expr_emit (root->astnode.expression.rhs);
+        fprintf (curfp, ")");
+
+        ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
+
+        CODE("invokestatic #%d\n", ct->index);
+        if(gencast)
+          CODE("d2i\n");
+
+      }
       break;
     case Binaryop:
       expr_emit (root->astnode.expression.lhs);
+
+      if(root->astnode.expression.lhs->vartype > root->vartype)
+        CODE("%s\n", jvm_opcode[
+          typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]].op);
+
       fprintf (curfp, "%c", root->astnode.expression.optype);
       expr_emit (root->astnode.expression.rhs);
+
+      if(root->astnode.expression.rhs->vartype > root->vartype)
+        CODE("%s\n", jvm_opcode[
+          typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]].op);
+
+      switch(root->astnode.expression.optype) {
+        case '+':
+          CODE("%s\n",jvm_opcode[add_opcode[root->vartype]].op);
+          break;
+        case '-':
+          CODE("%s\n",jvm_opcode[sub_opcode[root->vartype]].op);
+          break;
+        case '/':
+          CODE("%s\n",jvm_opcode[div_opcode[root->vartype]].op);
+          break;
+        case '*':
+          CODE("%s\n",jvm_opcode[mul_opcode[root->vartype]].op);
+          break;
+        default:
+          fprintf(stderr,"WARNING: unsupported optype\n");
+          break;  /* for ANSI C compliance */
+      }
+
       break;
     case Unaryop:
       fprintf (curfp, "%c", root->astnode.expression.minus);
       expr_emit (root->astnode.expression.rhs);
+      if(root->astnode.expression.minus == '-')
+        CODE("%s\n", jvm_opcode[neg_opcode[root->vartype]].op);
       break;
     case Constant:
+
+      cur_opcode = jvm_nop;  /* some reasonable default value */
 
       switch(root->token) {
         case INTEGER:
@@ -3241,6 +3187,40 @@ expr_emit (AST * root)
             int ival = atoi(root->astnode.constant.number);
 
             ct=cp_lookup(cur_const_table,CONSTANT_Integer,(void*)&ival);
+
+            if(ct) {
+              if(ct->index > CPIDX_MAX)
+                cur_opcode = jvm_ldc_w;
+              else
+                cur_opcode = jvm_ldc;
+            } else {   /* not found, use literal */
+              switch(ival) {
+                case -1:
+                  cur_opcode = jvm_iconst_m1;
+                  break;
+                case 0:
+                  cur_opcode = jvm_iconst_0;
+                  break;
+                case 1:
+                  cur_opcode = jvm_iconst_1;
+                  break;
+                case 2:
+                  cur_opcode = jvm_iconst_2;
+                  break;
+                case 3:
+                  cur_opcode = jvm_iconst_3;
+                  break;
+                case 4:
+                  cur_opcode = jvm_iconst_4;
+                  break;
+                case 5:
+                  cur_opcode = jvm_iconst_5;
+                  break;
+                default:
+                  fprintf(stderr,"WARNING: bad literal in codegen expr_emit()\n");
+                  break;  /* for ANSI compliance */
+              }
+            }
           }
           break;
         case EXPONENTIAL:
@@ -3249,16 +3229,34 @@ expr_emit (AST * root)
             double dval = atof(root->astnode.constant.number);
 
             ct=cp_lookup(cur_const_table,CONSTANT_Double,(void*)&dval);
+
+            if(ct)
+              cur_opcode = jvm_ldc2_w;
+            else if(dval == 0.0)
+              cur_opcode = jvm_dconst_0;
+            else if(dval == 1.0)
+              cur_opcode = jvm_dconst_1;
+            else
+              fprintf(stderr,"WARNING: bad literal in codegen expr_emit()\n");
           }
           break;
-        case TrUE:
+        case TrUE:   /* dont expect to find booleans anyway, so dont try */
+          cur_opcode = jvm_iconst_1;
+          ct = NULL;
+          break;
         case FaLSE:
-          /* dont expect to find booleans anyway, so dont try */
+          cur_opcode = jvm_iconst_0;
           ct = NULL;
           break;
         case STRING:
           ct=cp_lookup(cur_const_table,CONSTANT_String, 
              (void*)root->astnode.constant.number);
+
+          if(ct->index > CPIDX_MAX)
+            cur_opcode = jvm_ldc_w;
+          else
+            cur_opcode = jvm_ldc;
+
           break;
         default:
           ct = NULL;
@@ -3276,6 +3274,7 @@ expr_emit (AST * root)
         uppercase(tempname);
       }
 
+
      /* 
       * here we need to determine if this is a parameter to a function
       * or subroutine.  if so, and we are using wrappers, then we need
@@ -3289,32 +3288,18 @@ expr_emit (AST * root)
           (methodscan(intrinsic_toks, tempname) == NULL))
       {
         if(root->token == STRING) {
+          if(!ct)
+            fprintf(stderr,"WARNING: can't find string '%s' in constant pool!\n",
+              root->astnode.constant.number);
+
           if(omitWrappers) {
-            
-            if(cp_index) {
-              /* cp_index being non-zero means that we've found this constant
-               * in the constant pool.  now we check the index to determine
-               * whether we need to generate the wide load or not (ldc_w).
-               * the ldc instruction uses an unsigned byte index, so if the
-               * index exceeds the max value of an unsigned byte, then we
-               * generate the ldc_w opcode.
-               */
 
-              if(cp_index > CPIDX_MAX)
-                 CODE("ldc_w #%d\n",cp_index);
-              else
-                 CODE("ldc #%d\n",cp_index);
-
-            } else {
-              fprintf(stderr,"WARNING: could not find string '%s' in constant pool!\n",
-                root->astnode.constant.number);
-            }
+            CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
 
             fprintf (curfp, "\"%s\"", root->astnode.constant.number);
           }
           else
           {
-            METHODREF *methodref;
             CPNODE * c;
 
             c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
@@ -3322,43 +3307,60 @@ expr_emit (AST * root)
 
             CODE("new #%d\n", c->index);  /* remember 2byte index when generating */
             CODE("dup\n");
-            
-            if(cp_index) {
-              if(cp_index > CPIDX_MAX)
-                 CODE("ldc_w #%d\n",cp_index);
-              else
-                 CODE("ldc #%d\n",cp_index);
-            } else {
-              fprintf(stderr,"WARNING: could not find string '%s' in constant pool!\n",
-                root->astnode.constant.number);
-            }
+            CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
 
-            methodref = (METHODREF *)malloc(sizeof(METHODREF));
-            methodref->classname = full_wrappername[root->vartype];
-            methodref->methodname = "<init>";
-            methodref->descriptor = wrapper_descriptor[root->vartype];
-
-            c = cp_find_or_insert(cur_const_table,CONSTANT_Methodref, methodref);
+            c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
+                   wrapper_descriptor[root->vartype]);
 
             CODE("invokespecial #%d (StringW.<init>)\n",c->index);
 
             fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
         }
-        else {
+        else {     /* non-string constant argument to a function call */
           if(omitWrappers) {
+            if(cp_index)
+              CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+            else
+              CODE("%s\n",jvm_opcode[cur_opcode].op);
+
             fprintf (curfp, "%s", root->astnode.constant.number);
           }
           else
           {
+            CPNODE * c;
+
+            c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                    full_wrappername[root->vartype]);
+
+            CODE("new #%d\n", c->index);  /* remember 2byte index when generating */
+            CODE("dup\n");
+
+            if(cp_index)
+              CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+            else
+              CODE("%s\n",jvm_opcode[cur_opcode].op);
+            
+            c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
+                   wrapper_descriptor[root->vartype]);
+
+            CODE("invokespecial #%d (%s.<init>)\n",c->index,
+              full_wrappername[root->vartype]);
+
             fprintf (curfp, "new %s(%s)", 
               wrapper_returns[get_type(root->astnode.constant.number)],
               root->astnode.constant.number);
           }
         }
       }
-      else 
+      else  /* this constant is not an argument to a function call */
       {
+
+        if(cp_index)
+          CODE("%s #%d\n",jvm_opcode[cur_opcode].op,cp_index);
+        else
+          CODE("%s\n",jvm_opcode[cur_opcode].op);
+
         if(root->token == STRING)
           fprintf (curfp, "\"%s\"", root->astnode.constant.number);
         else
@@ -3374,10 +3376,17 @@ expr_emit (AST * root)
         expr_emit (root->astnode.expression.lhs);
       else
         fprintf (curfp, "!");
+
+      /* for bytecode, we have to generate some goofy code
+       * because there's no boolean negation opcode.
+       */
+
       if (root->token == AND)
         fprintf (curfp, " && ");
+
       if (root->token == OR)
         fprintf (curfp, " || ");
+
       expr_emit (root->astnode.expression.rhs);
       break;
     case Relationalop:

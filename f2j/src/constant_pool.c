@@ -9,6 +9,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<ctype.h>
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
 
@@ -705,6 +706,7 @@ null_term(u1 * str, int len)
 void
 cp_initialize(AST *root, Dlist list)
 {
+  char *strdup(const char *), *lowercase(char *);
   struct cp_info *newnode;
   char *thisname;
   int idx;
@@ -712,13 +714,14 @@ cp_initialize(AST *root, Dlist list)
   void cp_dump(Dlist);
   CPNODE* cp_insert(Dlist, struct cp_info *, char);
 
-
   /* first create an entry for 'this'.  the class file variable this_class
    * points to a CONSTANT_Class_info entry in the constant pool, which in
    * turn points to a CONSTANT_Utf8_info entry representing the name of
    * this class.  so, first we create the Utf8 entry, then the Class entry.
    */
-  thisname = root->astnode.source.progtype->astnode.source.name->astnode.ident.name;
+  thisname = strdup(root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  lowercase(thisname);
+  thisname[0] = toupper(thisname[0]);
 
   if(cp_debug)
     printf("&& inserting entry for %s\n", thisname);
@@ -761,4 +764,27 @@ u4BigEndian(u4 num)
            ((num >> 8 & 0xFF)<<16) +
            ((num >> 16 & 0xFF)<<8) +
             (num >> 24);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newMethodref                                                              *
+ *                                                                           *
+ * This function creates a new method reference and inserts it into the      *
+ * constant pool if necessary.  The return value is a pointer to the         *
+ * constant pool node containing the method reference.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+CPNODE *
+newMethodref(Dlist list, char *cname, char *mname, char *dname)
+{
+  METHODREF *methodref;
+
+  methodref = (METHODREF *)malloc(sizeof(METHODREF));
+  methodref->classname = cname;
+  methodref->methodname = mname;
+  methodref->descriptor = dname;
+
+  return cp_find_or_insert(list, CONSTANT_Methodref, methodref);
 }

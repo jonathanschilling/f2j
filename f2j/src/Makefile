@@ -49,7 +49,7 @@ dlist.o: dlist.c dlist.h
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 
-codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h
+codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h codegen.h
 
 constant_pool.o:	constant_pool.c constant_pool.h
 

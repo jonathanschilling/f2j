@@ -155,29 +155,29 @@ KWDTAB read_toks[] =
 
 METHODTAB intrinsic_toks[]=
 {
-  {"LSAME", ".equalsIgnoreCase"}, 
-  {"LSAMEN", ".regionMatches"}, 
-  {"MAX", "Math.max"},
-  {"MIN", "Math.min"},
-  {"ABS", "Math.abs"},
-  {"DABS", "Math.abs"},
-  {"SQRT", "Math.sqrt"},
-  {"DSQRT", "Math.sqrt"},
-  {"LOG", "Math.log"},
-  {"LOG10", "Math.log"},   /* divied by 2.30258509 */
-  {"COS", "Math.cos"},
-  {"SIN", "Math.sin"},
-  {"EXP", "Math.exp"},
-  {"MOD", "(int) Math.IEEEremainder"},
-  {"DBLE", "(double)"},
-  {"CHAR", "(char)"},
-  {"ICHAR", "(int)"},
-  {"INT", "(int)"},
-  {"NINT", "(int)"},
-  {"REAL", "(double)"},
-  {"SIGN", "(int)"},
-  {"LEN", "(int)"},
-  {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
+  {"LSAME", ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z"}, 
+  {"LSAMEN", ".regionMatches", "java/lang/String", "regionMatches", "(ZILjava/lang/String;II)Z"}, 
+  {"MAX", "Math.max", "java/lang/Math", "max", "(II)I"},
+  {"MIN", "Math.min", "java/lang/Math", "min", "(II)I"},
+  {"ABS", "Math.abs", "java/lang/Math", "abs", "(D)D"},
+  {"DABS", "Math.abs", "java/lang/Math", "abs", "(D)D"},
+  {"SQRT", "Math.sqrt", "java/lang/Math", "sqrt", "(D)D"},
+  {"DSQRT", "Math.sqrt", "java/lang/Math", "sqrt", "(D)D"},
+  {"LOG", "Math.log", "java/lang/Math", "log", "(D)D"},
+  {"LOG10", "Math.log", "java/lang/Math", "log", "(D)D"},   /* divied by 2.30258509 */
+  {"COS", "Math.cos", "java/lang/Math", "cos", "(D)D"},
+  {"SIN", "Math.sin", "java/lang/Math", "sin", "(D)D"},
+  {"EXP", "Math.exp", "java/lang/Math", "exp", "(D)D"},
+  {"MOD", "(int) Math.IEEEremainder", "java/lang/Math", "IEEEremainder", "(DD)D"},
+  {"DBLE", "(double)", "Unused", "Unused", "Unused"},
+  {"CHAR", "(char)", "Unused", "Unused", "Unused"},
+  {"ICHAR", "(int)", "Unused", "Unused", "Unused"},
+  {"INT", "(int)", "Unused", "Unused", "Unused"},
+  {"NINT", "(int)", "Unused", "Unused", "Unused"},
+  {"REAL", "(double)", "Unused", "Unused", "Unused"},
+  {"SIGN", "(int)", "Unused", "Unused", "Unused"},
+  {"LEN", "(int)", "Unused", "Unused", "Unused"},
+  {NULL , NULL, NULL, NULL, NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
 /*****************************************************************************

@@ -433,7 +433,7 @@ fopen_fullpath(char *file, char *mode)
   else
     full_file = file;
 
-  printf("full_file = '%s'\n", full_file);
+printf("full_file = '%s'\n", full_file);
 
   if( stat(full_file, buf) == 0)
     if(! S_ISREG(buf->st_mode) )
@@ -441,6 +441,9 @@ fopen_fullpath(char *file, char *mode)
 
   if( (f = fopen(full_file, mode)) )
     return f;
+
+  if(full_file[0] == '/')
+    chdir("/");
 
   prev = strtok(full_file, "/");
   

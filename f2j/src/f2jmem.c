@@ -378,6 +378,10 @@ free_ast_node(AST *n)
     case Identifier:
     case Constant:
     case Typedec:
+    case Assignment:
+      break;
+    case IoExplist:
+      /* currently we should ignore this */
       break;
     case Expression:
       free_ast_node(n->astnode.expression.rhs);

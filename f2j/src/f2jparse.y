@@ -2800,7 +2800,7 @@ Pdec:     Assignment
 
             $$ = $1;
             $$->nodetype = Assignment;
-                                                                                                      
+
             constant_eval = eval_const_expr($$->astnode.assignment.rhs);
             
             temp = addnode();
@@ -2825,7 +2825,7 @@ Pdec:     Assignment
               case Float:
               case Double:
                 temp->token = DOUBLE;
-                sprintf(temp->astnode.constant.number,"%f",constant_eval);
+                sprintf(temp->astnode.constant.number,"%g",constant_eval);
                 break;
               case Integer:
                 temp->token = INTEGER;
@@ -2838,6 +2838,8 @@ Pdec:     Assignment
             free_ast_node($$->astnode.assignment.rhs);
             $$->astnode.assignment.rhs = temp;
                                                       
+printf("### the constant is '%s'\n", temp->astnode.constant.number);
+
             type_insert(parameter_table, temp, 0,
                strdup($$->astnode.assignment.lhs->astnode.ident.name));
             free_ast_node($$->astnode.assignment.lhs);
@@ -3518,11 +3520,13 @@ eval_const_expr(AST *root)
      */
       break;
     case Constant:
+printf("### its a constant.. %s\n", root->astnode.constant.number);
       if(root->token == STRING) {
         if(!strcmp(root->astnode.ident.name,"*"))
-	   return 0;
+          return 0;
         else
-          fprintf (stderr, "String in array dec (%s)!\n", root->astnode.constant.number);
+          fprintf (stderr, "String in array dec (%s)!\n",
+            root->astnode.constant.number);
       }
       else
         return( atof(root->astnode.constant.number) );

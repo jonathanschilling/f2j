@@ -12180,7 +12180,9 @@ checkDistance(int dest, int src)
   if((distance > ((int)mypow( 2.0, 15.0 ) - 1)) ||
      (distance < ((int)-mypow( 2.0, 15.0 )))) 
   {
-    fprintf(stderr,"Warning: branch target too far away.\n");
+    fprintf(stderr,"Warning: branch target too far away");
+    fprintf(stderr," (src = %d, dest = %d)\n", src, dest);
+   
     return FALSE;
   }
   else

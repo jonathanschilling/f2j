@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Reserved words in Java</TITLE>
+<META NAME="description" CONTENT="Reserved words in Java">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html263" HREF="node18.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html261" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html255" HREF="node16.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html264" HREF="node18.html">Object Wrappers and Optimization</A>
+<B>Up:</B> <A NAME="tex2html262" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html256" HREF="node16.html">COMMON Blocks</A>
+<BR> <P>
+<H3><A NAME="SECTION000211400000000000000">Reserved words in Java</A></H3>
+<P>
+The Java language has over 50 reserved words, so it is
+inevitable that a F<font size=-1><small>ORTRAN</small></font> program will have a variable
+with the same name as a Java keyword.  Such a variable
+name cannot be retained because the Java source would 
+not compile.  Therefore, f2j maintains a table of all the
+Java keywords.  When it comes across a variable name matching
+one of these keywords, it must transform the name into a
+new unique name that does not conflict with any Java keyword
+or any other currently defined variable name.
+Since f2j currently generates <EM>all</EM> F<font size=-1><small>ORTRAN</small></font> variable names
+in lowercase, any conflicting name can be transformed by 
+converting the first letter to uppercase (e.g. <TT>try</TT> 
+becomes <TT>Try</TT>).
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Design of the f2j compiler</TITLE>
+<META NAME="description" CONTENT="Design of the f2j compiler">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html70" HREF="node3.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html68" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html62" HREF="node1.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html71" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B>Up:</B> <A NAME="tex2html69" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html63" HREF="node1.html">Introduction</A>
+<BR> <P>
+<H1><A NAME="SECTION00020000000000000000">Design of the f2j compiler</A></H1>
+<P>
+Design issues come in two  categories: (1) software design,
+(2) software implementation. 
+Software design 
+specifies 
+how F<font size=-1><small>ORTRAN</small></font> translates to Java independent of 
+any implementation. This includes dealing with general issues such as
+translating F<font size=-1><small>ORTRAN</small></font> intrinsics (e.g., <TT>sqrt, dabs</TT>) to 
+Java methods (e.g., <TT>Math.sqrt, Math.abs</TT>), 
+and LAPACK specific decisions about array access and argument
+passing.
+The software implementation executes the translation.
+f2j is written as a formal compiler consisting of a
+lexical analysis and parser front end, and a 
+code generation back end.  The parser consists of a
+yacc specification, which is translated to C by
+bison, a parser generator.
+The rest of the code is written in C.
+The following notes 
+provide a general overview of the f2j software design
+and implementation.
+<P>
+<BR> <HR>
+<UL> 
+<LI> <A NAME="tex2html72" HREF="node3.html#SECTION00021000000000000000">Translating LAPACK F<font size=-1><small>ORTRAN</small></font> to Java</A>
+<UL> 
+<LI> <A NAME="tex2html73" HREF="node4.html#SECTION00021100000000000000">Basic argument passing</A>
+<LI> <A NAME="tex2html74" HREF="node5.html#SECTION00021200000000000000">Array access</A>
+<LI> <A NAME="tex2html75" HREF="node6.html#SECTION00021300000000000000">Translating functions and subroutines</A>
+<LI> <A NAME="tex2html76" HREF="node7.html#SECTION00021400000000000000">Translating characters and strings</A>
+<LI> <A NAME="tex2html77" HREF="node8.html#SECTION00021500000000000000">The PARAMETER keyword</A>
+<LI> <A NAME="tex2html78" HREF="node9.html#SECTION00021600000000000000">Variable initialization and SAVE statements</A>
+<LI> <A NAME="tex2html79" HREF="node10.html#SECTION00021700000000000000">Methods versus functions and subroutines</A>
+<LI> <A NAME="tex2html80" HREF="node11.html#SECTION00021800000000000000">GOTO Translation</A>
+<LI> <A NAME="tex2html81" HREF="node12.html#SECTION00021900000000000000">The Need for Code Restructuring</A>
+<LI> <A NAME="tex2html82" HREF="node13.html#SECTION000211000000000000000">DATA Statements</A>
+<LI> <A NAME="tex2html83" HREF="node14.html#SECTION000211100000000000000">EQUIVALENCE Statements</A>
+<LI> <A NAME="tex2html84" HREF="node15.html#SECTION000211200000000000000">Input/Output</A>
+<LI> <A NAME="tex2html85" HREF="node16.html#SECTION000211300000000000000">COMMON Blocks</A>
+<LI> <A NAME="tex2html86" HREF="node17.html#SECTION000211400000000000000">Reserved words in Java</A>
+<LI> <A NAME="tex2html87" HREF="node18.html#SECTION000211500000000000000">Object Wrappers and Optimization</A>
+<LI> <A NAME="tex2html88" HREF="node19.html#SECTION000211600000000000000">Passing array elements by reference</A>
+<LI> <A NAME="tex2html89" HREF="node20.html#SECTION000211700000000000000">Type Analysis</A>
+<LI> <A NAME="tex2html90" HREF="node21.html#SECTION000211800000000000000">Functions as Arguments</A>
+</UL> 
+<LI> <A NAME="tex2html91" HREF="node22.html#SECTION00022000000000000000">Implemention of the f2j compiler</A>
+<UL> 
+<LI> <A NAME="tex2html92" HREF="node23.html#SECTION00022100000000000000">Lexing F<font size=-1><small>ORTRAN</small></font></A>
+<LI> <A NAME="tex2html93" HREF="node24.html#SECTION00022200000000000000">Parsing F<font size=-1><small>ORTRAN</small></font></A>
+<LI> <A NAME="tex2html94" HREF="node25.html#SECTION00022300000000000000">Code generation</A>
+<UL> 
+<LI> <A NAME="tex2html95" HREF="node26.html#SECTION00022310000000000000">Java code</A>
+<LI> <A NAME="tex2html96" HREF="node27.html#SECTION00022320000000000000">Jasmin opcode</A>
+</UL>
+</UL>
+</UL>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,45 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Translating functions and subroutines</TITLE>
+<META NAME="description" CONTENT="Translating functions and subroutines">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html153" HREF="node7.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html151" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html145" HREF="node5.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html154" HREF="node7.html">Translating characters and strings</A>
+<B>Up:</B> <A NAME="tex2html152" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html146" HREF="node5.html">Array access</A>
+<BR> <P>
+<H3><A NAME="SECTION00021300000000000000">Translating functions and subroutines</A></H3>
+<P>
+Translating functions and subroutines
+from F<font size=-1><small>ORTRAN</small></font> to Java  can be broken down into various cases:
+<UL><LI> Subroutines and functions declared EXTERNAL 
+are assumed, for the purpose of translating BLAS
+and LAPACK, to be BLAS or LAPACK calls.
+These are translated
+during the code generation pass of 
+f2j.  Note that these are tailored to LAPACK:
+the generated code assumes one static method per
+class.<LI> Some functions and subroutines in BLAS and LAPACK
+correspond to methods intrinsic to Java.  The LSAMEN procedure,
+which compares characters independent of case, is an example
+corresponding to the Java <TT>regionMatches</TT> method.<LI> Functions declared INTRINSIC in the BLAS and LAPACK 
+F<font size=-1><small>ORTRAN</small></font> source are mapped to the corresponding Java 
+method using a table initialized in a header file. In the 
+event that a F<font size=-1><small>ORTRAN</small></font> intrinsic procedure has no 
+Java correspondence (e.g., complex arithmetic operations), 
+such methods will have to be programmed in Java.
+<P>
+</UL><BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

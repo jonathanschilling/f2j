@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Fault Tolerance</TITLE>
+<META NAME="description" CONTENT="Fault Tolerance">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html108" HREF="node8.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html106" HREF="node4.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html100" HREF="node6.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html109" HREF="node8.html">Multiple User Interfaces</A>
+<B>Up:</B> <A NAME="tex2html107" HREF="node4.html">Overview of the NetSolve </A>
+<B> Previous:</B> <A NAME="tex2html101" HREF="node6.html">Load Balancing</A>
+<BR> <P>
+<H3><A NAME="SECTION00022300000000000000">Fault Tolerance</A></H3>
+<P>
+As previously mentioned, the hosts in the NetSolve system can be
+located anywhere on the Internet and can therefore be administered
+by different institutions.  For this reason, NetSolve does not try
+to impose any control on the different resources. This 
+distributed computation approach is
+very flexible, but it requires that NetSolve implement
+fault tolerance mechanisms. Indeed, any resource can become
+unreachable at any moment, perhaps because of a network failure,
+a host failure, or simply 
+because a system administrator reboots a host.
+<P>
+The NetSolve system ensures that a user request will be completed
+unless every single resource has failed. When a client sends a request
+to a NetSolve agent, it receives a sorted list of computational
+servers to try. When one of these servers has been successfully
+contacted,
+the numerical computation is started. If the contacted server fails
+during
+the computation, then another server is contacted and the computation is
+restarted. This whole process is transparent to the user. If all the
+servers have failed, then the user is notified that the computation
+can not be performed at that time. The server-list 
+strategy represents a first step
+towards fault tolerance and will be improved in future versions of the
+software.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

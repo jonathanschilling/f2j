@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head> <title> JLAPACK Download Page </title> </head>
+
+<body>
+
+The first beta release of the Java LAPACK is now available.  This is an
+automatic translation from the original LAPACK 2.0 source code (Fortran 77)
+to Java.  The current distribution
+consists of class files organized in the following packages:
+<ul>
+<li> org.netlib.blas - the BLAS routines</li>
+<li> org.netlib.lapack - the double precision LAPACK routines</li>
+<li> org.netlib.util - utility routines and object wrappers</li>
+</ul>
+The source code is also included, but until the bytecode transformer is
+released, it cannot be recompiled into working bytecode (read 
+<a href="http://www.cs.utk.edu/f2j/f2jreport/node11.html">this section</a>
+of the tech report to understand why).
+
+<p> Please read the <a href="jitnote.html">JIT Warning</a> before
+downloading.
+<hr>
+Download JLAPACK 0.3a beta as a gzipped tar file: <A HREF="jlapack-0.3a.tgz">jlapack-0.3a.tgz</a>
+<p> OR <p>
+We now have the JLAPACK 0.3a beta available as a ZIP file: 
+<A HREF="jla03a.zip">jla03a.zip</a>
+<p>
+To decompress the ZIP file, use your favorite unzip utility.
+You may need to specify that directories should be created
+rather than having everything unzipped into the current directory.
+<p>
+To decompress the .tgz file:
+<p>
+<code>gunzip jlapack-0.3a.tgz </code>
+<p>
+<code>tar xvf jlapack-0.3a.tar </code>
+<p>
+Or simply:<p><code>gunzip -c jlapack-0.3a.tgz | tar xvf - </code> <p>if
+you're into that sort of thing. <p>
+
+After downloading and uncompressing, follow the directions in the 
+<a href="INSTALL">INSTALL</a> file.  Note especially the
+warnings against recompilation.  Due to the postprocessing that we
+must perform on the class files to support GOTO statements, the
+code won't work when you recompile it unless you obtain the bytecode
+translator.  Drop us a note if you really need to be able to
+recompile the code.  The bytecode translator has currently been
+tested only under Solaris.
+
+<p>
+If you would like to look at the Fortran source that was the
+basis for this translation, you may download
+<a href="jlapack.f.gz">jlapack.f.gz</a>.
+
+<p>
+For those who would like a local copy of the javadoc-generated documentation
+for JLAPACK, we have it available in ZIP and tarred gzip formats:
+ 
+<p>
+<a href="jlapack_docs.zip">ljapack_docs.zip</a>
+<p>
+<a href="jlapack_docs.tgz">ljapack_docs.tgz</a>
+<p>
+Note: since there is a simplified version of each JLAPACK function that
+differs only in case (one is all uppercase) from the regular version,
+these archives do not extract correctly on Windows machines.  We may
+try to restructure things if there are a lot of Windows users out there
+who need a local copy of the documentation.
+<p>
+
+<hr>
+The BLAS/LAPACK testing routines are now available for download.
+The same recompilation warnings apply here, too.  Download 
+<a href="testers.tgz">testers.tgz</a> or <a href="testers.zip">testers.zip</a>.
+As we test different on different machines and VMs,
+we will post a summary of the results.  So far, the tests pass
+on: <p>
+Solaris/x86 2.5.1 with JDK1.2 (early access) and JIT disabled<p>
+Solaris 2.5 with JDK1.1.6 <p>
+Linux 2.0.29 with JDK1.1.3 <p>
+Linux 2.0.29 with Kaffe0.10.0 <p>
+Windows NT 4.0 with JDK1.1.6 and JIT disabled<p>
+AIX 4.1.5 with JDK1.1.4 and JIT disabled<p>
+FreeBSD 2.2.6 with JDK1.1.5 (thanks to Pedro Vazquez)<p>
+Linux 2.2.5 (RedHat 6.0) with Blackdown's "pre-release" JDK 1.2 and JIT enabled (thanks to eric@cs.washington.edu) <p>
+
+
+<br>
+And we have seen failures on: <p>
+<br>
+Solaris/x86 2.5.1 with JDK1.2 and JIT (only 3 test case failures)<p>
+Solaris 2.5 with Kaffe0.10.0<p>
+Windows NT 4.0 with JDK1.1.6 and Symantec JIT<p>
+AIX 4.1.5 with JDK1.1.4 and "jitc" JIT<p>
+
+<hr>
+<a href="http://www.cs.utk.edu/f2j">Back</a> to the f2j home page.
+<p>
+Contact <a href="mailto:seymour@cs.utk.edu">Keith Seymour</a> with any questions,
+bug reports, etc.
+</UL>
+<hr>
+<BR>Last Updated: <I>7 Jan, 1999&nbsp;</I><!-- Keith Seymour -->
+</BODY>
+</HTML>

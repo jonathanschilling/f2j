@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Object Wrappers and Optimization</TITLE>
+<META NAME="description" CONTENT="Object Wrappers and Optimization">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html273" HREF="node19.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html271" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html265" HREF="node17.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html274" HREF="node19.html">Passing array elements by </A>
+<B>Up:</B> <A NAME="tex2html272" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html266" HREF="node17.html">Reserved words in Java</A>
+<BR> <P>
+<H3><A NAME="SECTION000211500000000000000">Object Wrappers and Optimization</A></H3>
+<P>
+<A NAME="obj_wrapper">&#160;</A>
+<P>
+As mentioned in section <A HREF="node4.html#arg_pass">2.1.1</A>, we must encapsulate primitives
+in object wrappers in order to emulate pass-by-reference.
+However, wrapping <I>every</I> scalar would result in much lower performance 
+than using the primitive types,
+but it is simple to implement in the code generator and it
+allows f2j to generate correct Java code automatically.
+Looking at the LAPACK source code, it is apparent that most of
+the scalar parameters are not modified within the routines.
+Our experience shows that a substantial performance gain can be
+realized by optimizing the use of object wrappers in the
+generated code.  To perform this ``optimization'', we added
+another pass to the translator.  This extra pass starts at the head of
+the abstract syntax tree and analyzes every variable in each
+program unit to determine which variables must be wrapped.  The
+determination is made based on the following rules:
+<UL><LI> If the variable is a parameter to the current program unit
+and it is on the LHS of an assignment statement, then it must be
+wrapped.<LI> If the variable is a parameter to the current program unit
+and it is an argument to a READ statement, then it must be wrapped.<LI> If the variable is an argument to some function and that
+function modifies the corresponding formal parameter as described in the
+first two rules, then it must be wrapped.
+</UL>
+To optimize a given program unit in this way requires first optimizing
+all units that this one calls because we need to know whether the function
+parameters are wrapped or not.
+<P>
+Wrapping scalars in objects brings up a parameter
+passing issue.  Consider the following function declaration:
+<PRE>      double precision function ddot(n,dx,incx,dy,incy)
+      double precision dx(*),dy(*)
+      integer n,incx,incy</PRE>
+<P>
+Assuming for a moment that <TT>n</TT>, <TT>incx</TT>, and <TT>incy</TT> are
+all modified within ddot, the declaration would be translated into Java as:
+<PRE>public static double ddot (intW n, double [] dx, int _dx_offset, intW incx, 
+                                   double [] dy, int _dy_offset, intW incy)</PRE>
+<P>
+As the Java code illustrates, the integer arguments are translated
+to object references 
+to provide the pass-by-reference functionality discussed previously
+(<TT>intW</TT> is the name of the integer wrapper).
+The two double precision vectors are translated as <I>&lt;array reference, offset&gt;</I>
+pairs (see section <A HREF="node5.html#array_acc">2.1.2</A>).  Let us suppose
+that in some call to <TT>ddot</TT>, some of the integer parameters
+are constants.  For example:
+<PRE>       X = DDOT(5,SX,1,SY,1)</PRE>
+<P>
+To correctly translate this function call, f2j must know the
+data types of the arguments that <TT>ddot</TT> expects so that
+the constants can be wrapped in the appropriate objects.  This would
+not be such a problem in languages like F<font size=-1><small>ORTRAN</small></font> and C, but
+with Java's strict typechecking, the resulting Java code will
+not compile unless all the data types match exactly.  This, and
+other issues, necessitated the integration of a simple type analysis
+phase into f2j.
+<P>
+The previous paragraph illustrated the need for checking function
+arguments when passing constants, but that is not the only case in
+which typechecking is required.  Let us consider the example
+F<font size=-1><small>ORTRAN</small></font> subroutine call from section <A HREF="node5.html#array_acc">2.1.2</A>,  
+<TT>matrixop(A(i,j,), LDA)</TT>.
+But in this case, imagine that <TT>matrixop</TT> is actually defined as follows:
+<PRE>       SUBROUTINE MATRIXOP(A, LDA)
+       DOUBLE PRECISION A
+       INTEGER LDA</PRE>
+<P>
+Given this definition, the translation of the subroutine call 
+provided in section <A HREF="node5.html#array_acc">2.1.2</A> (<TT>matrixop(A, i+j*LDA, LDA)</TT>)
+would be incorrect
+and the resulting Java code would fail compilation.
+If f2j did not know the data types of the arguments expected
+by <TT>matrixop</TT>, it would have to assume that an array
+subsection was expected and pass the <I>&lt;array reference, offset&gt;</I>
+pair, as shown above.  However, if f2j can determine that <TT>matrixop</TT>
+expects scalar arguments, the subroutine call can be generated
+correctly by passing the array item itself: <TT>matrixop(a[i+j*LDA],LDA)</TT>.
+<P>
+Java only passes objects and arrays (which technically are considered objects)
+by reference.  Thus, f2j could implement scalar pass by reference
+in either of two ways: (1) by wrapping the scalar element in an object
+or (2) by using a single element array containing the scalar value.
+Some quick timings indicate that accessing a class element is around
+10% faster than accessing an array element, while accessing a 
+primitive is around 20% faster than accessing a class element.
+Examining the instructions produced by the Java compiler (Sun JDK 1.1)
+shows why this is the case.
+The following is the code to access the first element of an array:
+<PRE>    aload_1
+    iconst_0
+    iaload</PRE>
+<P>
+The code to access a class element:
+<PRE>    aload_1
+    getfield intW/val I</PRE>
+<P>
+The code to access a primitive:
+<PRE>    iload_1</PRE> 
+<HR><A NAME="tex2html273" HREF="node19.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html271" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html265" HREF="node17.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html274" HREF="node19.html">Passing array elements by </A>
+<B>Up:</B> <A NAME="tex2html272" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html266" HREF="node17.html">Reserved words in Java</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Introduction</TITLE>
+<META NAME="description" CONTENT="Introduction">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html60" HREF="node2.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html58" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html52" HREF="f2jreport.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html61" HREF="node2.html">Design of the f2j </A>
+<B>Up:</B> <A NAME="tex2html59" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html53" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<BR> <P>
+<H1><A NAME="SECTION00010000000000000000">Introduction</A></H1>
+<P>
+<BLOCKQUOTE> <EM>Real programmers program in F<font size=-1><small>ORTRAN</small></font>,
+and can do so in any language.
+--Ian Graham, 1994&nbsp;[<A HREF="node35.html#grahami94">1</A>]</EM>
+</BLOCKQUOTE>
+<P>
+Popular opinion seems to hold the somewhat erroneous
+view that Java is ``too slow'' for numerical
+programming.  However, the Java Linpack benchmark
+[<A HREF="node35.html#linpackjava">2</A>]
+has recorded excellent floating point arithmetic 
+speeds (68.6 Mflop) on a PC
+resulting from Just-In-Time (JIT) compilation 
+of Java class files.  Also, there are 
+many small to intermediate scale problems where 
+speed is not an issue.
+For instance, physical quantities such as permeability,
+stress and strain are commonly represented by 
+ellipsoids&nbsp;[<A HREF="node35.html#malvernle69">3</A>, <A HREF="node35.html#longjcs82">4</A>], a
+graphical representation of an underlying tensor.  
+The tensor is mathematically represented by an SPD
+matrix.  Ellipsoid axes are computed from the root
+inverse of the matrix eigenvalues, directed along
+the eigenvectors. A LAPACK eigenproblem 
+subroutine such as SSYTRD, available as 
+a Java class file, provides 
+a portable solution with known reliability.
+Since future execution speeds of Java will increase
+as JIT and native code compilers 
+are developed, the scale of feasible numerical programming
+will increase as well.
+<P>
+The JLAPACK project provides Application Programming Interfaces
+(APIs) to numerical libraries from Java programs.
+The numerical libraries will be distributed as class files
+produced by a F<font size=-1><small>ORTRAN</small></font>-to-Java translator, f2j. The
+f2j translator is a formal compiler that translates programs written using
+a subset of F<font size=-1><small>ORTRAN</small></font>  77 into a form that may be compiled
+or assembled into Java class files. 
+The first priority for f2j is to translate the 
+BLAS&nbsp;[<A HREF="node35.html#blas1">5</A>, <A HREF="node35.html#blas2">6</A>, <A HREF="node35.html#blas3">7</A>] and LAPACK&nbsp;[<A HREF="node35.html#lapack">8</A>] 
+numerical libraries from their F<font size=-1><small>ORTRAN</small></font>  77 reference source code to Java 
+class files. 
+The subset of F<font size=-1><small>ORTRAN</small></font>  77 translated by f2j matches the
+Fortran source used by 
+BLAS and LAPACK. These libraries are established, reliable
+and widely used linear algebra packages,
+and are therefore a reasonable first testbed for f2j.
+Many other libraries of interest are expected to use 
+a very similar subset of F<font size=-1><small>ORTRAN</small></font>  77.
+<P>
+A similar previous translation effort provided LAPACK in the 
+C language, using the f2c program&nbsp;[<A HREF="node35.html#feldmansi95">9</A>], 
+and has proven to be 
+very popular and widely used. 
+The BLAS and LAPACK class files 
+will be provided as a service of the Netlib
+repository.  f2j also provides a base for 
+a more ambitious effort translating a larger
+subset of Fortran, and perhaps eventually <I>any</I> Fortran
+source into Java class files.
+<P>
+The JLAPACK project is composed of three phases:
+<OL><LI> Phase 1: Writing a F<font size=-1><small>ORTRAN</small></font> compiler front end to tokenize
+(lexically analyze), parse  and construct an abstract
+syntax tree (AST) for F<font size=-1><small>ORTRAN</small></font> 77 input files.<LI> Phase 2: Generating Java source and Jasmin opcode for
+use with the JVM from the AST.<LI> Phase 3: Testing, documenting and distributing BLAS and LAPACK 
+class files.
+</OL>
+All phases are now complete with respect to the initial design criteria 
+(for Java source).  Significant progress has been made in the
+translation to Jasmin opcode, which is roughly 50% complete.
+The Phase 3 testing for BLAS and LAPACK resulted in some changes 
+to the initial code design,
+requiring the Fortran front-end to be significantly extended.
+<P>
+<HR><A NAME="tex2html60" HREF="node2.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html58" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html52" HREF="f2jreport.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html61" HREF="node2.html">Design of the f2j </A>
+<B>Up:</B> <A NAME="tex2html59" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html53" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

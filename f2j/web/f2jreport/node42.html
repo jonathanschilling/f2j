@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>To do list</TITLE>
+<META NAME="description" CONTENT="To do list">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html510" HREF="node43.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html508" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html502" HREF="node41.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html511" HREF="node43.html">Known bugs f2javaf2jas</A>
+<B>Up:</B> <A NAME="tex2html509" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html503" HREF="node41.html">Block if</A>
+<BR> <P>
+<H1><A NAME="SECTION000120000000000000000">To do list</A></H1>
+<P>
+Although all three Phases of the f2j compiler are complete,
+there are still some aspects of the system that should be
+done or would help by being done.
+The following list details some of these.
+<P>
+<OL><LI>  f2j currently only handles one file 
+at a time.  Allowing multiple files could 
+probably be implemented rather easily, but each 
+should be freed before parsing in new files.<LI> The front-end parser and lexer are adequate
+for the BLAS and LAPACK libraries, but they really
+should be updated in order for f2j to be useful for
+a wide variety of libraries.<LI>  Need compiler to &quot;automatically&quot; figure how 
+which package the routine should go into, and which
+files to import.  This can be hacked by using
+the preprocessor, or by command line switches, etc.
+Also, may help to switch over to Solaris for development.
+That way some simple java tools can be used to control
+compiling, etc.<LI> Write an error handling routine for yyparse to
+indicate the approximate location of parse errors in
+the input file.  Lex &amp; yacc book has example.
+Note that the hook for this is in the lexer; line are 
+counted.<LI>  Fix the in-line RELOP action in a similar way to 
+ Name &lt;=&gt; NAME, etc.  In fact, 
+all in-line actions should be removed from the
+grammar file.<LI> Add code to the 'prelex()' routine to check 
+whether there is six spaces of white at the beginning
+of each non-continued statement.<LI> Testing toolset: suite of tools to test the lexer,
+parser and functionality of translated source code.
+So far I have two csh scripts: <TT>blascheck</TT> and
+<TT>lapackcheck</TT> written to see how well src in the 
+blas and lapack directories lex and parse.<LI> Fix the IF-ELSE shift/reduce error in the parser.<LI>  The JVM uses a stack, for which the number 
+of local variables and the stack depth must be calculated in 
+advance. There needs to be an algorithm derived for this,
+keeping the track of the following data:
+   <UL><LI> Number of locals has be at least the same as the number of 
+   arguments, more if doubles are used, even more if 
+   with typed variables.<LI>  The size of the stack can be calculated by keeping a 
+running total of operations that affect the stack.
+   </UL></OL><HR><A NAME="tex2html510" HREF="node43.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html508" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html502" HREF="node41.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html511" HREF="node43.html">Known bugs f2javaf2jas</A>
+<B>Up:</B> <A NAME="tex2html509" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html503" HREF="node41.html">Block if</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

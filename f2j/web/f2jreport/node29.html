@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Synopsis</TITLE>
+<META NAME="description" CONTENT="Synopsis">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html381" HREF="node30.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html379" HREF="node28.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html375" HREF="node28.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html382" HREF="node30.html">User interface to JLAPACK</A>
+<B>Up:</B> <A NAME="tex2html380" HREF="node28.html">Using the f2j compiler</A>
+<B> Previous:</B> <A NAME="tex2html376" HREF="node28.html">Using the f2j compiler</A>
+<BR> <P>
+<H4><A NAME="SECTION00030010000000000000">Synopsis</A></H4>
+<P>
+<PRE>Usage: f2java [-java/-jas] [-p package name] [-w] [-i] [-s] &lt;filename&gt;</PRE>
+<P>
+The f2j system currently consists of C source files that are
+compiled into a single executable: <TT>f2java</TT>.  This executable can
+generate either Java or Jasmin code depending on the command-line
+arguments: <TT>-java</TT> for Java source code or <TT>-jas</TT>
+for Jasmin opcode.
+<P>
+Using f2java from the command line requires only the filename 
+of the F<font size=-1><small>ORTRAN</small></font> program to translate.  By default, the
+F<font size=-1><small>ORTRAN</small></font> program is translated to Java source code, but
+the <TT>-jas</TT> switch will direct f2java to generate Jasmin
+opcode instead.  The name of the F<font size=-1><small>ORTRAN</small></font> 
+file is transformed into the class name, with appropriate capitalizations
+following established Java programming conventions.  Thus,
+the LAPACK driver dgesv.f is translated to Dgesv.java.
+<P>
+The <TT>-p</TT> option allows the user to
+specify a package name for the generated source code.  For example,
+<PRE>f2java -p org.netlib.blas file.f</PRE>
+would generate a file named File.java, as usual, with the following
+package specification:
+<PRE>package org.netlib.blas;</PRE>
+<P>
+The package option is used when generating Java source that will
+be part of a library.  For example, when translating ddot.f, which
+will be part of the Java BLAS library, we would
+specify ``<TT>-p org.netlib.blas</TT>''.
+<P>
+The <TT>-w</TT> option turns off the optimization of wrappers, as
+discussed in section <A HREF="node18.html#obj_wrapper">2.1.15</A>.  By default, wrapper
+usage is optimized.  With <TT>-w</TT> specified, <I>every</I>
+scalar variable will be wrapped in an object.
+<P>
+The <TT>-i</TT> option causes f2j to generate a high-level
+interface to each subroutine and function.  The interface
+provides a more Java-like API to the underlying numerical
+routines.
+<P>
+The <TT>-s</TT> option causes f2j to simplify the interfaces
+by removing the offset parameter and using a zero offset.
+It isn't necessary to specify the <TT>-i</TT> flag in addition
+to the <TT>-s</TT>.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,91 @@
+\begin{thebibliography}{10}
+
+\bibitem{graham:i94}
+I.~Graham.
+\newblock {\em Object Oriented Methods}.
+\newblock Addison-Wesley, Berkeley, CA, 2d edition, 1994.
+
+\bibitem{linpackjava}
+J.~Dongarra and R.~Wade.
+\newblock Linpack {B}enchmark -- {J}ava {V}ersion.
+\newblock [Online] Available http://www.netlib.org/benchmark/linpackjava, April
+  1996.
+
+\bibitem{malvern:le69}
+L.~E. Malvern.
+\newblock {\em {I}ntroduction to the {M}echanics of a {C}ontinuous {M}edium}.
+\newblock Prentice-Hall, Englewood Cliffs, New Jersey, 1969.
+
+\bibitem{long:jcs82}
+J.~C.~S. Long, J.~S. Remer, C.~R. Wilson, and P.~A. Witherspoon.
+\newblock {P}orous {M}edia {E}quivalents for {N}etworks of {D}iscontinuous
+  fractures.
+\newblock {\em WRR}, 18:645--658, 1982.
+
+\bibitem{blas1}
+C.~Lawson, R.~Hanson, D.~Kincaid, and F.~Krogh.
+\newblock {B}asic {L}inear {A}lgebra {S}ubprograms for {F}ortran {U}sage.
+\newblock {\em ACM Transactions on Mathematical Software}, 5:308--325, 1979.
+
+\bibitem{blas2}
+J.~Dongarra, J.~Du~Croz, S~Hammarling, and R.~Hanson.
+\newblock {A}n {E}xtended {S}et of {F}ortran {B}asic {L}inear {A}lgebra
+  {S}ubprograms.
+\newblock {\em ACM Transactions on Mathematical Software}, 14(1):1--32, 1988.
+
+\bibitem{blas3}
+J.~Dongarra, J.~Du~Croz, I.~Duff, and S.~Hammarling.
+\newblock {A} {S}et of {L}evel 3 {B}asic {L}inear {A}lgebra {S}ubprograms.
+\newblock {\em ACM Transactions on Mathematical Software}, 16(1):1--17, 1990.
+
+\bibitem{lapack}
+E.~Anderson, Z.~Bai, C.~Bischof, J.~Demmel, J.~Dongarra, J.~Du~Croz,
+  A.~Greenbaum, S.~Hammarling, A.~McKenney, S.~Ostrouchov, and D.~Sorensen.
+\newblock {\em {LAPACK} {U}sers' {G}uide, {S}econd {E}dition}.
+\newblock SIAM, Philadelphia, PA, 1995.
+
+\bibitem{feldman:si95}
+S.~I. Feldman, D.~M. Gay, M.~W. Maimone, and N.~L. Schryer.
+\newblock A {F}ortran-to-{C} converter.
+\newblock {C}omputing {S}cience {T}echnical {R}eport {N}o. 149, {AT\&T} Bell
+  Laboratories, Murray Hill, NJ, 1995.
+
+\bibitem{java_lang}
+Sun~Microsystems Inc.
+\newblock {\em The Java Language Environment}.
+\newblock Sun Microsystems, Mountain View, CA, 1995.
+
+\bibitem{javab}
+A.~Bik and D.~Gannon.
+\newblock {E}xploiting {I}mplicit {P}arallelism in {J}ava.
+\newblock In {\em Concurrency, Practice and Experience}, volume 9(6), pages
+  579--619, 1997.
+
+\bibitem{aho:av88}
+A.~V. Aho, R.~Sethi, and J.~D. Ullman.
+\newblock {\em Compilers: Principles, Techniques, and Tools}.
+\newblock Addison-Wesley Publishing Company, Reading, MA, 1988.
+
+\bibitem{feldman:si79}
+S.~I. Feldman.
+\newblock Implementation of a portable {F}ortran 77 compiler using modern
+  tools.
+\newblock {\em ACM SIGPLAN Notices}, 14:8:98--106, 1979.
+
+\bibitem{knuth:de65}
+D.~E. Knuth.
+\newblock On the translation of languages from left to right.
+\newblock {\em Information and Control}, 8:6:607--639, 1965.
+
+\bibitem{ansi:x3.9}
+American {N}ational~{s}tandards {I}nstitute.
+\newblock American {N}ational {S}tandards {I}nstitute programming language
+  {FORTRAN}.
+\newblock X3.9-1978, {ANSI}, New York, New York, 1978.
+
+\bibitem{boillot:m87}
+M.~Boillot.
+\newblock {\em Understanding {FORTRAN} 77 with Structured Problem Solving}.
+\newblock West Publishing Company, New York, 2d edition, 1987.
+
+\end{thebibliography}

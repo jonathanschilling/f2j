@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Load Balancing</TITLE>
+<META NAME="description" CONTENT="Load Balancing">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html98" HREF="node7.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html96" HREF="node4.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html90" HREF="node5.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html99" HREF="node7.html">Fault Tolerance</A>
+<B>Up:</B> <A NAME="tex2html97" HREF="node4.html">Overview of the NetSolve </A>
+<B> Previous:</B> <A NAME="tex2html91" HREF="node5.html">Architecture</A>
+<BR> <P>
+<H3><A NAME="SECTION00022200000000000000">Load Balancing</A></H3>
+<P>
+The primary role of the agent in the NetSolve system is to perform
+load balancing among the different computational resources.
+NetSolve is inherently a multi-request system. Several users can 
+share computational resources by contacting the same agent or different
+agents managing the same pool of resources.
+In fact, even a single user can send multiple asynchronous
+requests at once, as explained in the description of the
+user interfaces. 
+For each server, the agent uses
+information contained in the user request (e.g., type of computation,
+size of the problem), static information about
+the server (speed of the host, numerical server available, etc.), and
+<B>predictions</B> about the workload of the server's host and the
+distance to the server's host over the network. These different pieces
+of information are then combined to obtain an estimate of the time
+required to process the user request on each computational server
+(including network time and CPU time). For each clien't 
+incoming request,
+the NetSolve agent sorts the appropriate computational servers
+by the estimated times, and is then able to process
+the request accordingly. More details on the way the agent
+performs this load balancing can be found in&nbsp;[<A HREF="node18.html#netsolve">15</A>].
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>NetSolve's Java API</TITLE>
+<META NAME="description" CONTENT="NetSolve's Java API">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html146" HREF="node12.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html144" HREF="node9.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html140" HREF="node10.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html147" HREF="node12.html">Future Developments</A>
+<B>Up:</B> <A NAME="tex2html145" HREF="node9.html">Java interface to NetSolve</A>
+<B> Previous:</B> <A NAME="tex2html141" HREF="node10.html">Graphical interface</A>
+<BR> <P>
+<H3><A NAME="SECTION00023200000000000000">NetSolve's Java API</A></H3>
+<P>
+The first graphical interface to NetSolve was written in
+TK/TCL&nbsp;[<A HREF="node18.html#tktcl">18</A>].  When Java became available, we decided that it
+would be a much better choice to write a graphical interface for the
+reasons described in the preceding section. By the time the first
+version of the Java GUI was completed, Java had evolved to be accepted
+as an important language by itself, not just a tool for running
+programs (applets) within Web-browsers. The need for a Java API to
+NetSolve then seemed clear, since NetSolve already provided C, Fortran
+and MATLAB interfaces.  Fortunately, most of the internals of the GUI
+could be re-used to implement a Java API. In fact, due to the
+unexpected success of Java during the development of NetSolve, we were
+lead to do some reverse engineering:&nbsp;extracting the internals of an
+existing software for distribution as a stand-alone class library.
+The API is still under development and has motivated some code
+restructuring within the GUI.  It will match the other APIs to NetSolve
+as closely as possible.
+<P>
+There are however some difficulties that are inherent to Java.  For
+instance, Java does not support calling sequences to a same function
+with a variable number of arguments.  Also, as explained in
+section&nbsp;<A HREF="node13.html#sectionf2j">3</A>, Java passes primitive types by value which
+does not allow a calling sequence entirely compatible with the
+underlying Fortran numerical libraries in the NetSolve computational
+servers.  These difficulties are, however, surmountable, and an
+attractive API will be presented for providing users with an ability to
+write portable scientific computation applications and applets.  The
+user developed  programs will be reliable because the NetSolve
+computational servers use established and widely accepted numerical
+libraries. They will also be efficient because of NetSolve's
+agent-based design, allowing the user to achieve parallelism with
+virtually no additional programming effort.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

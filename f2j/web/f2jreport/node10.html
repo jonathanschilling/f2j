@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Methods versus functions and subroutines</TITLE>
+<META NAME="description" CONTENT="Methods versus functions and subroutines">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html193" HREF="node11.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html191" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html185" HREF="node9.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html194" HREF="node11.html">GOTO Translation</A>
+<B>Up:</B> <A NAME="tex2html192" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html186" HREF="node9.html">Variable initialization and SAVE </A>
+<BR> <P>
+<H3><A NAME="SECTION00021700000000000000">Methods versus functions and subroutines</A></H3>
+<P>
+f2j treats names that are not recognized as intrinsics or
+local variables as functions or subroutines available in the netlib packages.
+For instance, the function ddot is translated to <TT>Ddot.ddot()</TT>,
+that is, the method <TT>ddot</TT> of the class <TT>Ddot</TT>.  This is not
+a portable solution and will break if the called function
+is <EM>not</EM> in the BLAS or LAPACK packages or otherwise
+recognized by f2j.
+<P>
+In F<font size=-1><small>ORTRAN</small></font> functions, the function name may be
+initialized to a value as a variable would be, then the
+function name is the implicit argument when <TT>return</TT>
+is called.  F<font size=-1><small>ORTRAN</small></font> functions return a typed (double, etc.)
+value.  Subroutines are analogous to void functions.  Both are 
+handled by methods in Java.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Translating characters and strings</TITLE>
+<META NAME="description" CONTENT="Translating characters and strings">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html163" HREF="node8.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html161" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html155" HREF="node6.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html164" HREF="node8.html">The PARAMETER keyword</A>
+<B>Up:</B> <A NAME="tex2html162" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html156" HREF="node6.html">Translating functions and subroutines</A>
+<BR> <P>
+<H3><A NAME="SECTION00021400000000000000">Translating characters and strings</A></H3>
+<P>
+<A NAME="seccharacters">&#160;</A>
+LAPACK uses alphabetic characters as flags to control 
+the behavior of some subroutines and character arrays
+to print out diagnostic information such as which 
+subroutines or functions encountered an error.  Java 
+uses String objects instead of character arrays.  For the purpose of
+translating LAPACK into Java, all F<font size=-1><small>ORTRAN</small></font> character
+variables, whether single characters or character arrays,
+are translated to Java String objects.  Subroutines in 
+LAPACK, such as LSAME which compares characters independent
+of case, can be emulated with methods intrinsic to
+the native Java String class.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

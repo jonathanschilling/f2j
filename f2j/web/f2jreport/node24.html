@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Parsing FORTRAN</TITLE>
+<META NAME="description" CONTENT="Parsing FORTRAN">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html334" HREF="node25.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html332" HREF="node22.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html326" HREF="node23.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html335" HREF="node25.html">Code generation</A>
+<B>Up:</B> <A NAME="tex2html333" HREF="node22.html">Implemention of the f2j </A>
+<B> Previous:</B> <A NAME="tex2html327" HREF="node23.html">Lexing FORTRAN</A>
+<BR> <P>
+<H3><A NAME="SECTION00022200000000000000">Parsing F<font size=-1><small>ORTRAN</small></font></A></H3>
+<P>
+<BLOCKQUOTE> <EM>
+One may reasonably ask why anyone would use F<font size=-1><small>ORTRAN</small></font>\
+today, since experts seem to agree that the language
+is obsolete--Stuart Feldman, 1979&nbsp;[<A HREF="node35.html#feldmansi79">13</A>]
+</EM>
+</BLOCKQUOTE>
+<P>
+The F<font size=-1><small>ORTRAN</small></font> grammar has been described as neither
+LL or LR, or LL and not LR, or LR and not LL,
+or both LL and LR.  All answers are partly correct.  
+F<font size=-1><small>ORTRAN</small></font> was written before the notion of regular expressions,
+and before context-free grammars were derived.
+F<font size=-1><small>ORTRAN</small></font> predates Knuth's [<A HREF="node35.html#knuthde65">14</A>] derivation of LR parsing
+by about 10 years.  Fortunately, 
+the LAPACK subset of F<font size=-1><small>ORTRAN</small></font> 77 may be parsed LR(1), 
+once the lexical structure has been determined.
+<P>
+The yacc grammar was written using the F<font size=-1><small>ORTRAN</small></font> 77
+standard&nbsp;[<A HREF="node35.html#ansix39">15</A>].  The grammar was implemented
+using the <TT>Bison</TT> parser generator, a yacc
+work-alike distributed by the Free Software Foundation.
+Bison generates an ANSI C parser, which
+helps ensure platform independence.
+The Fortran source code is parsed into an abstract 
+syntax tree (AST) consisting of tagged union nodes
+implementing the equivalent Java structures.
+The AST allows easy lookup and connection between non-adjacent nodes 
+if future code restructuring is desired. The AST can be passed
+by its root node to separate
+type-checking, code optimizing and code generation procedures.
+<P>
+The compiler uses global variables to communicate between the lexer
+and the parser because the Bison generated parser routine 
+<TT>yyparse()</TT> is automatically generated and takes no 
+arguments.  Global variables are declared in the <TT>f2j.h</TT> 
+header file and as <TT>extern</TT> in the functions that use them.
+In the parser, tokens that are associated with a lexical value 
+are immediately reduced to store the value. Since Bison reduces on 
+in-line actions, in-line actions are avoided when possible.
+<P>
+The abstract syntax tree (AST) contains a single node type consisting
+of an enum statement naming F<font size=-1><small>ORTRAN</small></font> constructions (e.g., do loop),
+a union of structs to store data for each type of F<font size=-1><small>ORTRAN</small></font>\
+construction, pointers to attach the nodes, and a token value.
+Some of the structs in the union, such as that used for 
+assignments, can also be used for expressions during the
+parsing pass.  The node would be assigned the appropriate tag
+(enum variable) because code generation procedures are 
+necessarily different for assignment statements and expressions.
+The pointers are used to doubly link statement blocks, or in the 
+case of expressions, parent from child nodes to parent nodes.
+Since Bison is an LR parser, linked lists are built in reverse, 
+and must be switched for inorder traversal.  The switching is
+done before sublists are attached to the main part of the
+program, and for the main program, directly after the final
+grammar reduction before the code generation routines are 
+invoked.
+<P>
+The AST contains data for all F<font size=-1><small>ORTRAN</small></font> program 
+units contained in the input file.
+Each F<font size=-1><small>ORTRAN</small></font> program unit consists of statement blocks,
+which are composed of one or more F<font size=-1><small>ORTRAN</small></font> statements.
+The statement blocks are connected into a doubly linked list,
+reflecting F<font size=-1><small>ORTRAN</small></font>'s procedural control of flow.
+<P>
+The statement block may consist of a single statement, or
+a group of statements in a control structure such as a
+do-loop or if-then-else block.  Statements within the 
+scope of such structures are linked as a sublist within the
+block instead of sequentially along the main flow of the program.
+Expressions are parsed into a tree, whose root node is attached
+in the appropriate location along the flow of the program or
+control structure, as appropriate.
+<P>
+<HR><A NAME="tex2html334" HREF="node25.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html332" HREF="node22.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html326" HREF="node23.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html335" HREF="node25.html">Code generation</A>
+<B>Up:</B> <A NAME="tex2html333" HREF="node22.html">Implemention of the f2j </A>
+<B> Previous:</B> <A NAME="tex2html327" HREF="node23.html">Lexing FORTRAN</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Logical if</TITLE>
+<META NAME="description" CONTENT="Logical if">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html482" HREF="node40.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html480" HREF="node38.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html474" HREF="node38.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html483" HREF="node40.html">Do loops</A>
+<B>Up:</B> <A NAME="tex2html481" HREF="node38.html">JVM instructions for FORTRAN</A>
+<B> Previous:</B> <A NAME="tex2html475" HREF="node38.html">JVM instructions for FORTRAN</A>
+<BR> <P>
+<H4><A NAME="SECTION000110010000000000000">Logical if</A></H4>
+ F<font size=-1><small>ORTRAN</small></font> logical if statements take the 
+form of a test/statement on one line.  If the test is true,
+the statement is executed, if false, execution passes to the 
+statement on the next line.  This is implemented in jasmin
+by reversing the relational operator (RO) to skip
+the conditional execution if true.  For example, consider
+the following code.
+<P><P>
+<P>
+The F<font size=-1><small>ORTRAN</small></font> source requires setting <I>y</I>=1 if
+<I>x</I>&lt;3, then returning.  In the JVM, if  <IMG WIDTH=36 HEIGHT=25 ALIGN=MIDDLE ALT="tex2html_wrap_inline1093" SRC="img6.gif"  > ,
+we jump directly to the return at <TT>Label 1</TT>,
+else executions ``falls through'' the test and
+1 is assigned to <I>y</I> before returning.
+One unique label is required for each logical if statement.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

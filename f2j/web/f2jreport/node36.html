@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Sale's algorithm</TITLE>
+<META NAME="description" CONTENT="Sale's algorithm">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html449" HREF="node37.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html447" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html441" HREF="node35.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html450" HREF="node37.html">Timing array index operations</A>
+<B>Up:</B> <A NAME="tex2html448" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html442" HREF="node35.html">References</A>
+<BR> <P>
+<A NAME="appsales">&#160;</A><H1><A NAME="SECTION00090000000000000000">Sale's algorithm</A></H1>
+<P>
+Sale's algorithm (Giles, pers. communication)
+was published in CACM in the sixties - with an update
+for Fortran 77 republished in the eighties. 
+Sale's algorithm requires a prepass of each statement to
+determine whether or not the statement  begins with a keyword.  The prepass is
+simple and can be done while scanning to remove comments
+and white space, and catenating continuation statements together,
+ prior to normal lexical processing.
+<P>
+During the prepass, any characters in a Hollerith, character
+string (that is, between quotes or apostrophes), and any characters
+between matching parenthesis are ignored.  
+Those characters are irrelevant to the
+purpose of the prepass.  Of the remaining characters, the scanner 
+must keep track of
+whether there are any equal signs (=) and whether
+there are any commas (,).
+Given the results of the prepass, the lexer should work according to
+the following rules, illustrated with examples.
+<P>
+<OL><LI> If there was neither a comma nor an equal sign,
+the statement must begin with a keyword:
+<DL ><DT><STRONG>REAL X</STRONG>
+<DD> No comma or equal sign, so a keyword must be first
+           and lexer should find the REAL keyword;
+<P>
+<DT><STRONG>FORMAT(I5,F10.3)</STRONG>
+<DD> No comma or equal sign (none outside 
+parenthesis), lexer should find keyword FORMAT.
+<P>
+ </DL><LI> If there was an equal sign,
+but not a comma, the statements must <EM>not</EM> begin with a keyword:
+<DL ><DT><STRONG>REAL X = 5</STRONG>
+<DD>  No comma, but an equal sign, so no  keyword is 
+allowed, lexer should find identifier REALX;
+<P>
+<DT><STRONG>FORMAT(I5) = 7</STRONG>
+<DD>  An equal sign, lexer finds identifier FORMAT;
+<P>
+   <DT><STRONG>DO 10 I = 1.10</STRONG>
+<DD>  Famous, no comma  but  equal sign is  present,
+identifier DO10I found.
+<P>
+ </DL><LI> If there was a comma (equal sign or not), the statement must begin with a
+keyword:
+<DL ><DT><STRONG>DO 10 I = 1, 10</STRONG>
+<DD>   Both comma and equal sign, keyword DO found.
+<P>
+ </DL></OL>
+<P>
+However, there are still
+exceptions, 
+This is resolved by  collecting more information during
+the Sale's prepass.   
+If the statement contains parenthetical lists or
+expressions, look at the first non-blank character after the close of
+the first parenthetical list/expression and record  whether it's a
+letter.  
+Now add two more rules to the lexer:
+<P>
+<OL><LI> If there was
+a letter following a parenthetical, then the statement must begin with
+the keyword IF (very specific rule).
+<DL ><DT><STRONG>IF(LOGFLG) X = 5.0</STRONG>
+<DD>   Has an equal sign, but begins with keyword!
+<P>
+ </DL><LI>  If there is such a letter, but
+no equal sign, the statement must end with the keyword THEN (another
+very specific rule).
+<DL ><DT><STRONG>IF(LOGFLG) THEN</STRONG>
+<DD>  No comma or equal, so IF keyword is found, but
+there is a second keyword.
+<P>
+ </DL></OL>
+<P>
+Another lexically ambiguous situation occurs with the FUNCTION
+keyword.  To resolve this, it must be known whether this is the first statement of
+a procedure, or whether it's a subsequent statement.  If this is the
+first statement in the source, or if it's the first statement after an
+END statement, then the form with an identifier inside the parenthesis
+is a FUNCTION declaration.  In all other circumstances, the statement
+declares an array.
+<P>
+<OL><LI>  This will always declare an array.
+<DL ><DT><STRONG>INTEGER FUNCTION A(5)</STRONG>
+<DD>   An array declaration FUNCTIONA of
+length 5 (this is not ambiguous).
+<P>
+ </DL><LI> If this is the
+first statement in the source, or if it's the first statement after an
+END statement, a function is declared.
+<DL ><DT><STRONG>INTEGER FUNCTION A(I)</STRONG>
+<DD>     Either an array or a 
+function is declared.
+<P>
+ </DL></OL>
+<P>
+Except for the keywords inside of an I/O control list
+(not implemented in f2j), these
+rules specify how to find all Fortran 77 keywords.  Except
+for THEN and FUNCTION, all non-I/O keywords must be the first token of
+the statement they're in (with the caveat that they can be the first
+token of the sub-statement controlled by a logical IF - to which rules 1
+to 3 still apply).
+<P>
+Sale's algorithm resolves
+many of the issues that are frequently cited as major difficulties of
+lexically scanning Fortran.
+The algorithm can be implemented during a
+prepass to quickly identify most of
+the information that would normally require lookahead when
+during lexing.   
+From there on, F<font size=-1><small>ORTRAN</small></font> can be quickly and efficiently
+parsed with the same compiler tools used for more modern languages.
+The algorithm is easy to code, fast,  
+and the rest of Fortran's syntax is fairly regular once
+resolved in the lexer.
+<P>
+<HR><A NAME="tex2html449" HREF="node37.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html447" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html441" HREF="node35.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html450" HREF="node37.html">Timing array index operations</A>
+<B>Up:</B> <A NAME="tex2html448" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html442" HREF="node35.html">References</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

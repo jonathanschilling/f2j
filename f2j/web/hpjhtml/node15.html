@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Implementation</TITLE>
+<META NAME="description" CONTENT="Implementation">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html187" HREF="node16.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html185" HREF="node13.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html179" HREF="node14.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html188" HREF="node16.html">Future Developments</A>
+<B>Up:</B> <A NAME="tex2html186" HREF="node13.html">Direct Java access to </A>
+<B> Previous:</B> <A NAME="tex2html180" HREF="node14.html">Motivation</A>
+<BR> <P>
+<A NAME="secast">&#160;</A><H2><A NAME="SECTION00032000000000000000">Implementation</A></H2>
+<P>
+Several freely available Fortran compiler fronts ends,
+such as g77 and f2c,
+were examined to base the f2j on. None of these
+fit the needs of the project sufficiently well, 
+and the following quotation helped
+provide  motivation to start a clean  implementation 
+from scratch:
+<P>
+<BLOCKQUOTE> <EM>
+The program f2c is a horror, based on ancient code
+and hacked unmercifully.  Users are only supposed
+to look at its C output, not at its appalling inner
+workings. --Stuart Feldman&nbsp;[<A HREF="node18.html#feldmansi95">20</A>]</EM>
+</BLOCKQUOTE>
+<P>
+Due to the context 
+sensitive nature of the Fortran language, 
+the lexer was hand written (in C), 
+as recommended in &nbsp;[<A HREF="node18.html#ahoav88">23</A>, <A HREF="node18.html#levinejr92">24</A>]:
+<BLOCKQUOTE> <EM>
+It should be noted that tokenizing Fortran is such
+an irregular task that it is frequently easier to
+write an ad hoc lexical analyzer for Fortran in a
+conventional programming language than it is to use an
+automatic lexical analyzer
+generator. --Alfred Aho, 1988&nbsp;[<A HREF="node18.html#ahoav88">23</A>]
+</EM>
+</BLOCKQUOTE>
+<P>
+This allowed expression of the Fortran grammar as
+LR(1), sufficient to use the parser generator
+Bison, a yacc work-alike distributed by the Free
+Software Foundation.  Bison generates a an ANSI C
+parser, which is useful for platform indendence.
+There is no type checking if Java source code is 
+chosen to be emitted.  The Fortran source file is
+assumed to be standard Fortran 77.  Limited type
+checking is done during the type conversion pass
+when assembler opcode is emitted.  All code generation
+and type conversion procedures are written in C, 
+portability and extensibility.
+<P>
+The Fortran source code is parsed
+into an abstract syntax tree (AST) consisting of  tagged union
+nodes implementing the equivalent Java structures.
+Using an abstract syntax tree has
+several benefits, one of which is that code
+restructuring can be easily performed.  For instance,
+continuing loop iteration within a Fortran do loop requires
+a <TT>goto/continue</TT> pair, in Java this is accomplished similar
+to C, with a <TT>continue</TT> statement.  Similarly,
+breaking a loop in Fortran 77 requires a <TT>goto/label</TT>
+pair, implemented as a <TT>break</TT> statement in Java.
+The AST allows easy lookup
+and connection between non-adjacent nodes for such
+code restructuring. Another benefit is that the AST 
+may be passed by its root node to separate type-checking,
+code optimizing and code generation procedures.&nbsp;<BR> &nbsp;<BR>
+<P>
+<P><A NAME="101">&#160;</A><A NAME="f2jfig">&#160;</A> <IMG WIDTH=466 HEIGHT=326 ALIGN=BOTTOM ALT="figure99" SRC="img3.gif"  > <BR>
+<STRONG>Figure 2:</STRONG> Translation strategies in the f2j project<BR>
+<P>
+<P>
+After parsing a Fortran source file,
+the AST is traversed recursively to emit
+either Java source code for compilation
+or Java opcode suitable for assembly
+into class file format.  
+Targeting Java source and opcode is more convenient
+than producing bytecode directly because:
+(i) internal documentation of BLAS and LAPACK subroutines
+exists in the form of comment headers and can be 
+preserved exactly in the translated form, and (ii)
+Java source and opcode are stored in readable ASCII text
+files, much more convenient for testing and debugging
+the translated routines.
+Targeting Java source is
+fairly straightforward, but due to many control
+structures in the BLAS and LAPACK reference source
+being written with goto constructions, the amount
+of Java source code presently emitted is limited.
+Since code restructuring has been shelved for later
+consideration, the remaining subroutines are 
+emitted as opcode suitable for assembly using a
+public domain assembler, <I>jasmin</I> (Java Assembler
+Interface)&nbsp;[<A HREF="node18.html#meyerj97">25</A>].  JVM opcode has not yet 
+ been standardized
+by Sun, but jasmin uses instructions identical
+to those specified by Sun in their JVM
+documentation&nbsp;[<A HREF="node18.html#lindholmt97">26</A>].  The same opcode
+is produced as output from Sun's javap program
+invoked to disassemble a Java class file. Figure <A HREF="node15.html#f2jfig">2</A>
+shows a diagram of the two translation schemes that are
+being experimented with  in the f2j project.
+<P>
+One of the more challenging aspects of the project
+is resolving differences between the calling structures
+in Fortran and Java.  Fortran passes all arguments by reference.
+Java passes objects by reference, but primitives such as
+integers, floats and doubles are passed by value.  A
+Fortran subroutine that modifies an integer for use
+in the calling program has no direct counterpart in
+Java.  One possibility would be to create a class
+containing all of the arguments for a subroutine.
+While this technique would be more object oriented
+than changing lists of calling parameters, the complexity
+of writing a translator could be greatly increased.
+<P>
+Java provides  class wrappers for all primitive
+types, but value of the primitive is immutable within
+the object wrapper.  Since the JVM requires that all methods
+return a value or void, values cannot be left on the
+JVM stack (each method implements its own stack).
+The solution being implemented is to simply wrap
+the necessary values (e.g., the INFO variable
+used in many LAPACK routines for reporting error status)
+in a custom class consisting of a single static class
+variable.  This also provides less overhead than instantiating
+built-in wrappers provided in the Java language
+specification. A simple experiment showed that instantiating
+an object of type Double requires 280 bytes in Java
+(javac version 1.1.1), but
+a simple wrapper such as
+<PRE>class DoubleWrapper {
+  double d;
+}</PRE>
+<P>
+only requires 56 bytes.  Both classes, Double and DoubleWrapper,
+inherit from class Object.  The size difference reflects methods
+implemented in Double that are lacking in DoubleWrapper.
+Another possibility under consideration
+is to pass primitives  as single element arrays.
+<P>
+Neither is it possible to pass references to
+subsections of arrays.  Java will dereference indexed
+arrays and pass the value instead.  This necessitates
+changing the calling parameters of the BLAS and LAPACK
+routines to pass indices separately with every array.
+Method overloading would allow a default method
+invocation identical to
+a LAPACK call that passed all arrays by their initial
+reference, but overloading for all possible cases
+would increase the number of required methods by
+ <IMG WIDTH=15 HEIGHT=11 ALIGN=BOTTOM ALT="tex2html_wrap_inline357" SRC="img4.gif"  > , <I>n</I> the number of arrays.
+<P>
+<HR><A NAME="tex2html187" HREF="node16.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html185" HREF="node13.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html179" HREF="node14.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html188" HREF="node16.html">Future Developments</A>
+<B>Up:</B> <A NAME="tex2html186" HREF="node13.html">Direct Java access to </A>
+<B> Previous:</B> <A NAME="tex2html180" HREF="node14.html">Motivation</A>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

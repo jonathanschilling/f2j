@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Recommendations</TITLE>
+<META NAME="description" CONTENT="Recommendations">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html411" HREF="node33.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html409" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html403" HREF="node31.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html412" HREF="node33.html">Summary</A>
+<B>Up:</B> <A NAME="tex2html410" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html404" HREF="node31.html">Current status of project</A>
+<BR> <P>
+<H1><A NAME="SECTION00060000000000000000">Recommendations</A></H1>
+<P>
+The parser generator <TT>yacc</TT> was developed in the 1970's
+and reflects the programming practices of its day.  For
+instance, the actual parser produced by <TT>yacc</TT> is not
+easily readable due to the number of goto statements.
+As the parser takes no arguments, it must interact with 
+its associated lexer using global variables.  The extent
+of global variable use in the f2j compiler has reached a point
+of diminishing returns.  The code generation routines should be
+rewritten to reference a structure that keeps count of 
+all relevant variables such as the name of the current program,
+line numbers, label numbers, etc.
+<P>
+Rewriting the type assignment and code generation routines 
+for emitting Jasmin opcode
+involves determining exactly how many global variables
+are used, writing an appropriate structure and passing the 
+structure along through recursive calls.  The structure 
+should be declared and initialized in the initialization
+routine called by main() before the parser starts to
+work.
+<P>
+Previous versions of f2j have used a single pass
+code generator for Java source and a two pass
+generator for Jasmin source.  Currently, f2j 
+uses at least two passes for both target languages, the
+first pass traversing the tree to determine type
+information and another pass generating the
+code.  For obvious reasons, the code generation passes
+must remain distinct, but the type assignment passes
+could be combined into one common function.
+<P>
+Many of the F<font size=-1><small>ORTRAN</small></font> intrinsic functions have been
+mapped to their Java equivalents, but there are still
+many remaining to be mapped.
+<P>
+As previously mentioned, it would be a good idea
+to extend f2j to allow multiple file names on the command line.
+<P>
+The table used to avoid conflicts between Fortran variables
+and Java reserved keywords should be updated to reflect
+the new version of the Java Development Kit (1.1).
+<P>
+Most of the work to date on the f2j system has been 
+designed from the ``bottom up.''  Functions
+performed by the lexer, parser and code generator were 
+factored into independent procedures and implemented as
+building blocks to construct the compiler.  Midway through 
+Phase 2, user interface design issues
+necessitated a ``top down'' approach, that is,
+designing JLAPACK from the potential users point of view.
+<P>
+One of Java's strengths is that its numerical syntax is 
+similar to C, F<font size=-1><small>ORTRAN</small></font>, and BASIC.  Since the mechanics
+of implementing array access differ between Java and
+F<font size=-1><small>ORTRAN</small></font>, it seems at once natural and desirable to 
+shield JLAPACK users from the internal workings of
+the JLAPACK code.  Two ways of doing this are: (1)
+provide completely new wrappers to the driver routines
+using object-oriented conventions; (2) provide the 
+user with a data specification and a set of auxiliary 
+routines.  The specification would expose the user to 
+the structure expected by JLAPACK for data.  The
+auxiliary routines would allow the user to ignore the 
+specification and transform Java 2D arrays in row order
+to 1D column order arrays.  Option (1) is preferable from 
+a design standpoint, but option (2) is much easier to 
+implement, parallels existing LAPACK documentation,
+and should expose pitfalls to be avoided in a later 
+implementation of (1).
+<P>
+<HR><A NAME="tex2html411" HREF="node33.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html409" HREF="f2jreport.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html403" HREF="node31.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html412" HREF="node33.html">Summary</A>
+<B>Up:</B> <A NAME="tex2html410" HREF="f2jreport.html">JLAPACK-Compiling LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html404" HREF="node31.html">Current status of project</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

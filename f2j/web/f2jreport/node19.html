@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Passing array elements by reference</TITLE>
+<META NAME="description" CONTENT="Passing array elements by reference">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html283" HREF="node20.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html281" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html275" HREF="node18.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html284" HREF="node20.html">Type Analysis</A>
+<B>Up:</B> <A NAME="tex2html282" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html276" HREF="node18.html">Object Wrappers and Optimization</A>
+<BR> <P>
+<H3><A NAME="SECTION000211600000000000000">Passing array elements by reference</A></H3>
+<P>
+<A NAME="adapter">&#160;</A>
+<P>
+In the previous section, we mentioned an example of a
+F<font size=-1><small>ORTRAN</small></font> call, <TT>matrixop(A(i,j,), LDA)</TT>,
+to a subroutine declared as follows:
+<P>
+<PRE>       SUBROUTINE MATRIXOP(A, LDA)
+       DOUBLE PRECISION A
+       INTEGER LDA</PRE>
+<P>
+That example illustrated the need to determine whether an array
+should be passed as an <I>&lt;array reference, offset&gt;</I> pair
+or as an array element.  As mentioned before, the array element should
+be passed.  However, the Java method call we suggested, <TT>matrixop(a[i+j*LDA],LDA)</TT>,
+is not the complete answer.  It does not take into account the fact that in F<font size=-1><small>ORTRAN</small></font>
+the array element is passed by reference while in Java it is passed by
+value.  We take a simplistic approach to solving this problem.  Before the
+call, we encapsulate the array element in an object.  That object is then passed
+to the subroutine.  After the call, we assign the object's value back to the
+array element.
+<PRE>  tmp = new doubleW(a[i+j*LDA]);
+  Matrixop.matrixop(tmp,LDA);
+  a[i+j*LDA] = tmp.val;</PRE>
+This would work fine for subroutines, since in F<font size=-1><small>ORTRAN</small></font> there may be only one subroutine
+call per line.  Function calls, however, may be embedded in other calls
+or in other constructs making such assignments inconvenient.  Therefore, we create
+an <I>adapter</I> to the function.  An adapter merely encapsulates
+the real function call and the assignment statements into one method.
+For example, instead of calling <TT>matrixop</TT> directly, now we call an
+adapter for <TT>matrixop</TT>:
+<PRE>matrixop_adapter(a,i+j*LDA,LDA);</PRE>
+Then we declare the adapter as follows:
+<PRE>private static void matrixop_adapter(double [] arg0 , int arg0_offset ,intW arg1 )
+{
+  doubleW _f2j_tmp0 = new doubleW(arg0[arg0_offset]);
+
+  Matrixop.matrixop(_f2j_tmp0,arg1);
+
+  arg0[arg0_offset] = _f2j_tmp0.val;
+}</PRE>
+<P>
+Alternately, We could have defined the matrixop method twice in the Matrixop
+class, with the second declaration acting as the adapter.  
+However, depending on the parameters, there could be several adapters for one function or
+subroutine and we did not want to add to the size of the library any more than
+necessary.  Placing the adapters in the calling class allows us to only generate
+those adapters that will be used, rather than generating all possible adapters that
+could ever be used.
+<P>
+<HR><A NAME="tex2html283" HREF="node20.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html281" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html275" HREF="node18.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html284" HREF="node20.html">Type Analysis</A>
+<B>Up:</B> <A NAME="tex2html282" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html276" HREF="node18.html">Object Wrappers and Optimization</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

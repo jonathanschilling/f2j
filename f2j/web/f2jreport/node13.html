@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>DATA Statements</TITLE>
+<META NAME="description" CONTENT="DATA Statements">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html223" HREF="node14.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html221" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html215" HREF="node12.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html224" HREF="node14.html">EQUIVALENCE Statements</A>
+<B>Up:</B> <A NAME="tex2html222" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html216" HREF="node12.html">The Need for Code </A>
+<BR> <P>
+<H3><A NAME="SECTION000211000000000000000">DATA Statements</A></H3>
+<P>
+F<font size=-1><small>ORTRAN</small></font> DATA statements are generated as
+variable declarations combined with initializations.  They must be combined
+since all variables are now generated as static class variables
+and therefore cannot have separate assignment statements mixed
+in.  For example, the following DATA statement:
+<P>
+<PRE>       integer z(4)
+       DATA z/1,2,3,4/</PRE>
+would be translated to Java as:
+<PRE>static int [] z = {1 , 2 , 3 , 4 };</PRE>
+<P>
+Some DATA statements would be difficult to translate in this way.
+For example, when an array element is used in several DATA 
+statements:
+<PRE>      integer X(10)
+      integer Y
+      DATA X(3),X(8)/1,2/
+      DATA Y/123/ 
+      DATA X(5)/44/</PRE>
+We cannot generate declarations on a statement-by-statement basis
+since, in this case, we would redeclare X:
+<PRE>static int [] x = { 0, 0, 1, 0,  0, 0, 0, 2, 0, 0 };
+static int y = 123;
+static int [] x = { 0, 0, 0, 0, 44, 0, 0, 0, 0, 0 };</PRE>
+We could attempt to consolidate all DATA statements related to
+the array X and generate one declaration:
+<PRE>static int [] x = { 0, 0, 1, 0, 44, 0, 0, 2, 0, 0 };</PRE>
+Instead, we take a simpler approach.  Using <TT>static</TT>
+initialization blocks, f2j can assign the
+values to the individual array elements one-by-one:
+<PRE>  static int [] x = new int [10];
+  static {
+    x[(3)- 1] = 1;
+    x[(8)- 1] = 2;
+  }
+
+  static int y = 123;
+
+  static {
+    x[(5)- 1] = 44;
+  }</PRE>
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

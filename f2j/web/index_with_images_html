@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+            "http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+   <META NAME="compiler" CONTENT="Fortran to Java">
+   <META NAME="keywords" CONTENT="Fortran, Java, Jasmin, compilers, translation,BLAS, LAPACK, numerical analysis, numerical libraries, JVM, class files">
+   <META NAME="creator" CONTENT="David M. Doolin">
+   <META NAME="maintainer" CONTENT="Keith Seymour">
+   <META NAME="contact" CONTENT="doolin@cs.utk.edu">
+   <META NAME="GENERATOR" CONTENT="Mozilla/4.05 [en] (X11; I; SunOS 5.5.1 sun4u) [Netscape]">
+   <TITLE>  Fortran to Java (f2j) compiler</TITLE>
+</HEAD>
+<BODY>
+&nbsp;
+<CENTER> <TABLE>
+<tr>
+<TD><IMG SRC="images/punchcardsmall.gif" ALT=""></TD>
+
+<TD><IMG SRC="images/finger.gif" ALIGN="MIDDLE" ALT=""></TD>
+
+<TD><IMG SRC="images/coffeecup.gif" ALT=""></TD>
+</tr>
+</TABLE> </CENTER>
+
+<CENTER>
+<H2>
+The Fortran 2 Java (f2j) compiler project</H2>
+</CENTER>
+
+<IMG SRC="images/new_tiny.gif" align="left" ALT=""> The JLAPACK code is now
+available for <A HREF="download.html">download</a> as a ZIP file.  The
+JLAPACK testers are also now available on the download page.
+<p>
+
+Our primary motivation is to provide numerical linear algebra software
+originally written in Fortran as Java class files. The first priority is
+translating the Basic Linear Algeba Subroutines (BLAS) and the Linear Algebra
+Package (LAPACK), a collection of driver subroutines built on the BLAS.
+BLAS and LAPACK class files will be freely available, distributed by the
+<A HREF="http://www.netlib.org">Netlib</A> numerical software repository.
+The f2j project has two facets. One is to emit as much compilable, verifiable,
+correctly running Java source from Fortran source code, the other is to
+translate Fortran to Jasmin assembler opcode for assembly into class files.
+
+<P>Since ANSI Fortran 77 does not specify <TT>while</TT> loops, all such
+constructions in the BLAS and LAPACK are implemented with goto statements.
+The Java Assembler Interface (<A HREF="http://www.mrl.nyu.edu/meyer/jvm/">Jasmin</A>)
+is capable of assembling files written in Sun's JVM opcode. Since the JVM
+has built-in goto branching, Jasmin easily implements all goto statements
+in the Fortran source. Since we now have a scheme to translate Fortran
+<TT>GOTO </TT>statements into Java source code, we have not put much emphasis
+on the Jasmin code generator.
+
+<P>However, complex numbers will most likely have to go directly to Jasmin
+for implementation on the JVM stack. Using the object-oriented methods
+for complex arithmetic would likely produce unacceptable overhead for large
+scale numerical problems. Jasmin can be used to translate complex numbers
+and complex arithmetic operations directly into JVM stack arithmetic.
+
+<P>The f2j project is composed of three phases:
+<OL>
+<LI>
+Writing a Fortran front-end capable of lexing and parsing the subset of
+Fortran necessary to translate BLAS and LAPACK.</LI>
+
+<LI>
+Generating Java source and Jasmin opcode to produce class files for use
+with a JVM.</LI>
+
+<LI>
+Testing, documenting and distributing the translated BLAS and LAPACK class
+files.</LI>
+</OL>
+Phases 1 and 2 are now complete for BLAS and LAPACK and we have just completed
+Phase 3 testing. This testing has resulted in some changes to the initial
+code design, requiring the Fortran front-end to be significantly extended.
+The remaining work in Phase 3 will primarily involve specifying the user
+interface.
+<H3>
+New!</H3>
+
+<UL>
+<LI>
+Only scalars that are determined to be modified are wrapped in objects.</LI>
+
+<LI>
+Limited support for <TT>READ</TT> (but not formatted).</LI>
+
+<LI>
+Limited support for <TT>WRITE/FORMAT</TT>.</LI>
+
+<LI>
+Very basic handling of <TT>EQUIVALENCE</TT>.</LI>
+
+<LI>
+<TT>COMMON</TT> now supported.</LI>
+
+<LI>
+Handling of <TT>GOTO</TT> statements!</LI>
+
+<LI>
+Can now handle passing functions as arguments.</LI>
+
+<LI>
+Elementary loop detection for <TT>while</TT> loops.</LI>
+
+<LI>
+<TT>DATA</TT> and <TT>SAVE</TT> statements are now supported.</LI>
+
+<LI>
+Lexer cleaned up and extended to handle character strings and substrings.</LI>
+
+<LI>
+Source files containing multiple functions/subroutines will now translate.</LI>
+</UL>
+
+<H4>
+The BLAS, Basic Linear Algebra Subroutines</H4>
+Java BLAS is translated from the BLAS Fortran reference source archived
+at the <A HREF="http://www.netlib.org">Netlib</A> numerical software repository.
+BLAS is composed of three levels of linear algebra operations:
+<UL>
+<LI>
+<B>Level</B> 1 BLAS consists of vector-vector operations such as dot product,
+etc.</LI>
+
+<LI>
+<B>Level</B> 2 BLAS consists of vector-matrix operations.</LI>
+
+<LI>
+<B>Level</B> 3 BLAS consists of matrix-matrix operations.&nbsp;
+</LI>
+</UL>
+BLAS levels 1, 2, and 3 have passed the Netlib test suite.
+<H4>
+LAPACK, Linear Algebra Package</H4>
+Java LAPACK has now completed the testing stage. Some of the main design
+issues are:
+<UL>
+<LI>
+Arrays are being implemented as 1 dimensional in the Java translation.
+Access is by index arithmetic, using leading dimensions declared in the
+Fortran source. User interface issues have not yet been resolved.</LI>
+
+<LI>
+Certain variables are returned by reference, which has no counterpart in
+Java. Currently all scalar variables will be wrapped as an object with
+a single (value) field. This has obvious performance implications, but
+it is a convenient first step towards getting a working Java implementation
+of LAPACK. We will certainly be working on optimizations in the future.</LI>
+
+<LI>
+Translation of <TT>GOTO </TT>statements is done with a post-translation
+processing step. First, we use f2java to translate the Fortran code to
+Java. <TT>GOTOs </TT>are automatically translated as calls to a dummy class.
+So, <TT>GO TO 100 </TT>would be translated as <TT>Dummy.go_to(100); </TT>.
+The labels in the Fortran source are also translated as calls to the dummy
+class (for example, the label 100 becomes <TT>Dummy.label(100); </TT>in
+the Java source). Next we compile the Java file as usual (using <TT>javac</TT>).
+We then use a special program to analyze the bytecode and translate the
+dummy goto calls to real JVM goto instructions. Our tool is based on the
+bytecode parser in <A HREF="http://www.extreme.indiana.edu/~ajcbik/JAVAB/">javab</A>,
+a bytecode parallelizing tool under development at the University of Indiana.</LI>
+</UL>
+A general solution for translating Fortran to Java may not be available
+without using object methods, possibly incurring large performance penalties.
+Our alternative is to chose those features most important to efficiency
+in numerical analysis, and direct the translation using the known structure
+of the BLAS and LAPACK Fortran source.
+<H4>
+Preliminary documentation</H4>
+The javadoc reference for <A HREF="docs/html/packages.html">BLAS and LAPACK</A>
+<HR>
+<H4>
+Fortran source to Java source</H4>
+All of the double precision BLAS and LAPACK Fortran source code has been
+translated directly to Java source. Some sample files to examine:
+<UL>
+<LI>
+<A HREF="code/dsymm.f">dsymm.f</A>, a matrix-matrix multiplication subroutine.</LI>
+
+<LI>
+The translated Java source produced by f2java <A HREF="code/Dsymm.java">Dsymm.java</A>
+Dsymm.java was filtered through <A HREF="http://www.blaze.bc.ca/~jspeton/percolator/">Percolator</A>
+using the default formatting options.</LI>
+
+<LI>
+Output class <A HREF="code/Xerbla.java">Xerbla.java</A> to display error
+conditions.</LI>
+</UL>
+
+<H4>
+Fortran source to Jasmin opcode</H4>
+Jasmin provides a straightfoward method to assemble Java Virtual Machine
+byte code from a set of assembler instructions identical to instructions
+emitted by Sun's disassembler. Since Fortran 77 does not specify <TT>while</TT>
+loops, these are implemented in BLAS and LAPACK using <TT>goto</TT> statements,
+which are supported at the JVM level.
+<UL>
+<LI>
+Some simple Fortran source:<A HREF="code/loops.f">loops.f</A></LI>
+
+<LI>
+The Jasmin produced by f2jas:<A HREF="code/Loops.j">Loops.j</A></LI>
+</UL>
+
+<H4>
+Notes</H4>
+
+<UL>
+<LI>
+f2j is part of a broader effort to provide computational resources over
+the World Wide Web. <A HREF="hpjhtml/">Java Access to Numerical Libraries</A>,
+presented at the High Performance Java conference (June, 1997, Las Vegas),
+presents the <A HREF="http://www.cs.utk.edu/netsolve">NetSolve</A> project,
+along with some brief remarks about f2j.</LI>
+
+<LI>
+This <A HREF="f2jreport/f2jreport.html">technical report (ut-cs-98-390)</a>
+reflects the current state of the project.</LI>
+
+<LI>
+An <A HREF="f2jppt/index.htm">MS Powerpoint</A> presentation of the f2j
+project (22 images, average size about 30k each).</LI>
+
+<LI>
+The f2j compiler is currently a special purpose tool, that is, certain
+design decisions necessary to provide a general tool for translating Fortran
+to Java have been postponed until working code for the BLAS and LAPACK
+libraries has been emitted and tested.</LI>
+
+<LI>
+The data structure used to build the abstract syntax tree is a "tagged
+union", defined in the f2j <A HREF="code/f2j.h">header</A> file.</LI>
+
+<LI>
+Transparency set on <A HREF="http://www.npac.syr.edu/users/gcf/javaforcsefall96M/fullindex.html">Java
+for numerical computation</A> given by by Geoffrey C. Fox, Wojtek Furmanski
+at Int. Conf Parallel Computing Minneapolis, Fall 96. (Foils prepared 30
+Sept 1996.)</LI>
+</UL>
+<hr>
+<HR>Created: <I>May, 1997</I>
+<BR>Updated: <I>11 Jun, 1998&nbsp;</I><!-- Keith Seymour -->
+<BR><I><A HREF="mailto:seymour@cs.utk.edu">seymour@cs.utk.edu</A></I>
+<BR><I><A HREF="mailto:doolin@ce.berkeley.edu">doolin@ce.berkeley.edu</A></I>
+</BODY>
+</HTML>

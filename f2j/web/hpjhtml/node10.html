@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Graphical interface</TITLE>
+<META NAME="description" CONTENT="Graphical interface">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html138" HREF="node11.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html136" HREF="node9.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html130" HREF="node9.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html139" HREF="node11.html">NetSolve's Java API</A>
+<B>Up:</B> <A NAME="tex2html137" HREF="node9.html">Java interface to NetSolve</A>
+<B> Previous:</B> <A NAME="tex2html131" HREF="node9.html">Java interface to NetSolve</A>
+<BR> <P>
+<H3><A NAME="SECTION00023100000000000000">Graphical interface</A></H3>
+<P>
+For NetSolve to be accepted by many users, it must provide
+several distinct ways to access computational resources,
+mainly different user interfaces. Before the development of the
+Java graphical interface, the only interfaces that were available were
+MATLAB, C, and Fortran, leaving the MATLAB interface as the only
+high-level and
+interactive way of calling NetSolve. However, MATLAB is not freely
+distributed and many users may not have it installed
+on their workstations. We needed a freely available interactive
+interface so that users not familiar with scientific computing could
+still use NetSolve for their first steps in the field.
+Furthermore, Java allowed us to effortlessly design a graphical
+interface making
+NetSolve even more straightforward for first-time users, even though an
+experienced user is more likely to use the Fortran or MATLAB interface
+if available.
+<P>
+NetSolve's interactive Java interface is entirely graphical. A window
+displaying available computational methods is presented to the user,
+who can point and click to solve the numerical problem of interest. The
+user then supplies input by way of files, URLs, or interactively using
+the keyboard.  Computation is handled as usual by a computational
+server chosen by the NetSolve agent and the result is returned to the
+user.  The results can be viewed and saved if necessary.
+<P>
+NetSolve's graphical  interface is multi-threaded, using Java's
+built-in thread facilities.  Each computation is assigned to a separate
+thread. Every request sent by the Java interface to the NetSolve
+computational resource is represented by an independent window. By
+opening several windows concurrently, the user can send multiple
+requests simultaneously. Each  request will be handled by different
+computational servers, thanks to the agent's load balancing strategy.
+This is very similar to the non-blocking calls to NetSolve from C,
+Fortran, MATLAB or Java programs.
+<P>
+The pool of NetSolve resources can be a heterogeneous set of hosts,
+i.e., two hosts can have different internal data representations. To
+support heterogeneous environments, the agents, servers, and C, Fortran
+and MATLAB interfaces use the XDR protocol&nbsp;[<A HREF="node18.html#xdr">17</A>].  As part of
+NetSolve, we developed a simple Java XDR-encoder, enabling our
+interface to communicate with any server on any platform.  The Java
+interface may then contact servers which expect XDR-encoded data.
+<P>
+One of the features of Java is that the Java virtual machine can enforce
+a strict security scheme. Typically, the virtual machine embedded in a
+Web-browser does not allow local file access, network connection except to the
+Web server that served the applet. Presently, the Java interface to NetSolve
+cannot be used as an applet within a Web browser because of these
+security restrictions. Indeed, our interface is supposed to contact
+many different servers scattered on the Internet and therefore perform
+multiple network connections. It is possible to work around 
+applet security restrictions
+by setting up an appropriate daemon on the Web servers, but this would
+not be a viable solution
+in the long term, considering the mass of data that would transit
+through the Web server.
+However, the interface is fully functional as an application, running on
+a system
+which has a Java virtual machine, or distributed with  a Java 
+Runtime Environment. Considering the increased interest in
+Java,
+most systems already have an implementation of the Java Development Kit
+(JDK)
+that includes the Java virtual machine and the javac compiler.
+Our interface
+should therefore be usable on virtually any platform
+and future versions of Web-browsers allowing security levels to
+be set by the user 
+are likely to make the applet approach feasible.
+<P>
+<HR><A NAME="tex2html138" HREF="node11.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html136" HREF="node9.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html130" HREF="node9.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html139" HREF="node11.html">NetSolve's Java API</A>
+<B>Up:</B> <A NAME="tex2html137" HREF="node9.html">Java interface to NetSolve</A>
+<B> Previous:</B> <A NAME="tex2html131" HREF="node9.html">Java interface to NetSolve</A>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Array access</TITLE>
+<META NAME="description" CONTENT="Array access">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html143" HREF="node6.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html141" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html135" HREF="node4.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html144" HREF="node6.html">Translating functions and subroutines</A>
+<B>Up:</B> <A NAME="tex2html142" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html136" HREF="node4.html">Basic argument passing</A>
+<BR> <P>
+<H3><A NAME="SECTION00021200000000000000">Array access</A></H3>
+<P>
+<A NAME="array_acc">&#160;</A>
+<P>
+Arrays in Java differ from arrays in F<font size=-1><small>ORTRAN</small></font> 
+in several ways.  In Java, arrays are objects that contain
+methods as well as data, thus increasing overhead.
+In F<font size=-1><small>ORTRAN</small></font>, arrays are named contiguous blocks of memory.
+Java allows arrays as large 255 dimensions; F<font size=-1><small>ORTRAN</small></font> allows
+a maximum of 3 dimensions.  Array indices must start at 0 
+in Java but can start at any arbitrary integer, say -43, 
+in F<font size=-1><small>ORTRAN</small></font>.  Java is implemented as row major access, 
+F<font size=-1><small>ORTRAN</small></font> as column major access.  F<font size=-1><small>ORTRAN</small></font> also allows 
+sections of arrays to be passed as subarrays.
+<P>
+For instance, in F<font size=-1><small>ORTRAN</small></font> a reference to an arbitrary point in 
+an array may be passed to a subroutine. A call such as
+<TT>matmult( A(i,j), B(i,j) )</TT>
+would pass in the arrays <TT>A</TT> and <TT>B</TT> to the <TT>matmult</TT>
+ procedure, which would start indexing the arrays <TT>A</TT> and 
+<TT>B</TT> at the location <TT>i, j</TT>.  Java would
+dereference and pass the value in the array at position <TT>i, j</TT>.  
+Similarly, one can 
+pass in a single reference that marks a location in a
+particular array, which is declared 2D when typed in 
+the called subroutine.  These and similar conventions allow
+numerical analysts to construct efficient algorithms.
+<P>
+In the JLAPACK subroutines, all arrays are declared 1D.  For 
+JLAPACK vectors, array access is identical to F<font size=-1><small>ORTRAN</small></font>.  Since the 
+vector may be accessed at a point other than the initial point, 
+an index is passed along with the array.  For 2D arrays, the index
+is passed as a parameter indicating
+an offset from the 0<I>th</I> element. The leading dimension
+is also passed as a parameter.  To enable future optimization
+by minimizing index arithmetic, arrays are accessed in column 
+order in JLAPACK.
+<P>
+For example, a F<font size=-1><small>ORTRAN</small></font> call such as <TT>matrixop(A(i,j,), LDA)</TT>
+would be translated to Java as <TT>matrixop(A, i+j*LDA, LDA)</TT>, where <TT>
+i, j</TT> are the 
+array indices, and <TT>LDA</TT> is the previously declared leading dimension.
+The <TT>matrixop</TT> method would receive arguments thusly: 
+<TT>(double [] A, int k, int LDA)</TT>, 
+<TT>k</TT> indicating the offset.  Elements in the 
+subarray starting at the location 
+<TT>i, j</TT> would be accessed by <TT>A[k + m + n*LDA]</TT>, where 
+<TT>m, n</TT> are 
+loop counters.  In column order access, part of the index arithmetic
+could be moved outside the inner loop, reducing the number
+of operations per iteration.
+<P>
+Three timing loops (Appendix&nbsp;<A HREF="node37.html#apptiming">B</A>) written to compare
+the execution speed of 1D versus 2D  arrays returned mean 
+speeds (<I>n</I>=32) of 482 for 2D arrays, 592 for 1D row access arrays
+and 462 for 1D column access arrays.  The column access array 
+moved an index product term to a dummy variable between the outer and 
+inner loops.  Single dimension arrays also provide an easy way to deal 
+with assumed-size array declarators (asterisks)
+in F<font size=-1><small>ORTRAN</small></font>.   Subroutine
+and function arguments in F<font size=-1><small>ORTRAN</small></font> must be typed after the 
+arguments are declared, as the following code illustrates:
+<PRE>      SUBROUTINE DLASSQ( N, X, INCX, SCALE, SUMSQ )
+      ...
+      DOUBLE PRECISION   X( * )</PRE>
+But DLASSQ is called from DLANSB with the 2D array <TT>AB</TT>:
+<PRE>        CALL DLASSQ( N, AB( L, 1 ), LDAB, SCALE, SUM )</PRE>
+Since there is no similar syntax in Java, 1D arrays provide
+equivalent functionality.
+<P>
+<HR><A NAME="tex2html143" HREF="node6.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html141" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html135" HREF="node4.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html144" HREF="node6.html">Translating functions and subroutines</A>
+<B>Up:</B> <A NAME="tex2html142" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html136" HREF="node4.html">Basic argument passing</A>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>Future Developments</TITLE>
+<META NAME="description" CONTENT="Future Developments">
+<META NAME="keywords" CONTENT="paper">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="paper.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html195" HREF="node17.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html193" HREF="node13.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html189" HREF="node15.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html196" HREF="node17.html">Conclusion</A>
+<B>Up:</B> <A NAME="tex2html194" HREF="node13.html">Direct Java access to </A>
+<B> Previous:</B> <A NAME="tex2html190" HREF="node15.html">Implementation</A>
+<BR> <P>
+<H2><A NAME="SECTION00033000000000000000">Future Developments</A></H2>
+<P>
+As the  initial design is very much a proof of concept,
+the compiler is limited to the double precision BLAS
+and LAPACK routines.
+Future work on the project might include providing
+better type checking, or providing
+BLAS and LAPACK in the form of Java language source.
+Providing Java language source would require formal code restructuring
+to translate Fortran goto statements to equivalent
+Java control structures, as discussed in section&nbsp;<A HREF="node15.html#secast">3.2</A>.
+Since the present compiler produces assembler
+code directly, to handle goto statements, it could be
+modified to produce stack values suitable for complex
+arithmetic.
+<P>
+Currently, implementing complex numbers and
+complex arithmetic would raise performance
+issues. Complex numbers are not
+specified as primitives in Java,
+and while they could be easily implemented as objects,
+this would produce considerable overhead, as demonstrated
+above. A better idea would be to define static methods
+to operate directly on a stack containing the appropriate
+arguments for complex number arithmetic.  This solution
+still suffers a performance penalty with each static
+method invocation.  The best solution would of course be
+complex primitives specified by Sun as part of
+the Java language, with associated JVM instructions
+to provide complex arithmetic capability.
+<P>
+Another extension of f2j could provide simple code optimization.
+Direct translation of the Fortran statement <TT>i = i + 1</TT>
+to increment an index <TT>i</TT> results in the following 
+JVM stack sequence:
+<PRE>iload n           ; Push n to stack.
+iconst_1          ; Push integer constant 1 to stack.
+iadd              ; Integer add.
+istore n          ; Store value on stack in n.</PRE>
+where <TT>n</TT> is a variable local to the methods stack,
+and <TT>;</TT> delimits comments.  Optimizing this operation
+using JVM instructions results in 
+<PRE>iinc n 1    ; Increment the value stored in n by 1.</PRE>
+For large or highly iterative procedures, the savings in 
+the size of byte code and execution speed should be 
+significant.
+<P>
+As well as providing numerical routines for 
+Java programming, the Fortran to Java compiler f2j demonstrates the feasibility
+of compiling arbitrary languages to the JVM using the
+class file format.  Fortran to Java source translations may also
+be accomplished when control structures in Fortran
+match those in Java, or can be restructured to match.
+This effort certainly will not be the first such, indeed,
+a C++ to Java translator already exists, and work is underway
+on a Pascal to class file translator (Mark de Boer, personal 
+communication).
+<P>
+<HR><A NAME="tex2html195" HREF="node17.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html193" HREF="node13.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html189" HREF="node15.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html196" HREF="node17.html">Conclusion</A>
+<B>Up:</B> <A NAME="tex2html194" HREF="node13.html">Direct Java access to </A>
+<B> Previous:</B> <A NAME="tex2html190" HREF="node15.html">Implementation</A>
+<P><ADDRESS>
+<I>David Doolin <BR>
+Thu Jun 26 14:25:34 EDT 1997</I>
+</ADDRESS>
+</BODY>
+</HTML>

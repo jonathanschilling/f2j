@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!--Converted with LaTeX2HTML 96.1 (Feb 5, 1996) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds -->
+<HTML>
+<HEAD>
+<TITLE>EQUIVALENCE Statements</TITLE>
+<META NAME="description" CONTENT="EQUIVALENCE Statements">
+<META NAME="keywords" CONTENT="f2jreport">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<LINK REL=STYLESHEET HREF="f2jreport.css">
+</HEAD>
+<BODY LANG="EN">
+ <A NAME="tex2html233" HREF="node15.html"><IMG WIDTH=37 HEIGHT=24 ALIGN=BOTTOM ALT="next" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/next_motif.gif"></A> <A NAME="tex2html231" HREF="node3.html"><IMG WIDTH=26 HEIGHT=24 ALIGN=BOTTOM ALT="up" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/up_motif.gif"></A> <A NAME="tex2html225" HREF="node13.html"><IMG WIDTH=63 HEIGHT=24 ALIGN=BOTTOM ALT="previous" SRC="http://www.cs.utk.edu/~icl/WebSite/icons/previous_motif.gif"></A>   <BR>
+<B> Next:</B> <A NAME="tex2html234" HREF="node15.html">Input/Output</A>
+<B>Up:</B> <A NAME="tex2html232" HREF="node3.html">Translating LAPACK FORTRAN to </A>
+<B> Previous:</B> <A NAME="tex2html226" HREF="node13.html">DATA Statements</A>
+<BR> <P>
+<H3><A NAME="SECTION000211100000000000000">EQUIVALENCE Statements</A></H3>
+<P>
+The <TT>EQUIVALENCE</TT> statement is one of the most
+difficult F<font size=-1><small>ORTRAN</small></font> language features to translate into Java.
+We do not have a general solution nor do we expect to develop one, 
+however we can support a limited form of equivalence as long as
+the following two conditions are met:
+<UL><LI> The data types of the variables to be equivalenced must be
+exactly the same.<LI> If the variables are arrays, the indices, if present, must
+be 1.
+</UL>
+The second condition prohibits the beginning of one array being
+equivalenced to the middle of another array.  Arrays of different
+dimensions may be equivalenced, though, provided that they have
+the same data type.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Keith Seymour <BR>
+Wed Jun 10 19:38:14 EDT 1998</I>
+</ADDRESS>
+</BODY>
+</HTML>

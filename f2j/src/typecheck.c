@@ -770,6 +770,8 @@ name_check (AST * root)
           ; /* nothin for now */
         else if (hashtemp != NULL)
           array_check(root, hashtemp);
+        else if (root->nodetype == Substring)
+          root->vartype = String;
         else
           subcall_check(root);
     }

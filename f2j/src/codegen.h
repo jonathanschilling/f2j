@@ -23,9 +23,16 @@
 /*****************************************************************************
  * Following are some fully-qualified class names and method descriptors     *
  * for commonly used methods.                                                *
+ *                                                                           *
+ * JL_STRING is the fully-qualified name of the String class                 *
+ * STR_CONST_DESC is the descriptor for the String constructor               *
  * TRIM_DESC is the descriptor for java.lang.String.trim()                   *
  * STREQV_DESC is the descriptor for java.lang.String.equalsIgnoreCase()     *
- *  F2J_UTIL defines the default name of the f2java utility package.         *
+ * SUBSTR_DESC is the descriptor for java.lang.String.substring(int,int)     *
+ * F2J_UTIL defines the default name of the f2java utility package.          *
+ * UTIL_CLASS is where the insertString() method is defined.                 *
+ * INS_DESC is the desc for insertString, used for LHS substring assignments *
+ *                                                                           *
  *****************************************************************************/
 
 #define JL_STRING "java/lang/String"
@@ -34,6 +41,8 @@
 #define STREQV_DESC "()Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define F2J_UTIL "org/netlib/util"
+#define UTIL_CLASS "org/netlib/util/Util"
+#define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"
 
 /*****************************************************************************
  * When we're generating the byte array to hold the jvm opcodes, we dont     *
@@ -336,6 +345,18 @@ char * valueOf_descriptor[MAX_RETURNS+1] = {
   "(Ljava/lang/String;)Ljava/lang/Integer;",
   "(Ljava/lang/String;)Ljava/lang/Boolean;",
   "(Ljava/lang/Object;)Ljava/lang/Object;"  /* invalid, but not used */
+};
+
+/* descriptors for the numeric wrapper classes' toString() methods           */
+char * toString_descriptor[MAX_RETURNS+1] = {
+  "()Ljava/lang/String;",
+  "()Ljava/lang/String;",
+  "(D)Ljava/lang/String;",
+  "(D)Ljava/lang/String;",
+  "(F)Ljava/lang/String;",
+  "(I)Ljava/lang/String;",
+  "(Z)Ljava/lang/String;",
+  "()Ljava/lang/String;"
 };
 
 /* table of numericValue methods (e.g. doubleValue(), intValue(), etc.

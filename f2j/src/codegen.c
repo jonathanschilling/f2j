@@ -2195,6 +2195,7 @@ name_emit (AST * root)
   void intrinsic_emit(AST *);
   void scalar_emit(AST *, HASHNODE *);
   void array_emit(AST *, HASHNODE *);
+  void substring_emit(AST *);
   void subcall_emit(AST *);
 
   if(gendebug)
@@ -2250,15 +2251,17 @@ name_emit (AST * root)
 
         hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
 
-        /* depending on whether this name is an array, scalar, or
-         * function/subroutine call, we call scalar_emit, array_emit,
-         * or subcall_emit, respectively.
+        /* depending on whether this name is an array, scalar, substring,
+         * or function/subroutine call, we call scalar_emit, array_emit,
+         * substring_emit, or subcall_emit, respectively.
          */
 
         if (root->astnode.ident.arraylist == NULL)
           scalar_emit(root, hashtemp);
         else if (hashtemp != NULL)
           array_emit(root, hashtemp);
+        else if (root->nodetype == Substring)
+          substring_emit(root);
         else
           subcall_emit(root);
         break;
@@ -2266,6 +2269,45 @@ name_emit (AST * root)
 
   if(gendebug)
     printf("leaving name_emit\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * substring_emit                                                            *
+ *                                                                           *
+ * This function emits substring operations.                                 * 
+ *                                                                           *
+ *****************************************************************************/
+
+void
+substring_emit(AST *root)
+{
+  void scalar_emit(AST *, HASHNODE *);
+  HASHNODE *hashtemp;
+  CPNODE *ct;
+
+  hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
+
+  if(hashtemp)
+    fprintf(stderr,"WARNING: substring on array element not supported.\n");
+
+  scalar_emit(root, hashtemp);
+
+  if((root->parent->nodetype == Assignment) && 
+     (root->parent->astnode.assignment.lhs == root))
+  {
+    /* in this case we are assigning TO a substring, so we
+     * do not want to generate the calls to substring() because
+     * we will create a new string and assign it to this variable.
+     */
+
+    return;
+  }
+
+  ct = newMethodref(cur_const_table,JL_STRING, "substring", SUBSTR_DESC);
+  code_one_op_w(jvm_invokevirtual, ct->index);
+
+  return;
 }
 
 /*****************************************************************************
@@ -2285,21 +2327,6 @@ subcall_emit(AST *root)
   AST *temp;
   char *tempstr;
   void expr_emit (AST *);
-
-  /* check whether this node is a Substring operation.  if so, just emit
-   * the variable name becuase the calls to substring() are generated in
-   * expr_emit().
-   */
-  if(root->nodetype == Substring) {
-    fprintf(curfp,"%s",root->astnode.ident.name);
-
-    if(omitWrappers && !isPassByRef(root->astnode.ident.name))
-      fprintf(curfp,".substring((");
-    else
-      fprintf(curfp,".val.substring((");
-
-    return;
-  }
 
   /* captialize the first letter of the subroutine name to get the 
    * class name. 
@@ -6750,84 +6777,83 @@ assign_emit (AST * root)
   printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
 
   /* handle lhs substring operations elsewhere */
-  if(root->astnode.assignment.lhs->nodetype == Substring)
-  {
+  if(root->astnode.assignment.lhs->nodetype == Substring) {
     substring_assign_emit(root);
-    return;
   }
+  else {
+    name_emit (root->astnode.assignment.lhs);
+    fprintf (curfp, " = ");
 
-  name_emit (root->astnode.assignment.lhs);
-  fprintf (curfp, " = ");
-
-  if(ltype != rtype)    /* lhs and rhs have different types */
-  {
-
-    if((ltype != String) && ((rtype == String)||(rtype==Character)))
+    if(ltype != rtype)    /* lhs and rhs have different types */
     {
-      /* non-String = String */
-      fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,").%sValue()",returnstring[ltype]);
 
-      c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
-                      valueOf_descriptor[ltype]);
+      if((ltype != String) && ((rtype == String)||(rtype==Character)))
+      {
+        /* non-String = String */
+        fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
+        expr_emit (root->astnode.assignment.rhs);
+        fprintf(curfp,").%sValue()",returnstring[ltype]);
 
-      code_one_op_w(jvm_invokestatic, c->index);
+        c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
+                        valueOf_descriptor[ltype]);
 
-      c = newMethodref(cur_const_table,numeric_wrapper[ltype], 
-                       numericValue_method[ltype],
-                      numericValue_descriptor[ltype]);
+        code_one_op_w(jvm_invokestatic, c->index);
 
-      code_one_op_w(jvm_invokevirtual, c->index);
-    }
-    else if( (ltype == Logical) && (rtype != String) )
-    {
-      /* boolean = numeric value */
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp," == 0 ? false : true");
-      if(rtype == Integer) {
-        code_one_op_w(jvm_ifeq, 7);
-        code_zero_op(jvm_iconst_0);
-        code_one_op_w(jvm_goto, 4);
-        code_zero_op(jvm_iconst_1);
+        c = newMethodref(cur_const_table,numeric_wrapper[ltype], 
+                         numericValue_method[ltype],
+                        numericValue_descriptor[ltype]);
 
-        /* decrement the stack by one to compensate for the
-         * skipped instruction.  this is a hack and should be fixed
-         * with a more general solution.
-         */
-        dec_stack(1);
+        code_one_op_w(jvm_invokevirtual, c->index);
       }
-      else if(rtype == Double) {
-        code_zero_op(jvm_dconst_0);
-        code_zero_op(jvm_dcmpl);
-        code_one_op_w(jvm_ifne, 7);
-        code_zero_op(jvm_iconst_1);
-        code_one_op_w(jvm_goto, 4);
-        code_zero_op(jvm_iconst_0);
+      else if( (ltype == Logical) && (rtype != String) )
+      {
+        /* boolean = numeric value */
+        expr_emit (root->astnode.assignment.rhs);
+        fprintf(curfp," == 0 ? false : true");
+        if(rtype == Integer) {
+          code_one_op_w(jvm_ifeq, 7);
+          code_zero_op(jvm_iconst_0);
+          code_one_op_w(jvm_goto, 4);
+          code_zero_op(jvm_iconst_1);
 
-        /* decrement the stack by one to compensate for the
-         * skipped instruction.  this is a hack and should be fixed
-         * with a more general solution.
-         */
-        dec_stack(1);
+          /* decrement the stack by one to compensate for the
+           * skipped instruction.  this is a hack and should be fixed
+           * with a more general solution.
+           */
+          dec_stack(1);
+        }
+        else if(rtype == Double) {
+          code_zero_op(jvm_dconst_0);
+          code_zero_op(jvm_dcmpl);
+          code_one_op_w(jvm_ifne, 7);
+          code_zero_op(jvm_iconst_1);
+          code_one_op_w(jvm_goto, 4);
+          code_zero_op(jvm_iconst_0);
+
+          /* decrement the stack by one to compensate for the
+           * skipped instruction.  this is a hack and should be fixed
+           * with a more general solution.
+           */
+          dec_stack(1);
+        }
+        else
+          fprintf(stderr,"WARNING: unsupported cast.\n");
       }
       else
-        fprintf(stderr,"WARNING: unsupported cast.\n");
-    }
-    else
-    {
-      if(typeconv_matrix[rtype][ltype] == jvm_nop)
-        fprintf(stderr,"WARNING: unable to handle this cast!\n");
+      {
+        if(typeconv_matrix[rtype][ltype] == jvm_nop)
+          fprintf(stderr,"WARNING: unable to handle this cast!\n");
 
-      /* numeric value = numeric value of some other type */
-      fprintf(curfp,"(%s)(",returnstring[ltype]);
-      expr_emit (root->astnode.assignment.rhs);
-      fprintf(curfp,")");
-      code_zero_op(typeconv_matrix[rtype][ltype]);
+        /* numeric value = numeric value of some other type */
+        fprintf(curfp,"(%s)(",returnstring[ltype]);
+        expr_emit (root->astnode.assignment.rhs);
+        fprintf(curfp,")");
+        code_zero_op(typeconv_matrix[rtype][ltype]);
+      }
     }
+    else   /* lhs and rhs have same types, everything is cool */
+      expr_emit (root->astnode.assignment.rhs);
   }
-  else   /* lhs and rhs have same types, everything is cool */
-    expr_emit (root->astnode.assignment.rhs);
 
   name = root->astnode.assignment.lhs->astnode.ident.name;
 
@@ -6864,7 +6890,9 @@ assign_emit (AST * root)
 
   printf("in assign_emit, class = %s, name = %s, desc = %s\n",class, name, desc);
   
-  if(root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) {
+  if((root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) ||
+     (root->astnode.assignment.lhs->nodetype == Substring))
+  {
     /* LHS is not an array reference (note that the variable may be
      * an array, but it isn't being indexed here).  for bytecode,
      * we now generate a store or putfield instruction, depending
@@ -6921,26 +6949,52 @@ substring_assign_emit(AST *root)
 {
   AST *lhs = root->astnode.assignment.lhs;
   AST *rhs = root->astnode.assignment.rhs;
-  char *lname = lhs->astnode.ident.name;
+  CPNODE *c;
 
   if(gendebug)
     printf("substring_assign_emit\n");
 
-  if(omitWrappers && !isPassByRef(lname))
-    fprintf(curfp,"%s = Util.stringInsert(%s,",lname,lname); 
-  else
-    fprintf(curfp,"%s.val = Util.stringInsert(%s.val,",lname,lname); 
+  name_emit(lhs);
+
+  fprintf(curfp,"= Util.stringInsert("); 
+
+  /* we want to call name_emit() on lhs again, but in this
+   * case we don't want it treated like an lvalue, so we'll
+   * just set root->astnode.assignment.lhs = NULL here
+   * and call scalar_emit() directly instead.
+   */
+  root->astnode.assignment.lhs = NULL;
+  scalar_emit(lhs, NULL);
+  fprintf(curfp,",");
+
+  /* now reset the value just in case we need it later. */
+  root->astnode.assignment.lhs = lhs;
 
   if(rhs->vartype == Character)
   {
     /* 
      * Java's Character class doesn't have a static toString
      * method, so we have to create a new character object first.
+     * 
+     * currently I dont think we ever hit this case, so the code
+     * here may be superfluous and is definitely untested.
      */
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+              "java/lang/Character");
+
+    code_one_op_w(jvm_new,c->index);
+    code_zero_op(jvm_dup);
+
+    c = newMethodref(cur_const_table,"java/lang/Character", "<init>", "(C)V");
 
     fprintf(curfp,"new Character(");
     expr_emit(rhs);
+    code_one_op_w(jvm_invokespecial, c->index);
     fprintf(curfp,").toString(),");
+    c = newMethodref(cur_const_table,"java/lang/Character", "toString",
+                     "()Ljava/lang/String;");
+    code_one_op_w(jvm_invokestatic, c->index);
   }
   else if(rhs->vartype == String)
   {
@@ -6951,6 +7005,9 @@ substring_assign_emit(AST *root)
   {
     fprintf(curfp,"%s.toString(", java_wrapper[rhs->vartype]);
     expr_emit(rhs);
+    c = newMethodref(cur_const_table,numeric_wrapper[rhs->vartype],
+                     "toString", toString_descriptor[rhs->vartype]);
+    code_one_op_w(jvm_invokestatic, c->index);
     fprintf(curfp,"),");
   }
 
@@ -6959,6 +7016,9 @@ substring_assign_emit(AST *root)
   expr_emit(lhs->astnode.ident.arraylist->nextstmt);
 
   fprintf(curfp,")");
+
+  c = newMethodref(cur_const_table,UTIL_CLASS, "stringInsert", INS_DESC);
+  code_one_op_w(jvm_invokestatic, c->index);
 }
 
 /*****************************************************************************

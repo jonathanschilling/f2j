@@ -2832,7 +2832,7 @@ Pdec:     Assignment
               case Float:
               case Double:
                 temp->token = DOUBLE;
-                sprintf(temp->astnode.constant.number,"%g",constant_eval);
+                sprintf(temp->astnode.constant.number,"%#g",constant_eval);
                 break;
               case Integer:
                 temp->token = INTEGER;

@@ -865,9 +865,9 @@ DataItem:   LhsList DIV DataConstantList DIV
                 
                 temp->parent = $$;
 
-                if(temp->nodetype == Forloop) 
+                if(temp->nodetype == Forloop)
                   type_insert(data_table, temp, Float,
-                     temp->astnode.forloop.counter->astnode.ident.name);
+                     temp->astnode.forloop.Label->astnode.ident.name);
                 else
                   type_insert(data_table, temp, Float, temp->astnode.ident.name);
               }

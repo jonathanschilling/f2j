@@ -1753,6 +1753,8 @@ data_implied_loop_emit(AST * root, AST *Clist)
 {
   AST * loop_var, * lhs;
   int start, stop, incr, i;
+  HASHNODE *ht;
+
   void name_emit (AST *);
   void expr_emit (AST *);
  
@@ -1800,6 +1802,13 @@ data_implied_loop_emit(AST * root, AST *Clist)
       printf("* temp: %s\n", temp->astnode.constant.number);
   }
 
+  ht = type_lookup(cur_type_table,lhs->astnode.ident.name);
+  if(ht)
+    lhs->vartype = ht->variable->vartype;
+  else
+    fprintf(stderr,"WARNING: [DATA] couldn't get vartype of '%s'\n", 
+       lhs->astnode.ident.name);
+
   global_sub.name = loop_var->astnode.ident.name;
 
   /* emit the static initialization block */
@@ -1832,7 +1841,6 @@ data_implied_loop_emit(AST * root, AST *Clist)
  * originally contained in DATA statements in the fortran source.            *
  *                                                                           *
  *****************************************************************************/
-
 
 AST *
 data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
@@ -1998,13 +2006,14 @@ determine_var_length(HASHNODE *var)
  *                                                                           *
  *****************************************************************************/
 
-
 AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   int i, count=1, size=0;
   HASHNODE *ht;
   CPNODE *c;
+
+  int data_repeat_emit(AST *, int);
 
   if(gendebug)
     printf("VAR here we are in data_array_emit, length = %d\n",length);
@@ -2045,60 +2054,36 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
   else
     size = length;
   
-printf("## using size = %d\n",size);
   pushIntConst(size);
   newarray_emit(ht->variable);
 
-  for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
-    code_zero_op(jvm_dup);
-    pushIntConst(i);
+  for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++) {
 
-    if(Ctemp->token == STRING) {
-      fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
-      invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
-    }
+    if(Ctemp->nodetype == Binaryop) 
+      count = data_repeat_emit(Ctemp, count);
     else {
-      if(Ctemp->nodetype == Binaryop)
-      {
-        int j, repeat;
-        char *ditem;
-  
-        if((Ctemp->astnode.expression.lhs == NULL) || 
-           (Ctemp->astnode.expression.rhs == NULL))
-        {
-          fprintf(stderr,"Bad data statement!\n");
-          return Ctemp;
-        }
+      code_zero_op(jvm_dup);
+      pushIntConst(count++);
 
-        if((Ctemp->astnode.expression.lhs->nodetype != Constant) || 
-           (Ctemp->astnode.expression.rhs->nodetype != Constant))
-        {
-          fprintf(stderr,"Error: Data items must be constants.\n");
-          return Ctemp;
-        }
-
-        repeat = atoi(Ctemp->astnode.expression.lhs->astnode.constant.number);
-        ditem = Ctemp->astnode.expression.rhs->astnode.constant.number;
-
-        /* emit the all but the last with a comma.. the last one without */
-
-        for(j=0;j<repeat-1;j++)
-          fprintf(curfp,"%s, ", ditem);
-        fprintf(curfp,"%s ", ditem);
+      if(Ctemp->token == STRING) {
+        fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
+        invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
       }
-      else
+      else {
         fprintf(curfp,"%s ", Ctemp->astnode.constant.number);
+        pushConst(Ctemp);
+      }
+
+      code_zero_op(array_store_opcodes[ht->variable->vartype]);
+
+      /* 
+       * Every now and then, emit a newline for readability.
+       * I have run across some lines that end up so long that
+       * they screw up 'vi'.   9/30/97  --Keith 
+       */
+      if( (count+1) % 5 == 0 )
+        fprintf(curfp,"\n");
     }
-
-    code_zero_op(array_store_opcodes[ht->variable->vartype]);
-
-    /* 
-     * Every now and then, emit a newline for readability.
-     * I have run across some lines that end up so long that
-     * they screw up 'vi'.   9/30/97  --Keith 
-     */
-    if( (count+1) % 5 == 0 )
-      fprintf(curfp,"\n");
 
     if( (Ctemp = Ctemp->nextstmt) == NULL )
       break;
@@ -2122,6 +2107,61 @@ printf("## using size = %d\n",size);
   code_one_op_w(jvm_putstatic, c->index);
 
   return Ctemp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * data_repeat_emit                                                          *
+ *                                                                           *
+ * This function generates repeated DATA specifications, for example:        *
+ *   INTEGER x(30)                                                           *
+ *   DATA x/30*1/                                                            *
+ *                                                                           *
+ * For bytecode generation, we must keep track of which index we're emitting *
+ * so we return the int value of the next array index to emit.               *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+data_repeat_emit(AST *root, int idx)
+{
+  int j, repeat;
+  char *ditem;
+  
+  if((root->astnode.expression.lhs == NULL) || 
+     (root->astnode.expression.rhs == NULL))
+  {
+    fprintf(stderr,"Bad data statement!\n");
+    exit(-1);
+  }
+
+  if((root->astnode.expression.lhs->nodetype != Constant) || 
+     (root->astnode.expression.rhs->nodetype != Constant))
+  {
+    fprintf(stderr,"Error: Data items must be constants.\n");
+    exit(-1);
+  }
+
+  repeat = atoi(root->astnode.expression.lhs->astnode.constant.number);
+  ditem = root->astnode.expression.rhs->astnode.constant.number;
+
+  /* emit the all but the last with a comma.. the last one without */
+
+  for(j=0;j<repeat-1;j++) {
+    fprintf(curfp,"%s, ", ditem);
+    code_zero_op(jvm_dup);
+    pushIntConst(idx++);
+    pushConst(root->astnode.expression.rhs);
+    code_zero_op(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+  }
+
+  fprintf(curfp,"%s ", ditem);
+  code_zero_op(jvm_dup);
+  pushIntConst(idx++);
+  pushConst(root->astnode.expression.rhs);
+  code_zero_op(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+
+  return idx;
 }
 
 /*****************************************************************************
@@ -2546,8 +2586,9 @@ void
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
   int is_ext)
 {
-  void expr_emit (AST *);
   int needs_cast = FALSE;
+
+  void expr_emit (AST *);
 
   HASHNODE *ht;
 
@@ -2666,6 +2707,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit (root);
+
     if(root->vartype != Integer)
       code_zero_op(typeconv_matrix[root->vartype][Integer]);
 
@@ -2769,13 +2811,16 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
 
       ht = type_lookup(cur_type_table, hashtemp->variable->astnode.ident.leaddim);
-      if(!ht) {
-        fprintf(stderr,"func_array_emit(): Type table is screwed!\n");
-        fprintf(stderr,"   looked up %s\n",hashtemp->variable->astnode.ident.leaddim);
-        exit(-1);
-      }
 
       if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
+
+        /* ht should be non-NULL here. */
+        if(!ht) {
+          fprintf(stderr,"func_array_emit(): Type table is screwed!\n");
+          fprintf(stderr,"   looked up %s\n",hashtemp->variable->astnode.ident.leaddim);
+          exit(-1);
+        }
+
         if(omitWrappers && !isPassByRef(hashtemp->variable->astnode.ident.leaddim)) {
           fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
           pushVar(ht->variable->vartype,is_arg,cur_filename,
@@ -2793,10 +2838,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       }
       else {
         fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-        pushVar(ht->variable->vartype,is_arg,cur_filename,
+        pushVar(hashtemp->variable->vartype,is_arg,cur_filename,
                 hashtemp->variable->astnode.ident.leaddim,
-                field_descriptor[ht->variable->vartype][0],
-                ht->variable->astnode.ident.localvnum, FALSE);
+                field_descriptor[hashtemp->variable->vartype][0],
+                hashtemp->variable->astnode.ident.localvnum, FALSE);
       }
       code_zero_op(jvm_imul);
       code_zero_op(jvm_iadd);

@@ -37,7 +37,7 @@ void
  * Global variables.                                                         *
  *****************************************************************************/
 
-int checkdebug = FALSE;              /* set to TRUE for debugging output     */
+int checkdebug = TRUE;              /* set to TRUE for debugging output     */
 
 extern char *returnstring[];         /* return types (from codegen.c)        */
 
@@ -590,21 +590,32 @@ void
 data_check(AST * root)
 {
   HASHNODE *hashtemp;
-  AST *Dtemp,*Ntemp;
+  AST *Dtemp, *Ntemp, *var;
+
+  void name_check (AST *);
 
   for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt)
   {
     for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt)
     {
-      hashtemp = type_lookup(chk_type_table,Ntemp->astnode.ident.name);
+      if(Ntemp->nodetype == Forloop)
+        var = Ntemp->astnode.forloop.Label;
+      else
+        var = Ntemp;
+
+      name_check(var);
+
+      hashtemp = type_lookup(chk_type_table,var->astnode.ident.name);
 
       if(hashtemp != NULL)
       {
-        if((Ntemp->astnode.ident.arraylist != NULL) && 
-           (type_lookup(chk_array_table,Ntemp->astnode.ident.name) != NULL))
+        if((var->astnode.ident.arraylist != NULL) && 
+           (type_lookup(chk_array_table,var->astnode.ident.name) != NULL))
           hashtemp->variable->astnode.ident.needs_declaration = TRUE;
         else
           hashtemp->variable->astnode.ident.needs_declaration = FALSE;
+
+        var->vartype = hashtemp->variable->vartype;
       }
     }
   }
@@ -841,12 +852,11 @@ func_array_check(AST *root, HASHNODE *hashtemp)
      && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
      && (root->nextstmt != NULL))
   {
-    root = root->nextstmt;
+    expr_check (root->nextstmt);
 
-    if(root == NULL)
-      fprintf(stderr,"func_array_check2: calling expr_check with null pointer!\n");
-
-    expr_check (root);
+    /* go up to 3 dimensions if necessary */
+    if(root->nextstmt->nextstmt)
+      expr_check (root->nextstmt->nextstmt);
   }
 }
 

@@ -1,0 +1,152 @@
+VERSION=jlapack-0.5
+
+F2J=f2java
+JAVA=java
+JAVAC=javac
+JAVAB=javab
+JFLAGS=
+JAR=jar
+ZIP=zip
+TAR=tar
+TARFLAGS=chvf
+GZIP=gzip
+
+SRCDIR=src
+DISTDIR=dist
+OUTDIR=obj
+JAVASRC_OUTDIR=javasrc_obj
+UTIL_JAR=f2jutil.jar
+ERR_JAR=xerbla.jar
+BLAS_JAR=blas.jar
+SIMPLE_BLAS_JAR=blas_simple.jar
+LAPACK_JAR=lapack.jar
+SIMPLE_LAPACK_JAR=lapack_simple.jar
+LIBDIST_ZIP=jlapack-0_5.zip
+LIBDIST_TGZ=jlapack-0_5.tgz
+TESTERS_DIST_ZIP=testers.zip
+TESTERS_DIST_TGZ=testers.tgz
+DOC_DIST_ZIP=jlapack-doc.zip
+DOC_DIST_TGZ=jlapack-doc.tgz
+BLAS1TEST_JAR=dblat1.jar
+BLAS2TEST_JAR=dblat2.jar
+BLAS3TEST_JAR=dblat3.jar
+EIGTEST_JAR=eigtest.jar
+LINTEST_JAR=lintest.jar
+MATGEN_JAR=matgen.jar
+
+BLAS1TEST_SH=test_blas1.sh
+BLAS2TEST_SH=test_blas2.sh
+BLAS3TEST_SH=test_blas3.sh
+LINTEST_SH=test_lin.sh
+EIGTEST_SH=test_eig.sh
+BLAS1TEST_BAT=test_blas1.bat
+BLAS2TEST_BAT=test_blas2.bat
+BLAS3TEST_BAT=test_blas3.bat
+LINTEST_BAT=test_lin.bat
+EIGTEST_BAT=test_eig.bat
+
+UTIL_DIR=$(SRCDIR)/util
+BLAS_DIR=$(SRCDIR)/blas
+ERR_DIR=$(SRCDIR)/error_reporting
+LAPACK_DIR=$(SRCDIR)/lapack
+TESTING_DIR=$(SRCDIR)/testing
+MATGEN_DIR=$(TESTING_DIR)/matgen
+EIGTEST_DIR=$(TESTING_DIR)/eig
+LINTEST_DIR=$(TESTING_DIR)/lin
+BLAS1TEST_DIR=$(TESTING_DIR)/blas1
+BLAS2TEST_DIR=$(TESTING_DIR)/blas2
+BLAS3TEST_DIR=$(TESTING_DIR)/blas3
+TIMING_DIR=$(SRCDIR)/timing
+SIMPLE_DIR=simple
+
+UTIL_OBJ=$(UTIL_DIR)/$(OUTDIR)
+MATGEN_OBJ=$(MATGEN_DIR)/$(OUTDIR)
+BLAS_OBJ=$(BLAS_DIR)/$(OUTDIR)
+ERR_OBJ=$(ERR_DIR)/$(OUTDIR)
+LAPACK_OBJ=$(LAPACK_DIR)/$(OUTDIR)
+EIGTEST_OBJ=$(EIGTEST_DIR)/$(OUTDIR)
+LINTEST_OBJ=$(LINTEST_DIR)/$(OUTDIR)
+BLAS1TEST_OBJ=$(BLAS1TEST_DIR)/$(OUTDIR)
+BLAS2TEST_OBJ=$(BLAS2TEST_DIR)/$(OUTDIR)
+BLAS3TEST_OBJ=$(BLAS3TEST_DIR)/$(OUTDIR)
+
+MATGEN_IDX=$(MATGEN_OBJ)/Matgen.f2j
+BLAS_IDX=$(BLAS_OBJ)/Blas.f2j
+ERR_IDX=$(ERR_OBJ)/Err.f2j
+LAPACK_IDX=$(LAPACK_OBJ)/Lapack.f2j
+EIGTEST_IDX=$(EIGTEST_OBJ)/Eigtest.f2j
+LINTEST_IDX=$(LINTEST_OBJ)/Lintest.f2j
+BLAS1TEST_IDX=$(BLAS1TEST_OBJ)/Dblat1.f2j
+BLAS2TEST_IDX=$(BLAS2TEST_OBJ)/Dblat2.f2j
+BLAS3TEST_IDX=$(BLAS3TEST_OBJ)/Dblat3.f2j
+
+UTIL_PACKAGE=org.netlib.util
+UTIL_PDIR=org/netlib/util
+
+BLAS_PACKAGE=org.netlib.blas
+BLAS_PDIR=org/netlib/blas
+
+ERR_PACKAGE=org.netlib.err
+ERR_PDIR=org/netlib/err
+
+LAPACK_PACKAGE=org.netlib.lapack
+LAPACK_PDIR=org/netlib/lapack
+
+BLASTEST_PACKAGE=org.netlib.blas.testing
+BLASTEST_PDIR=org/netlib/blas/testing
+
+MATGEN_PACKAGE=org.netlib.lapack.testing.matgen
+MATGEN_PDIR=org/netlib/lapack/testing/matgen
+
+EIGTEST_PACKAGE=org.netlib.lapack.testing.eig
+EIGTEST_PDIR=org/netlib/lapack/testing/eig
+
+LINTEST_PACKAGE=org.netlib.lapack.testing.lin
+LINTEST_PDIR=org/netlib/lapack/testing/lin
+
+EIGTIME_PACKAGE=org.netlib.lapack.timing.eig
+EIGTIME_PDIR=org/netlib/lapack/timing/eig
+
+LINTIME_PACKAGE=org.netlib.lapack.timing.lin
+LINTIME_PDIR=org/netlib/lapack/timing/lin
+
+EIGSRC_PACKAGE=org.netlib.lapack.timing.eig.eigsrc
+EIGSRC_PDIR=org/netlib/lapack/timing/eig/eigsrc
+
+LINSRC_PACKAGE=org.netlib.lapack.timing.lin.linsrc
+LINSRC_PDIR=org/netlib/lapack/timing/lin/linsrc
+
+UTIL_CLASSES=$(OUTDIR)/$(UTIL_PDIR)/Dsign.class \
+        $(OUTDIR)/$(UTIL_PDIR)/Dummy.class \
+        $(OUTDIR)/$(UTIL_PDIR)/EasyIn.class \
+        $(OUTDIR)/$(UTIL_PDIR)/Etime.class \
+        $(OUTDIR)/$(UTIL_PDIR)/LAprint.class \
+        $(OUTDIR)/$(UTIL_PDIR)/MatConv.class \
+        $(OUTDIR)/$(UTIL_PDIR)/Second.class \
+        $(OUTDIR)/$(UTIL_PDIR)/StringW.class \
+        $(OUTDIR)/$(UTIL_PDIR)/Util.class \
+        $(OUTDIR)/$(UTIL_PDIR)/Xerbla.class \
+        $(OUTDIR)/$(UTIL_PDIR)/booleanW.class \
+        $(OUTDIR)/$(UTIL_PDIR)/doubleW.class \
+        $(OUTDIR)/$(UTIL_PDIR)/floatW.class \
+        $(OUTDIR)/$(UTIL_PDIR)/intW.class
+
+BLAS2TEST_INPUT=$(BLAS2TEST_DIR)/dblat2.in
+BLAS3TEST_INPUT=$(BLAS3TEST_DIR)/dblat3.in
+LINTEST_INPUT=$(LINTEST_DIR)/dtest.in
+EIGTEST_INPUT= $(EIGTEST_DIR)/dbak.in \
+        $(EIGTEST_DIR)/dsg.in \
+        $(EIGTEST_DIR)/dbal.in  \
+        $(EIGTEST_DIR)/glm.in \
+        $(EIGTEST_DIR)/dec.in  \
+        $(EIGTEST_DIR)/gqr.in \
+        $(EIGTEST_DIR)/ded.in \
+        $(EIGTEST_DIR)/gsv.in \
+        $(EIGTEST_DIR)/dgbak.in \
+        $(EIGTEST_DIR)/lse.in \
+        $(EIGTEST_DIR)/dgbal.in \
+        $(EIGTEST_DIR)/nep.in \
+        $(EIGTEST_DIR)/dgg.in \
+        $(EIGTEST_DIR)/sep.in \
+        $(EIGTEST_DIR)/dsb.in \
+        $(EIGTEST_DIR)/svd.in

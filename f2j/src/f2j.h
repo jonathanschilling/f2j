@@ -23,6 +23,8 @@
 
 typedef int BOOLEAN;
 
+#include"graph.h"
+
 #define FALSE 0
 #define TRUE  1
 
@@ -268,7 +270,8 @@ struct _forloop
 {
   int 
     startlabel,                     /* label of beginning of loop (Jasmin)   */
-    stoplabel;                      /* label of end of loop (Jasmin)         */
+    stoplabel,                      /* label of end of loop (Jasmin)         */
+    localvar;                       /* local var holding iteration count     */
 
   struct ast_node 
     *counter,                       /* the loop variable                     */
@@ -278,6 +281,9 @@ struct _forloop
     *incr,                          /* amount to increment each iteration    */
     *iter_expr,                     /* expression to calc # of iterations    */
     *incr_expr;                     /* expression to calc increment          */
+
+  CodeGraphNode
+    *goto_node;                     /* graph node of initial loop goto op    */
 };
 
 /*****************************************************************************
@@ -300,7 +306,9 @@ struct _constant
 
 struct _label
 {
-  int number;                       /* the label number                      */
+  int number,                       /* the label number                      */
+    pc;                             /* bytecode PC of this statement         */
+
   struct ast_node *stmt;            /* the statement after this label        */
 };
 

@@ -466,10 +466,10 @@ enum _opcode dcmp_opcode[] = {
   jvm_nop,
   jvm_ifeq,
   jvm_ifne,
-  jvm_ifgt,
-  jvm_ifge,
   jvm_iflt,
-  jvm_ifle
+  jvm_ifle,
+  jvm_ifgt,
+  jvm_ifge
 };
 
 /* The following is a table of type conversion opcodes.  to find the

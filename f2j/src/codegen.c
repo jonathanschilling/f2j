@@ -49,7 +49,9 @@ void
   set_bytecode_status(int),
   inline_format_emit(AST *, BOOLEAN),
   endNewMethod(struct method_info *, char *, char *, u2),
-  releaseLocal();
+  releaseLocal(),
+  assign_emit (AST *),
+  forloop_bytecode_emit(AST *);
 
 int
   isPassByRef(char *),
@@ -67,6 +69,10 @@ struct method_info
 CodeGraphNode
   * bytecode0(enum _opcode),
   * bytecode1(enum _opcode, u4);
+
+AST
+  * label_search(Dlist, int),
+  * dl_astnode_examine(Dlist);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -90,7 +96,8 @@ Dlist
   doloop = NULL,        /* stack of do loop labels                           */
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
-  methcall_list = NULL; /* list of methods to be called by reflection        */
+  methcall_list = NULL, /* list of methods to be called by reflection        */
+  label_list = NULL;    /* list of statements with label numbers             */
 
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
@@ -168,7 +175,6 @@ emit (AST * root)
        typedec_emit (AST *),
        data_emit(AST *),
        spec_emit (AST *),
-       assign_emit (AST *),
        equiv_emit (AST *),
        call_emit (AST *),
        forloop_emit (AST *),
@@ -258,6 +264,7 @@ emit (AST * root)
           doloop = make_dl();
           adapter_list = make_dl();
           methcall_list = make_dl();
+          label_list = make_dl();
 
           assign_local_vars(
              root->astnode.source.progtype->astnode.source.args); 
@@ -4527,7 +4534,6 @@ expr_emit (AST * root)
             else
               bytecode0(jvm_dcmpl);
 
-printf("token is %d, using %s\n",root->token, jvm_opcode[dcmp_opcode[root->token]].op);
             cmp_node = bytecode0(dcmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
             goto_node = bytecode0(jvm_goto);
@@ -5356,16 +5362,14 @@ void
 forloop_emit (AST * root)
 {
   char *indexname;
-  int *tmp_int;
   void name_emit (AST *);
-  void assign_emit (AST *);
 
-  tmp_int = (int*)f2jalloc(sizeof(int));
+  forloop_bytecode_emit(root);
 
-  *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
+  /* push this do loop's AST node on the stack */
+  dl_insert_b(doloop, root);
 
-  /* push this do loop's number on the stack */
-  dl_insert_b(doloop, tmp_int);
+  set_bytecode_status(JAVA_ONLY);
 
    /*  
     *  Some point I will need to test whether this is really a name
@@ -5455,7 +5459,45 @@ forloop_emit (AST * root)
   }
 
   fprintf (curfp, ") {\n");
+
+  set_bytecode_status(JAVA_AND_JVM);
    /*  Done with loop parameters.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * forloop_bytecode_emit                                                     *
+ *                                                                           *
+ * this function emits the bytecode to begin a for loop.  here we only       *
+ * generate the initial code that comes before the body of the loop:         *
+ *   - initialization of loop variable                                       *
+ *   - calculation of increment count                                        *
+ *   - goto (branch to end of loop to test for loop completion)              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+forloop_bytecode_emit(AST *root) 
+{
+  void gen_istore_op(int);
+
+  set_bytecode_status(JVM_ONLY);
+
+  /* emit the initialization assignment for the loop variable */
+  assign_emit(root->astnode.forloop.start);
+
+  /* now emit the expression to calculate the number of 
+   * iterations that this loop should make and store the result
+   * into the next available local variable.
+   */
+  expr_emit(root->astnode.forloop.iter_expr);
+  root->astnode.forloop.localvar = getNextLocal();
+  gen_istore_op(root->astnode.forloop.localvar);
+
+  /* goto the end of the loop where we test for completion */
+  root->astnode.forloop.goto_node = bytecode0(jvm_goto);
+
+  set_bytecode_status(JAVA_AND_JVM);
 }
 
 /*****************************************************************************
@@ -5477,10 +5519,10 @@ forloop_emit (AST * root)
 void
 goto_emit (AST * root)
 {
-  int dl_int_search(Dlist, int);
   int dl_int_examine(Dlist);
+  AST *loop;
 
-  if( (!dl_empty(doloop)) && dl_int_search(doloop, root->astnode.go_to.label) )
+  if( (loop = label_search(doloop, root->astnode.go_to.label)) != NULL)
   {
      /*
       *  we are inside a do loop and we are looking at a goto
@@ -5616,14 +5658,17 @@ arithmeticif_emit (AST * root)
 void
 label_emit (AST * root)
 {
-  int dl_int_examine(Dlist);
+  int dl_int_examine(Dlist), num;
+
+  num = root->astnode.label.number;
+  root->astnode.label.pc = pc;
 
   if (root->astnode.label.stmt != NULL) {
     if (root->astnode.label.stmt->nodetype != Format) {
-      fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
-      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
-        root->astnode.label.number);
+      fprintf (curfp, "label%d:\n   ", num);
+      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename, num);
       emit (root->astnode.label.stmt);
+      dl_insert_b(label_list, root);
     }
   } 
   else {
@@ -5631,20 +5676,46 @@ label_emit (AST * root)
      * recent DO loop, then this is the end of the loop - pop
      * the label off the doloop list.
      */
+    AST *loop = dl_astnode_examine(doloop);
 
-    if(!dl_empty(doloop) && 
-       (dl_int_examine(doloop) == root->astnode.label.number))
+    if((loop != NULL) &&
+       (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
     {
+      CodeGraphNode *if_node, *iload_node;
+      int icount = loop->astnode.forloop.localvar;
+
       /*
        * finally pop this loop's label number off the stack and
        * emit the label (for experimental goto resolution)
        */
 
-      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
-        *((int *) dl_pop(doloop)));
+      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
+      dl_pop(doloop);
 
-      fprintf (curfp, "}              //  Close for() loop. \n");
+      fprintf(curfp, "}              //  Close for() loop. \n");
       fprintf(curfp, "}\n");
+
+      set_bytecode_status(JVM_ONLY);
+
+      /* increment loop variable */
+      assign_emit(loop->astnode.forloop.incr_expr);
+
+      /* decrement iteration count */
+      iinc_emit(icount, -1);
+
+      if(icount <= 3)
+        iload_node = bytecode0(short_load_opcodes[Integer][icount]);
+      else
+        iload_node = bytecode1(jvm_iload, icount);
+
+      loop->astnode.forloop.goto_node->branch_target = iload_node;
+
+      if_node = bytecode0(jvm_ifgt);
+      if_node->branch_target = loop->astnode.forloop.goto_node->next;
+
+      releaseLocal();
+
+      set_bytecode_status(JAVA_AND_JVM);
     }
     else {
       /* since the stmt pointer is null, this node must be
@@ -5652,10 +5723,12 @@ label_emit (AST * root)
        * DO loop).
        */
 
-      fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
+      fprintf (curfp, "label%d:\n   ", num);
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
         root->astnode.label.number);
     }
+
+    dl_insert_b(label_list, root);
   }
 }
 
@@ -6143,7 +6216,7 @@ write_implied_loop_emit(AST *node)
   AST *temp;
   int icount;
 
-  void assign_emit(AST *), gen_istore_op(int);
+  void gen_istore_op(int);
   AST *addnode();
 
   temp = addnode();
@@ -6272,7 +6345,7 @@ write_implied_loop_emit(AST *node)
 
   goto_node->branch_target = iload_node;
 
-  if_node = bytecode0(jvm_ifne);
+  if_node = bytecode0(jvm_ifgt);
   if_node->branch_target = goto_node->next;
 
   releaseLocal();
@@ -7670,29 +7743,34 @@ dl_int_examine(Dlist l)
 AST *
 dl_astnode_examine(Dlist l)
 {
+  if(dl_empty(l))
+    return NULL;
+
   return ( (AST *) dl_val(dl_last(l)) );
 }
 
 /*****************************************************************************
  *                                                                           *
- * dl_int_search                                                             *
+ * label_search                                                              *
  *                                                                           *
- * This function searches for a value in a dlist of                          *
- * integers.  Returns TRUE if the value is found, FALSE                      *
- * otherwise.                                                                *
+ * searches a list of Forloop nodes for the one corresponding to the given   *
+ * label (val).  returns NULL if the node is not found.                      *
  *                                                                           *
  *****************************************************************************/
 
-int
-dl_int_search(Dlist l, int val)
+AST *
+label_search(Dlist l, int val)
 {
   Dlist p;
+  AST *v;
 
-  dl_traverse(p,l)
-    if( *((int *)p->val) == val )
-      return TRUE;
+  dl_traverse(p,l) {
+    v = (AST *) p->val;
+    if( atoi( v->astnode.forloop.Label->astnode.constant.number ) == val )
+      return v;
+  }
 
-  return FALSE;
+  return NULL;
 }
 
 /*****************************************************************************

@@ -1527,8 +1527,8 @@ Do_vals:  Assignment CM Exp   NL
             counter = $$->astnode.forloop.counter = $1->astnode.assignment.lhs;
             $$->astnode.forloop.start = $1;
             $$->astnode.forloop.stop = $3;
-            $$->astnode.forloop.incr = 0;
-            $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,NULL);
+            $$->astnode.forloop.incr = NULL;
+            $$->astnode.forloop.iter_expr = gen_iter_expr($1->astnode.assignment.rhs,$3,NULL);
             $$->astnode.forloop.incr_expr = gen_incr_expr(counter,NULL);
           }
        | Assignment CM Exp CM Exp   NL
@@ -1544,7 +1544,7 @@ Do_vals:  Assignment CM Exp   NL
            $$->astnode.forloop.start = $1;
            $$->astnode.forloop.stop = $3;
            $$->astnode.forloop.incr = $5;
-           $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,$5);
+           $$->astnode.forloop.iter_expr = gen_iter_expr($1->astnode.assignment.rhs,$3,$5);
            $$->astnode.forloop.incr_expr = gen_incr_expr(counter,$5);
          }
 ;
@@ -3382,7 +3382,7 @@ gen_iter_expr(AST *start, AST *stop, AST *incr)
   expr_node->nodetype = Expression;
   expr_node->astnode.expression.parens = TRUE;
   expr_node->astnode.expression.rhs = plus_node;
-  expr_node->astnode.expression.lhs = 0;
+  expr_node->astnode.expression.lhs = NULL;
 
   div_node = addnode();
   div_node->token = DIV;

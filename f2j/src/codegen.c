@@ -957,8 +957,6 @@ typedec_emit (AST * root)
   char *tempname;
   void vardec_emit(AST *, enum returntype);
 
-  temp = root->astnode.typeunit.declist;
-
   /* 
    *  This may have to be moved into the looop also.  Could be
    *  why I have had problems with this stuff.  
@@ -979,7 +977,7 @@ typedec_emit (AST * root)
    * in the argument list and is not retyped here. 
    */
 
-  for (; temp != NULL; temp = temp->nextstmt)
+  for(temp=root->astnode.typeunit.declist; temp != NULL; temp = temp->nextstmt)
   {
 
     if(omitWrappers) {

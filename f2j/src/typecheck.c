@@ -598,7 +598,7 @@ data_check(AST * root)
   {
     for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt)
     {
-      if(Ntemp->nodetype == Forloop)
+      if(Ntemp->nodetype == ImpliedLoop)
         var = Ntemp->astnode.forloop.Label;
       else
         var = Ntemp;

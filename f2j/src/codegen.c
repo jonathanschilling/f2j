@@ -1689,7 +1689,7 @@ data_emit(AST *root)
     {
       /* check to see if we're looking at an implied do loop */
 
-      if(Ntemp->nodetype == Forloop) 
+      if(Ntemp->nodetype == ImpliedLoop) 
       {
         data_implied_loop_emit(Ntemp, Ctemp);
         continue;
@@ -1822,6 +1822,7 @@ data_implied_loop_emit(AST * root, AST *Clist)
     expr_emit(Clist);
     fprintf(curfp, ";\n");
     Clist = Clist->nextstmt;
+    code_zero_op(array_store_opcodes[ht->variable->vartype]);
   }
   fprintf(curfp,"}\n");
 
@@ -3102,7 +3103,8 @@ array_emit(AST *root, HASHNODE *hashtemp)
     }
     else if(((root->parent->nodetype == Assignment) &&
              (root->parent->astnode.assignment.lhs == root)) ||
-            (root->parent->nodetype == DataStmt))
+            (root->parent->nodetype == DataStmt) ||
+            (root->parent->nodetype == ImpliedLoop))
     {
       func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
     }

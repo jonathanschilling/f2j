@@ -865,7 +865,7 @@ DataItem:   LhsList DIV DataConstantList DIV
                 
                 temp->parent = $$;
 
-                if(temp->nodetype == Forloop)
+                if(temp->nodetype == ImpliedLoop)
                   type_insert(data_table, temp, Float,
                      temp->astnode.forloop.Label->astnode.ident.name);
                 else
@@ -940,7 +940,7 @@ LoopBounds:  Integer CM Integer
                $$ = addnode();
                $1->parent = $$;
                $3->parent = $$;
-               $$->nodetype = Forloop;
+               $$->nodetype = ImpliedLoop;
                $$->astnode.forloop.start = $1;
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = NULL;
@@ -951,7 +951,7 @@ LoopBounds:  Integer CM Integer
                $1->parent = $$;
                $3->parent = $$;
                $5->parent = $$;
-               $$->nodetype = Forloop;
+               $$->nodetype = ImpliedLoop;
                $$->astnode.forloop.start = $1;
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = $5;

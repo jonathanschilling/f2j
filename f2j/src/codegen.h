@@ -326,7 +326,7 @@ char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
    "[F",
    "[F",
    "[F"},
-  {"Lorg/netlib/util/integerW;",
+  {"Lorg/netlib/util/intW;",
    "[I",
    "[I",
    "[I"},

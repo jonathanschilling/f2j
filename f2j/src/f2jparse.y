@@ -84,9 +84,6 @@ void
   exp_to_double (char *, char *),
   prepend_minus(char *);
 
-CPNODE *
-  insert_constant(Dlist, int, char *);
-
 AST 
   * dl_astnode_examine(Dlist l),
   * addnode(),
@@ -907,19 +904,7 @@ DataConstant:  Constant
                }
             |  MINUS Constant   
                {
-                 /* in the Constant production, the numeric portion
-                  * of this negated constant may have been inserted.
-                  * if so, we pop it off the list and reinsert the
-                  * negated value. 
-                  */
-
                  prepend_minus($2->astnode.constant.number);
-
-                 if(lastConstant != NULL)
-                   dl_pop(constants_table);
-
-                 insert_constant(constants_table, $2->token,
-                    $2->astnode.constant.number);
                  $$ = $2;
                }
             |  Constant STAR Constant
@@ -2245,19 +2230,7 @@ arith_expr: term
           | MINUS term
             {
               if($2->nodetype == Constant) {
-                /* in the Constant production, the numeric portion
-                 * of this negated constant may have been inserted.
-                 * if so, we pop it off the list and reinsert the
-                 * negated value. 
-                 */
-
                 prepend_minus($2->astnode.constant.number);
-
-                if(lastConstant != NULL)
-                  dl_pop(constants_table);
-
-                insert_constant(constants_table, $2->token, 
-                   $2->astnode.constant.number);
                 $$ = $2;
               }
               else {
@@ -2427,35 +2400,22 @@ Constant:
          Integer  
          { 
            $$ = $1; 
-
-           lastConstant = insert_constant(constants_table, $$->token, 
-             $$->astnode.constant.number);
          }
        | Double
          { 
            $$ = $1; 
-
-           lastConstant = insert_constant(constants_table, $$->token, 
-             $$->astnode.constant.number);
          }
        | Exponential
          { 
            $$ = $1; 
-
-           lastConstant = insert_constant(constants_table, $$->token, 
-             $$->astnode.constant.number);
          }
        | Boolean
          { 
            $$ = $1; 
-           lastConstant = insert_constant(constants_table, $$->token,
-              $$->astnode.constant.number);
          }
        | String   /* 9-16-97, keith */
          { 
            $$ = $1; 
-           lastConstant = insert_constant(constants_table, $$->token,
-              $$->astnode.constant.number);
          }
 ; 
 
@@ -2608,7 +2568,6 @@ Pdec:     Assignment
             switch($$->astnode.assignment.rhs->vartype) {
               case String:
               case Character:
-                printf("creating String constant...\n");
                 temp->token = STRING;
                 strcpy(temp->astnode.constant.number, 
                        $$->astnode.assignment.rhs->astnode.constant.number);
@@ -2618,18 +2577,15 @@ Pdec:     Assignment
                 break;
               case Logical:
                 temp->token = $$->astnode.assignment.rhs->token;
-                printf("creating Logical constant (%s)...\n",tok2str(temp->token));
                 strcpy(temp->astnode.constant.number, 
                        temp->token == TrUE ? "true" : "false");
                 break;
               case Float:
               case Double:
-                printf("creating Double constant...\n");
                 temp->token = DOUBLE;
                 sprintf(temp->astnode.constant.number,"%f",constant_eval);
                 break;
               case Integer:
-                printf("creating Integer constant...\n");
                 temp->token = INTEGER;
                 sprintf(temp->astnode.constant.number,"%d",(int)constant_eval);
                 break;
@@ -2641,9 +2597,6 @@ Pdec:     Assignment
                                                       
             type_insert(parameter_table, temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
-
-            insert_constant(constants_table, temp->token, 
-               temp->astnode.constant.number);
 
             /*
              *  $$->astnode.typeunit.specification = Parameter; 

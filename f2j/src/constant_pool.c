@@ -366,16 +366,16 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
       return cp_insert(list, newnode, 1);
       break;
     case CONSTANT_Integer:
-      return insert_constant(list, INTEGER,(char *)value);
+      return insert_constant(list, INTEGER,value);
       break;
     case CONSTANT_Float:
     case CONSTANT_Long:
       fprintf(stderr,"cp_find_or_insert():WARNING: should not hit float/long case!\n");
       break;
     case CONSTANT_Double:
-      return insert_constant(list, DOUBLE,(char *)value);
+      return insert_constant(list, DOUBLE,value);
     case CONSTANT_String:
-      return insert_constant(list, STRING,(char *)value);
+      return insert_constant(list, STRING,value);
     default:
       fprintf(stderr,"cp_find_or_insert: WARNING - tag not yet implemented!\n");
       break;   /* for ansi compliance */
@@ -423,15 +423,12 @@ cp_entry_by_index(Dlist list, int idx)
  *****************************************************************************/
 
 CPNODE *
-insert_constant(Dlist list, int tok, char * tag)
+insert_constant(Dlist list, int tok, void * tag)
 {
   struct cp_info * newnode = NULL;
   int idx;
   extern BOOLEAN bigEndian;
   u4 u4BigEndian(u4);
-
-  if(cp_debug)
-    printf("&& insert_constant... tag = '%s'\n",tag);
 
   switch(tok) {
     case INTEGER:
@@ -440,7 +437,7 @@ insert_constant(Dlist list, int tok, char * tag)
          * we can use the iconst_<i> opcode.  Thus, there's no
          * need to create a constant pool entry.
          */
-        int intVal = atoi(tag);
+        int intVal = *((int*)tag);
 
         if( !cp_lookup(list, CONSTANT_Integer, (void *)&intVal)
           && (intVal < -1 || intVal > 5) )
@@ -460,7 +457,7 @@ insert_constant(Dlist list, int tok, char * tag)
          * the dconst_<i> opcode.  Thus, there's no
          * need to create a constant pool entry.
          */
-        double doubleVal = atof(tag);
+        double doubleVal = *((double *)tag);
         unsigned int tmp1, tmp2;
 
         if( !cp_lookup(list, CONSTANT_Double, (void *)&doubleVal)
@@ -498,10 +495,10 @@ insert_constant(Dlist list, int tok, char * tag)
          * Note that we only malloc enough for the string itself
          * since the Utf8 string should not be null-terminated.
          */
-      if( !cp_lookup(list, CONSTANT_Utf8, (void *)tag))
+      if( !cp_lookup(list, CONSTANT_Utf8, tag))
       {
         if(cp_debug)
-          printf("&& in insert_constant, inserting '%s'\n",tag);
+          printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
 
         newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_Utf8;

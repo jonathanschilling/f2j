@@ -639,10 +639,12 @@ field_emit(AST *root)
       fprintf(stderr,"WARNING: can't find ident to set descriptor\n"); 
   }
 
-  printf("going to emit field %s\n",name);
-  printf("\ttype: %s (%d)\n",returnstring[root->vartype], root->vartype);
-  printf("\t dim: %d\n",root->astnode.ident.dim);
-  printf("\tdesc: %s\n",desc);
+  if(gendebug) {
+    printf("going to emit field %s\n",name);
+    printf("\ttype: %s (%d)\n",returnstring[root->vartype], root->vartype);
+    printf("\t dim: %d\n",root->astnode.ident.dim);
+    printf("\tdesc: %s\n",desc);
+  }
 
   /* the rest of this code creates the field_info structure, assigns the
    * appropriate values into it, and inserts it into the field list.
@@ -904,18 +906,19 @@ common_emit(AST *root)
   AST *Ctemp, *Ntemp, *temp;
   char *common_classname=NULL, *filename=NULL;
   FILE *commonfp;
-  char * prefix = strtok(strdup(inputfilename),"."), * com_prefix, * mname;
+  char * prefix = strtok(strdup(inputfilename),".");
   int needs_dec = FALSE;
   void vardec_emit(AST *, enum returntype);
   Dlist save_const_table;
   struct ClassFile *save_class_file;
   struct attribute_info *save_code;
   int save_stack, save_pc;
-  char *get_common_prefix(char *);
+  char *get_common_prefix(char *), *save_filename;
 
   /* save the current global variables pointing to the class file. */
   save_const_table = cur_const_table;
   save_class_file = cur_class_file; 
+  save_filename = cur_filename; 
   save_code = cur_code;
   save_stack = stacksize;
   save_pc = pc;
@@ -942,6 +945,7 @@ common_emit(AST *root)
                                     strlen(common_classname) + 6);
       sprintf(filename,"%s.java", common_classname);
 
+      cur_filename = common_classname;
       cur_const_table = make_dl();
       cur_class_file = newClassFile(common_classname,inputfilename);
       clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
@@ -1006,30 +1010,6 @@ common_emit(AST *root)
           vardec_emit(temp, temp->vartype);
         else
           vardec_emit(temp, temp->vartype);
-
-        /* the rest of the code in this loop determines the merged name
-         * of the variable so that we can insert it as a field in the
-         * class file for this common block.
-         */
- 
-        com_prefix = get_common_prefix(temp->astnode.ident.name);
-
-        mname = temp->astnode.ident.name;
-
-        if(com_prefix[0] != '\0')
-        {
-          hashtemp = type_lookup(cur_type_table,temp->astnode.ident.name);
-          if (hashtemp == NULL)
-            fprintf(stderr,"array_emit:Cant find %s in type_table\n",
-                temp->astnode.ident.name);
-
-          if(hashtemp->variable->astnode.ident.merged_name != NULL)
-            mname = hashtemp->variable->astnode.ident.merged_name;
-        }
-
-
-        printf("ok.. common block var: %s%s\n",com_prefix,mname);
-
       }
       if(Ctemp->astnode.common.name != NULL)
         fprintf(curfp,"}\n");
@@ -1046,7 +1026,6 @@ common_emit(AST *root)
         cur_class_file->methods_count++;
         dl_insert_b(cur_class_file->methods, clinit_method);
       }
-cp_dump(cur_const_table);
 
       cur_class_file->constant_pool_count = 
          (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
@@ -1059,6 +1038,7 @@ cp_dump(cur_const_table);
   curfp = javafp;
   cur_const_table = save_const_table;
   cur_class_file = save_class_file;
+  cur_filename = save_filename; 
   cur_code = save_code;
   stacksize = save_stack;
   pc = save_pc;
@@ -1258,7 +1238,13 @@ vardec_emit(AST *root, enum returntype returns)
    * need to get the name/descriptor from the merged variable.
    */
 
-  if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    name = ht2->variable->astnode.ident.merged_name;
+    desc = ht2->variable->astnode.ident.descriptor;
+  }
+  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
     name = hashtemp->variable->astnode.ident.merged_name;
     desc = hashtemp->variable->astnode.ident.descriptor;
   }
@@ -1457,10 +1443,12 @@ vardec_emit(AST *root, enum returntype returns)
         print_string_initializer(root);
         fprintf(curfp,";\n");
 
-printf("new fieldref:\n");
-printf("\tclass: %s\n", cur_filename);
-printf("\tname:  %s\n", name);
-printf("\tdesc:  %s\n", desc);
+        if(gendebug) {
+          printf("new fieldref:\n");
+          printf("\tclass: %s\n", cur_filename);
+          printf("\tname:  %s\n", name);
+          printf("\tdesc:  %s\n", desc);
+        }
 
         c = newFieldref(cur_const_table,cur_filename,name,desc); 
         code_one_op_w(jvm_putstatic, c->index);
@@ -3540,7 +3528,7 @@ expr_emit (AST * root)
           {
             int ival = atoi(root->astnode.constant.number);
 
-            ct=cp_lookup(cur_const_table,CONSTANT_Integer,(void*)&ival);
+            ct=cp_find_or_insert(cur_const_table,CONSTANT_Integer,(void*)&ival);
 
             if(ct) {
               if(ct->index > CPIDX_MAX)
@@ -3571,7 +3559,8 @@ expr_emit (AST * root)
                   cur_opcode = jvm_iconst_5;
                   break;
                 default:
-                  fprintf(stderr,"WARNING: bad int literal in expr_emit()\n");
+                  fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n",
+                          ival);
                   break;  /* for ANSI compliance */
               }
             }
@@ -3582,7 +3571,7 @@ expr_emit (AST * root)
           {
             double dval = atof(root->astnode.constant.number);
 
-            ct=cp_lookup(cur_const_table,CONSTANT_Double,(void*)&dval);
+            ct=cp_find_or_insert(cur_const_table,CONSTANT_Double,(void*)&dval);
 
             if(ct)
               cur_opcode = jvm_ldc2_w;
@@ -3603,7 +3592,7 @@ expr_emit (AST * root)
           ct = NULL;
           break;
         case STRING:
-          ct=cp_lookup(cur_const_table,CONSTANT_String, 
+          ct=cp_find_or_insert(cur_const_table,CONSTANT_String, 
              (void*)root->astnode.constant.number);
 
           if(ct->index > CPIDX_MAX)

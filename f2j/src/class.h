@@ -255,6 +255,5 @@ void   write_u4(u4, FILE *);
 int    write_attributes(Dlist, Dlist, FILE *);
 
 FILE * open_output_classfile(struct ClassFile *);
-void   report_position(char *, FILE *);
 
 #endif

@@ -2810,9 +2810,15 @@ type_hash(AST * types)
 
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
+      /* ignore parameter assignment stmts */
+      if((tempnames->nodetype == Assignment) ||
+         (tempnames->nodetype == DataStmt))
+        continue;
+        
       /* Stuff names and return types into the symbol table. */
       if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
-      printf("Type hash: %s\n", tempnames->astnode.ident.name);
+      printf("Type hash: '%s' (%s)\n", tempnames->astnode.ident.name,
+          print_nodetype(tempnames));
 
       if(temptypes->nodetype == Dimension) {
         /* looking at a Dimension spec.  check whether the ident is already

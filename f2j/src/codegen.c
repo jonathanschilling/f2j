@@ -324,7 +324,7 @@ emit (AST * root)
 
           write_class(cur_class_file);
  
-          cp_quickdump(cur_const_table);
+          cp_dump(cur_const_table);
           break;
         }
       case Subroutine:
@@ -975,6 +975,8 @@ addField(char *name, char *desc)
   struct field_info * tmpfield;
   CPNODE *c;
 
+  printf("addField() creating new field for %s - %s\n",name,desc);
+
   tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
   tmpfield->access_flags = ACC_PUBLIC | ACC_STATIC;
 
@@ -1239,8 +1241,9 @@ common_emit(AST *root)
   Dlist save_const_table;
   struct ClassFile *save_class_file;
   struct attribute_info *save_code;
-  int save_stack, save_pc;
+  int save_stack, save_pc, save_handlers;
   char *save_filename;
+  struct method_info *save_clinit;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1250,7 +1253,9 @@ common_emit(AST *root)
    */
   save_const_table = cur_const_table;
   save_class_file = cur_class_file; 
+  save_handlers = num_handlers;
   save_filename = cur_filename; 
+  save_clinit = clinit_method;
   save_code = cur_code;
   save_stack = stacksize;
   save_pc = pc;
@@ -1375,9 +1380,11 @@ common_emit(AST *root)
 
   cur_const_table = save_const_table;
   cur_class_file = save_class_file;
+  num_handlers = save_handlers;
   cur_filename = save_filename; 
-  cur_code = save_code;
+  clinit_method = save_clinit;
   stacksize = save_stack;
+  cur_code = save_code;
   pc = save_pc;
 }
 
@@ -10766,6 +10773,9 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth, char * name, c
   Dlist tmp;
   int idx;
   u2 maxloc;
+
+  if(gendebug)
+    printf("endNewMethod(): %s - %s\n", name, desc);
 
   if(exceptions != NULL) {
     dl_insert_b(meth->attributes, newExceptionsAttribute(exceptions));

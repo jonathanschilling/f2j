@@ -24,6 +24,9 @@ u2 u2BigEndian(u2);
 void write_code(Dlist, FILE *),
      write_exception_table(struct ExceptionTable *, int, FILE *);
 
+int
+  classdebug = TRUE;     /* set to TRUE to generate debugging output         */
+
 /*****************************************************************************
  * write_class                                                               *
  *                                                                           *
@@ -38,6 +41,20 @@ write_class(struct ClassFile *class)
   FILE *cfp;
 
   cfp = open_output_classfile(class);
+
+  if(classdebug) {
+    printf("write_class() - magic: %d\n", class->magic);
+    printf("write_class() - minor_ver: %d\n", class->minor_version);
+    printf("write_class() - major_ver: %d\n", class->major_version);
+    printf("write_class() - cp_count: %d\n", class->constant_pool_count);
+    printf("write_class() - acc_flags: %d\n", class->access_flags);
+    printf("write_class() - this_class: %d\n", class->this_class);
+    printf("write_class() - super_class: %d\n", class->super_class);
+    printf("write_class() - int_count: %d\n", class->interfaces_count);
+    printf("write_class() - fields_count: %d\n", class->fields_count);
+    printf("write_class() - methods_count: %d\n", class->methods_count);
+    printf("write_class() - attributes_count: %d\n", class->attributes_count);
+  }
 
   write_u4(class->magic, cfp);
   write_u2(class->minor_version, cfp);
@@ -79,6 +96,9 @@ write_constant_pool(struct ClassFile *class, FILE *out)
 
   dl_traverse(tmpPtr,class->constant_pool) {
     tmpconst = (CPNODE *) tmpPtr->val;
+
+    if(classdebug)
+      printf("write_constant_pool() - tag = %d\n",tmpconst->val->tag);
 
     write_u1(tmpconst->val->tag, out);
 
@@ -164,6 +184,11 @@ write_fields(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->fields) {
     tmpfield = (struct field_info *) tmpPtr->val;
 
+    if(classdebug)
+      printf("write_fields() %d, %d, %d\n", 
+        tmpfield->access_flags, tmpfield->name_index,
+        tmpfield->descriptor_index);
+
     write_u2(tmpfield->access_flags,out);
     write_u2(tmpfield->name_index,out);
     write_u2(tmpfield->descriptor_index,out);
@@ -199,16 +224,28 @@ write_methods(struct ClassFile *class, FILE *out)
 {
   struct method_info *tmpmeth;
   Dlist tmpPtr;
+  int cnt;
 
   dl_traverse(tmpPtr,class->methods) {
     tmpmeth = (struct method_info *) tmpPtr->val;
+
+    if(classdebug)
+      printf("write_methods() - name idx: %d, desc idx: %d, att cnt: %d\n",
+        tmpmeth->name_index, tmpmeth->descriptor_index,
+        tmpmeth->attributes_count);
 
     write_u2(tmpmeth->access_flags,out);
     write_u2(tmpmeth->name_index,out);
     write_u2(tmpmeth->descriptor_index,out);
     write_u2(tmpmeth->attributes_count,out);
 
-    write_attributes(tmpmeth->attributes,class->constant_pool,out);
+    cnt = write_attributes(tmpmeth->attributes,class->constant_pool,out);
+
+    if(cnt != tmpmeth->attributes_count) {
+      fprintf(stderr,"WARNING: expected to write %d attributes,", 
+        tmpmeth->attributes_count);
+      fprintf(stderr,"but actually wrote %d.\n", cnt);
+    }
   }
 }
 
@@ -220,17 +257,17 @@ write_methods(struct ClassFile *class, FILE *out)
  *                                                                           *
  *****************************************************************************/
 
-void
+int
 write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
 {
   struct attribute_info *tmpattr;
   char *attr_name;
   Dlist tmpPtr, tmpPtr2;
   CPNODE *c;
-
+  int cnt = 0;
 
   if((attr_list == NULL) || (const_pool == NULL))
-    return;
+    return cnt;
 
   dl_traverse(tmpPtr,attr_list) {
     tmpattr = (struct attribute_info *) tmpPtr->val;
@@ -247,14 +284,29 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     write_u2(tmpattr->attribute_name_index,out);
     write_u4(tmpattr->attribute_length,out);
 
+    if(classdebug)
+      printf("write_attributes() - attribute length: %d, idx: %d\n",
+        tmpattr->attribute_length, tmpattr->attribute_name_index);
+
     if(!strcmp(attr_name,"SourceFile")) {
+      if(classdebug)
+        printf("write_attributes() - writing SourceFile attribute\n");
+
       write_u2(tmpattr->attr.SourceFile->sourcefile_index,out);
     } 
     else if(!strcmp(attr_name,"Code")) {
+      if(classdebug) {
+        printf("write_attributes() - writing Code attribute\n");
+        printf("            max_stack = %d\n", tmpattr->attr.Code->max_stack);
+        printf("           max_locals = %d\n", tmpattr->attr.Code->max_locals);
+        printf("          code length = %d\n", tmpattr->attr.Code->code_length);
+        printf("     exc table length = %d\n", tmpattr->attr.Code->exception_table_length);
+        printf("     attributes count = %d\n", tmpattr->attr.Code->attributes_count);
+      }
+
       write_u2(tmpattr->attr.Code->max_stack,out);
       write_u2(tmpattr->attr.Code->max_locals,out); 
       write_u4(tmpattr->attr.Code->code_length,out);
-      /* fwrite(tmpattr->attr.Code->code, tmpattr->attr.Code->code_length, 1, out); */
       write_code(tmpattr->attr.Code->code, out);
       write_u2(tmpattr->attr.Code->exception_table_length,out);
       if(tmpattr->attr.Code->exception_table_length > 0)
@@ -267,6 +319,11 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     else if(!strcmp(attr_name,"Exceptions")) {
       int *idx;
 
+      if(classdebug) {
+        printf("write_attributes() - writing Exceptions attribute\n");
+        printf("       num attributes = %d\n", tmpattr->attr.Exceptions->number_of_exceptions);
+      }
+
       write_u2(tmpattr->attr.Exceptions->number_of_exceptions, out);
       dl_traverse(tmpPtr2, tmpattr->attr.Exceptions->exception_index_table) {
         idx = (int *) tmpPtr2->val;
@@ -276,7 +333,11 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     else {
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
     }
+
+    cnt++;
   }
+
+  return cnt;
 }
 
 /*****************************************************************************

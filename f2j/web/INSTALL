@@ -1,22 +1,5 @@
 
-JLAPACK 0.3a Installation
-
-The Java source code in the jlapack/src directory has already been compiled
-and the class files have been placed in the classes.zip archive (do not unzip
-this file).  Unless you want to modify the source, there should be no need to 
-recompile.  If you do want to recompile, keep in mind that trying to compile 
-all the code at once (e.g., "javac *.java") may require too much memory.  In 
-that case, it helps to increase the default heap size using the -mx option:
-
-  javac -O -d /home/seymour/jlapack-0.3a/classes -J-mx32000000 *.java
-
-Another caution on recompiling...due to the method we use to translate
-fortran GOTO statements, we must perform a little processing on the class
-files once they have been compiled.  This distribution does not contain
-the source code to our bytecode transformer.  Thus, any code containing
-GOTO statements that you recompile will probably not work.  If you really 
-need to make modifications to the code and recompile, send a note to 
-seymour@cs.utk.edu and we'll provide a copy of the transformer.
+JLAPACK 0.5 Installation
 
 All you need to do to get started with JLAPACK is set your CLASSPATH.
 
@@ -25,22 +8,29 @@ should be very similar.  MS-DOS and Windows users should consult their JDK
 documentation to find out how to set the CLASSPATH.
 
 If your CLASSPATH environment variable is already set, append the following
-directory to it:
+files to it:
 
-  $JLAPACK_HOME/classes.zip
+  $JLAPACK_HOME/f2jutil.jar
+  $JLAPACK_HOME/blas.jar
+  $JLAPACK_HOME/lapack.jar
+  $JLAPACK_HOME/xerbla.jar
 
 where JLAPACK_HOME represents the full path of the directory where you have
-JLAPACK installed.  For example, if your jlapack directory is
-/users/bob/jlapack/ the following command would append the appropriate
-directory to your CLASSPATH:
+JLAPACK installed.
+
+You may omit lapack.jar if you only plan to call BLAS routines, however
+the others should always be used.
+
+ For example, if your jlapack directory is /users/bob/jlapack/ the following
+command would append the appropriate files to your CLASSPATH:
   
-  % setenv CLASSPATH $CLASSPATH":/users/bob/jlapack/classes.zip"
+  % setenv CLASSPATH $CLASSPATH":/users/bob/jlapack/f2jutil.jar:/users/bob/jlapack/blas.jar:/users/bob/jlapack/lapack.jar:/users/bob/jlapack/xerbla.jar"
 
 If your CLASSPATH has not been set, you should set it to include the 
-current directory as well as the directory previously mentioned.
+current directory as well as the jar files previously mentioned.
 For example:
 
-  % setenv CLASSPATH .:/users/bob/jlapack/classes.zip
+  % setenv CLASSPATH .:/users/bob/jlapack/f2jutil.jar:/users/bob/jlapack/blas.jar:/users/bob/jlapack/lapack.jar:/users/bob/jlapack/xerbla.jar
 
 There is a simple test file named DdotTest.java in the main jlapack
 directory.  To verify that your CLASSPATH is properly set, attempt to

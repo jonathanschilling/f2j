@@ -140,13 +140,15 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
         }
       }
       break;
+    case CONSTANT_Fieldref:
+    case CONSTANT_InterfaceMethodref:
     case CONSTANT_Methodref:
       {
         METHODREF *mref = (METHODREF *)value;
         CPNODE *nameref;
 
         if(cp_debug) {
-          printf("&&looking up Methodref\n");
+          printf("&&looking up Method/field ref\n");
           printf("&&  mref->classname = '%s'\n",mref->classname);
           printf("&&  mref->methodname = '%s'\n",mref->methodname);
           printf("&&  mref->descriptor = '%s'\n",mref->descriptor);
@@ -159,7 +161,7 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
         dl_traverse(temp,list) {
           ctemp = ((CPNODE *)(temp->val))->val;
  
-          if(ctemp->tag == CONSTANT_Methodref) {
+          if(ctemp->tag == tag) {
             char *tmpC, *tmpM, *tmpD;
   
             nameref = cp_entry_by_index(list,ctemp->cpnode.Methodref.class_index);
@@ -255,10 +257,6 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
         }
       }
       break;
-    case CONSTANT_Fieldref:
-    case CONSTANT_InterfaceMethodref:
-      fprintf(stderr,"cp_lookup: WARNING - tag %d not yet implemented!\n",tag);
-      break;
     default:
       fprintf(stderr,"cp_lookup: WARNING - hit default case!\n");
       return NULL;
@@ -312,6 +310,8 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
 
       /* now return the CPNODE pointer created by cp_insert */
       return cp_insert(list,newnode,1);
+    case CONSTANT_Fieldref:
+    case CONSTANT_InterfaceMethodref:
     case CONSTANT_Methodref:
       {
         METHODREF *mref = (METHODREF *)value;
@@ -320,7 +320,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
           printf("&& ok.. going to find/insert a method reference...\n");
 
         newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
-        newnode->tag = CONSTANT_Methodref;
+        newnode->tag = tag;
 
         if(cp_debug)
           printf("&& first find/insert %s...\n",mref->classname);
@@ -376,8 +376,6 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
       return insert_constant(list, DOUBLE,(char *)value);
     case CONSTANT_String:
       return insert_constant(list, STRING,(char *)value);
-    case CONSTANT_Fieldref:
-    case CONSTANT_InterfaceMethodref:
     default:
       fprintf(stderr,"cp_find_or_insert: WARNING - tag not yet implemented!\n");
       break;   /* for ansi compliance */
@@ -651,9 +649,9 @@ cp_dump(Dlist list)
         break;
       case CONSTANT_Fieldref:
         printf("\tclass index(declaring this field): %d\n",
-            tmpconst->val->cpnode.Fieldref.class_index);
+            tmpconst->val->cpnode.Methodref.class_index);
         printf("\tname and type index(of this field): %d\n",
-            tmpconst->val->cpnode.Fieldref.name_and_type_index);
+            tmpconst->val->cpnode.Methodref.name_and_type_index);
         break;
       case CONSTANT_Methodref:
         printf("\tclass index(declaring this method): %d\n",
@@ -663,9 +661,9 @@ cp_dump(Dlist list)
         break;
       case CONSTANT_InterfaceMethodref:
         printf("\tclass index(declaring this interface): %d\n",
-            tmpconst->val->cpnode.InterfaceMethodref.class_index);
+            tmpconst->val->cpnode.Methodref.class_index);
         printf("\tname and type index(of this interface): %d\n",
-            tmpconst->val->cpnode.InterfaceMethodref.name_and_type_index);
+            tmpconst->val->cpnode.Methodref.name_and_type_index);
         break;
       case CONSTANT_NameAndType:
         printf("\tname index: %d\n",tmpconst->val->cpnode.NameAndType.name_index);
@@ -688,57 +686,6 @@ null_term(u1 * str, int len)
   temp[len] = '\0';
  
   return temp;
-}
-
-/*****************************************************************************
- *                                                                           *
- * cp_initialize                                                             *
- *                                                                           *
- * This function stores into the constant pool some default entries that we  *
- * know ahead of time that the class file will need to reference:            *
- *  - an entry for this class                                                *
- *  - an entry for the superclass if necessary                               *
- *  - entries for all class variables                                        *
- *                                                                           *
- *****************************************************************************/
-
-void
-cp_initialize(AST *root, Dlist list)
-{
-  char *strdup(const char *), *lowercase(char *);
-  struct cp_info *newnode;
-  char *thisname;
-  int idx;
-
-  void cp_dump(Dlist);
-  CPNODE* cp_insert(Dlist, struct cp_info *, char);
-
-  /* first create an entry for 'this'.  the class file variable this_class
-   * points to a CONSTANT_Class_info entry in the constant pool, which in
-   * turn points to a CONSTANT_Utf8_info entry representing the name of
-   * this class.  so, first we create the Utf8 entry, then the Class entry.
-   */
-  thisname = strdup(root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-  lowercase(thisname);
-  thisname[0] = toupper(thisname[0]);
-
-  if(cp_debug)
-    printf("&& inserting entry for %s\n", thisname);
-
-  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
-  newnode->tag = CONSTANT_Utf8;
-  newnode->cpnode.Utf8.length = strlen(thisname);
-  newnode->cpnode.Utf8.bytes = (u1 *)malloc(newnode->cpnode.Utf8.length);
-  strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
-
-  idx = cp_insert(list,newnode,1)->index;
-
-  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
-  newnode->tag = CONSTANT_Class;
-  newnode->cpnode.Class.name_index = idx;
-
-  cp_insert(list,newnode,1);
-
 }
 
 /*****************************************************************************

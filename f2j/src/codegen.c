@@ -100,6 +100,9 @@ BOOLEAN
 
 int pc;                 /* current program counter                           */
 
+struct method_info
+  *clinit_method;       /* special class initialization method <clinit>      */
+
 /*****************************************************************************
  *                                                                           *
  * emit                                                                      *
@@ -138,9 +141,10 @@ emit (AST * root)
        merge_equivalences(AST *),
        print_equivalences(AST *),
        emit_prolog_comments(AST *),
-       emit_javadoc_comments(AST *);
+       emit_javadoc_comments(AST *),
+       insert_fields(AST *);
 
-    struct ClassFile * newClassFile();
+    struct ClassFile * newClassFile(AST *,char *);
 
     char * tok2str(int);
 
@@ -175,10 +179,8 @@ emit (AST * root)
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
           cur_const_table = root->astnode.source.constants_table;
-          cur_class_file = root->astnode.source.class = newClassFile();
+          cur_class_file = root->astnode.source.class = newClassFile(root,inputfilename);
        
-          cp_initialize(root,cur_const_table);
-         
           stacksize = max_stack = pc = 0;
           
           if(gendebug)
@@ -213,6 +215,8 @@ emit (AST * root)
 
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
+
+          insert_fields(root->astnode.source.typedecs);
 
 	  emit (root->astnode.source.typedecs);
           
@@ -541,6 +545,73 @@ emit (AST * root)
           fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
             print_nodetype(root));
     }				/* switch on nodetype.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * insert_fields                                                             *
+ *                                                                           *
+ * Each variable in the program unit is generated as a static field in the   *
+ * current class.  Loop through all the type declarations, inserting each    *
+ * variable into the list of fields.  ignore all specification statements    *
+ * except for actual type declarations.  also ignore arguments to this       *
+ * program unit since they will be declared as local variables, not fields.  *
+ * we will go back later and generate code to initialize everything, but     *
+ * first we need to get all the field names in the constant pool.            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+insert_fields(AST *root)
+{
+  struct field_info * tmpfield;
+  AST *temp, *dec;
+  HASHNODE *ht;
+  int returns;
+  CPNODE * c;
+ 
+  for(temp = root; temp; temp = temp->nextstmt) {
+    returns = temp->astnode.typeunit.returns;
+
+    if(temp->nodetype == Typedec) {
+      for(dec = temp->astnode.typeunit.declist; dec; dec = dec->nextstmt) {
+        if( ! type_lookup (cur_external_table, dec->astnode.ident.name)
+          && ! type_lookup (cur_intrinsic_table, dec->astnode.ident.name)
+          && ! type_lookup (cur_args_table, dec->astnode.ident.name))
+        {
+          /* we should check if this var is a parameter... if so, we 
+           * generate a ConstantValue attribute for the field.  however,
+           * if the parameter represents some value that we wouldn't
+           * normally insert into the constant pool, then we will just
+           * not create a field for it.
+           */
+          ht=type_lookup(cur_param_table, dec->astnode.ident.name);
+          if(ht != NULL) {
+            printf("ok, '%s' is a parameter. ",dec->astnode.ident.name);
+          }
+
+
+printf("var name '%s', desc '%s'\n",dec->astnode.ident.name,
+  field_descriptor[returns][dec->astnode.ident.dim]);
+
+          tmpfield = (struct field_info *) malloc(sizeof(struct field_info));
+          tmpfield->access_flags = ACC_PUBLIC & ACC_STATIC;
+
+          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
+                  dec->astnode.ident.name);
+          tmpfield->name_index = c->index;
+ 
+          c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
+                  field_descriptor);
+          tmpfield->descriptor_index = c->index;
+          
+          cur_class_file->fields_count++;
+
+
+        }
+      }
+    } 
+  }
 }
 
 /*****************************************************************************
@@ -889,8 +960,8 @@ typedec_emit (AST * root)
     }
     else
       if(gendebug)
-       printf("@@ Variable %s: Corresponding data stmt not found\n",
-         temp->astnode.ident.name);
+        printf("@@ Variable %s: Corresponding data stmt not found\n",
+          temp->astnode.ident.name);
 
     /*
      *  dont worry about checking the save table now since we're 
@@ -987,7 +1058,7 @@ vardec_emit(AST *root, enum returntype returns)
   HASHNODE *hashtemp;
   AST *temp2;
   char *prefix;
-  int count;
+  int count=0;
   void name_emit (AST *);
   void expr_emit (AST *);
   void print_string_initializer(AST *);
@@ -1059,6 +1130,7 @@ vardec_emit(AST *root, enum returntype returns)
          root->astnode.ident.name);
 
     fprintf (curfp, "];\n");
+
   } else {    /* this is not an array declaration */
 
     HASHNODE *p;
@@ -1194,7 +1266,7 @@ print_string_initializer(AST *root)
 
     char * buf;
 
-    buf = (char *)malloc( ht->variable->astnode.ident.len );
+    buf = (char *)malloc( ht->variable->astnode.ident.len + 3);
 
     sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
 
@@ -3139,7 +3211,7 @@ expr_emit (AST * root)
          */
         BOOLEAN gencast = (root->parent != NULL) && (root->parent->nodetype == ArrayDec);
 
-        fprintf (curfp, "%s Math.pow(", gencast ? "(int)" : "");
+        fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
            
         expr_emit (root->astnode.expression.lhs);
         fprintf (curfp, ", ");
@@ -3437,6 +3509,9 @@ expr_emit (AST * root)
 
         c = newMethodref(cur_const_table,JL_STRING,
                "trim", TRIM_DESC);
+
+        if(root->token == rel_ne)
+          fprintf(curfp,"!");
 
         expr_emit (root->astnode.expression.lhs);
         code_one_op_w(jvm_invokevirtual, c->index);  /* call trim() */
@@ -6676,15 +6751,111 @@ code_one_op_w(enum _opcode op, int index)
  *****************************************************************************/
 
 struct ClassFile *
-newClassFile()
+newClassFile(AST *root, char *srcFile)
 {
+  struct attribute_info * attr_temp;
+  struct cp_info *newnode;
   struct ClassFile * tmp;
+  char *thisname;
+  CPNODE *c;
+
+  CPNODE* cp_insert(Dlist, struct cp_info *, char);
+  char *strdup(const char *), *lowercase(char *);
+  void cp_dump(Dlist);
  
   tmp = (struct ClassFile *)malloc(sizeof(struct ClassFile));
  
   tmp->magic = 0xCAFEBABE;
   tmp->minor_version = 3;
   tmp->major_version = 45;
+
+  /* we'll fill out the constant pool, fields, and methods later. */
+  tmp->constant_pool_count = 0;
+  tmp->constant_pool = NULL;
+  tmp->methods_count = 0;
+  tmp->methods = NULL;
+  tmp->fields_count = 0;
+  tmp->fields = make_dl();
+
+  tmp->access_flags = ACC_PUBLIC & ACC_FINAL & ACC_SUPER;
+
+  /* first create an entry for 'this'.  the class file variable this_class
+   * points to a CONSTANT_Class_info entry in the constant pool, which in
+   * turn points to a CONSTANT_Utf8_info entry representing the name of
+   * this class.  so, first we create the Utf8 entry, then the Class entry.
+   */
+  thisname = 
+    strdup(root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  lowercase(thisname);
+  thisname[0] = toupper(thisname[0]);
+
+  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+  newnode->tag = CONSTANT_Utf8;
+  newnode->cpnode.Utf8.length = strlen(thisname);
+  newnode->cpnode.Utf8.bytes = (u1 *)malloc(newnode->cpnode.Utf8.length);
+  strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
+
+  c = cp_insert(cur_const_table,newnode,1);
+
+  newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+  newnode->tag = CONSTANT_Class;
+  newnode->cpnode.Class.name_index = c->index;
+
+  c = cp_insert(cur_const_table,newnode,1);
+
+  tmp->this_class = c->index;
+  tmp->super_class = 0;   /* 0 means this class has no superclass */
+
+  /* f2java generated code does not implement any interfaces */
+  tmp->interfaces_count = 0;
+  tmp->interfaces = NULL;
+
+  /* the only attributes allowed for a class file are SourceFile and
+   * Deprecated.  we don't want to generate deprecated classes, so
+   * the only one we're interested in setting here is the SourceFile.
+   * SourceFile refers to the name of the original source code file,
+   * which in this case should be some Fortran code.
+   */
+  tmp->attributes_count = 1;
+  tmp->attributes = make_dl();
+ 
+  attr_temp = (struct attribute_info *)malloc(sizeof(struct attribute_info));
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, "SourceFile");
+  attr_temp->attribute_name_index = c->index;
+  attr_temp->attribute_length = 2;  /* SourceFile attr length always 2 */
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, srcFile);
+  attr_temp->attr.SourceFile.sourcefile_index = c->index;
+
+  dl_insert_b(tmp->attributes,attr_temp);
+
+  return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newMethod                                                                 *
+ *                                                                           *
+ * Creates a new method structure with the given access flags.               *
+ *                                                                           *
+ *****************************************************************************/
+
+struct method_info *
+newMethod(u2 flags, char * name, char * desc)
+{
+  struct method_info *tmp;
+  CPNODE *c;
+
+  tmp = (struct method_info *)malloc(sizeof(struct method_info));
+  tmp->access_flags = flags;
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, name);
+
+  tmp->name_index = c->index;
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, desc);
+
+  tmp->descriptor_index = c->index;
 
   return tmp;
 }

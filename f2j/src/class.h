@@ -11,6 +11,18 @@
 
 #include "dlist.h"
 
+#define ACC_PUBLIC       0x0001
+#define ACC_PRIVATE      0x0002
+#define ACC_PROTECTED    0x0004
+#define ACC_STATIC       0x0008
+#define ACC_FINAL        0x0010
+#define ACC_SYNCHRONIZED 0x0020
+#define ACC_SUPER        0x0020
+#define ACC_NATIVE       0x0100
+#define ACC_INTERFACE    0x0200
+#define ACC_ABSTRACT     0x0400
+#define ACC_STRICT       0x0800
+
 enum _constant_tags {
   CONSTANT_Utf8 = 1,              /*   1  */
                    /* note missing tag 2  */
@@ -42,28 +54,18 @@ struct ClassFile {
   u2 interfaces_count;         /* number of superinterfaces for this class    */
   u2 * interfaces;             /* list of interfaces (each entry a cp index)  */
   u2 fields_count;             /* num fields, both class vars & instance vars */
-  struct field_info * fields;  /* list of fields declared in this class       */
+  Dlist fields;                /* list of fields declared in this class       */
   u2 methods_count;            /* number of methods in this class             */
   struct method_info *methods; /* list of methods                             */
   u2 attributes_count;         /* number of attributes for this class         */
-  struct attribute_info *attributes;  /* only SourceFile & Deprecated here    */
+  Dlist attributes;            /* only SourceFile & Deprecated allowed here   */
 };
 
 struct CONSTANT_Class_info {
   u2 name_index;              /* index into constant pool                    */
 };
 
-struct CONSTANT_Fieldref_info {
-  u2 class_index;             /* cp index of class which declares this field */
-  u2 name_and_type_index;     /* cp index of name & descriptor of this field */
-};
-
 struct CONSTANT_Methodref_info {
-  u2 class_index;             /* cp index of class which declares this field */
-  u2 name_and_type_index;     /* cp index of name & descriptor of this field */
-};
-
-struct CONSTANT_InterfaceMethodref_info {
   u2 class_index;             /* cp index of class which declares this field */
   u2 name_and_type_index;     /* cp index of name & descriptor of this field */
 };
@@ -104,9 +106,7 @@ struct cp_info {
   u1 tag;
   union {
     struct CONSTANT_Class_info                 Class;
-    struct CONSTANT_Fieldref_info              Fieldref;
     struct CONSTANT_Methodref_info             Methodref;
-    struct CONSTANT_InterfaceMethodref_info    InterfaceMethodref;
     struct CONSTANT_String_info                String;
     struct CONSTANT_Integer_info               Integer;
     struct CONSTANT_Float_info                 Float;
@@ -135,12 +135,6 @@ struct method_info {
 
   struct attribute_info 
      *attributes;             /* attributes of this method                   */
-};
-
-struct attribute_info {
-  u2 attribute_name_index;    /* cp index to name of attribute (in Utf8)     */
-  u4 attribute_length;        /* # bytes pointed to by the info field        */
-  u1 * info;                  /* ptr to byte array representing attribute    */
 };
 
 struct ConstantValue_attribute {
@@ -208,6 +202,20 @@ struct LocalVariableTable_attribute {
     u2 descriptor_index;      /* cp index to descriptor for variable         */
     u2 index;                 /* this variable's index into local var table  */
   } * local_variable_table;
+};
+
+struct attribute_info {
+  u2 attribute_name_index;    /* cp index to name of attribute (in Utf8)     */
+  u4 attribute_length;        /* # bytes pointed to by the info field        */
+  union {
+    struct ConstantValue_attribute ConstantValue;
+    struct Code_attribute Code;
+    struct Exceptions_attribute Exceptions;
+    struct Synthetic_attribute Synthetic;
+    struct SourceFile_attribute SourceFile;
+    struct LineNumberTable_attribute LineNumberTable;
+    struct LocalVariableTable_attribute LocalVariableTable;
+  } attr;
 };
 
 #endif

@@ -887,7 +887,8 @@ check_continued_lines (FILE * ifp, char *current_line)
 
   while (1)
   {
-    items = fread (next_line, 6, 1, ifp);
+    next_line[0] = '\0';
+    items = fread (next_line, 1, 6, ifp);
 
     /* If we are NOT at the end of file, reset the 
      * pointer to the start of the line so that 
@@ -907,7 +908,19 @@ check_continued_lines (FILE * ifp, char *current_line)
      * blank or 0 signifies a continuation 
      */
 
-    if((strlen(next_line) < 6) ||
+    /* changed the following comparison since there
+     * will be no null-termination of next_line after
+     * calling fread().
+     *
+     *  if((strlen(next_line) < 6) ||
+     *
+     * instead, just compare the number of items read in
+     * by fread().
+     *
+     * --kgs 4/18/00
+     */
+
+    if((items < 6) ||
        (next_line[5] == ' ') || 
        (next_line[5] == '0'))
     {

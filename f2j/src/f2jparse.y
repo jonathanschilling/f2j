@@ -54,8 +54,10 @@ CPNODE
  *****************************************************************************/
 
 int 
-  yylex(),
-  eval_const_expr(AST *, int);
+  yylex();
+
+double
+  eval_const_expr(AST *, double);
 
 char 
   * strdup(const char *),
@@ -1333,7 +1335,7 @@ Arraydeclaration: Name OP Arraynamelist CP
                         temp != NULL; 
                         temp=temp->nextstmt, i++)
                     {
-                      $$->astnode.ident.D[i] = eval_const_expr(temp,count);
+                      $$->astnode.ident.D[i] = (int) eval_const_expr(temp,count);
                       if(temp->nodetype == ArrayIdxRange)
                         printf("@#@# %s dim %d is a range\n",$$->astnode.ident.name,
                            i);
@@ -3017,13 +3019,13 @@ store_array_var(AST * var)
  *                                                                           *
  * mypow                                                                     *
  *                                                                           *
- * Integer power function.  writing this here so that we                     *
- * dont have to include the math library.                                    *
+ * Double power function.  writing this here so that we                      *
+ * dont have to link in the math library.                                    *
  *                                                                           *
  *****************************************************************************/
 
-int
-mypow(int x, int y)
+double
+mypow(double x, double y)
 {
   int i;
 
@@ -3222,13 +3224,13 @@ addEquiv(AST *node)
  *                                                                           *
  * eval_const_expr                                                           *
  *                                                                           *
- * This function evaluates an integer expression which should consist of     *
- * only parameters and constants.  The integer value is returned.            *
+ * This function evaluates a floating-point expression which should consist  *
+ * of only parameters and constants.  The floating-point result is returned. *
  *                                                                           *
  *****************************************************************************/
 
-int
-eval_const_expr(AST *root, int dims)
+double
+eval_const_expr(AST *root, double dims)
 {
   HASHNODE *p;
   int result1, result2;
@@ -3252,7 +3254,7 @@ eval_const_expr(AST *root, int dims)
       else
       {
          if(p->variable->nodetype == Constant)
-           return ( atoi(p->variable->astnode.constant.number) );
+           return ( atof(p->variable->astnode.constant.number) );
          else 
            if(dims == 3)
              fprintf(stderr,"Cant determine array dimensions!\n");
@@ -3297,7 +3299,7 @@ eval_const_expr(AST *root, int dims)
       if(root->token == STRING)
         fprintf (stderr, "String in array dec!\n");
       else
-        return( atoi(root->astnode.constant.number) );
+        return( atof(root->astnode.constant.number) );
       break;
     case ArrayIdxRange:
       return(  eval_const_expr(root->astnode.expression.rhs, dims) - 

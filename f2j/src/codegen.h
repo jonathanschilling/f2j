@@ -266,6 +266,17 @@ char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
   "Object"
 };
 
+char *field_descriptor[MAX_RETURNS+1][3] = {
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[[Ljava/lang/String;"},
+  {"Ljava/lang/String;", "[Ljava/lang/String;", "[[Ljava/lang/String;"},
+  {"D", "[D", "[[D"},
+  {"D", "[D", "[[D"},
+  {"F", "[F", "[[F"},
+  {"I", "[I", "[[I"},
+  {"Z", "[Z", "[[Z"},
+  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[[Ljava/lang/Object;"}
+};
+
 char *wrapper_returns[MAX_RETURNS+1] =  /* types for pass by ref scalars     */
 {
   "StringW",

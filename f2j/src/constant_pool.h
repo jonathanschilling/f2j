@@ -37,6 +37,5 @@ CPNODE * newMethodref(Dlist, char *, char *, char *);
 char   * null_term(u1 *, int);
 void     cp_dump(Dlist);
 void     cp_quickdump(Dlist);
-void     cp_initialize(AST *, Dlist);
 
 #endif

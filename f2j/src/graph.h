@@ -1,3 +1,10 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
 /*****************************************************************************
  * The following structures represent a graph of the bytecode generated      *
  * by f2java.  Creating a graph allows making an accurate calculation of     *

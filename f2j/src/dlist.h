@@ -1,3 +1,9 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
 
 /* Jim Plank's dlist routines.  Contact plank@cs.utk.edu  */
 

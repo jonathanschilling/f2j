@@ -24,7 +24,7 @@
 
 
 #TARGET = $(HOME)/Bin/javab
-TARGET = ../../bin/javab
+TARGET = ../bin/javab
 
 # Flags
 # *****

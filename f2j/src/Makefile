@@ -14,7 +14,7 @@ DEPENDS = f2jparse.y f2jlex.c f2j.h
 YACC=bison -t
 JFILES = *.j
 JAVAFILES = *.java
-
+GOTO_TRANS=../goto_trans
 
 #  The main executable.
 f2java: f2j.h f2jparse.y $(OBJS) javab
@@ -31,7 +31,7 @@ puref2j:	f2j.h f2jparse.y $(OBJS) javab
 #  Fortran has gotos, java does not.  So we need to 
 #  translate goto statements.
 javab:	
-	cd goto_trans;make
+	cd $(GOTO_TRANS);make
 
 f2jmain.o:  f2jmain.c f2j.h f2jparse.y
 	$(CC) -c $(CFLAGS) f2jmain.c
@@ -76,7 +76,7 @@ clean: goto
               tmp f2j core a.out *.output *~  *.vcg
 
 goto:
-	cd goto_trans; $(MAKE) realclean
+	cd $(GOTO_TRANS); $(MAKE) realclean
 
 realclean: clean
 	rm -f ../bin/f2java ../bin/puref2j

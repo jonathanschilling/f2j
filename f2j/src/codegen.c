@@ -22,7 +22,7 @@
  *****************************************************************************/
 
 int
-  gendebug = TRUE;     /* set to TRUE to generate debugging output          */
+  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
 
 char 
   *unit_name,           /* name of this function/subroutine                  */
@@ -239,10 +239,8 @@ emit (AST * root)
           /* save pointer for local vars in local_emit */
           local_list = root->astnode.source.typedecs;
           
-printf("============TYPEDECS!!!\n");
           emit (root->astnode.source.typedecs);
  
-printf("============PROGTYPE!!!\n");
           emit (root->astnode.source.progtype);
 
           /* check whether any class initialization code was generated.

@@ -8020,7 +8020,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       /* subroutine with args.  */
 
-      int cnt = 0;
+      int cnt = 0, arr_local;
 
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
         cnt++;
@@ -8030,12 +8030,24 @@ method_name_emit (AST *root, BOOLEAN adapter)
       fprintf(curfp," Object [] _%s_args = new Object[%d];\n",
          root->astnode.ident.name, cnt);
 
+      pushIntConst(cnt);
+
+      c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                "java/lang/Object");
+
+      bytecode1(jvm_anewarray, c->index);
+      arr_local = getNextLocal(Object);
+      gen_store_op(arr_local,Object);
+
       /* foreach arg, assign that arg to an element of the object array */
 
       cnt = 0;
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
       {
         fprintf(curfp,"_%s_args[%d] = ", root->astnode.ident.name, cnt);
+
+        gen_load_op(arr_local,Object);
+        pushIntConst(cnt);
 
         if((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL))
         {
@@ -8044,17 +8056,49 @@ method_name_emit (AST *root, BOOLEAN adapter)
         else
         {
           fprintf(curfp,"new %s(", java_wrapper[temp->vartype]);
+
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                numeric_wrapper[temp->vartype]);
+
+          bytecode1(jvm_new,c->index);
+          bytecode0(jvm_dup);
+
+          c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype], "<init>",
+                 wrapper_descriptor[temp->vartype]);
+
           expr_emit (temp);
           fprintf(curfp,")");
+
+          bytecode1(jvm_invokespecial, c->index);
         }
+
+        bytecode0(jvm_aastore);
 
         fprintf(curfp, ";\n");
 
         cnt++;
       }
 
+      ht = type_lookup(cur_external_table, root->astnode.ident.name);
+      if(!ht) {
+        fprintf(stderr,"Error: expected to find '%s' in external table.\n",
+            root->astnode.ident.name);
+        exit(-1);
+      }
+
+      gen_load_op(ht->variable->astnode.ident.localvnum, Object);
+      bytecode0(jvm_aconst_null);
+      gen_load_op(arr_local, Object);
+
+      c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+            INVOKE_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
       fprintf(curfp,"_%s_meth.invoke(null,_%s_args);\n",
         root->astnode.ident.name, root->astnode.ident.name);
+
+      releaseLocal();
+
       return 1;
     }
     else   /* function with args. */

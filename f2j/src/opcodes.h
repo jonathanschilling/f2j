@@ -241,7 +241,7 @@ char *wrapper_descriptor[MAX_RETURNS+1] =
   "(F)V",
   "(I)V",
   "(Z)V",
-  "",
+  "(Ljava/lang/Object;)V",
 };
 
 /* names of the standard Java wrappers:  */

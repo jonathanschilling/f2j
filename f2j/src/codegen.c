@@ -4527,6 +4527,7 @@ expr_emit (AST * root)
             else
               bytecode0(jvm_dcmpl);
 
+printf("token is %d, using %s\n",root->token, jvm_opcode[dcmp_opcode[root->token]].op);
             cmp_node = bytecode0(dcmp_opcode[root->token]);
             bytecode0(jvm_iconst_0);
             goto_node = bytecode0(jvm_goto);
@@ -5554,11 +5555,25 @@ computed_goto_emit (AST *root)
 void
 logicalif_emit (AST * root)
 {
+  CodeGraphNode *if_node, *next_node;
+
   fprintf (curfp, "if (");
+
   if (root->astnode.logicalif.conds != NULL)
     expr_emit (root->astnode.logicalif.conds);
+
+  if_node = bytecode0(jvm_ifeq);
+
   fprintf (curfp, ")  \n    ");
+
   emit (root->astnode.logicalif.stmts);
+
+  /* create a dummy instruction node following the stmts so that
+   * we have a branch target for the goto statement.  it'll be
+   * removed later.
+   */
+  next_node = bytecode0(jvm_impdep1);
+  if_node->branch_target = next_node;
 }
 
 /*****************************************************************************

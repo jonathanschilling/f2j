@@ -5,7 +5,6 @@
  * $Author$
  */
 
-
 /*****************************************************************************
  * f2jlex.c                                                                  *
  *                                                                           *
@@ -39,7 +38,7 @@
  *****************************************************************************/
 
 #define BIGBUFF    2000
-#define YYTEXTLEN   100 
+#define YYTEXTLEN   100
 
 /*****************************************************************************
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
@@ -379,28 +378,41 @@ yylex ()
       char *stmt_copy = strdup(buffer.stmt);
       char *text_copy = strdup(buffer.text);
 
-      /* First, look for labeled DO statement */
-      if((token = keyscan (tab_stmt, &buffer)) == DO)
+                                                    /*Changed on 2/27/01 added if statement to catch if variable*/     
+      token = keyscan (tab_stmt, &buffer);
+      if(  ((token == DO) || (token == IF)) 
+         && 
+          /* (((tokennumber != 1) && (firsttoken != INTEGER)) || */
+          (((tokennumber != 0) && (firsttoken != INTEGER)) ||
+          ((tokennumber != 1) && (firsttoken == INTEGER)))
+        )
       {
         if(lexdebug)
-          printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
-        f2jfree(stmt_copy, strlen(stmt_copy)+1);
-        f2jfree(text_copy, strlen(text_copy)+1);
-        return token;
+           printf("got incorrect DO or IF keyword, restoring buffer\n");
+        strcpy(buffer.stmt,stmt_copy);
+        strcpy(buffer.text,text_copy);
       }
-
-      /*
-       *   strcpy(buffer.stmt,stmt_copy);
-       *   strcpy(buffer.text,text_copy);
-       * 
-       *   if((token = keyscan (tab_stmt, &buffer)) == IF)
-       *   {
-       *     if(lexdebug)
-       *       printf("7.1.2: lexer returns %s (%s)\n",
-       *         tok2str(token),buffer.stmt);
-       *     return token;
-       *   }
-       */
+      else{
+         /* First, look for labeled DO statement */
+         strcpy(buffer.stmt,stmt_copy);
+         strcpy(buffer.text,text_copy);
+         if((token = keyscan (tab_stmt, &buffer)) == DO)
+         {
+           if(lexdebug)
+             printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+           f2jfree(stmt_copy, strlen(stmt_copy)+1);
+           f2jfree(text_copy, strlen(text_copy)+1);
+           return token;
+         }
+         strcpy(buffer.stmt,stmt_copy);
+         strcpy(buffer.text,text_copy);
+         if((token = keyscan (tab_stmt, &buffer)) == IF)
+         {
+           if(lexdebug)
+             printf("7.1.2: lexer returns %s (%s)\n", tok2str(token), buffer.stmt);
+           return token;
+         }
+      }
 
       strcpy(buffer.stmt,stmt_copy);
       strcpy(buffer.text,text_copy);

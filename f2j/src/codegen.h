@@ -286,7 +286,9 @@ struct stack_info {
       ret_len;       /* depth of stack when this method returns              */
 };
 
-char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
+/* data types for f2java primitives: */
+
+char *returnstring[MAX_RETURNS+1] =
 {
   "String",
   "String",
@@ -298,10 +300,24 @@ char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
   "Object"
 };
 
-/* Mapping between f2java data types and array data types. */
+/* Mapping between f2java data types and array data types.. used when        */
+/* issuing the newarray opcode:                                              */
+
 u2 jvm_array_type[MAX_RETURNS+1] = {
-  T_UNUSED, T_UNUSED, T_DOUBLE, T_DOUBLE, T_FLOAT, T_INT, T_BOOLEAN, T_UNUSED
+  T_UNUSED, 
+  T_UNUSED, 
+  T_DOUBLE, 
+  T_DOUBLE, 
+  T_FLOAT, 
+  T_INT, 
+  T_BOOLEAN, 
+  T_UNUSED
 };
+
+#define JSTR     "Ljava/lang/String;"
+#define JSTR_ARR "[Ljava/lang/String;"
+#define JOBJ     "Ljava/lang/Object;"
+#define JOBJ_ARR "[Ljava/lang/Object;"
 
 /* you'll notice that both the 1D and 2D descriptors are both actually
  * declared 1D.  if we want to implement 'real' 2D arrays, then this
@@ -309,14 +325,14 @@ u2 jvm_array_type[MAX_RETURNS+1] = {
  */
 
 char *field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
-  {"Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;", "[Ljava/lang/String;"},
+  {JSTR, JSTR_ARR,JSTR_ARR,JSTR_ARR},
+  {JSTR, JSTR_ARR,JSTR_ARR,JSTR_ARR},
   {"D", "[D", "[D", "[D"},
   {"D", "[D", "[D", "[D"},
   {"F", "[F", "[F", "[F"},
   {"I", "[I", "[I", "[I"},
   {"Z", "[Z", "[Z", "[Z"},
-  {"Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object;", "[Ljava/lang/Object"}
+  {JOBJ, JOBJ_ARR,JOBJ_ARR,JOBJ_ARR}
 };
 
 char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
@@ -354,7 +370,8 @@ char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
    "[Ljava/lang/Object;"}
 };
 
-char *wrapper_returns[MAX_RETURNS+1] =  /* types for pass by ref scalars     */
+/* types for scalars passed by reference:    */
+char *wrapper_returns[MAX_RETURNS+1] = 
 {
   "StringW",
   "StringW",
@@ -366,7 +383,8 @@ char *wrapper_returns[MAX_RETURNS+1] =  /* types for pass by ref scalars     */
   "Object"
 };
 
-char *full_wrappername[MAX_RETURNS+1] =  /* fully qualified wrapper names    */
+/* fully qualified wrapper names:   */
+char *full_wrappername[MAX_RETURNS+1] =
 {
   "org/netlib/util/StringW",
   "org/netlib/util/StringW",
@@ -378,7 +396,8 @@ char *full_wrappername[MAX_RETURNS+1] =  /* fully qualified wrapper names    */
   "java/lang/Object"
 };
 
-char *val_descriptor[MAX_RETURNS+1] = /* desc. of the wrappers .val fields   */
+/* descriptors of the wrappers' .val fields   */
+char *val_descriptor[MAX_RETURNS+1] =
 {
   "Ljava/lang/String;",
   "Ljava/lang/String;",
@@ -390,8 +409,9 @@ char *val_descriptor[MAX_RETURNS+1] = /* desc. of the wrappers .val fields   */
   "Ljava/lang/Object;"
 };
 
-char *wrapper_descriptor[MAX_RETURNS+1] =  /* descriptors for the wrapper    */
-{                                          /* classes' constructors.         */
+/* descriptors for the wrapper classes' constructors:         */
+char *wrapper_descriptor[MAX_RETURNS+1] =
+{
   "(Ljava/lang/String;)V",
   "(Ljava/lang/String;)V",
   "(Lorg/netlib/Complex;)V",
@@ -402,7 +422,8 @@ char *wrapper_descriptor[MAX_RETURNS+1] =  /* descriptors for the wrapper    */
   "",
 };
 
-char *java_wrapper[MAX_RETURNS+1] =  /* names of the standard Java wrappers  */
+/* names of the standard Java wrappers:  */
+char *java_wrapper[MAX_RETURNS+1] =
 {
   "String",
   "String",
@@ -414,7 +435,8 @@ char *java_wrapper[MAX_RETURNS+1] =  /* names of the standard Java wrappers  */
   "Object"
 };
 
-enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values */
+/* opcodes to push initial primitive values:   */
+enum _opcode init_opcodes[MAX_RETURNS+1] =
 {
   jvm_nop,
   jvm_nop,
@@ -426,7 +448,8 @@ enum _opcode init_opcodes[MAX_RETURNS+1] = /* opcodes to push initial values */
   jvm_nop
 };
 
-enum _opcode load_opcodes[MAX_RETURNS+1] = /* opcodes to load locals         */
+/* opcodes to load local variables:         */
+enum _opcode load_opcodes[MAX_RETURNS+1] =
 {
   jvm_aload,
   jvm_aload,
@@ -438,7 +461,34 @@ enum _opcode load_opcodes[MAX_RETURNS+1] = /* opcodes to load locals         */
   jvm_aload
 };
 
-enum _opcode short_load_opcodes[MAX_RETURNS+1][4] = /* shorthand local loads */
+/* opcodes to load array elements:  */
+enum _opcode array_load_opcodes[MAX_RETURNS+1] =
+{
+  jvm_aaload,
+  jvm_aaload,
+  jvm_daload,
+  jvm_daload,
+  jvm_faload,
+  jvm_iaload,
+  jvm_baload,
+  jvm_aaload
+};
+
+/* opcodes to store array elements:  */
+enum _opcode array_store_opcodes[MAX_RETURNS+1] =
+{
+  jvm_aastore,
+  jvm_aastore,
+  jvm_dastore,
+  jvm_dastore,
+  jvm_fastore,
+  jvm_iastore,
+  jvm_bastore,
+  jvm_aastore
+};
+
+/* shorthand opcodes for loading local variables:  */
+enum _opcode short_load_opcodes[MAX_RETURNS+1][4] =
 {
   {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
   {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3},
@@ -450,7 +500,8 @@ enum _opcode short_load_opcodes[MAX_RETURNS+1][4] = /* shorthand local loads */
   {jvm_aload_0, jvm_aload_1, jvm_aload_2, jvm_aload_3}
 };
 
-enum _opcode iconst_opcodes[7] =  /* shorthand iconst_X opcodes              */
+/* shorthand opcodes for loading integer constants:  */
+enum _opcode iconst_opcodes[7] =
 {
   jvm_iconst_m1,
   jvm_iconst_0,
@@ -461,7 +512,8 @@ enum _opcode iconst_opcodes[7] =  /* shorthand iconst_X opcodes              */
   jvm_iconst_5
 };
 
-char *init_vals[MAX_RETURNS+1] =    /* initial values for above data types   */
+/* initial values for above data types:  */
+char *init_vals[MAX_RETURNS+1] =
 {
   "\" \"",
   "\" \"",
@@ -472,7 +524,8 @@ char *init_vals[MAX_RETURNS+1] =    /* initial values for above data types   */
   "false"
 };
 
-char *input_func[MAX_RETURNS+1] =  /* input funcs to read various data types */
+/* input functions to read various data types:   */
+char *input_func[MAX_RETURNS+1] =
 {
   "readChars",
   "readChars",
@@ -483,7 +536,8 @@ char *input_func[MAX_RETURNS+1] =  /* input funcs to read various data types */
   "readBoolean"
 };
 
-char *input_func_eof[MAX_RETURNS+1] = /* input functions that detect EOF     */
+/* input functions that detect EOF:    */
+char *input_func_eof[MAX_RETURNS+1] =
 {
   "readchars",
   "readchars",
@@ -494,7 +548,8 @@ char *input_func_eof[MAX_RETURNS+1] = /* input functions that detect EOF     */
   "readboolean"
 };
 
-enum _opcode add_opcode[MAX_RETURNS+1] =  /* add opcodes, indexed by vartype */
+/* addition opcodes, indexed by vartype:   */
+enum _opcode add_opcode[MAX_RETURNS+1] =
 {
   jvm_nop,
   jvm_nop,
@@ -505,7 +560,8 @@ enum _opcode add_opcode[MAX_RETURNS+1] =  /* add opcodes, indexed by vartype */
   jvm_nop
 };
 
-enum _opcode sub_opcode[MAX_RETURNS+1] =  /* sub opcodes, indexed by vartype */
+/* subtraction opcodes, indexed by vartype:  */
+enum _opcode sub_opcode[MAX_RETURNS+1] =  
 {
   jvm_nop,
   jvm_nop,
@@ -516,7 +572,8 @@ enum _opcode sub_opcode[MAX_RETURNS+1] =  /* sub opcodes, indexed by vartype */
   jvm_nop
 };
 
-enum _opcode div_opcode[MAX_RETURNS+1] =  /* div opcodes, indexed by vartype */
+/* division opcodes, indexed by vartype:   */
+enum _opcode div_opcode[MAX_RETURNS+1] =  
 {
   jvm_nop,
   jvm_nop,
@@ -527,7 +584,8 @@ enum _opcode div_opcode[MAX_RETURNS+1] =  /* div opcodes, indexed by vartype */
   jvm_nop
 };
 
-enum _opcode mul_opcode[MAX_RETURNS+1] =  /* mul opcodes, indexed by vartype */
+/* multiplication opcodes, indexed by vartype:   */
+enum _opcode mul_opcode[MAX_RETURNS+1] =  
 {
   jvm_nop,
   jvm_nop,
@@ -538,7 +596,8 @@ enum _opcode mul_opcode[MAX_RETURNS+1] =  /* mul opcodes, indexed by vartype */
   jvm_nop
 };
 
-enum _opcode neg_opcode[MAX_RETURNS+1] =  /* negation opcodes, by vartype    */
+/* negation opcodes, indexed by vartype:    */
+enum _opcode neg_opcode[MAX_RETURNS+1] =  
 {
   jvm_nop,
   jvm_nop,
@@ -549,8 +608,10 @@ enum _opcode neg_opcode[MAX_RETURNS+1] =  /* negation opcodes, by vartype    */
   jvm_nop
 };
 
+/* integer comparison opcodes, indexed by vartype.        * 
+ * first entry is unused because enum _relop starts at 1  */
 enum _opcode icmp_opcode[] = {
-  jvm_nop,      /* first entry is unused because enum _relop starts at 1 */
+  jvm_nop,      
   jvm_if_icmpeq,
   jvm_if_icmpne,
   jvm_if_icmplt,
@@ -563,10 +624,11 @@ enum _opcode icmp_opcode[] = {
 /* comparison ops for relational expressions.  note that the logic is
  * reversed.. that is, this array is indexed by the relops, but each entry
  * contains the reverse relop (e.g. .lt. -> ifgt) except for .eq. and .ne.
+ * first entry is unused because enum _relop starts at 1
  */
 
 enum _opcode dcmp_opcode[] = {
-  jvm_nop,      /* first entry is unused because enum _relop starts at 1 */
+  jvm_nop,
   jvm_ifeq,
   jvm_ifne,
   jvm_ifgt,
@@ -579,7 +641,8 @@ enum _opcode dcmp_opcode[] = {
  * appropriate opcode for the conversion, go to the row of the type to
  * convert FROM and scan across to the column of the type to convert TO.
  * most of these entries are blank (NOP) because type promotion does not
- * apply to strings, booleans, etc.
+ * apply to strings, booleans, etc.   note: most of these are nop because
+ * we dont intend to encounter such conversions (or they are unsupported).
  */
 enum _opcode typeconv_matrix[MAX_RETURNS+1][MAX_RETURNS+1] =
 {
@@ -595,6 +658,7 @@ enum _opcode typeconv_matrix[MAX_RETURNS+1][MAX_RETURNS+1] =
 
 };
 
+/* the following structure represents a JVM instruction:  */
 typedef struct _jvm_opcode {
   char *op;                   /* character representation of opcode       */
   u1 width;                   /* width in bytes of the opcode + operands  */

@@ -2548,8 +2548,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   if(needs_cast)
     fprintf(curfp,")");
 
-  if(! is_ext)
+  if(!is_ext) {
+    code_zero_op(array_load_opcodes[root->vartype]);
     fprintf(curfp, "]");
+  }
 }
 
 /*****************************************************************************
@@ -2659,10 +2661,10 @@ void
 array_emit(AST *root, HASHNODE *hashtemp)
 {
   AST *temp;
-  int is_arg=FALSE;
+  int is_arg=FALSE, varnum=0;
   char *get_common_prefix(char *);
   char *com_prefix;
-  char *name;
+  char *name, *tmpclass, *desc;
   HASHNODE *ht;
 
   if (gendebug)
@@ -2670,12 +2672,24 @@ array_emit(AST *root, HASHNODE *hashtemp)
       root->astnode.ident.name,
       print_nodetype(root));
 
+  /* find the descriptor & local var number (if applicable) for this var   */
+
+  if((ht = type_lookup(cur_type_table, root->astnode.ident.name)) != NULL) {
+    desc = getVarDescriptor(ht->variable);
+    varnum = ht->variable->astnode.ident.localvnum;
+  }
+  else {
+    fprintf(stderr,"WARNING: array_emit() can't find '%s' in hash table!\n",
+      root->astnode.ident.name);
+    desc = "asdfjkl";
+  }
+
   /* If this is a COMMON variable, get the prefix for the common
    * class name.
    */
 
   com_prefix = get_common_prefix(root->astnode.ident.name);
-
+  tmpclass = cur_filename;
   name = root->astnode.ident.name;
 
   if(com_prefix[0] != '\0')
@@ -2693,6 +2707,9 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
+
+    tmpclass = strdup(com_prefix);
+    tmpclass[strlen(tmpclass)-1] = '\0';
   }
 
   /* if this is an equivalenced variable, find out the merged
@@ -2712,6 +2729,15 @@ array_emit(AST *root, HASHNODE *hashtemp)
   if(gendebug)
     printf("### #in array_emit, setting name = %s\n",name);
 
+  /* Determine whether this variable is an argument to the current
+   * program unit.
+   */
+
+  if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
+    is_arg = TRUE;
+  else
+    is_arg = FALSE;
+
   /* 
    * Now, what needs to happen here is the context of the
    * array needs to be determined.  If the array is being
@@ -2722,9 +2748,11 @@ array_emit(AST *root, HASHNODE *hashtemp)
    */
 
   if((root->parent != NULL) && (root->parent->nodetype == Typedec))
-    fprintf (curfp, "%s", name);
-  else
+    fprintf (curfp, "%s", name);   /* for typedec, generate no bytecode */
+  else {
     fprintf (curfp, "%s%s", com_prefix, name);
+    pushVar(root->vartype,is_arg,tmpclass,name,desc,varnum,FALSE);
+  }
 
   temp = root->astnode.ident.arraylist;
 
@@ -2741,15 +2769,6 @@ array_emit(AST *root, HASHNODE *hashtemp)
       printf ("Array... %s, Parent node type... %s\n", 
         name, print_nodetype(root->parent));
 
-    /* Determine whether this variable is an argument to the current
-     * program unit.
-     */
-
-    if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
-      is_arg = TRUE;
-    else
-      is_arg = FALSE;
-
     if((root->parent->nodetype == Call)) 
     {
       /* following is a LAPACK specific hack.  we dont want to treat
@@ -2765,6 +2784,11 @@ array_emit(AST *root, HASHNODE *hashtemp)
       else 
         func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg,FALSE);
     } 
+    else if((root->parent->nodetype == Assignment) &&
+            (root->parent->astnode.assignment.lhs == root))
+    {
+      func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
+    }
     else if((root->parent->nodetype == Typedec)) 
     {
       /*  Just a declaration, don't emit index. */
@@ -2961,9 +2985,6 @@ pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc,
     printf("               desc is %s\n", desc);
     printf("       local varnum is %d\n", lv);
   }
-  printf("in pushvar, vartype is %s\n", returnstring[vt]);
-  printf("               desc is %s\n", desc);
-  printf("       local varnum is %d\n", lv);
 
   if(isArg) {
     if((desc[0] == 'L') || (desc[0] == '[')) {

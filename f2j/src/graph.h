@@ -35,6 +35,7 @@ typedef struct _exception_table_entry {
      * from,                /* PC at which the try block begins              */
      * to,                  /* PC at which the try block ends                */
      * target;              /* PC at which the exception handler begins      */
+  int catch_type;           /* exception class corresponding to this catch   */
 } ExceptionTableEntry;
 
 #endif

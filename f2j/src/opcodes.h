@@ -385,6 +385,18 @@ char *init_vals[MAX_RETURNS+1] =
   "false"
 };
 
+/* descriptors for EasyIn's read methods */
+char *input_descriptors[MAX_RETURNS+1] = 
+{
+  "(I)Ljava/lang/String;",
+  "(I)Ljava/lang/String;",
+  "Unimplemented",
+  "()D",
+  "()F",
+  "()I",
+  "()Z"
+};
+
 /* input functions to read various data types:   */
 char *input_func[MAX_RETURNS+1] =
 {

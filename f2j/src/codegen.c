@@ -55,7 +55,8 @@ void
   assign_emit (AST *),
   expr_emit(AST *),
   forloop_bytecode_emit(AST *),
-  else_emit (AST *);
+  else_emit (AST *),
+  LHS_bytecode_emit(AST *);
 
 int
   isPassByRef(char *),
@@ -106,7 +107,8 @@ Dlist
   while_list = NULL,    /* stack of while loop labels                        */
   adapter_list = NULL,  /* list of adapter functions (see tech report)       */
   methcall_list = NULL, /* list of methods to be called by reflection        */
-  label_list = NULL;    /* list of statements with label numbers             */
+  label_list = NULL,    /* list of statements with label numbers             */
+  exc_table = NULL;     /* list of exception table entries                   */
 
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
@@ -155,7 +157,8 @@ int
   pc,                   /* current program counter                           */
   cur_local,            /* current local variable number                     */
   num_locals,           /* number of locals needed for this method           */
-  stdin_lvar;           /* local var number of the EasyIn object             */
+  stdin_lvar,           /* local var number of the EasyIn object             */
+  num_handlers;         /* number of exception handlers in this method       */
 
 struct method_info
   *clinit_method,       /* special class initialization method <clinit>      */
@@ -248,6 +251,9 @@ emit (AST * root)
             methodname = strdup(classname);
 
           classname[0] = toupper(classname[0]);
+
+          /* needs initializing before creating the <init> method */
+          exc_table = make_dl();
 
           /* First set up the local hash tables. */
 
@@ -6338,8 +6344,6 @@ arithmeticif_emit (AST * root)
 
   lvar = getNextLocal(root->astnode.arithmeticif.cond->vartype);
 
-printf("got lvar = %d\n", lvar);
-
   fprintf (curfp, "{\n");
   fprintf (curfp, "  %s _arif_tmp = ", 
      returnstring[root->astnode.arithmeticif.cond->vartype]);
@@ -6533,9 +6537,15 @@ forloop_end_bytecode(AST *root)
 void
 read_emit (AST * root)
 {
+  CodeGraphNode *goto_node1, *goto_node2, *try_start, *pop_node;
+  ExceptionTableEntry *et_entry;
+  AST *assign_temp;
   AST *temp;
-  void read_implied_loop_emit(AST *, char **);
   char **funcname;
+  CPNODE *c;
+
+  void read_implied_loop_emit(AST *, char **);
+  AST *addnode();
 
   /* if the READ statement has no args, just read a line and
    * ignore it.
@@ -6543,6 +6553,10 @@ read_emit (AST * root)
 
   if(root->astnode.io_stmt.arg_list == NULL) {
     fprintf(curfp,"_f2j_stdin.readString();  // skip a line\n");
+    gen_load_op(stdin_lvar, Object);
+    c = newMethodref(cur_const_table, EASYIN_CLASS, "readString",
+          "()Ljava/lang/String;");
+    bytecode1(jvm_invokevirtual, c->index);
     return;
   }
 
@@ -6555,9 +6569,13 @@ read_emit (AST * root)
   {
     fprintf(curfp,"try {\n");
     funcname = input_func_eof;
+    try_start = bytecode0(jvm_impdep1);
   }
   else
     funcname = input_func;
+
+  assign_temp = addnode();
+  assign_temp->nodetype = Assignment;
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
@@ -6565,12 +6583,26 @@ read_emit (AST * root)
       read_implied_loop_emit(temp, funcname);
     else if(temp->nodetype == Identifier)
     {
-      name_emit(temp);
-      if( (temp->vartype == Character) || (temp->vartype == String) )
+      temp->parent = assign_temp;
+      assign_temp->astnode.assignment.lhs = temp;
+
+      name_emit(assign_temp->astnode.assignment.lhs);
+
+      gen_load_op(stdin_lvar, Object);
+      if( (temp->vartype == Character) || (temp->vartype == String) ) {
         fprintf(curfp," = _f2j_stdin.%s(%d);\n",funcname[temp->vartype],
            temp->astnode.ident.len);
-      else
+        pushIntConst(temp->astnode.ident.len);
+      }
+      else {
         fprintf(curfp," = _f2j_stdin.%s();\n",funcname[temp->vartype]);
+      }
+
+      c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
+            input_descriptors[temp->vartype]);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      LHS_bytecode_emit(assign_temp);
     }
     else
     {
@@ -6579,7 +6611,11 @@ read_emit (AST * root)
       continue;
     }
   }
+
   fprintf(curfp,"_f2j_stdin.skipRemaining();\n");
+  gen_load_op(stdin_lvar, Object);
+  c = newMethodref(cur_const_table, EASYIN_CLASS, "skipRemaining", "()V");
+  bytecode1(jvm_invokevirtual, c->index);
 
   /* Emit the catch block for when we hit EOF.  We only care if
    * the READ statement has an END label.
@@ -6591,6 +6627,36 @@ read_emit (AST * root)
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
+
+    goto_node1 = bytecode0(jvm_goto);  /* skip the exception handler */
+
+    /* following is the exception handler for IOException.  this
+     * implements Fortrans END specifier (eg READ(*,*,END=100)).
+     * the exception handler just consists of a pop to get the stack
+     * back to normal and a goto to branch to the label specified
+     * in the END spec.
+     */
+    pop_node = bytecode0(jvm_pop);
+
+    /* artificially set stack depth at beginning of exception
+     * handler to 1.
+     */
+    pop_node->stack_depth = 1;
+
+    goto_node2 = bytecode0(jvm_goto);
+    goto_node2->branch_target = NULL;
+    goto_node2->branch_label = root->astnode.io_stmt.end_num;
+
+    goto_node1->branch_target = bytecode0(jvm_impdep1);
+
+    et_entry = (ExceptionTableEntry *) f2jalloc(sizeof(ExceptionTableEntry));
+    et_entry->from = try_start;
+    et_entry->to = pop_node;
+    et_entry->target = pop_node;
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, IOEXCEPTION);
+    et_entry->catch_type = c->index;
+
+    dl_insert_b(exc_table, et_entry);
   }
 }
 
@@ -8306,8 +8372,6 @@ spec_emit (AST * root)
 void
 assign_emit (AST * root)
 {
-  char *name, *class, *desc, *com_prefix;
-  HASHNODE *isArg, *typenode, *ht;
   enum returntype ltype, rtype;
   CPNODE *c;
 
@@ -8411,6 +8475,27 @@ assign_emit (AST * root)
     else   /* lhs and rhs have same types, everything is cool */
       expr_emit (root->astnode.assignment.rhs);
   }
+
+  LHS_bytecode_emit(root);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * LHS_bytecode_emit                                                         *
+ *                                                                           *
+ * emit the store op(s) required to store a value to the LHS of some         *
+ * assignment statement.   note: this has no effect on Java source...        *
+ * this is only for bytecode since we have to emit a store op after the      *
+ * RHS (and possibly a LHS array ref).                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+LHS_bytecode_emit(AST *root)
+{
+  char *name, *class, *desc, *com_prefix;
+  HASHNODE *isArg, *typenode, *ht;
+  CPNODE *c;
 
   name = root->astnode.assignment.lhs->astnode.ident.name;
 
@@ -9316,8 +9401,9 @@ beginNewMethod(u2 flags)
   tmp->attributes = make_dl();
 
   cur_code = newCodeAttribute();
+  exc_table = make_dl();
 
-  stacksize = pc = 0;
+  stacksize = pc = num_handlers = 0;
 
   return tmp;
 }
@@ -9333,7 +9419,10 @@ beginNewMethod(u2 flags)
 void
 endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
 {
+  ExceptionTableEntry *et_entry;
   CPNODE *c;
+  Dlist tmp;
+  int idx;
 
   void traverse_code(Dlist); 
 
@@ -9360,23 +9449,44 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
 
   meth->descriptor_index = c->index;
 
+  traverse_code(cur_code->attr.Code->code);
+
+  cur_code->attr.Code->exception_table_length = num_handlers;
+
+  if(num_handlers > 0) {
+    cur_code->attr.Code->exception_table = 
+      (struct ExceptionTable *) f2jalloc(sizeof(struct ExceptionTable) * num_handlers);
+
+    printf("Code set exception_table_length = %d\n",num_handlers);
+    idx = 0;
+    dl_traverse(tmp, exc_table) {
+      et_entry = (ExceptionTableEntry *) tmp->val;
+
+      cur_code->attr.Code->exception_table[idx].start_pc = et_entry->from->pc;
+      cur_code->attr.Code->exception_table[idx].end_pc = et_entry->to->pc;
+      cur_code->attr.Code->exception_table[idx].handler_pc = et_entry->target->pc;
+      cur_code->attr.Code->exception_table[idx].catch_type = et_entry->catch_type;
+      idx++;
+    }
+  }
+
   /* attribute_length is calculated as follows:
-   *   max_stack               2 bytes
-   *   max_locals              2 bytes
-   *   code_length             4 bytes
-   *   code                   pc bytes
-   *   exception_table_length  2 bytes
-   *   exception_table         0 bytes  (no exceptions generated)
-   *   attributes_count        2 bytes
-   *   attributes              0 bytes  (no attributes generated)
+   *   max_stack               =  2 bytes
+   *   max_locals              =  2 bytes
+   *   code_length             =  4 bytes
+   *   code                    = pc bytes
+   *   exception_table_length  =  2 bytes
+   *   exception_table         =  exception_table_length * sizeof(exception table) bytes
+   *   attributes_count        =  2 bytes
+   *   attributes              =  0 bytes  (no attributes generated)
    *  ---------------------------------
-   *   total             pc + 12 bytes
+   *   total                   =  12 + exception_table_length * sizeof(exception table) bytes
    */
-  cur_code->attribute_length = pc + 12;
+  cur_code->attribute_length = pc + 12 + num_handlers * sizeof(struct ExceptionTable);
   cur_code->attr.Code->max_locals = mloc;
   cur_code->attr.Code->code_length = pc;
+  printf("Code: set code_length = %d\n",pc);
 
-  traverse_code(cur_code->attr.Code->code);
   dl_insert_b(meth->attributes, cur_code);
 }
 
@@ -9459,6 +9569,7 @@ nodeAtPC(int num)
 void
 traverse_code(Dlist cgraph) 
 {
+  ExceptionTableEntry *et_entry;
   CodeGraphNode *val;
   char *warn;
   Dlist tmp;
@@ -9475,6 +9586,15 @@ traverse_code(Dlist cgraph)
   /* traverse the whole graph calculating branch target offsets. */
   calcOffsets(val);
 
+  /* now traverse paths originating from exception handlers */
+  num_handlers = 0;
+  dl_traverse(tmp,exc_table) {
+    /* count number of handlers.. we'll use this info later */
+    num_handlers++;
+    et_entry = (ExceptionTableEntry *) tmp->val;
+    calcOffsets(et_entry->target);
+  }
+
   /* now print the instructions */
   dl_traverse(tmp,cgraph) {
     val = (CodeGraphNode *) tmp->val;
@@ -9490,6 +9610,7 @@ traverse_code(Dlist cgraph)
     else
       printf("%d: %s %s\n", val->pc, jvm_opcode[val->op].op, warn);
   }
+
 }
 
 /*****************************************************************************

@@ -220,7 +220,8 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
   Dlist tmpPtr;
   CPNODE *c;
 
-  void write_code(Dlist, FILE *);
+  void write_code(Dlist, FILE *),
+       write_exception_table(struct ExceptionTable *, int, FILE *);
 
   if((attr_list == NULL) || (const_pool == NULL))
     return;
@@ -251,7 +252,8 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       write_code(tmpattr->attr.Code->code, out);
       write_u2(tmpattr->attr.Code->exception_table_length,out);
       if(tmpattr->attr.Code->exception_table_length > 0)
-        fprintf(stderr,"WARNING: dont know how to write exception table yet.\n");
+        write_exception_table(tmpattr->attr.Code->exception_table, 
+          tmpattr->attr.Code->exception_table_length, out);
       write_u2(tmpattr->attr.Code->attributes_count,out);
       if(tmpattr->attr.Code->attributes_count > 0)
         write_attributes(tmpattr->attr.Code->attributes, const_pool, out);
@@ -259,6 +261,26 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     else {
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
     }
+  }
+}
+
+/*****************************************************************************
+ * write_exception_table                                                     *
+ *                                                                           *
+ * This function writes the exception table to disk.                         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_exception_table(struct ExceptionTable *et, int len, FILE *out)
+{
+  int i;
+
+  for(i=0;i<len;i++) {
+    write_u2( et[i].start_pc, out );
+    write_u2( et[i].end_pc, out );
+    write_u2( et[i].handler_pc, out );
+    write_u2( et[i].catch_type, out );
   }
 }
 

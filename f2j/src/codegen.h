@@ -59,6 +59,7 @@
 #define EASYIN_DESC "()V"
 #define ETIME_CLASS "org/netlib/util/Etime"
 #define ETIME_DESC "()V"
+#define IOEXCEPTION "java/io/IOException"
 
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"

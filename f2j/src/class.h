@@ -162,6 +162,13 @@ struct ConstantValue_attribute {
   u2 constantvalue_index;     /* cp index to the actual constant value       */
 };
 
+struct ExceptionTable {
+  u2 start_pc;              /* index into code of start opcode (inclusive) */
+  u2 end_pc;                /* index into code of end opcode (exclusive)   */
+  u2 handler_pc;            /* start of exception handler code             */
+  u2 catch_type;            /* cp index of exception class to catch        */
+};
+
 struct Code_attribute {
   u2 max_stack;               /* max depth of operand stack for this method  */
   u2 max_locals;              /* max num of local variables including params */
@@ -169,12 +176,7 @@ struct Code_attribute {
   Dlist code;                 /* list containing code for this method        */
   u2 exception_table_length;  /* number of entries in the exception table    */
 
-  struct {
-    u2 start_pc;              /* valid index into code of starting opcode    */
-    u2 end_pc;                /* valid index into code of ending opcode      */
-    u2 handler_pc;            /* start of exception handler code             */
-    u2 catch_type;            /* cp index of exception class to catch        */
-  } * exception_table;
+  struct ExceptionTable * exception_table;  /* table of exception handlers   */
 
   u2 attributes_count;        /* number of additional code attributes        */
   Dlist attributes;           /* attributes of this code                     */

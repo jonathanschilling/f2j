@@ -91,6 +91,7 @@ in alphabetic order. */
 %type <ptnode> Binaryop Blockif Boolean
 %type <ptnode> Call /* Char */ Complex Constant  Constantlist Continue
 %type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
+%type <ptnode> DataLhs LoopBounds
 %type <ptnode> Do_vals Do_statements Do_statement Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -536,9 +537,33 @@ CommonSpec: DIV Name DIV Namelist
 
 Save: SAVE NL
        {
+         /*
+          * I think in this case every variable is supposed to
+          * be saved, but we already emit every variable as
+          * static.  do nothing here.  --Keith
+          */
+
          $$ = addnode();
          $$->nodetype = Save;
        }
+    | SAVE DIV Namelist DIV NL
+           {
+             AST *temp;
+             int idx;
+
+             $$ = addnode();
+             $3->parent = $$; /* 9-4-97 - Keith */
+             $$->nodetype = Save;
+
+             for(temp=$3;temp!=NULL;temp=temp->prevstmt) {
+               idx = hash(temp->astnode.ident.name) % save_table->num_entries;
+               if(debug)
+                 printf("@@insert %s into save table\n",
+                    temp->astnode.ident.name);
+               type_insert(&(save_table->entry[idx]), temp, Float,
+                   temp->astnode.ident.name);
+             }
+	   }
     | SAVE Namelist NL
            {
              AST *temp;
@@ -636,23 +661,70 @@ DataItem:   LhsList DIV Constantlist DIV
                 
                 temp->parent = $$;
 
-                idx = hash(temp->astnode.ident.name) % data_table->num_entries;
+                if(temp->nodetype == Forloop) 
+                {
+                  idx = hash(temp->astnode.forloop.counter) % data_table->num_entries;
 
-                type_insert(&(data_table->entry[idx]), temp, Float,
-                   temp->astnode.ident.name);
+                  type_insert(&(data_table->entry[idx]), temp, Float,
+                     temp->astnode.forloop.counter);
+                }
+                else
+                {
+                  idx = hash(temp->astnode.ident.name) % data_table->num_entries;
+
+                  type_insert(&(data_table->entry[idx]), temp, Float,
+                     temp->astnode.ident.name);
+                }
               }
             }
 ;
 
-LhsList:  Lhs
+LhsList:  DataLhs
           {
             $$ = $1;
           }
-        | Lhs CM LhsList
+        | DataLhs CM LhsList
           {
             $3->prevstmt = $1;
             $$ = $3;
           }
+;
+
+DataLhs:  Lhs
+          {
+            $$ = $1;
+          }
+        | OP Lhs CM Name EQ LoopBounds CP
+          {
+            $6->astnode.forloop.counter = $4;
+            $6->astnode.forloop.Label = $2;
+            $$ = $6;
+            $2->parent = $$;
+            $4->parent = $$;
+          }
+;
+
+LoopBounds:  Integer CM Integer
+             {
+               $$ = addnode();
+               $1->parent = $$;
+               $3->parent = $$;
+               $$->nodetype = Forloop;
+               $$->astnode.forloop.start = $1;
+               $$->astnode.forloop.stop = $3;
+               $$->astnode.forloop.incr = NULL;
+             }
+           | Integer CM Integer CM Integer
+             {
+               $$ = addnode();
+               $1->parent = $$;
+               $3->parent = $$;
+               $5->parent = $$;
+               $$->nodetype = Forloop;
+               $$->astnode.forloop.start = $1;
+               $$->astnode.forloop.stop = $3;
+               $$->astnode.forloop.incr = $5;
+             }
 ;
 
 Constantlist: DataElement
@@ -897,11 +969,14 @@ Name:    NAME
 	   $$->token = NAME;
            $$->nodetype = Identifier;
            $$->astnode.ident.needs_declaration = FALSE;
+           $$->astnode.ident.lead_expr = NULL;
 
            lowercase(yylval.lexeme);
 
-           if(type_lookup(java_keyword_table,yylval.lexeme))
-             yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+           if(type_lookup(java_keyword_table,yylval.lexeme) ||
+              type_lookup(jasmin_keyword_table,yylval.lexeme))
+                 yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+
 
            strcpy($$->astnode.ident.name, yylval.lexeme);
 
@@ -925,6 +1000,7 @@ Char:     CHAR
            $$=addnode();
            $$->token = CHAR; 
            $$->nodetype = Identifier;
+           $$->astnode.ident.lead_expr = NULL;
            strcpy($$->astnode.ident.name, yylval.lexeme);
          }
 ;
@@ -935,6 +1011,7 @@ String:  STRING
            $$=addnode();
            $$->token = STRING;
            $$->nodetype = Identifier;
+           $$->astnode.ident.lead_expr = NULL;
            strcpy($$->astnode.ident.name, yylval.lexeme);
 #ifdef TYPECHECK
            $$->vartype = String;
@@ -947,6 +1024,7 @@ String:  STRING
            $$=addnode();
            $$->token = STRING;
            $$->nodetype = Identifier;
+           $$->astnode.ident.lead_expr = NULL;
            strcpy($$->astnode.ident.name, yylval.lexeme);
 #ifdef TYPECHECK
            $$->vartype = String;
@@ -983,15 +1061,23 @@ Arraydeclaration: Name OP Arraynamelist CP
                     }
                        
                     $$->astnode.ident.dim = count;
+                    $$->astnode.ident.lead_expr = NULL;
    
                     /* leaddim might be a constant, so check for that.  --keith */
-                    if($$->astnode.ident.arraylist->nodetype == Constant) {
+                    if($$->astnode.ident.arraylist->nodetype == Constant) 
+                    {
 		      $$->astnode.ident.leaddim = 
-                       strdup ($$->astnode.ident.arraylist->astnode.constant.number);
+                       strdup($$->astnode.ident.arraylist->astnode.constant.number);
+                    }
+                    else if($$->astnode.ident.arraylist->nodetype == Binaryop) {
+		      $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
                     } else {
 		      $$->astnode.ident.leaddim = 
-                       strdup ($$->astnode.ident.arraylist->astnode.ident.name);
+                       strdup($$->astnode.ident.arraylist->astnode.ident.name);
                     }
+                    printf("leaddim nodetype = %s\n",print_nodetype($$->astnode.ident.arraylist));
+                    if($$->astnode.ident.leaddim != NULL)
+                      printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
 		    store_array_var($$);
                   }
 
@@ -1029,6 +1115,7 @@ Star:  STAR
        {
          $$=addnode();
          $$->nodetype = Identifier;
+         $$->astnode.ident.lead_expr = NULL;
         *$$->astnode.ident.name = '*';
        }
 ;
@@ -1058,6 +1145,7 @@ Lhs:     Name {$$=$1;}
 	   $1->parent = $$; /* 9-4-97 - Keith */
 	   $3->parent = $$; /* 9-4-97 - Keith */
 	   $$->nodetype = Identifier;
+           $$->astnode.ident.lead_expr = NULL;
 	   strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 	   /*  This is in case we want to switch index order later. */
 	   /*
@@ -1093,6 +1181,7 @@ Arrayindexlist:   Arrayindexop
 
                     temp = addnode();
                     temp->nodetype = Identifier;
+                    temp->astnode.ident.lead_expr = NULL;
                     $1->parent = temp;
 
                     $$ = $1;
@@ -1417,15 +1506,24 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP Explist NL
 
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Write;
+         $$->astnode.io_stmt.fmt_list = NULL;
 
          /*  unimplemented
            $$->astnode.io_stmt.file_desc = ;
          */
 
-         if($5->astnode.constant.number[0] == '*') 
-           $$->astnode.io_stmt.format_num = -1;
+         if($5->nodetype == Constant)
+         {
+           if($5->astnode.constant.number[0] == '*') 
+             $$->astnode.io_stmt.format_num = -1;
+           else
+             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+         }
          else
-           $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+         {
+           $$->astnode.io_stmt.format_num = -1;
+           $$->astnode.io_stmt.fmt_list = $5;
+         }
  
          if($7 == NULL)
            $$->astnode.io_stmt.arg_list = NULL;
@@ -1477,6 +1575,10 @@ FormatSpec:
           $$->nodetype = Constant;
           strcpy($$->astnode.constant.number,"*");
 	  $$->astnode.constant.type = Integer;
+        }
+     | FMT EQ String
+        {
+          $$ = $3;
         }
 ;
 
@@ -1618,6 +1720,7 @@ Subroutinecall:   Name OP Explist CP
 
                       $$->nodetype = Identifier;
 
+                    $$->astnode.ident.lead_expr = NULL;
                     strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 
                     /*  This is in case we want to switch index order later. */
@@ -1834,6 +1937,7 @@ Call:     CALL   Subroutinecall  NL
             $$ = addnode();
             $2->parent = $$;
             $$->nodetype = Identifier;
+            $$->astnode.ident.lead_expr = NULL;
             strcpy($$->astnode.ident.name, $2->astnode.ident.name);
             $$->astnode.ident.arraylist = addnode();
             $$->astnode.ident.arraylist->nodetype = EmptyArgList;
@@ -2218,18 +2322,18 @@ type_hash(AST * types)
       /* Now separate out the EXTERNAL from the INTRINSIC on the
          fortran side.  */
 
-      if(temptypes->token != (int)NULL)
-      switch (temptypes->token)
-      {
-        case INTRINSIC:
-          type_insert(&(intrinsic_table->entry[index]), tempnames, return_type,
-             tempnames->astnode.ident.name);
-          break;
-        case EXTERNAL:
-          type_insert(&(external_table->entry[index]), tempnames, return_type,
-             tempnames->astnode.ident.name);
-          break;
-      } /* Close switch().  */
+      if(temptypes->token != 0)
+        switch (temptypes->token)
+        {
+          case INTRINSIC:
+            type_insert(&(intrinsic_table->entry[index]), tempnames, return_type,
+               tempnames->astnode.ident.name);
+            break;
+          case EXTERNAL:
+            type_insert(&(external_table->entry[index]), tempnames, return_type,
+               tempnames->astnode.ident.name);
+            break;
+        } /* Close switch().  */
     }  /* Close inner for() loop.  */
   }    /* Close outer for() loop.  */
 }     /* Close type_hash().       */

@@ -16,6 +16,7 @@ main (int argc, char **argv)
     char classname[130];
     extern char *inputfilename;
     extern char *java_reserved_words[];
+    extern char *jasmin_reserved_words[];
     extern FILE *ifp;
     extern FILE *jasminfp;
 /*    extern FILE *javafp;  9-11-97, Keith*/
@@ -175,6 +176,15 @@ main (int argc, char **argv)
         java_reserved_words[i]);
     }
 
+    jasmin_keyword_table = (SYMTABLE *) new_symtable(211);
+    temp = addnode();
+
+    for(i=0;jasmin_reserved_words[i] != NULL; i++) {
+      index = hash(jasmin_reserved_words[i]) % jasmin_keyword_table->num_entries;
+      type_insert(&(jasmin_keyword_table->entry[index]),temp,0,
+        jasmin_reserved_words[i]);
+    }
+
     yyparse ();
 
     if(JAS)
@@ -300,12 +310,12 @@ initialize ()
   statementno = 0;
   func_stmt_num = 0;
 
-  array_table  = (SYMTABLE *) new_symtable (tablesize);
-  format_table = (SYMTABLE *) new_symtable (tablesize);
-  data_table = (SYMTABLE *) new_symtable (tablesize);
-  save_table = (SYMTABLE *) new_symtable (tablesize);
-  common_table = (SYMTABLE *) new_symtable (tablesize);
-  function_table = (SYMTABLE *) new_symtable (tablesize);
+  array_table     = (SYMTABLE *) new_symtable (tablesize);
+  format_table    = (SYMTABLE *) new_symtable (tablesize);
+  data_table      = (SYMTABLE *) new_symtable (tablesize);
+  save_table      = (SYMTABLE *) new_symtable (tablesize);
+  common_table    = (SYMTABLE *) new_symtable (tablesize);
+  function_table  = (SYMTABLE *) new_symtable (tablesize);
   parameter_table = (SYMTABLE *) new_symtable (tablesize);
 }
 

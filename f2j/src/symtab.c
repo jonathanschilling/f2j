@@ -163,7 +163,7 @@ type_lookup (SYMTABLE * table, char *id)
   int index;
   HASHNODE *hash_entry;
 
-  if(table == NULL) {
+  if((table == NULL) || (id == NULL)) {
     return NULL;
   }
 
@@ -191,24 +191,43 @@ HASHNODE *
 search_hashlist (HASHNODE * list, char *id)
 {
 
+  if(id == NULL)
+    return NULL;
+
   for (list; list; list = list->next)
+  {
+    if(list->ident == NULL)
+      continue;
     if (!strcmp (list->ident, id))
       return (list);
+  }
 
   return NULL;		/*  Not in list. */
 }
 
 
 /*  Simple hash function: just add the ascii integer
-    values of each character in the string. */
+    values of each character in the string. 
+
+    Added error check for null string and made some
+    other minor changes.  12/5/97  --Keith
+ */ 
+
 int
 hash (char *str)
 {
     int sum = 0;
-    while (*str)
-      {
-	  sum += (int) *str;
-	  str++;
-      }
+    int i=0, len;
+
+    if(str == NULL)
+      return 0;
+
+    len = strlen(str);
+
+    while (i < len)
+    {
+      sum += (int) str[i];
+      i++;
+    }
     return sum;
 }

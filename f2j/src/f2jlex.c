@@ -32,12 +32,13 @@
 
 #define FUNKYCOMMENTS 1
 
+#define YYTEXTLEN 100 
 
 /* Some of these variable may not be used anymore.
    gcc -Wall needs to be run to clean up this stuff
    before they turn into confusion factors. */
 int eofflag = 1;
-char yytext[50];
+char yytext[YYTEXTLEN];
 BOOLEAN typedecs = FALSE;
 
 /* Stuff for Sale's algorithm when I get around to it. 
@@ -317,17 +318,30 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 	  }
 	else  /*  equalseen == FALSE.  */
 	  {
+            char *stmt_copy = strdup(buffer.stmt);
+            char *text_copy = strdup(buffer.text);
+
 	    token = keyscan (tab_stmt, &buffer);
+
 	    /* There should probably be a trap in here to catch
 	       bad keywords. */
             if (token)  
 	      {
-		tokennumber++;
-                if(token == FORMAT)
-                  format_stmt = 1;
-                if(lexdebug)
-                  printf("8: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
-	        return token;
+                if(token == DO)
+                {
+                  printf("got incorrect DO keyword, resoring buffer\n");
+                  strcpy(buffer.stmt,stmt_copy);
+                  strcpy(buffer.text,text_copy);
+                }
+                else {
+                  tokennumber++;
+                  if(token == FORMAT)
+                    format_stmt = 1;
+                  if(lexdebug)
+                    printf("8: lexer returns %s (%s)\n",
+                       tok2str(token),buffer.stmt);
+                  return token;
+                }
 	      }
 	  }
 	}
@@ -765,6 +779,10 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
 	  /* Try to match a substring of the  current string (scp).*/
 	  if (!strncmp (scp, tab->kwd, tokenlength))
 	    {
+                if(tokenlength > YYTEXTLEN)
+                  fprintf(stderr,"Warning: going to write past yytext (%d)\n",
+                     tokenlength);
+
 		strncpy (yytext, yycp, tokenlength);
 		yycp += tokenlength;
 		yytext[tokenlength] = '\0';
@@ -1043,6 +1061,10 @@ string_or_char_scan (BUFFER * bufstruct)
             else
               done = TRUE;
           }
+          if(tokenlength > YYTEXTLEN)
+            fprintf(stderr,"Warning: going to write past yytext (%d)\n",
+              tokenlength);
+
 	  strncpy (yytext, textcp, tokenlength);
 	  yytext[tokenlength] = '\0'; /* Terminate the string at tick. */
 	  strcpy(yylval.lexeme, yytext); 

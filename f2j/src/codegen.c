@@ -1,4 +1,4 @@
-/* 
+/*
  * $Source$
  * $Revision$
  * $Date$
@@ -40,14 +40,17 @@ void format_name_emit(AST *);
 char *progname;
 char *returnname;
 char *cur_filename;
-int gendebug = 0;
+int gendebug = 1;
 int cur_idx = 0;
+int return_label = 0;
 EntryList *doloop = NULL;
 EntryList *while_list = NULL;
+SUBSTITUTION global_sub = { NULL, 0 };
 
 extern char *inputfilename;
 
 FILE *javafp;
+FILE *curfp;
 
 SYMTABLE *cur_type_table;
 SYMTABLE *cur_external_table;
@@ -103,39 +106,17 @@ emit (AST * root)
           while_list = NULL;
           doloop = NULL;
 
-          /*  
-           * At the beginning of each program unit, we look for
-           * any variables that are listed in a SAVE statement.
-           * These variables will be emitted as static class
-           * variables, so we must do that now, before the
-           * method header has been emitted.   10/3/97 -- Keith 
-           */
-
-/****************************************
-
-          if(tmp != NULL)
-            fprintf(javafp,"// Static variables (fortran SAVE stmt)\n");
-
-          tmp = root->astnode.source.typedecs;
-          while(tmp != NULL)
-          {
-            if(tmp->nodetype == Typedec)
-              static_var_emit(tmp);
-            tmp = tmp->nextstmt;
-          }
-
-*****************************************/
-
           open_output_file(root->astnode.source.progtype);
+          curfp = javafp;
 
-	  fprintf (javafp, "// Type declarations.\n");
+	  fprintf (curfp, "// Type declarations.\n");
 	  emit (root->astnode.source.typedecs);
           
 	  emit (root->astnode.source.progtype);
-	  fprintf (javafp, "\n// Executable code.\n");
+	  fprintf (curfp, "\n// Executable code.\n");
 	  emit (root->astnode.source.statements);
-          fprintf(javafp,"} // End class.\n");
-          fclose(javafp);
+          fprintf(curfp,"} // End class.\n");
+          fclose(curfp);
 	  break;
         }
       case Subroutine:
@@ -194,7 +175,7 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Assignment.\n");
 	  assign_emit (root);
-	  fprintf (javafp, ";\n");
+	  fprintf (curfp, ";\n");
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
@@ -243,12 +224,22 @@ emit (AST * root)
 	  break;
       case Return:
 	  if (gendebug)
+          {
+            if(returnname != NULL)
 	      printf ("Return: %s.\n", returnname);
+            else
+	      printf ("Return.\n");
+          }
+            
+          /*
+           * According to the f77 spec, labels cannot contain more
+           * than five digits, so we use six nines as the label
+           * for the final return statement to avoid conflicts with
+           * labels that already exist in the program.
+           */
 
-	  if (returnname != NULL)
-	      fprintf (javafp, "return %s.val;\n", returnname);
-	  else
-	      fprintf (javafp, "return;\n");
+          fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename,
+            return_label);
 
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -291,7 +282,7 @@ emit (AST * root)
           if (gendebug)
             printf ("Stop.\n");
 
-          fprintf (javafp, "System.exit(1);\n");
+          fprintf (curfp, "System.exit(1);\n");
 
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
@@ -299,7 +290,15 @@ emit (AST * root)
       case End:
 	  if (gendebug)
 	      printf ("End.\n");
-	  fprintf (javafp, "   }\n");
+
+          fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename);
+
+	  if (returnname != NULL)
+	      fprintf (curfp, "return %s.val;\n", returnname);
+	  else
+	      fprintf (curfp, "return;\n");
+
+	  fprintf (curfp, "   }\n");
 	  break;
       case Save:
 	  if (gendebug)
@@ -315,7 +314,7 @@ emit (AST * root)
             emit (root->nextstmt);
 	  break;
       case Unimplemented:
-	  fprintf (javafp, "// WARNING: Unimplemented statement in Fortran source.\n");
+	  fprintf (curfp, "// WARNING: Unimplemented statement in Fortran source.\n");
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
@@ -338,98 +337,72 @@ common_emit(AST *root)
 {
   extern char *returnstring[];
   HASHNODE *hashtemp;
-  AST *Ctemp;
-  AST *Ntemp;
+  AST *Ctemp, *Ntemp, *temp;
   char filename[100];
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
+  int needs_dec = FALSE;
 
   for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
-    if(Ctemp->astnode.common.name != NULL) {
-      sprintf(filename,"%s_%s.java", prefix, Ctemp->astnode.common.name);
-      if((commonfp = fopen(filename,"w"))==NULL) {
+    if(Ctemp->astnode.common.name != NULL) 
+    {
+      sprintf(filename,"%s_%s.java", prefix,
+         Ctemp->astnode.common.name);
+
+      if((commonfp = fopen(filename,"w"))==NULL) 
+      {
         fprintf(stderr,"Cannot open output file '%s'.\n",filename);
         perror("Reason");
         exit(1);
       }
+  
+      curfp = commonfp;
 
       if(Ctemp->astnode.common.name != NULL)
-        fprintf(commonfp,"public class %s_%s\n{\n",prefix,
-           Ctemp->astnode.common.name);
+        fprintf(curfp,"public class %s_%s\n{\n",prefix,
+          Ctemp->astnode.common.name);
   
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
       {
+        needs_dec = FALSE;
+
         if(gendebug)
+        {
           printf("Common block %s -- %s\n",Ctemp->astnode.common.name,
             Ntemp->astnode.ident.name);
+          printf("Looking up %s in the type table\n",Ntemp->astnode.ident.name);
+        }
   
         if((hashtemp = type_lookup(cur_type_table,Ntemp->astnode.ident.name)) == NULL)
         {
           fprintf(stderr,"Error: can't find type for common %s\n",
             Ntemp->astnode.ident.name);
+          if(gendebug)
+            printf("Not Found\n");
           continue;
         }
-        fprintf(commonfp,"static %s %s = new %s(%s);\n",
-          wrapper_returns[hashtemp->type], Ntemp->astnode.ident.name,
-          wrapper_returns[hashtemp->type], init_vals[hashtemp->type]);
-      }
-  
-      if(Ctemp->astnode.common.name != NULL)
-        fprintf(commonfp,"}\n",prefix);
-  
-      fclose(commonfp);
-    }
-  }
-}
 
-/* 
- * This function emits declarations for static class variables. 
- * First, loop through each variable for which there exists a
- * declaration and look in the SAVE table to see if that variable
- * should be static.  If so, emit it here.  If the variable also
- * has a DATA statement associated with it, the declaration should
- * not need to initialize the variable here since we'll worry about
- * that when emitting the DATA statement.   10/3/97 -- Keith 
- *
- * Actually, if the variable is static and it has a DATA statement,
- * we should only initialize it the first time!  So we *do* need to
- * worry about that here.  10/31/97 -- Keith
- */
+        if(gendebug)
+          printf("Found\n");
 
-int
-static_var_emit(AST *root)
-{
-  HASHNODE *hashtemp;
-  AST *temp;
-  int needs_dec = FALSE;
+        temp = hashtemp->variable;
 
-  for(temp=root->astnode.typeunit.declist;temp!=NULL;temp=temp->nextstmt)
-  {
-    if(type_lookup(cur_save_table,temp->astnode.ident.name))
-    {
-      if(type_lookup (cur_args_table, temp->astnode.ident.name))
-      {
-        fprintf(stderr,"Can't save non-static argument %s\n",
-           temp->astnode.ident.name);
-        exit(1);
-      }
-    
-      hashtemp = type_lookup(cur_type_table, temp->astnode.ident.name);
-      if(hashtemp != NULL)
-      {
-        if(hashtemp->variable->astnode.ident.needs_declaration)
+        if(temp->astnode.ident.needs_declaration)
           needs_dec = TRUE;
-        else
-          needs_dec = FALSE;
-      }
 
-      if(type_lookup(cur_data_table, temp->astnode.ident.name) && !needs_dec)
-        vardec_emit(temp, root->astnode.typeunit.returns, STATIC_WITHDATA);
-      else
-        vardec_emit(temp, root->astnode.typeunit.returns, STATIC_NODATA);
+        if(type_lookup(cur_data_table,Ntemp->astnode.ident.name) && !needs_dec)
+          vardec_emit(temp, temp->vartype, STATIC_WITHDATA);
+        else
+          vardec_emit(temp, temp->vartype, STATIC_NODATA);
+      }
+      if(Ctemp->astnode.common.name != NULL)
+        fprintf(curfp,"}\n");
+  
+      fclose(curfp);
     }
   }
+  curfp = javafp;
 }
 
 /* Emit all the type declarations.  This procedure checks
@@ -438,10 +411,12 @@ static_var_emit(AST *root)
 int
 typedec_emit (AST * root)
 {
+  extern METHODTAB intrinsic_toks[];
   AST *temp;
   AST *temp2;
   HASHNODE *hashtemp, *ht;
   enum returntype returns;
+  char *tempname;
 
   temp = root->astnode.typeunit.declist;
 
@@ -500,13 +475,23 @@ typedec_emit (AST * root)
       continue;
 */
 
-    if(type_lookup(cur_common_table,temp->astnode.ident.name)) {
-       /* 
-        * also do not try to redefine a 'common' variable since
-        * they are placed in their own classes.  10-8-97 -- Keith 
-        */
+    /* 
+     * also do not try to redefine a 'common' variable since
+     * they are placed in their own classes.  10-8-97 -- Keith 
+     */
+
+    if(type_lookup(cur_common_table,temp->astnode.ident.name))
       continue;
-    }
+
+    /* 
+     * Dont emit anything for intrinsic functions.
+     */
+
+    tempname = strdup(temp->astnode.ident.name);
+    uppercase(tempname);
+
+    if( methodscan (intrinsic_toks, tempname) != NULL) 
+      continue;
 
      /* 
       * Let's do the argument lookup first. No need to retype variables
@@ -543,6 +528,9 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
   else
     prefix = "";
 
+  if(gendebug)
+    printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
+
   /* 
    * check to see if this is an array declaration or not. 
    * if so, we must generate the appropriate "new" statement.
@@ -550,24 +538,24 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
    */
 
   if(root->astnode.ident.arraylist != NULL) {
-    fprintf (javafp, "%s%s [] ",prefix, returnstring[returns]);
+    fprintf (curfp, "%s%s [] ",prefix, returnstring[returns]);
 
     if (gendebug)
       printf ("%s\n", returnstring[returns]);
     name_emit (root);
 
     if(only_static == STATIC_WITHDATA) {
-      fprintf (javafp, ";\n");
+      fprintf (curfp, ";\n");
     }
     else {
       if (returns == Integer)
-        fprintf (javafp, "= new int[");
+        fprintf (curfp, "= new int[");
       else if (returns == Double)
-        fprintf (javafp, "= new double[");
+        fprintf (curfp, "= new double[");
       else if (returns == Logical)
-        fprintf (javafp, "= new boolean[");
+        fprintf (curfp, "= new boolean[");
       else if ((returns == String) || (returns == Character))
-        fprintf (javafp, "= new String[");
+        fprintf (curfp, "= new String[");
       else
         fprintf(stderr,"vardec_emit():  Unknown type (%d)!\n",returns);
          
@@ -578,25 +566,27 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
         for(count=0 ; temp2!=NULL ; temp2=temp2->nextstmt, count++) 
         {
           if(temp2 != root->astnode.ident.arraylist)
-            fprintf(javafp, " * ");   /* if not the first iteration */
-          fprintf(javafp,"(");
+            fprintf(curfp, " * ");   /* if not the first iteration */
+          fprintf(curfp,"(");
           expr_emit(temp2);
-          fprintf(javafp,")");
+          fprintf(curfp,")");
         }
       }
       else
         fprintf(stderr,"vardec_emit: Can't find %s in array table!\n",
            root->astnode.ident.name);
 
-      fprintf (javafp, "];\n");
+      fprintf (curfp, "];\n");
     }
   } else {
 
     HASHNODE *p;
 
-    fprintf (javafp, "%s%s ", prefix, wrapper_returns[returns]);
+    fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+
     if (gendebug)
       printf ("%s\n", returnstring[returns]);
+
     name_emit (root);
 
     printf("looking for %s in parameter table\n",root->astnode.ident.name);
@@ -607,14 +597,14 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
 
     if(only_static == STATIC_WITHDATA) {
       if (returns == Integer)
-        fprintf (javafp, "= new intW(%s)", init_vals[returns]);
+        fprintf (curfp, "= new intW(%s)", init_vals[returns]);
       else if (returns == Double)
-        fprintf (javafp, "= new doubleW(%s)", init_vals[returns]);
+        fprintf (curfp, "= new doubleW(%s)", init_vals[returns]);
       else if (returns == Logical)
-        fprintf (javafp, "= new booleanW(%s)", init_vals[returns]);
+        fprintf (curfp, "= new booleanW(%s)", init_vals[returns]);
       else if ((returns == String) || (returns == Character))
-        fprintf (javafp, "= new StringW(%s)", init_vals[returns]);
-      fprintf (javafp, ";\n");
+        fprintf (curfp, "= new StringW(%s)", init_vals[returns]);
+      fprintf (curfp, ";\n");
     } else {
       /*  
        * initialize local variables to zero or
@@ -624,13 +614,13 @@ vardec_emit(AST *root, enum returntype returns, int only_static)
 
       if(p != NULL)
       {
-        fprintf(javafp,"= new %s(",wrapper_returns[returns]);
+        fprintf(curfp,"= new %s(",wrapper_returns[returns]);
         expr_emit(p->variable);
-        fprintf(javafp,");\n");
+        fprintf(curfp,");\n");
       }
       else
       {
-        fprintf(javafp,"= new %s(%s);\n",wrapper_returns[returns],
+        fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
            init_vals[returns]);
       }
     }
@@ -649,8 +639,9 @@ int
 data_emit(AST *root)
 {
   enum returntype returnval;
-  AST *Dtemp, *Ntemp, *Ctemp;
+  AST * Dtemp, *Ntemp, *Ctemp;
   AST * data_var_emit(AST *, AST *, HASHNODE *);
+  AST * data_implied_loop_emit(AST * , AST *);
   HASHNODE *hashtemp;
 
   /* foreach Data spec... */
@@ -662,6 +653,12 @@ data_emit(AST *root)
     for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt) 
     {
       /* This variable should have a type declaration associated with it */
+
+      if(Ntemp->nodetype == Forloop) 
+      {
+        data_implied_loop_emit(Ntemp, Ctemp);
+        continue;
+      }
 
       hashtemp = type_lookup(cur_type_table,Ntemp->astnode.ident.name);
 
@@ -680,9 +677,67 @@ data_emit(AST *root)
         continue;
       }
 
+      if(type_lookup(cur_common_table, Ntemp->astnode.ident.name))
+      {
+        fprintf(stderr,"Warning: can't handle COMMON vars w/DATA statements.\n");
+        continue;
+      }
+
       Ctemp = data_var_emit(Ntemp,Ctemp,hashtemp);
     }
   }
+}
+
+AST *
+data_implied_loop_emit(AST * root, AST *Clist)
+{
+  AST * loop_var, * lhs;
+  int start, stop, incr, i;
+ 
+  printf("/* \n");
+  printf("* looking at an implied data loop...\n");
+  printf("*\n");
+
+  start = atoi(root->astnode.forloop.start->astnode.constant.number);
+  printf("* the start is: %d\n",start);
+
+  stop = atoi(root->astnode.forloop.stop->astnode.constant.number);
+  printf("* the stop is: %d\n",stop);
+
+  if(root->astnode.forloop.incr != NULL)
+    incr = atoi(root->astnode.forloop.incr->astnode.constant.number);
+  else
+    incr = 1;
+
+  printf("* the increment is: %d\n",incr);
+
+  loop_var = root->astnode.forloop.counter;
+  printf("* the name for the loop var is: %s\n", 
+    loop_var->astnode.ident.name);
+
+  lhs = root->astnode.forloop.Label;
+  printf("* the Lhs for this data stmt is: %s\n", 
+    lhs->astnode.ident.name);
+  
+  global_sub.name = loop_var->astnode.ident.name;
+
+  fprintf(curfp,"static {\n");
+  for(i = start; i <= stop; i += incr)
+  {
+    global_sub.val = i;
+    name_emit(lhs);
+    fprintf(curfp, " = ");
+    expr_emit(Clist);
+    fprintf(curfp, ";\n");
+    Clist = Clist->nextstmt;
+  }
+  fprintf(curfp,"}\n");
+
+  printf("*/ \n");
+
+  global_sub.name = NULL;
+
+  return Clist;
 }
 
 AST *
@@ -724,7 +779,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 
   if(is_array)
   {
-    fprintf(javafp,"static %s ", returnstring[ hashtemp->type]);
+    fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
     Ctemp = data_array_emit(length, Ctemp, Ntemp, needs_dec);
   }
   else 
@@ -734,17 +789,17 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
          /*  can't remember why this code was here....
           *
           * if(type_lookup(cur_save_table,Ntemp->astnode.ident.name))
-          *   fprintf(javafp,"static %s ", returnstring[ hashtemp->type]);
+          *   fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
           * else
           */
-      fprintf(javafp,"static %s ", wrapper_returns[ hashtemp->type]);
+      fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
       data_scalar_emit(hashtemp->type, Ctemp, Ntemp, needs_dec);
     }
     else 
     {
-      fprintf(javafp,"static {\n");
+      fprintf(curfp,"static {\n");
       data_scalar_emit(hashtemp->type, Ctemp, Ntemp, needs_dec);
-      fprintf(javafp,"}\n");
+      fprintf(curfp,"}\n");
     }
 
     Ctemp = Ctemp->nextstmt;
@@ -789,7 +844,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   int i, count =1;
 
-  fprintf(javafp,"[] ");
+  fprintf(curfp,"[] ");
 
   /* 
    * if this variable is static, we can't declare it here 
@@ -803,16 +858,16 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
  * dont worry about SAVE statements now.  11/11/97 --keith
  *
  *  if(type_lookup(cur_save_table,Ntemp->astnode.ident.name) && !needs_dec)
- *    fprintf(javafp,"_temp_%s = {",Ntemp->astnode.ident.name);
+ *    fprintf(curfp,"_temp_%s = {",Ntemp->astnode.ident.name);
  *  else
  */
-    fprintf(javafp,"%s = {",Ntemp->astnode.ident.name);
+    fprintf(curfp,"%s = {",Ntemp->astnode.ident.name);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
     if(Ctemp->token == STRING)
-      fprintf(javafp,"\"%s\" ",Ctemp->astnode.ident.name);
+      fprintf(curfp,"\"%s\" ",Ctemp->astnode.ident.name);
     else {
-      fprintf(javafp,"%s%s ",  
+      fprintf(curfp,"%s%s ",  
         Ctemp->astnode.constant.sign == 1 ? "-" : "",
         Ctemp->astnode.constant.number);
     }
@@ -823,7 +878,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
      * they screw up 'vi'.   9/30/97  --Keith 
      */
     if( count % 5 == 0 )
-      fprintf(javafp,"\n");
+      fprintf(curfp,"\n");
 
     if( (Ctemp = Ctemp->nextstmt) == NULL )
       break;
@@ -831,20 +886,20 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
       if(length == -1)
       {
         if (Ctemp != NULL)
-          fprintf(javafp,", ");
+          fprintf(curfp,", ");
       }
       else 
         if(i != length -1 )
-          fprintf(javafp,", ");
+          fprintf(curfp,", ");
     }
   }
    
-  fprintf(javafp,"};\n");
+  fprintf(curfp,"};\n");
 /*
  * dont worry about SAVE statements now.  11/11/97 --keith
  *
  *  if(type_lookup(cur_save_table,Ntemp->astnode.ident.name) && !needs_dec)
- *    fprintf(javafp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
+ *    fprintf(curfp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
  *      Ntemp->astnode.ident.name);
  */
 
@@ -860,22 +915,28 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
   {
     if(!needs_dec)
     {
-      fprintf(javafp,"static %s = new StringW(\"%s\");\n",
+/* may need to be:  fprintf(curfp," %s = new StringW(\"%s\");\n", */
+
+      fprintf(curfp,"%s = new StringW(\"%s\");\n",
         Ntemp->astnode.ident.name,
         Ctemp->astnode.ident.name);
+/*
+      fprintf(curfp,"static %s = new StringW(\"%s\");\n",
+        Ntemp->astnode.ident.name,
+        Ctemp->astnode.ident.name);
+*/
     }
     else
     {
       expr_emit(Ntemp);
-      fprintf(javafp," = \"%s\";\n",
-        Ctemp->astnode.ident.name);
+      fprintf(curfp," = \"%s\";\n", Ctemp->astnode.ident.name);
     }
   }
   else 
   {
     if(!needs_dec)
     {
-      fprintf(javafp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
+      fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
         wrapper_returns[ type],
         Ctemp->astnode.constant.sign == 1 ? "-" : "",
         Ctemp->astnode.constant.number);
@@ -883,7 +944,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
     else
     {
       expr_emit(Ntemp);
-      fprintf(javafp," = %s%s;\n",
+      fprintf(curfp," = %s%s;\n",
         Ctemp->astnode.constant.sign == 1 ? "-" : "",
         Ctemp->astnode.constant.number);
     }
@@ -950,7 +1011,7 @@ name_emit (AST * root)
       case CHAR:
         if(gendebug)
           printf("** I am going to emit a String/char literal!\n");
-        fprintf (javafp, "\"%s\"", root->astnode.ident.name);
+        fprintf (curfp, "\"%s\"", root->astnode.ident.name);
         break;
       case INTRINSIC: 
         /* do nothing */
@@ -981,20 +1042,20 @@ subcall_emit(AST *root)
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
 
-  fprintf (javafp, "%s.%s", tempstr,root->astnode.ident.name);
+  fprintf (curfp, "%s.%s", tempstr,root->astnode.ident.name);
   temp = root->astnode.ident.arraylist;
 
-  fprintf (javafp, "(");
+  fprintf (curfp, "(");
   if(temp->nodetype != EmptyArgList)
     for (temp; temp != NULL; temp = temp->nextstmt)
     {
       if(temp != root->astnode.ident.arraylist)
-        fprintf (javafp, ",");  /* if not first iteration */
+        fprintf (curfp, ",");  /* if not first iteration */
                         
       if (*temp->astnode.ident.name != '*')
         expr_emit (temp);
     }
-  fprintf (javafp, ")");
+  fprintf (curfp, ")");
 }
 
 /*  
@@ -1004,15 +1065,16 @@ subcall_emit(AST *root)
  *  the array is being passed to an external function.
  */    
 int
-func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, int is_ext)
+func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
+  int is_ext)
 {
   HASHNODE *ht;
 
 #if ONED
   if(is_ext)
-    fprintf (javafp, ",");
+    fprintf (curfp, ",");
   else
-    fprintf (javafp, "[");
+    fprintf (curfp, "[");
 
   printf("~looking up %s in the array table\n", arrayname);
 
@@ -1037,52 +1099,67 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, int 
     offset = 1 + ( (1 + ht->variable->astnode.ident.D[1]) * 
         ht->variable->astnode.ident.D[0]);
 
-    fprintf (javafp, "(");
+    fprintf (curfp, "(");
     expr_emit(root);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     
-    fprintf (javafp, "+((");
+    fprintf (curfp, "+((");
 
-    fprintf (javafp, "(");
+    fprintf (curfp, "(");
     expr_emit(root->nextstmt);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     
-    fprintf (javafp, "+(");
+    fprintf (curfp, "+(");
 
-    fprintf (javafp, "(");
+    fprintf (curfp, "(");
     expr_emit(root->nextstmt->nextstmt);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     
-    fprintf (javafp, " * %d)) *%d) - %d",
+    fprintf (curfp, " * %d)) *%d) - %d",
       ht->variable->astnode.ident.D[1],
       ht->variable->astnode.ident.D[0],offset);
   }
   else 
   {
-    fprintf (javafp, "(");
+    fprintf (curfp, "(");
     expr_emit (root);
-    fprintf (javafp, ")- 1");
+    fprintf (curfp, ")- 1");
 
-    if (hashtemp->variable->astnode.ident.leaddim[0] != '*' && root->nextstmt != NULL)
+    if((hashtemp->variable->astnode.ident.lead_expr != NULL)
+         && root->nextstmt != NULL)
     {
       root = root->nextstmt;
-      fprintf (javafp, "+");
-      fprintf (javafp, "(");
+      fprintf (curfp, "+");
+      fprintf (curfp, "(");
       expr_emit (root);
-      fprintf (javafp, "- 1)");
-      fprintf (javafp, "*");
+      fprintf (curfp, "- 1)");
+      fprintf (curfp, "* (");
+      expr_emit(hashtemp->variable->astnode.ident.lead_expr);
+      fprintf (curfp, ")");
+    }
+    else if((hashtemp->variable->astnode.ident.leaddim != NULL)
+         && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
+         && (root->nextstmt != NULL))
+    {
+      root = root->nextstmt;
+      fprintf (curfp, "+");
+      fprintf (curfp, "(");
+      expr_emit (root);
+      fprintf (curfp, "- 1)");
+      fprintf (curfp, "*");
+      printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
       if(isalpha(hashtemp->variable->astnode.ident.leaddim[0]))
-        fprintf(javafp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+        fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
       else
-        fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+        fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
     }  /* Multi dimension.  */
   }
 
   if(is_arg)
-    fprintf(javafp,  "+ _%s_offset",arrayname);
+    fprintf(curfp,  "+ _%s_offset",arrayname);
 
   if(! is_ext)
-    fprintf(javafp, "]");
+    fprintf(curfp, "]");
 #endif
 
 #if TWOD
@@ -1102,11 +1179,15 @@ array_emit(AST *root, HASHNODE *hashtemp)
   extern METHODTAB intrinsic_toks[];
   AST *temp;
   int is_arg=FALSE;
+  char *get_common_prefix(char *);
+  char *com_prefix;
 
   if (gendebug)
     printf ("Array... %s, My node type is %s\n", 
       root->astnode.ident.name,
       print_nodetype(root));
+
+  com_prefix = get_common_prefix(root->astnode.ident.name);
 
   /* 
    * Now, what needs to happen here is the context of the
@@ -1117,7 +1198,11 @@ array_emit(AST *root, HASHNODE *hashtemp)
    * so dereference with index arithmetic.  
    */
 
-  fprintf (javafp, "%s", root->astnode.ident.name);
+  if((root->parent != NULL) && (root->parent->nodetype == Typedec))
+    fprintf (curfp, "%s", root->astnode.ident.name);
+  else
+    fprintf (curfp, "%s%s", com_prefix, root->astnode.ident.name);
+
   temp = root->astnode.ident.arraylist;
 
   if(root->parent == NULL) {
@@ -1154,6 +1239,29 @@ array_emit(AST *root, HASHNODE *hashtemp)
   }
 }
 
+char *
+get_common_prefix(char *varname)
+{
+  HASHNODE *ht;
+  char * prefix = strtok(strdup(inputfilename),".");
+  static char * cprefix;
+
+  ht = type_lookup(cur_common_table, varname);
+
+  if(ht == NULL)
+    cprefix = "";
+  else {
+    cprefix = (char *) malloc(
+       strlen(ht->variable->astnode.ident.commonBlockName) +
+       strlen(prefix) + 3);
+
+    sprintf(cprefix,"%s_%s.", prefix,
+      ht->variable->astnode.ident.commonBlockName);
+  }
+
+  return(cprefix);
+}
+
 /*  
  *  This function emits a scalar variable.  The first thing that needs
  *  to be checked here is whether the variable is part of a common block.
@@ -1175,25 +1283,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   char *com_prefix;
 
   if(hashtemp == NULL) {
-    char * prefix = strtok(strdup(inputfilename),".");
-    HASHNODE *ht;
-
-    ht = type_lookup(cur_common_table, root->astnode.ident.name);
-
-    printf("here we are emitting a scalar: %s,",root->astnode.ident.name);
-    printf("The parent node is : %s\n",print_nodetype(root->parent));
-
-
-    if(ht == NULL)
-      com_prefix = "";
-    else {
-      com_prefix = (char *) malloc(
-         strlen(ht->variable->astnode.ident.commonBlockName) +
-         strlen(prefix) + 3);
-
-      sprintf(com_prefix,"%s_%s.", prefix,
-        ht->variable->astnode.ident.commonBlockName);
+    if(gendebug) {
+      printf("here we are emitting a scalar: %s,",root->astnode.ident.name);
+      printf("The parent node is : %s\n",print_nodetype(root->parent));
     }
+ 
+    com_prefix = get_common_prefix(root->astnode.ident.name);
 
     if(root->parent == NULL) {
       fprintf(stderr,"name_emit(): NO PARENT! (%s)\n",
@@ -1213,25 +1308,33 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         if((methodscan (intrinsic_toks, tempname) == NULL) &&
            (type_lookup(cur_array_table, root->parent->astnode.ident.name) == NULL))
         {
-          printf("did not find %s in intrinsics table\n",
+          if(gendebug)
+            printf("did not find %s in intrinsics table\n",
                root->parent->astnode.ident.name);
-          fprintf (javafp, "%s%s", com_prefix, root->astnode.ident.name);
+          fprintf (curfp, "%s%s", com_prefix, root->astnode.ident.name);
         }
         else
         {
-          printf("found %s in intrinsics\n",
+          if(gendebug)
+            printf("found %s in intrinsics\n",
                root->parent->astnode.ident.name);
-          fprintf (javafp, "%s%s.val", com_prefix,root->astnode.ident.name);
+          fprintf (curfp, "%s%s.val", com_prefix,root->astnode.ident.name);
         }
       }
       else if(root->parent->nodetype == Typedec) {
-        fprintf (javafp, "%s%s", com_prefix, root->astnode.ident.name);
+        if(gendebug)
+          printf("Emitting typedec name: %s\n", root->astnode.ident.name);
+        fprintf (curfp, "%s", root->astnode.ident.name);
       }
       else if(root->parent->nodetype == ArrayDec) {
-        fprintf (javafp, "%s%s.val", com_prefix, root->astnode.ident.name);
+        fprintf (curfp, "%s%s.val", com_prefix, root->astnode.ident.name);
       }
       else {
-        fprintf (javafp, "%s%s.val", com_prefix, root->astnode.ident.name);
+        if( (global_sub.name != NULL) && 
+            !strcmp(global_sub.name, root->astnode.ident.name))
+          fprintf (curfp, " %d ", global_sub.val);
+        else
+          fprintf (curfp, "%s%s.val", com_prefix, root->astnode.ident.name);
       }
     }
   }
@@ -1246,6 +1349,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
      * is 0.   10/10/97  --Keith 
      */
 
+/* Add common prefix stuff to this part also */
 
     if(root->parent == NULL) 
     {
@@ -1260,13 +1364,13 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
          (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
       {
         if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
-          fprintf (javafp, "%s,_%s_offset", root->astnode.ident.name,
+          fprintf (curfp, "%s,_%s_offset", root->astnode.ident.name,
              root->astnode.ident.name);
         else
-          fprintf (javafp, "%s,0", root->astnode.ident.name);
+          fprintf (curfp, "%s,0", root->astnode.ident.name);
       }
       else 
-        fprintf (javafp, "%s", root->astnode.ident.name);
+        fprintf (curfp, "%s", root->astnode.ident.name);
     }
   }
 }
@@ -1279,6 +1383,10 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
  *  the calls to equivalent java method calls (String.equalsIgnoreCase
  *  and String.regionMatches respectively).   If we're not translating
  *  a call to LSAME or LSAMEN, use the function call_emit().  --Keith 
+ *
+ *  changing equalsIgnoreCase() to a character comparison since the
+ *  LAPACK routine only compares the first character.  12/4/97 --Keith
+ *
  */
 
 int
@@ -1312,10 +1420,16 @@ external_emit(AST *root)
     if (!strcmp (tempname, "LSAME"))
     {
       temp = root->astnode.ident.arraylist;
-      fprintf (javafp, "%s.val", temp->astnode.ident.name);
-      fprintf (javafp, "%s(", javaname);
-      name_emit (temp->nextstmt);
-      fprintf (javafp, ")");
+
+printf("emitting a call to LSAME...first nodetype = %s, next = %s\n",
+ print_nodetype(temp), print_nodetype(temp->nextstmt));
+
+      fprintf(curfp, "(");
+      expr_emit(temp);
+      fprintf(curfp, ".charAt(0) == ");
+      expr_emit(temp->nextstmt);
+      fprintf(curfp, ".charAt(0))");
+
       return;
     }
     else if (!strcmp (tempname, "LSAMEN"))
@@ -1336,12 +1450,12 @@ external_emit(AST *root)
         return;
       }
 
-      fprintf (javafp, "%s.val", temp->nextstmt->astnode.ident.name);
-      fprintf (javafp, "%s(true,0,", javaname);
-      name_emit (temp->nextstmt->nextstmt);
-      fprintf (javafp, ",0,");
+      expr_emit(temp->nextstmt);
+      fprintf (curfp, "%s(true,0,", javaname);
+      expr_emit (temp->nextstmt->nextstmt);
+      fprintf (curfp, ",0,");
       expr_emit (temp);
-      fprintf (javafp, ")");
+      fprintf (curfp, ")");
       return;
     }
   }
@@ -1369,16 +1483,16 @@ intrinsic_emit(AST *root)
 #ifdef  KJGKJKJKKJH
   temp = root->astnode.ident.arraylist;
   assert(temp != NULL);
-  fprintf (javafp, "%s(", javaname);
+  fprintf (curfp, "%s(", javaname);
 
   for (temp; temp != NULL; temp->nextstmt)
   {
     printf("Yoikes\n");
     expr_emit (temp);
     if(temp->nextstmt)
-      fprintf (javafp, ", ");
+      fprintf (curfp, ", ");
   }
-  fprintf (javafp, ")");
+  fprintf (curfp, ")");
   return;
   /*put end brace here when KJGKJKJKKJH defined*/ 
 #endif	  
@@ -1386,22 +1500,22 @@ intrinsic_emit(AST *root)
   if (!strcmp (tempname, "MAX"))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ", ");
+    fprintf (curfp, ", ");
     expr_emit (temp->nextstmt);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     return;
   }
 
   if (!strcmp (tempname, "MIN"))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ", ");
+    fprintf (curfp, ", ");
     expr_emit (temp->nextstmt);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     return;
   }
 
@@ -1409,35 +1523,48 @@ intrinsic_emit(AST *root)
        (!strcmp (tempname, "SQRT"))  ||
        (!strcmp (tempname, "DABS"))  ||
        (!strcmp (tempname, "DBLE"))  ||
+       (!strcmp (tempname, "LOG"))  ||
+       (!strcmp (tempname, "SIN"))  ||
+       (!strcmp (tempname, "COS"))  ||
+       (!strcmp (tempname, "EXP"))  ||
        (!strcmp (tempname, "ABS")))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
+    return;
+  }
+
+  if(!strcmp(tempname,"LOG10"))
+  {
+    temp = root->astnode.ident.arraylist;
+    fprintf (curfp, "(%s(", javaname);
+    expr_emit (temp);
+    fprintf (curfp, ") / 2.30258509)");
     return;
   }
 
   if (!strcmp (tempname, "MOD"))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf(javafp,"(");
+    fprintf(curfp,"(");
     expr_emit(temp);
-    fprintf(javafp,")%%(");
+    fprintf(curfp,")%%(");
     expr_emit(temp->nextstmt);
-    fprintf(javafp,") ");
+    fprintf(curfp,") ");
 
     /*  
      *  this chunk of code will emit a call to MOD as a call to
      *  Math.IEEERemainder().  usually that is not appropriate
-     *  since IEEERemainder returns double, whereas the expected
-     *  type is int.   -- keith
+     *  since IEEERemainder returns double, whereas in FOTRAN,
+     *  the expected type is int.   -- keith
      *
-     * fprintf (javafp, "%s(", javaname);
+     * fprintf (curfp, "%s(", javaname);
      * expr_emit (temp);
-     * fprintf (javafp, ", ");
+     * fprintf (curfp, ", ");
      * expr_emit (temp->nextstmt);
-     * fprintf (javafp, ")");
+     * fprintf (curfp, ")");
      */
 
     return;
@@ -1446,18 +1573,18 @@ intrinsic_emit(AST *root)
   if (!strcmp (tempname, "ICHAR"))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ".charAt(0))");
+    fprintf (curfp, ".charAt(0))");
     return;
   }
 
   if (!strcmp (tempname, "CHAR"))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
     return;
   }
 
@@ -1465,9 +1592,37 @@ intrinsic_emit(AST *root)
      (!strcmp (tempname, "REAL")))
   {
     temp = root->astnode.ident.arraylist;
-    fprintf (javafp, "%s(", javaname);
+    fprintf (curfp, "%s(", javaname);
     expr_emit (temp);
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
+    return;
+  }
+
+  if(!strcmp(tempname,"NINT"))
+  {
+    temp = root->astnode.ident.arraylist;
+
+    fprintf(curfp,"%s((",javaname);
+    expr_emit(temp);
+    fprintf(curfp,") >= 0 ? (");
+    expr_emit(temp);
+    fprintf(curfp,") + .5 : (");
+    expr_emit(temp);
+    fprintf(curfp,") - .5)");
+    return;
+  }
+
+  if(!strcmp(tempname,"SIGN"))
+  {
+    temp = root->astnode.ident.arraylist;
+
+    fprintf(curfp,"%s((",javaname);
+    expr_emit(temp->nextstmt);
+    fprintf(curfp,") >= 0 ? Math.abs(");
+    expr_emit(temp);
+    fprintf(curfp,") : -Math.abs(");
+    expr_emit(temp);
+    fprintf(curfp,"))");
     return;
   }
 }
@@ -1502,6 +1657,12 @@ expr_emit (AST * root)
   extern METHODTAB intrinsic_toks[];
   char *tempname;
 
+  if(root == NULL)
+  {
+    fprintf(stderr,"Warning: NULL root in expr_emit\n");
+    return 0;
+  }
+
   switch (root->nodetype)
   {
     case Identifier:
@@ -1509,7 +1670,7 @@ expr_emit (AST * root)
       break;
     case Expression:
       if (root->astnode.expression.parens)
-        fprintf (javafp, "(");
+        fprintf (curfp, "(");
 
       if (root->astnode.expression.lhs != NULL)
         expr_emit (root->astnode.expression.lhs);
@@ -1517,26 +1678,26 @@ expr_emit (AST * root)
       expr_emit (root->astnode.expression.rhs);
 
       if (root->astnode.expression.parens)
-        fprintf (javafp, ")");
+        fprintf (curfp, ")");
       break;
     case Power:
       /* hack alert: */
       if((root->parent != NULL) && (root->parent->nodetype == ArrayDec))
-        fprintf (javafp, "(int) Math.pow(");
+        fprintf (curfp, "(int) Math.pow(");
       else
-        fprintf (javafp, "Math.pow(");
+        fprintf (curfp, "Math.pow(");
       expr_emit (root->astnode.expression.lhs);
-      fprintf (javafp, ", ");
+      fprintf (curfp, ", ");
       expr_emit (root->astnode.expression.rhs);
-      fprintf (javafp, ")");
+      fprintf (curfp, ")");
       break;
     case Binaryop:
       expr_emit (root->astnode.expression.lhs);
-      fprintf (javafp, "%c", root->astnode.expression.optype);
+      fprintf (curfp, "%c", root->astnode.expression.optype);
       expr_emit (root->astnode.expression.rhs);
       break;
     case Unaryop:
-      fprintf (javafp, "%c", root->astnode.expression.minus);
+      fprintf (curfp, "%c", root->astnode.expression.minus);
       expr_emit (root->astnode.expression.rhs);
       break;
     case Constant:
@@ -1560,9 +1721,9 @@ expr_emit (AST * root)
          (methodscan(intrinsic_toks, tempname) == NULL))
      {
        if(root->token == STRING)
-         fprintf (javafp, "new StringW(\"%s\")", root->astnode.ident.name);
+         fprintf (curfp, "new StringW(\"%s\")", root->astnode.ident.name);
        else {
-         fprintf (javafp, "new %s(%s)", 
+         fprintf (curfp, "new %s(%s)", 
            wrapper_returns[get_type(root->astnode.constant.number)],
            root->astnode.constant.number);
          }
@@ -1570,9 +1731,9 @@ expr_emit (AST * root)
        else 
        {
          if(root->token == STRING)
-           fprintf (javafp, "\"%s\"", root->astnode.ident.name);
+           fprintf (curfp, "\"%s\"", root->astnode.ident.name);
          else
-           fprintf (javafp, "%s", root->astnode.constant.number);
+           fprintf (curfp, "%s", root->astnode.constant.number);
        }
        break;
     case Logicalop:
@@ -1583,11 +1744,11 @@ expr_emit (AST * root)
       if (root->astnode.expression.lhs != NULL)
         expr_emit (root->astnode.expression.lhs);
       else
-        fprintf (javafp, "!");
+        fprintf (curfp, "!");
       if (root->token == AND)
-        fprintf (javafp, " && ");
+        fprintf (curfp, " && ");
       if (root->token == OR)
-        fprintf (javafp, " || ");
+        fprintf (curfp, " || ");
       expr_emit (root->astnode.expression.rhs);
       break;
     case Relationalop:
@@ -1612,14 +1773,14 @@ if(root->astnode.expression.rhs->nodetype == Identifier)
               (root->astnode.expression.rhs->vartype == Character)))
           {
             expr_emit (root->astnode.expression.lhs);
-            fprintf(javafp,".equalsIgnoreCase(");
+            fprintf(curfp,".equalsIgnoreCase(");
             expr_emit (root->astnode.expression.rhs);
-            fprintf(javafp,")");
+            fprintf(curfp,")");
           }
           else
           {
             expr_emit (root->astnode.expression.lhs);
-            fprintf (javafp, " == ");
+            fprintf (curfp, " == ");
             expr_emit (root->astnode.expression.rhs);
           }
           break;
@@ -1629,47 +1790,47 @@ if(root->astnode.expression.rhs->nodetype == Identifier)
              ((root->astnode.expression.rhs->vartype == String) ||
               (root->astnode.expression.rhs->vartype == Character)))
           {
-            fprintf(javafp,"!");
+            fprintf(curfp,"!");
             expr_emit (root->astnode.expression.lhs);
-            fprintf(javafp,".equalsIgnoreCase(");
+            fprintf(curfp,".equalsIgnoreCase(");
             expr_emit (root->astnode.expression.rhs);
-            fprintf(javafp,")");
+            fprintf(curfp,")");
           }
           else
           {
             expr_emit (root->astnode.expression.lhs);
-            fprintf (javafp, " != ");
+            fprintf (curfp, " != ");
             expr_emit (root->astnode.expression.rhs);
           }
           break;
         case rel_lt:
           expr_emit (root->astnode.expression.lhs);
-          fprintf (javafp, " < ");
+          fprintf (curfp, " < ");
           expr_emit (root->astnode.expression.rhs);
           break;
         case rel_le:
           expr_emit (root->astnode.expression.lhs);
-          fprintf (javafp, " <= ");
+          fprintf (curfp, " <= ");
           expr_emit (root->astnode.expression.rhs);
           break;
         case rel_gt:
           expr_emit (root->astnode.expression.lhs);
-          fprintf (javafp, " > ");
+          fprintf (curfp, " > ");
           expr_emit (root->astnode.expression.rhs);
           break;
         case rel_ge:
           expr_emit (root->astnode.expression.lhs);
-          fprintf (javafp, " >= ");
+          fprintf (curfp, " >= ");
           expr_emit (root->astnode.expression.rhs);
           break;
       }
       break;
     case Substring:
-      fprintf(javafp,"%s.val.substring((",root->astnode.ident.name);
+      fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
       expr_emit(root->astnode.ident.arraylist);
-      fprintf(javafp,")-1,");
+      fprintf(curfp,")-1,");
       expr_emit(root->astnode.ident.arraylist->nextstmt);
-      fprintf(javafp,")");
+      fprintf(curfp,")");
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_emit(): %s\n",
@@ -1683,7 +1844,15 @@ open_output_file(AST *root)
   char * filename;
   char * classname;
   
-  filename = lowercase(strdup(root->astnode.source.name->astnode.ident.name));
+  filename = (char *)
+     malloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
+  if(filename == NULL)
+  {
+    perror("Unsuccessful malloc()");
+    exit(1);
+  }
+
+  strcpy(filename,lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
   *filename = toupper (*filename);
   classname = strdup(filename);
   cur_filename = classname;
@@ -1722,7 +1891,7 @@ constructor (AST * root)
       returns = root->astnode.source.returns;
 
       /* Test code.... */
-      fprintf (javafp, "static %s %s = new %s(%s);\n\n", 
+      fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
          wrapper_returns[returns],
          root->astnode.source.name->astnode.ident.name,
          wrapper_returns[returns],
@@ -1730,24 +1899,24 @@ constructor (AST * root)
 
       /* Define the constructor for the class. */
 /*
- *    fprintf (javafp, "\npublic static %s %s (",
+ *    fprintf (curfp, "\npublic static %s %s (",
  *      returnstring[returns],
  *      lowercase(strdup(root->astnode.source.name->astnode.ident.name)));
  */
 
-      fprintf (javafp, "\npublic static %s %s (",
+      fprintf (curfp, "\npublic static %s %s (",
         returnstring[returns],
         root->astnode.source.name->astnode.ident.name);
     }
     /* Else we have a subroutine, which returns void. */
     else if(root->nodetype == Subroutine)
     {
-      fprintf (javafp, "\npublic static void %s (",
+      fprintf (curfp, "\npublic static void %s (",
         root->astnode.source.name->astnode.ident.name);
     }
     else  /* Else we have a program, create a main() function */
     {
-      fprintf (javafp, "\npublic static void main (String [] args");
+      fprintf (curfp, "\npublic static void main (String [] args");
     }
 
     /*
@@ -1805,25 +1974,25 @@ constructor (AST * root)
            * 10/8/97  --Keith 
            */
 
-	  fprintf (javafp, "%s ", tempstring);
+	  fprintf (curfp, "%s ", tempstring);
 
 	  if (hashtemp->variable->astnode.ident.arraylist == NULL)
-	      fprintf (javafp, "%s", tempnode->astnode.ident.name);
+	      fprintf (curfp, "%s", tempnode->astnode.ident.name);
 	  else
 	      /* Declare as array variables.  */
 	    {
                char temp2[100];
 #if ONED
-	fprintf (javafp, "[]");
+	fprintf (curfp, "[]");
 #endif      
 #if TWOD
 		temp = hashtemp->variable->astnode.ident.arraylist;
 		for (temp; temp != NULL; temp = temp->nextstmt)
 		  {
-		      fprintf (javafp, "[]");
+		      fprintf (curfp, "[]");
 		  }		/* Close for() loop. */
 #endif
-		fprintf (javafp, " %s", tempnode->astnode.ident.name);
+		fprintf (curfp, " %s", tempnode->astnode.ident.name);
 
                 /* 
                  * for arrays, add a parameter representing the base 
@@ -1832,14 +2001,14 @@ constructor (AST * root)
                 strcpy( temp2, "_");
                 strcat( temp2, tempnode->astnode.ident.name);
                 strcat( temp2, "_offset");
-                fprintf(javafp, ", int %s",temp2);
+                fprintf(curfp, ", int %s",temp2);
 	    }
 	  /* Don't emit a comma on the last iteration. */
 	  if (tempnode->nextstmt)
-	      fprintf (javafp, ",\n");
+	      fprintf (curfp, ",\n");
       }
 
-    fprintf (javafp, ")  {\n\n");
+    fprintf (curfp, ")  {\n\n");
 
 }				/*  Close  constructor(). */
 
@@ -1859,55 +2028,58 @@ forloop_emit (AST * root)
   indexname = 
       root->astnode.forloop.start->astnode.assignment.lhs->astnode.ident.name;
 
-   /* print out a label for this for loop */
-  fprintf(javafp, "forloop%d:\n",
-     root->astnode.forloop.Continue->astnode.label.number);
-   
+  fprintf(curfp, "{\n");
+
   if(root->astnode.forloop.incr != NULL)
   {
-    fprintf(javafp,"int _%s_inc = ", indexname);
+    fprintf(curfp,"int _%s_inc = ", indexname);
     expr_emit (root->astnode.forloop.incr);
-    fprintf(javafp, ";\n");
+    fprintf(curfp, ";\n");
   }
 
+   /* print out a label for this for loop */
+
+  fprintf(curfp, "forloop%d:\n",
+     root->astnode.forloop.Continue->astnode.label.number);
+   
    /* This block writes out the loop parameters.  */
 
-  fprintf (javafp, "for (");
+  fprintf (curfp, "for (");
 
   assign_emit (root->astnode.forloop.start);
 
-  fprintf(javafp, "; ");
+  fprintf(curfp, "; ");
 
   if(root->astnode.forloop.incr == NULL)
   {
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
 
-    fprintf(javafp, " <= ");
+    fprintf(curfp, " <= ");
     expr_emit (root->astnode.forloop.stop);
 
-    fprintf (javafp, "; ");
+    fprintf (curfp, "; ");
 
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
 
-    fprintf (javafp, "++");
+    fprintf (curfp, "++");
   }
   else
   {
-    fprintf(javafp,"(_%s_inc < 0) ? ",indexname);
+    fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf(javafp," >= ");
+    fprintf(curfp," >= ");
     expr_emit (root->astnode.forloop.stop);
-    fprintf(javafp," : ");
+    fprintf(curfp," : ");
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf(javafp," <= ",indexname);
+    fprintf(curfp," <= ",indexname);
     expr_emit (root->astnode.forloop.stop);
-    fprintf (javafp, "; ");
+    fprintf (curfp, "; ");
     
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf (javafp, " += _%s_inc",indexname);
+    fprintf (curfp, " += _%s_inc",indexname);
   }
 
-  fprintf (javafp, ") {\n");
+  fprintf (curfp, ") {\n");
    /*  Done with loop parameters.  */
 
    /* Statements in the body of the for() loop. */
@@ -1918,10 +2090,11 @@ forloop_emit (AST * root)
     * emit the label (for experimental goto resolution) 
     */
    
-  fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+  fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
      list_pop(&doloop));
 
-  fprintf (javafp, "}              //  Close for() loop. \n");
+  fprintf (curfp, "}              //  Close for() loop. \n");
+  fprintf(curfp, "}\n");
 }
 
 /* 
@@ -1946,7 +2119,7 @@ goto_emit (AST * root)
       *  what we want to do here is just emit a 'labeled continue' 
       */ 
 
-    fprintf(javafp,"continue forloop%d;\n",root->astnode.go_to.label);
+    fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
   }
   else if((while_list != NULL) && 
      (list_examine(&while_list) == root->astnode.go_to.label ))
@@ -1958,7 +2131,7 @@ goto_emit (AST * root)
         *  actual while loop, we ignore this goto statement 
         */
 
-    fprintf(javafp,"// goto %d (end while)\n",root->astnode.go_to.label);
+    fprintf(curfp,"// goto %d (end while)\n",root->astnode.go_to.label);
   }
   else 
   {
@@ -1967,7 +2140,7 @@ goto_emit (AST * root)
         *  we'll just emit a dummy goto 
         */
 
-    fprintf(javafp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
+    fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.go_to.label);
   }
 }
@@ -1981,11 +2154,11 @@ computed_goto_emit (AST *root)
   for(temp = root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp != root->astnode.computed_goto.intlist)
-      fprintf(javafp,"else ");
-    fprintf(javafp,"if (");
+      fprintf(curfp,"else ");
+    fprintf(curfp,"if (");
     expr_emit(root->astnode.computed_goto.name);
-    fprintf(javafp," == %d) \n", count);
-    fprintf(javafp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
+    fprintf(curfp," == %d) \n", count);
+    fprintf(curfp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
       temp->astnode.constant.number);
     count++;
   }
@@ -1993,10 +2166,10 @@ computed_goto_emit (AST *root)
 
 logicalif_emit (AST * root)
 {
-  fprintf (javafp, "if (");
+  fprintf (curfp, "if (");
   if (root->astnode.logicalif.conds != NULL)
     expr_emit (root->astnode.logicalif.conds);
-  fprintf (javafp, ")  \n    ");
+  fprintf (curfp, ")  \n    ");
   emit (root->astnode.logicalif.stmts);
 }
 
@@ -2005,20 +2178,20 @@ label_emit (AST * root)
 {
   if (root->astnode.label.stmt != NULL) {
     if (root->astnode.label.stmt->nodetype != Format) {
-      fprintf(javafp,"{\n");
-      fprintf (javafp, "label%d:\n   ", root->astnode.label.number);
-      fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+      fprintf(curfp,"{\n");
+      fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
+      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
         root->astnode.label.number);
       emit (root->astnode.label.stmt);
-      fprintf(javafp,"}\n");
+      fprintf(curfp,"}\n");
     }
   } 
   else {
-    fprintf(javafp,"{\n");
-    fprintf (javafp, "label%d:\n   ", root->astnode.label.number);
-    fprintf(javafp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+    fprintf(curfp,"{\n");
+    fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
+    fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
       root->astnode.label.number);
-    fprintf(javafp,"}\n");
+    fprintf(curfp,"}\n");
   }
 }
 
@@ -2030,7 +2203,23 @@ write_emit (AST * root)
   AST *nodeptr;
   char tmp[100];
 
-  fprintf (javafp, "System.out.println(");
+  fprintf (curfp, "System.out.println(");
+
+  /* 
+   * The following is a cheesy workaround to handle the following type of
+   * statement:
+   *         write(*, FMT = '( '' Matrix types:'' )' ) 
+   * eventually, we should handle any kind of format spec within the
+   * quotes, but for now we just treat the whole thing as a string.  
+   * 12/4/97 --Keith
+   */
+
+  if(root->astnode.io_stmt.fmt_list != NULL)
+  {
+    fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.ident.name);
+    if(root->astnode.io_stmt.arg_list != NULL)
+      fprintf(curfp, " + ");
+  }
 
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
   if(gendebug)
@@ -2052,13 +2241,15 @@ write_emit (AST * root)
       temp != NULL; 
       temp = temp->nextstmt) 
     {
+      fprintf(curfp,"(");
       expr_emit (temp);
+      fprintf(curfp,")");
       if(temp->nextstmt != NULL)
-        fprintf (javafp, " + \"\" + ");
+        fprintf (curfp, " + \"\" + ");
     }
   }
 
-  fprintf (javafp, ");\n");
+  fprintf (curfp, ");\n");
 }
 
 format_list_emit(AST *node, AST **nptr)
@@ -2088,15 +2279,15 @@ format_item_emit(AST *temp, AST **nodeptr)
             *nodeptr = (*nodeptr)->nextstmt;
       }
       if(temp->nextstmt != NULL)
-        fprintf(javafp," + ");
+        fprintf(curfp," + ");
       return(temp->nextstmt);
       break;
     case STRING:
       if(gendebug)
         printf("STring: %s\n",temp->astnode.ident.name);
-      fprintf(javafp,"\"%s\" ",temp->astnode.ident.name);
+      fprintf(curfp,"\"%s\" ",temp->astnode.ident.name);
       if(temp->nextstmt != NULL)
-        fprintf(javafp," + ");
+        fprintf(curfp," + ");
       return(temp->nextstmt);
       break;
     case REPEAT:
@@ -2107,7 +2298,7 @@ format_item_emit(AST *temp, AST **nodeptr)
 
         if((i < temp->astnode.label.number -1) || 
           ((i == temp->astnode.label.number -1) && (temp->nextstmt != NULL)))
-              fprintf(javafp," + ");
+              fprintf(curfp," + ");
       }
       return(temp->nextstmt);
       break;
@@ -2118,12 +2309,12 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL) {
         if(temp->nextstmt->token != REPEAT) {
           if(temp->nextstmt->astnode.ident.name[0] == 'X') {
-            fprintf(javafp,"\"");
+            fprintf(curfp,"\"");
             for(i=0;i< atoi(temp->astnode.constant.number);i++)
-              fprintf(javafp," ");
-            fprintf(javafp,"\"");
+              fprintf(curfp," ");
+            fprintf(curfp,"\"");
             if(temp->nextstmt->nextstmt != NULL)
-              fprintf(javafp," + ");
+              fprintf(curfp," + ");
             temp=temp->nextstmt;  /* consume edit desc */
           }
           else if(temp->nextstmt->astnode.ident.name[0] == 'P') {
@@ -2133,7 +2324,7 @@ format_item_emit(AST *temp, AST **nodeptr)
       }
       else {
         fprintf(stderr,"Bad format spec!\n");
-        fprintf(javafp," );\n");
+        fprintf(curfp," );\n");
         return(temp->nextstmt);
       }
 
@@ -2147,17 +2338,17 @@ format_item_emit(AST *temp, AST **nodeptr)
     case DIV:
       if(gendebug)
         printf("Div\n");
-      fprintf(javafp,"\"\\n\" ");
+      fprintf(curfp,"\"\\n\" ");
       if(temp->nextstmt != NULL)
-        fprintf(javafp," + ");
+        fprintf(curfp," + ");
       return(temp->nextstmt);
       break;
     case CAT:
       if(gendebug)
         printf("two divs\n");
-      fprintf(javafp,"\"\\n\\n\" ");
+      fprintf(curfp,"\"\\n\\n\" ");
       if(temp->nextstmt != NULL)
-        fprintf(javafp," + ");
+        fprintf(curfp," + ");
       return(temp->nextstmt);
       break;
     default:
@@ -2174,9 +2365,9 @@ void
 format_name_emit(AST *node)
 {
   if(node == NULL) {
-printf("*** BAD FORMATTING\n");
+    printf("*** BAD FORMATTING\n");
     fprintf(stderr,"Bad formatting!\n");
-    fprintf(javafp,"\" NULL \"");
+    fprintf(curfp,"\" NULL \"");
   }
   else {
       /* 
@@ -2186,6 +2377,8 @@ printf("*** BAD FORMATTING\n");
        */
 
 /*  gotta get this part finished someday   10/3/97 -- Keith
+     ... still not written - 
+            relatively low on the priority list... 12/8/97 -- Keith
 
     if( (node->token == NAME) && 
         (type_lookup(cur_array_table, root->astnode.ident.name) != NULL) &&
@@ -2196,9 +2389,11 @@ printf("*** BAD FORMATTING\n");
     }
     else
 */
+  fprintf(curfp,"(");
       expr_emit(node);
+  fprintf(curfp,")");
   }
-  fprintf(javafp," + \" \" ");
+  fprintf(curfp," + \" \" ");
 }
 
 int
@@ -2235,13 +2430,13 @@ blockif_emit (AST * root)
       list_pop(&while_list);
     }
 
-  fprintf (javafp, "if (");
+  fprintf (curfp, "if (");
   if (root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
 
-  fprintf (javafp, ")  {\n    ");
+  fprintf (curfp, ")  {\n    ");
   emit (root->astnode.blockif.stmts);
-  fprintf (javafp, "}              // Close if()\n");
+  fprintf (curfp, "}              // Close if()\n");
 
   if (root->astnode.blockif.elseifstmts != NULL)
     emit (root->astnode.blockif.elseifstmts);
@@ -2274,32 +2469,32 @@ void
 while_emit(AST *root)
 {
 
-  fprintf(javafp, "while (");
+  fprintf(curfp, "while (");
   if (root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
-  fprintf (javafp, ")  {\n    ");
+  fprintf (curfp, ")  {\n    ");
   emit (root->astnode.blockif.stmts);
-  fprintf (javafp, "}              // Close if()\n");
+  fprintf (curfp, "}              // Close if()\n");
 
 }
 
 void
 elseif_emit (AST * root)
 {
-    fprintf (javafp, "else if (");
+    fprintf (curfp, "else if (");
     if (root->astnode.blockif.conds != NULL)
 	expr_emit (root->astnode.blockif.conds);
-    fprintf (javafp, ")  {\n    ");
+    fprintf (curfp, ")  {\n    ");
     emit (root->astnode.blockif.stmts);
-    fprintf (javafp, "}              // Close else if()\n");
+    fprintf (curfp, "}              // Close else if()\n");
 }
 
 void
 else_emit (AST * root)
 {
-    fprintf (javafp, "else  {\n  ");
+    fprintf (curfp, "else  {\n  ");
     emit (root->astnode.blockif.stmts);
-    fprintf (javafp, "}              //  Close else.\n");
+    fprintf (curfp, "}              //  Close else.\n");
 }
 
 /* 
@@ -2327,19 +2522,19 @@ call_emit (AST * root)
   *tempname = toupper (*tempname);
 
   /* Assume all methods that are invoked are static.  */
-  fprintf (javafp, "%s.%s", tempname, root->astnode.ident.name);
+  fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
 
   if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
      (root->astnode.ident.arraylist == NULL))
   {
     if(root->nodetype == Call)
-      fprintf (javafp, "();\n");
+      fprintf (curfp, "();\n");
     else
-      fprintf (javafp, "()");
+      fprintf (curfp, "()");
     return;
   }
 
-  fprintf (javafp, "(");
+  fprintf (curfp, "(");
 
   printf("Looking up function name %s, ", root->astnode.ident.name);
 
@@ -2368,19 +2563,19 @@ call_emit (AST * root)
 
          if(t2->astnode.ident.arraylist)     /* it is expecting an array */
          {
-           fprintf(javafp,"%s",temp->astnode.ident.name);
+           fprintf(curfp,"%s",temp->astnode.ident.name);
            func_array_emit(temp->astnode.ident.arraylist,ht,
               temp->astnode.ident.name, ht2!=NULL, TRUE);
          }
          else                                /* it is not expecting an array */
          {
-           fprintf(javafp,"new %s(", wrapper_returns[t2->vartype]);
-           fprintf(javafp,"%s",temp->astnode.ident.name);
+           fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+           fprintf(curfp,"%s",temp->astnode.ident.name);
 
            func_array_emit(temp->astnode.ident.arraylist,ht,
               temp->astnode.ident.name, ht2!=NULL, FALSE);
 
-           fprintf(javafp,")");
+           fprintf(curfp,")");
          }
        }
          /* 
@@ -2400,9 +2595,9 @@ printf("expecting array\n");
          else
          {
 printf("NOT expecting array\n");
-         fprintf(javafp,"new %s(", wrapper_returns[t2->vartype]);
-         fprintf(javafp,"%s[0]", temp->astnode.ident.name);
-         fprintf(javafp,")");
+         fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+         fprintf(curfp,"%s[0]", temp->astnode.ident.name);
+         fprintf(curfp,")");
          }
        }
        else if(
@@ -2421,16 +2616,16 @@ printf("NOT expecting array\n");
           */
        else 
        {
-         fprintf(javafp,"new %s(", wrapper_returns[t2->vartype]);
+         fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
 
          expr_emit(temp);
 
-         fprintf(javafp,")");
+         fprintf(curfp,")");
        }
        if(t2 != NULL)
          t2 = t2->nextstmt;
        if(temp->nextstmt != NULL)
-         fprintf(javafp, ",");
+         fprintf(curfp, ",");
     }
   }
   else
@@ -2446,13 +2641,13 @@ printf("NOT expecting array\n");
       }
       else
       {
-        fprintf(javafp,"new %s(", wrapper_returns[temp->vartype]);
+        fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
         expr_emit (temp);
-        fprintf(javafp,")");
+        fprintf(curfp,")");
       }
 
       if(temp->nextstmt != NULL)
-        fprintf(javafp, ",");
+        fprintf(curfp, ",");
     }
   }
 
@@ -2465,9 +2660,9 @@ printf("NOT expecting array\n");
    */
 
   if(root->nodetype == Call)
-    fprintf (javafp, ");\n");
+    fprintf (curfp, ");\n");
   else
-    fprintf (javafp, ")");
+    fprintf (curfp, ")");
 }				/*  Close call_emit().  */
 
 int
@@ -2492,14 +2687,14 @@ spec_emit (AST * root)
   now handling parameters as part of vardec_emit.  
    11/3/97 --Keith
 
-      fprintf (javafp, "// Assignment from Fortran PARAMETER specification.\n");
+      fprintf (curfp, "// Assignment from Fortran PARAMETER specification.\n");
       assigntemp = root->astnode.typeunit.declist;
       for (assigntemp; assigntemp; assigntemp = assigntemp->nextstmt)
       {
         if (gendebug)
           printf ("Parameter stmt.\n");
         assign_emit (assigntemp);
-        fprintf (javafp, ";\n");
+        fprintf (curfp, ";\n");
       }
 *************************************************************/
 
@@ -2537,46 +2732,46 @@ assign_emit (AST * root)
   }
 
   name_emit (root->astnode.assignment.lhs);
-  fprintf (javafp, " = ");
+  fprintf (curfp, " = ");
 
   if(ltype != rtype)
   {
     if((ltype != String) && (ltype != Logical) && (rtype == String))
     {
-      fprintf(javafp,"(%s)(",returnstring[ltype]);
+      fprintf(curfp,"(%s)(",returnstring[ltype]);
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp,".charAt(0)");
-      fprintf(javafp,")");
+      fprintf(curfp,".charAt(0)");
+      fprintf(curfp,")");
     }
     else if((ltype != String) && (ltype != Logical) && (rtype == Character))
     {
-      fprintf(javafp,"(%s)(",returnstring[ltype]);
+      fprintf(curfp,"(%s)(",returnstring[ltype]);
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp,")");
+      fprintf(curfp,")");
     }
     else if( (ltype == Logical) && (rtype == String) )
     {
-      fprintf(javafp,"(");
+      fprintf(curfp,"(");
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp,").charAt(0)");
-      fprintf(javafp," == 0 ? false : true");
+      fprintf(curfp,").charAt(0)");
+      fprintf(curfp," == 0 ? false : true");
     }
     else if( (ltype == Logical) && (rtype == Character) )
     {
-      fprintf(javafp,"(int)(");
+      fprintf(curfp,"(int)(");
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp,") == 0 ? false : true");
+      fprintf(curfp,") == 0 ? false : true");
     }
     else if( (ltype == Logical) && (rtype != String) )
     {
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp," == 0 ? false : true");
+      fprintf(curfp," == 0 ? false : true");
     }
     else
     {
-      fprintf(javafp,"(%s)(",returnstring[ltype]);
+      fprintf(curfp,"(%s)(",returnstring[ltype]);
       expr_emit (root->astnode.assignment.rhs);
-      fprintf(javafp,")");
+      fprintf(curfp,")");
     }
   }
   else
@@ -2592,17 +2787,17 @@ substring_assign_emit(AST *root)
 
   printf("substring_assign_emit\n");
 
-  fprintf(javafp,"{\n  int E1, E2;\n");
-  fprintf(javafp,"  E1 = ");
+  fprintf(curfp,"{\n  int E1, E2;\n");
+  fprintf(curfp,"  E1 = ");
   expr_emit(lhs->astnode.ident.arraylist);
-  fprintf(javafp,";\n");
+  fprintf(curfp,";\n");
 
-  fprintf(javafp,"  E2 = ");
+  fprintf(curfp,"  E2 = ");
   expr_emit(lhs->astnode.ident.arraylist->nextstmt);
-  fprintf(javafp,";\n");
+  fprintf(curfp,";\n");
 
-  fprintf(javafp,"%s = new StringW(",lname);
-  fprintf(javafp,"%s.val.substring(0,E1-1) + ", lname);
+  fprintf(curfp,"%s = new StringW(",lname);
+  fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
 
   if(rhs->vartype == Character)
   {
@@ -2611,9 +2806,14 @@ substring_assign_emit(AST *root)
      * method, so we have to create a new character object first.
      */
 
-    fprintf(javafp,"new Character(");
+    fprintf(curfp,"new Character(");
     expr_emit(rhs);
-    fprintf(javafp,").toString().substring(0,E2-E1+1) + ");
+    fprintf(curfp,").toString().substring(0,E2-E1+1) + ");
+  }
+  else if(rhs->vartype == String)
+  {
+    expr_emit(rhs);
+    fprintf(curfp,".substring(0,E2-E1+1) + ");
   }
   else
   {
@@ -2621,16 +2821,16 @@ substring_assign_emit(AST *root)
 
     *tempstring = toupper (*tempstring);
 
-    fprintf(javafp,"%s.toString(", tempstring);
+    fprintf(curfp,"%s.toString(", tempstring);
     expr_emit(rhs);
-    fprintf(javafp,").substring(0,E2-E1+1) + ");
+    fprintf(curfp,").substring(0,E2-E1+1) + ");
   }
 
-  fprintf(javafp,"%s.val.substring(E2,%s.val.length())",lname,lname);
+  fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
 
-  fprintf(javafp,");\n");
+  fprintf(curfp,");\n");
 
-  fprintf(javafp,"}\n");
+  fprintf(curfp,"}\n");
 }
 
 char * 
@@ -2644,84 +2844,88 @@ print_nodetype (AST *root)
 
   switch (root->nodetype)
   {
-    case 0:
-      return("Bad Node");
     case Source:
       return("Source");
     case Progunit:
       return("Progunit");
-    case Program:
-      return("Program");
     case Subroutine:
       return("Subroutine");
     case Function:
       return("Function");
-    case Specification:
-      return("Specification");
-    case Statement:
-      return("Statement");
-    case Assignment:
-      return("Assignment");
-    case Call:
-      return("Call");
-    case Forloop:
-      return("Forloop");
+    case Program:
+      return("Program");
     case Blockif:
       return("Blockif");
+    case Common:
+      return("Common");
+    case DataStmt:
+      return("DataStmt");
+    case DataList:
+      return("DataList");
     case Elseif:
       return("Elseif");
     case Else:
       return("Else");
-    case Identifier:
-      return("Identifier");
+    case Forloop:
+      return("Forloop");
+    case Format:
+      return("Format");
+    case Constant:
+      return("Constant");
     case Method:
       return("Method");
-    case Expression:
-      return("Expression");
-    case Typedec:
-      return("Typedec");
+    case Identifier:
+      return("Identifier");
+    case Label:
+      return("Label");
     case Logicalif:
       return("Logicalif");
+    case Typedec:
+      return("Typedec");
+    case Assignment:
+      return("Assignment");
+    case Expression:
+      return("Expression");
     case Return:
       return("Return");
     case Goto:
       return("Goto");
-    case Label:
-      return("Label");
+    case Call:
+      return("Call");
+    case Statement:
+      return("Statement");
     case Relationalop:
       return("Relationalop");
     case Logicalop:
       return("Logicalop");
     case Binaryop:
       return("Binaryop");
+    case Power:
+      return("Power");
     case Unaryop:
       return("Unaryop");
-    case End:
-      return("End");
-    case Unimplemented:
-      return("Unimplemented");
-    case Constant:
-      return("Constant");
-    case Write:
-      return("Write");
-    case Format:
-      return("Format");
     case Save:
       return("Save");
-    case DataStmt:
-      return("DataStmt");
-    case DataList:
-      return("DataList");
-    case Common:
-      return("Common");
-    case ComputedGoto:
-      return("Computed goto");
-    case EmptyArgList:
-      return("EmptyArgList");
+    case Specification:
+      return("Specification");
+    case Substring:
+      return("Substring");
+    case End:
+      return("End");
+    case Write:
+      return("Write");
     case Stop:
       return("Stop");
+    case ComputedGoto:
+      return("ComputedGoto");
+    case ArrayAccess:
+      return("ArrayAccess");
     case ArrayDec:
       return("ArrayDec");
+    case EmptyArgList:
+      return("EmptyArgList");
+    case Unimplemented:
+      return("Unimplemented");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

@@ -145,12 +145,19 @@ METHODTAB intrinsic_toks[]=
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
   {"DSQRT", "Math.sqrt"},
+  {"LOG", "Math.log"},
+  {"LOG10", "Math.log"},   /* divied by 2.30258509 */
+  {"COS", "Math.cos"},
+  {"SIN", "Math.sin"},
+  {"EXP", "Math.exp"},
   {"MOD", "(int) Math.IEEEremainder"},
   {"DBLE", "(double)"},
   {"CHAR", "(char)"},
   {"ICHAR", "(int)"},
   {"INT", "(int)"},
+  {"NINT", "(int)"},
   {"REAL", "(double)"},
+  {"SIGN", "(int)"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
@@ -201,7 +208,7 @@ METHODTAB pass_by_refs[]=
  * 1.0.x.  There will probably need to be some added to comply
  * with versions 1.1.x.
  */
- 
+
 char *java_reserved_words[] = 
 {
      "abstract" ,    "boolean" ,   "break" ,     "byte" ,   "byvalue" ,
@@ -216,4 +223,19 @@ char *java_reserved_words[] =
           "var" ,       "void" ,"volatile" ,    "while" ,      "null" ,
      "continue" ,      "false" ,    "case" ,  "generic" ,"instanceof" ,
        "public" ,     "switch" ,     "try" ,     0
+};
+
+/* 
+ *  This is a list of words which will conflict with the Jasmin
+ * assembler.  During goto translation, we generate a class file
+ * which is then disassembled into Jasmin assembly code.  If
+ * any of these words are used as variable names, Jasmin will
+ * complain.  I will add names to this list as I run across
+ * problems.   12/8/97 --Keith 
+ *
+ */
+
+char *jasmin_reserved_words[] =
+{
+     "ldc", 0
 };

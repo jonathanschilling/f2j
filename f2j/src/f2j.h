@@ -41,6 +41,7 @@ SYMTABLE *common_table;
 SYMTABLE *parameter_table; 
 SYMTABLE *function_table; 
 SYMTABLE *java_keyword_table; 
+SYMTABLE *jasmin_keyword_table; 
 
 int locals;
 int stacksize;
@@ -176,7 +177,7 @@ typedef struct ast_node
 
 	    struct _forloop
 	      {
-		  char indexname[30];
+		  /* char indexname[30]; */
                   int startlabel, stoplabel;
 		  struct ast_node *counter;
 		  struct ast_node *Label, *Continue;
@@ -208,6 +209,7 @@ typedef struct ast_node
 	      {
 		  struct ast_node *arraylist;
 		  char  * leaddim;
+                  struct ast_node *lead_expr;
                   int dim;
                   int D[3];
 		  char *opcode;	/* e.g., opcode = strdup("iload_1"); */
@@ -243,6 +245,7 @@ typedef struct ast_node
             struct _io
               {
                 int io_type, file_desc, format_num;
+                struct ast_node *fmt_list;
                 struct ast_node *arg_list;
               }
             io_stmt;
@@ -341,6 +344,11 @@ enum relops
       rel_gt,
       rel_ge
   };
+
+typedef struct {
+  char *name;
+  int val;
+} SUBSTITUTION;
 
 /*  Prototypes to keep the compiler from complaining.  */
 

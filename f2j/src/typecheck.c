@@ -207,21 +207,26 @@ name_check (AST * root)
   /* If the name is in the external table, then check to see if
      it is an intrinsic function instead (e.g. SQRT, ABS, etc).  */
 
-printf("tempname = %s\n", tempname);
+  if (checkdebug)
+    printf("tempname = %s\n", tempname);
 
   if (type_lookup (chk_external_table, root->astnode.ident.name) != NULL)
   {
-printf("going to external_check\n");
+    if (checkdebug)
+      printf("going to external_check\n");
     external_check(root);  /* handles LSAME, LSAMEN */
   }
   else if( methodscan (intrinsic_toks, tempname) != NULL) 
   {
-printf("going to intrinsic_check\n");
+    if (checkdebug)
+      printf("going to intrinsic_check\n");
     intrinsic_check(root);
   }
   else
   {
-printf("NOt intrinsic or external\n");
+    if (checkdebug)
+      printf("NOt intrinsic or external\n");
+
     switch (root->token)
     {
       case STRING:
@@ -236,19 +241,25 @@ printf("NOt intrinsic or external\n");
       default:
         hashtemp = type_lookup (chk_array_table, root->astnode.ident.name);
 
-        printf("@# looking for %s in the type table\n", root->astnode.ident.name);
-        if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL )
+        if(checkdebug)
+          printf("looking for %s in the type table\n",root->astnode.ident.name);
+
+        if((ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
         {
-          printf("@# Found!\n");
+          if(checkdebug)
+            printf("@# Found!\n");
           root->vartype = ht->variable->vartype;
         }
         else if( (cur_unit->nodetype == Function) &&
                  !strcmp(cur_unit->astnode.source.name->astnode.ident.name,
                          root->astnode.ident.name))
         {
-          printf("@# this is the implicit function var\n");
-          printf("@# ...setting vartype = %s\n", 
-             returnstring[cur_unit->astnode.source.returns]);
+          if(checkdebug)
+          {
+            printf("@# this is the implicit function var\n");
+            printf("@# ...setting vartype = %s\n", 
+               returnstring[cur_unit->astnode.source.returns]);
+          }
           root->vartype = cur_unit->astnode.source.returns;
         }
         else
@@ -302,7 +313,9 @@ func_array_check(AST *root, HASHNODE *hashtemp)
 {
   expr_check (root);
 
-  if (hashtemp->variable->astnode.ident.leaddim[0] != '*' && root->nextstmt != NULL)
+  if(   (hashtemp->variable->astnode.ident.leaddim != NULL)
+     && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
+     && (root->nextstmt != NULL))
   {
     root = root->nextstmt;
     expr_check (root);
@@ -421,7 +434,10 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if (!strcmp (tempname, "DSQRT"))
+  if (!strcmp (tempname, "DSQRT")
+   || !strcmp (tempname, "SIN")
+   || !strcmp (tempname, "EXP")
+   || !strcmp (tempname, "COS"))
   {
     temp = root->astnode.ident.arraylist;
     expr_check (temp);
@@ -429,7 +445,9 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if(!strcmp (tempname, "SQRT"))
+  if (!strcmp (tempname, "SQRT")
+   || !strcmp (tempname, "LOG")
+   || !strcmp (tempname, "LOG10"))
   {
     temp = root->astnode.ident.arraylist;
     expr_check (temp);
@@ -437,7 +455,8 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if (!strcmp (tempname, "MOD"))
+  if (!strcmp (tempname, "MOD")
+   || !strcmp (tempname, "SIGN"))
   {
     temp = root->astnode.ident.arraylist;
     expr_check(temp);
@@ -462,7 +481,8 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if (!strcmp (tempname, "INT"))
+  if (!strcmp (tempname, "INT")
+   || !strcmp (tempname, "NINT"))
   {
     temp = root->astnode.ident.arraylist;
     expr_check(temp);
@@ -470,7 +490,8 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if (!strcmp (tempname, "REAL"))
+  if(!strcmp (tempname, "REAL") ||
+     !strcmp (tempname, "DBLE"))
   {
     temp = root->astnode.ident.arraylist;
     expr_check(temp);
@@ -649,6 +670,8 @@ assign_check (AST * root)
   name_check (root->astnode.assignment.lhs);
   expr_check (root->astnode.assignment.rhs);
 
-printf("## ## typecheck: rtype = %s\n",
-  returnstring[root->astnode.assignment.rhs->vartype]);
+  printf("## ## typecheck: ltype = %s\n",
+    returnstring[root->astnode.assignment.lhs->vartype]);
+  printf("## ## typecheck: rtype = %s\n",
+    returnstring[root->astnode.assignment.rhs->vartype]);
 }

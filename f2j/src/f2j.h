@@ -11,6 +11,7 @@ typedef int BOOLEAN;
 #define FALSE 0
 #define JAS 0
 #define JAVA 1
+#define VCG 1    /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
 
@@ -24,6 +25,8 @@ int statementno;
 FILE *ifp;
 FILE *jasminfp;
 FILE *javafp;
+FILE *vcgfp;
+
 /* Dlist tokenstack; */
 SYMTABLE *type_table;
 SYMTABLE *external_table;

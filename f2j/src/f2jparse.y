@@ -20,6 +20,7 @@ char funname[30];
 char tempname[30];
 char * tname;
 int temptok;
+void start_vcg();
 void emit();
 AST * tempnode;
 AST * headnode;
@@ -124,7 +125,10 @@ Sourcecode:   Program  Specstmts  Statements End
 		assign_local_vars($2); 
                 assign($$); 
 #endif
-                if(emittem) emit($$); 
+#if VCG
+                if(emittem) start_vcg($$);
+#endif
+                if(emittem) emit($$);
               }
 
            |  Subroutine Specstmts Statements End 
@@ -142,7 +146,10 @@ Sourcecode:   Program  Specstmts  Statements End
 		assign_local_vars($2); 
                 assign($$); 
 #endif
-                if(emittem) emit($$); 
+#if VCG
+                if(emittem) start_vcg($$);
+#endif
+                if(emittem) emit($$);
               }
           |   Function Specstmts Statements  End
               {
@@ -159,7 +166,10 @@ Sourcecode:   Program  Specstmts  Statements End
 		assign_local_vars($2);
                 assign($$);
 #endif
-                if(emittem) emit($$);    
+#if VCG
+                if(emittem) start_vcg($$);
+#endif
+                if(emittem) emit($$);
               }
 ;
 

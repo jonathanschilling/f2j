@@ -20,11 +20,13 @@ main (int argc, char **argv)
     extern FILE *ifp;
     extern FILE *jasminfp;
     extern FILE *javafp;
+    extern FILE *vcgfp;
     extern int lineno;
     extern int statementno;
 
     char sourcename[130];
     char jasminname[130];
+    char vcgname[130];
 
     yydebug = DEBUGGEM;
 
@@ -40,8 +42,11 @@ main (int argc, char **argv)
     strcpy (classname, argv[1]);
     strcpy (sourcename, argv[1]);
     strcpy (jasminname, argv[1]);
+    strcpy (vcgname, argv[1]);
+
     strcat (sourcename, ".java");
     strcat (jasminname, ".j");
+    strcat (vcgname, ".vcg");
 
     initialize ();
 
@@ -56,6 +61,9 @@ main (int argc, char **argv)
        generation.  */
     /*  javafp = stdout;     */
 #endif
+#if VCG
+    vcgfp = fopen(vcgname, "w");
+#endif
 
     yyparse ();
 
@@ -64,6 +72,9 @@ main (int argc, char **argv)
 #endif
 #if JAVA
     fclose (javafp);
+#endif
+#if VCG
+    fclose (vcgfp);
 #endif
     printf("Line number: %d\n", lineno);
     printf("Statement number: %d\n", statementno);

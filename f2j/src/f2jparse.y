@@ -7,17 +7,14 @@
 
 #define YYDEBUG 0
 
-int debug = FALSE;
+int debug = TRUE;
 
 extern char yytext[]; 
 extern enum contexts context;
 extern BOOLEAN typedecs;
-/* extern Dlist tokenstack; */
 
 int yylex();
 
-/* Some of these are probably not necessary.  Need to
-   run gcc with -Wall to filter unused variables. */
 char *strdup(const char *);
 char *strcat(char *, const char*);
 void yyerror(char *);
@@ -91,6 +88,8 @@ SYMTABLE * new_symtable (int );
 %token SAVE DATA COMMENT READ WRITE FMT EDIT_DESC REPEAT
 
 %nonassoc RELOP 
+%nonassoc LOWER_THAN_COMMENT
+%nonassoc COMMENT
 
 /*  All of my additions or changes to Levine's code. These 
 non-terminals are in alphabetic order because I have had to 
@@ -99,9 +98,9 @@ out the location of a non-terminal, much easier to find when
 in alphabetic order. */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
-%type <ptnode> Arrayindexlist
-%type <ptnode> Blockif Boolean Close
-%type <ptnode> Call /* Char Complex */ Constant /* Constantlist */ Continue
+%type <ptnode> Arrayindexlist Arithmeticif
+%type <ptnode> Blockif Boolean Close Comment
+%type <ptnode> Call Constant Continue
 %type <ptnode> Data DataList DataConstant DataItem /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList LoopBounds
 %type <ptnode> Do_vals Double
@@ -111,7 +110,7 @@ in alphabetic order. */
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> Implicit Integer Intlist Intrinsic
-%type <ptnode> Label Lhs /* Logicalop */ Logicalif /* Logicalifstmts */
+%type <ptnode> Label Lhs Logicalif
 %type <ptnode> Name Namelist LhsList
 %type <ptnode> Parameter  Pdec Pdecs Program 
 %type <ptnode> Read IoExp IoExplist Return 
@@ -132,7 +131,7 @@ in alphabetic order. */
 /*  The new stuff is here.  */
 F2java:   Sourcecodes
           {
-            AST *temp;
+            AST *temp, *prev, *commentList = NULL;
 
             if(debug)
               printf("F2java -> Sourcecodes\n");
@@ -142,25 +141,44 @@ F2java:   Sourcecodes
 #if VCG
             if(emittem) start_vcg($$);
 #endif
-
+            prev = NULL;
             for(temp=$$;temp!=NULL;temp=temp->nextstmt)
             {
               if(JAS) {
-                assign_local_vars(localvarlist); 
-                assign_local_vars( $1->astnode.source.typedecs );
-                assign(temp); 
+                if(temp->nodetype != Comment) {
+                  assign_local_vars(localvarlist); 
+                  assign_local_vars( $1->astnode.source.typedecs );
+                  assign(temp); 
+                }
+
                 if(emittem) jas_emit(temp);
               }else {
                 if(emittem) {
+                  if(temp->nodetype == Comment)
+                  {
+                    if((prev == NULL) ||
+                       ((prev != NULL) && (prev->nodetype != Comment)))
+                      commentList = temp;
+                  }
+                  else
+                  {
+                    /* commentList may be NULL here so we must check
+                     * for that in codegen.
+                     */
+                    temp->astnode.source.prologComments = commentList;
 #ifdef TYPECHECK
-                  typecheck(temp);
+                    typecheck(temp);
 #endif
 #ifdef OPT_SCALAR
-                  optScalar(temp);
+                    optScalar(temp);
 #endif
-                  emit(temp);
+                    emit(temp);
+
+                    commentList = NULL;
+                  }
                 }
               }
+              prev = temp;
             }
           }
 ;
@@ -178,12 +196,14 @@ Sourcecodes:   Sourcecode
                  $$=$1;
 
 #ifdef OPT_SCALAR
-                 temp = $1->astnode.source.progtype->astnode.source.name;
+                 if($1->nodetype != Comment) {
+                   temp = $1->astnode.source.progtype->astnode.source.name;
 
-                 hashid =temp->astnode.ident.name;
-                 index = hash(hashid) % global_func_table->num_entries;
-                 type_insert(&(global_func_table->entry[index]), $1, 0,
-                   temp->astnode.ident.name);
+                   hashid =temp->astnode.ident.name;
+                   index = hash(hashid) % global_func_table->num_entries;
+                   type_insert(&(global_func_table->entry[index]), $1, 0,
+                     temp->astnode.ident.name);
+                 }
 #endif
                }
              | Sourcecodes Sourcecode 
@@ -199,12 +219,14 @@ Sourcecodes:   Sourcecode
                  $$=$2;
 
 #ifdef OPT_SCALAR
-                 temp = $2->astnode.source.progtype->astnode.source.name;
+                 if($2->nodetype != Comment) {
+                   temp = $2->astnode.source.progtype->astnode.source.name;
 
-                 hashid =temp->astnode.ident.name;
-                 index = hash(hashid) % global_func_table->num_entries;
-                 type_insert(&(global_func_table->entry[index]), $2, 0,
-                   temp->astnode.ident.name);
+                   hashid =temp->astnode.ident.name;
+                   index = hash(hashid) % global_func_table->num_entries;
+                   type_insert(&(global_func_table->entry[index]), $2, 0,
+                     temp->astnode.ident.name);
+                 }
 #endif
                }
 ;
@@ -227,9 +249,15 @@ Sourcecode :    Fprogram
                     printf("Sourcecode -> Ffunction\n"); 
                   $$=$1;
                 }
+              | Comment
+                { 
+                  if(debug)
+                    printf("Sourcecode -> Comment\n"); 
+                  $$=$1;
+                }
 ;
 
-Fprogram:   Program  Specstmts  Statements End 
+Fprogram:   Program Specstmts Statements End 
               {
                 if(debug)
                   printf("Fprogram -> Program  Specstmts  Statements End\n");
@@ -491,7 +519,7 @@ Function:  Type FUNCTION Name Functionargs NL
            }
 ; 
 
-Specstmts: SpecStmtList
+Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            {
              $1 = switchem($1);
              type_hash($1); 
@@ -499,11 +527,11 @@ Specstmts: SpecStmtList
            }
 ;
 
-SpecStmtList: Specstmt  
+SpecStmtList: Specstmt
            {
              $$=$1;
            }
-         | SpecStmtList  Specstmt 
+         | SpecStmtList  Specstmt
            { 
              $2->prevstmt = $1; 
              $$ = $2; 
@@ -512,17 +540,17 @@ SpecStmtList: Specstmt
 
 Specstmt:  DIMENSION
            {
-	    $$ = 0;
-	    fprintf(stderr,"DIMENSION is not implemented.\n");
-	    exit(-1);
+	     $$ = 0;
+	     fprintf(stderr,"DIMENSION is not implemented.\n");
+	     exit(-1);
 	   }
          | EquivalenceStmt
 	   {
-	    $$ = $1;
+	     $$ = $1;
 	   }
          | Common
 	   {
-	    $$ = $1;
+	     $$ = $1;
 	   }
          | Save      
            {
@@ -552,6 +580,10 @@ Specstmt:  DIMENSION
            {
              $$=$1;
            }
+         | Comment
+	   {
+             $$ = $1;
+	   }
 ;
 
 /*  the EQUIVALENCE productions are taken from Robert Moniot's 
@@ -644,8 +676,9 @@ CommonSpec: DIV Name DIV Namelist
               {
                 temp->astnode.ident.commonBlockName = 
                   strdup($2->astnode.ident.name);
+#ifdef OPT_SCALAR
                 temp->astnode.ident.position = pos++;
-printf("set %s's position to %d\n",temp->astnode.ident.name,temp->astnode.ident.position);
+#endif
                 idx = hash(temp->astnode.ident.name)%common_table->num_entries;
                 if(debug)
                   printf("@insert %s (block = %s) into common table (idx=%d)\n",
@@ -974,6 +1007,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Logicalif;
               }
+            | Arithmeticif
+              {
+                $$ = $1;
+                $$->nodetype = Arithmeticif;
+              }
             | Blockif
               {
                 $$ = $1;
@@ -1045,7 +1083,21 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Unimplemented;
               }
+            | Comment
+              {
+                $$ = $1;
+                $$->nodetype = Comment;
+              }
 ;           
+
+Comment: COMMENT NL
+         {
+           $$ = addnode();
+           $$->token = COMMENT;
+           $$->nodetype = Comment;
+           strcpy($$->astnode.ident.name, yylval.lexeme);
+         }
+;
 
 Close:  CLOSE OP Name CP NL
         {
@@ -1928,6 +1980,21 @@ Logicalif: IF OP Exp CP Statement
            }           
 ;
 
+Arithmeticif: IF OP Exp CP Integer CM Integer CM Integer NL
+              {
+                $$ = addnode();
+                $$->nodetype = Arithmeticif;
+                $3->parent = $$;
+                $5->parent = $$;
+                $7->parent = $$;
+                $9->parent = $$;
+
+                $$->astnode.arithmeticif.cond = $3;
+                $$->astnode.arithmeticif.neg_label  = atoi($5->astnode.constant.number);
+                $$->astnode.arithmeticif.zero_label = atoi($7->astnode.constant.number);
+                $$->astnode.arithmeticif.pos_label  = atoi($9->astnode.constant.number);
+              }
+;
 
 /******************************************************************
 
@@ -2483,16 +2550,27 @@ Goto:   GOTO Integer  NL
 ;
 
 ComputedGoto:   GOTO OP Intlist CP Exp NL
-        {
-          $$ = addnode();
-          $3->parent = $$;   /* 9-4-97 - Keith */
-          $5->parent = $$;   /* 9-4-97 - Keith */
-          $$->nodetype = ComputedGoto;
-          $$->astnode.computed_goto.name = $5;
-          $$->astnode.computed_goto.intlist = switchem($3);
-	  if(debug)
-	    printf("Computed go to,\n");
-        }    
+                {
+                  $$ = addnode();
+                  $3->parent = $$;   /* 9-4-97 - Keith */
+                  $5->parent = $$;   /* 9-4-97 - Keith */
+                  $$->nodetype = ComputedGoto;
+                  $$->astnode.computed_goto.name = $5;
+                  $$->astnode.computed_goto.intlist = switchem($3);
+        	  if(debug)
+        	    printf("Computed go to,\n");
+                }    
+              | GOTO OP Intlist CP CM Exp NL
+                {
+                  $$ = addnode();
+                  $3->parent = $$;   /* 9-4-97 - Keith */
+                  $6->parent = $$;   /* 9-4-97 - Keith */
+                  $$->nodetype = ComputedGoto;
+                  $$->astnode.computed_goto.name = $6;
+                  $$->astnode.computed_goto.intlist = switchem($3);
+        	  if(debug)
+        	    printf("Computed go to,\n");
+                }    
 ;
 
 Intlist:   Integer
@@ -2585,7 +2663,7 @@ Intrinsic: INTRINSIC Namelist NL
 void 
 yyerror(char *s)
 {
-    printf("%d: %s\n", lineno, s);
+  printf("%d: %s\n", lineno, s);
 }
 
 /* To keep things simple, there is only one type of parse tree
@@ -2811,7 +2889,7 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
             hashtemp = type_lookup(type_table, declist->astnode.ident.name);
             if(hashtemp == NULL)
 	     {
-	       if(debug)printf("Type table is screwed in assign locals.\n");
+	       fprintf(stderr,"Type table is screwed in assign locals.\n");
 	       exit(-1);
              }
             if(hashtemp->localvarnum > -1)
@@ -2857,7 +2935,7 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
       hashtemp = type_lookup(type_table, locallist->astnode.ident.name);
       if(hashtemp == NULL)
 	{
-	  if(debug)printf("Type table is screwed in assign locals.\n");
+	  fprintf(stderr,"Type table is screwed in assign locals.\n");
 	  exit(-1);
 	}
       if(hashtemp->localvarnum > -1)

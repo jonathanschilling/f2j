@@ -127,6 +127,7 @@ emit (AST * root)
     void forloop_emit (AST *);
     void blockif_emit (AST *);
     void logicalif_emit (AST *);
+    void arithmeticif_emit (AST *);
     void goto_emit (AST *);
     void computed_goto_emit (AST *);
     void label_emit (AST *);
@@ -136,8 +137,10 @@ emit (AST * root)
     void emit_invocations(AST *);
     void merge_equivalences(AST *);
     void print_equivalences(AST *);
+    void emit_prolog_comments(AST *);
     int isPassByRef(char *);
 
+printf("here in emit nodetype is %s\n",print_nodetype(root));
     switch (root->nodetype)
       {
       case 0:
@@ -181,11 +184,12 @@ emit (AST * root)
           open_output_file(root->astnode.source.progtype);
           curfp = javafp;
 
-	  fprintf (curfp, "// Type declarations.\n");
+          if(root->astnode.source.prologComments != NULL)
+            emit_prolog_comments(root);
+
 	  emit (root->astnode.source.typedecs);
           
 	  emit (root->astnode.source.progtype);
-	  fprintf (curfp, "\n// Executable code.\n");
 
           if(import_reflection) 
             fprintf(curfp,"try {\n");
@@ -310,6 +314,13 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Logicalif.\n");
 	  logicalif_emit (root);
+	  if (root->nextstmt != NULL)	/* End of typestmt list. */
+	      emit (root->nextstmt);
+	  break;
+      case Arithmeticif:
+	  if (gendebug)
+	      printf ("Arithmeticif.\n");
+	  arithmeticif_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
 	  break;
@@ -438,6 +449,16 @@ emit (AST * root)
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
           break;
+      case Comment:
+          if (gendebug)
+            printf ("Comment.\n");
+
+          if(curfp != NULL)
+            fprintf(curfp,"// %s", root->astnode.ident.name);
+
+          if (root->nextstmt != NULL)
+            emit (root->nextstmt);
+          break;
       case Unimplemented:
 	  fprintf (curfp, "// WARNING: Unimplemented statement in Fortran source.\n");
 	  if (root->nextstmt != NULL)
@@ -460,6 +481,23 @@ print_equivalences(AST *root)
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
     printf("M_EQV (%d)", temp->token);
     print_eqv_list(temp,stdout);
+  }
+}
+
+void 
+emit_prolog_comments(AST *root)
+{
+  AST *temp;
+
+  temp = root->astnode.source.prologComments;
+
+  if(temp == NULL)
+    return;
+
+  while( (temp != NULL) && (temp->nodetype == Comment))
+  {
+    fprintf(curfp,"// %s",temp->astnode.ident.name);
+    temp = temp->nextstmt;
   }
 }
 
@@ -1562,9 +1600,6 @@ name_emit (AST * root)
       case NAME:
       default:
 
-  printf("lets see if %s is pass by reference: %s\n", root->astnode.ident.name,
-   isPassByRef(root->astnode.ident.name) ? "yes" : "no");
-     
         hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
 
         if (root->astnode.ident.arraylist == NULL)
@@ -1850,8 +1885,6 @@ isPassByRef(char *name)
   int pos, i;
   AST *temp;
 
-printf("in isPassByRef, looking at %s - ", name);
-
   ht = type_lookup(cur_type_table,name);
   if(ht) {
     if(ht->variable->nodetype != Identifier)
@@ -1859,7 +1892,6 @@ printf("in isPassByRef, looking at %s - ", name);
 
     if(ht->variable->astnode.ident.passByRef)
     {
-printf("returning true\n");
       return TRUE;
     }
     else {
@@ -1879,10 +1911,8 @@ printf("returning true\n");
             temp = temp->nextstmt;
           }
 
-          if(temp != NULL) {
-printf("returning %s\n",temp->astnode.ident.passByRef ? "true" : "false");
+          if(temp != NULL)
             return temp->astnode.ident.passByRef;
-          }
           else
             fprintf(stderr,"isPassByRef(): mismatch in common block size\n");
         }
@@ -1890,22 +1920,18 @@ printf("returning %s\n",temp->astnode.ident.passByRef ? "true" : "false");
           fprintf(stderr, "isPassByRef(): cant find common block %s\n",
             blockName);
 
-printf("returning true\n");
         return TRUE;
       }
       else {
-printf("returning false\n");
         return FALSE;
       }
     }
   }
   else {
     fprintf(stderr,"isPassByRef(): variable %s not found.\n", name);
-printf("returning true\n");
     return TRUE;
   }
 
-printf("returning true\n");
   return TRUE;
 }
 #endif
@@ -3262,6 +3288,26 @@ logicalif_emit (AST * root)
     expr_emit (root->astnode.logicalif.conds);
   fprintf (curfp, ")  \n    ");
   emit (root->astnode.logicalif.stmts);
+}
+
+void
+arithmeticif_emit (AST * root)
+{
+  fprintf (curfp, "if ((");
+  if (root->astnode.arithmeticif.cond != NULL)
+    expr_emit (root->astnode.arithmeticif.cond);
+  fprintf (curfp, ") < 0)  \n    ");
+  fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
+    root->astnode.arithmeticif.neg_label);
+  fprintf (curfp, "else if ((");
+  if (root->astnode.arithmeticif.cond != NULL)
+    expr_emit (root->astnode.arithmeticif.cond);
+  fprintf (curfp, ") == 0)  \n    ");
+  fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
+    root->astnode.arithmeticif.zero_label);
+  fprintf (curfp, "else ");
+  fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
+    root->astnode.arithmeticif.pos_label);
 }
 
 /*
@@ -5214,6 +5260,8 @@ print_nodetype (AST *root)
       return("Unimplemented");
     case Equivalence:
       return("Equivalence");
+    case Comment:
+      return("Comment");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

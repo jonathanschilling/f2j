@@ -120,6 +120,7 @@ typecheck (AST * root)
     case Format:
     case Stop:
     case Save:
+    case Comment:
     case Unimplemented:
       if (checkdebug)
         printf ("typecheck(): %s.\n", print_nodetype(root));

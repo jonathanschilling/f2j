@@ -36,7 +36,7 @@
 
 #define YYTEXTLEN 100 
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 /* Some of these variable may not be used anymore.
    gcc -Wall needs to be run to clean up this stuff
@@ -70,7 +70,7 @@ typedef struct _buffer
 BUFFER;
 
 int yylex ();
-void prelex (BUFFER *);
+int prelex (BUFFER *);
 void check_continued_lines (FILE *, char *);
 
 
@@ -91,23 +91,26 @@ union yylval_ {
 
 main (int argc, char **argv)
 {
+  extern FILE *ifp;
+  int token = 1;
+  ifp = fopen (argv[1], "r");
 
-    extern FILE *ifp;
-    int token = 1;
-    ifp = fopen (argv[1], "r");
+  while (token != 0)
+  {
+    token = yylex ();
 
-    while (token != 0)
-      {
-	  token = yylex ();
-	  /* This prints out some random int on the EOF 
-	     condition. 
-	   */
-         if(lexdebug) {
-	  printf ("From main: %d\n", token);
-	  printf ("yytext: %s\n\n", yytext);
-         }
-      }
-    if(lexdebug)printf ("EOF\n");
+    /* This prints out some random int on the EOF 
+     * condition. 
+     */
+
+    if(lexdebug) {
+      printf ("From main: %d\n", token);
+      printf ("yytext: %s\n\n", yytext);
+    }
+  }
+
+  if(lexdebug)
+    printf ("EOF\n");
 }				/*   Close main().  */
 
 #endif /*    STANDALONE   */
@@ -148,14 +151,23 @@ yylex ()
 /* Test so that yylex will know when to call prelex to get 
    another character string.  */
 
-    if (*buffer.stmt == 0)
+    if (buffer.stmt[0] == '\0')
     {
       if(lexdebug) printf("calling prelex\n");
-      prelex (&buffer);   /* No more tokens? Get another statement. */
+      token = prelex (&buffer);   /* No more tokens? Get another statement. */
+
+      if(token == COMMENT) {
+        if(lexdebug)
+           printf("0.1: lexer returns %s (%s)\n", tok2str(token),buffer.stmt);
+        buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
+        buffer.text[0] = '\n'; buffer.text[1] = '\0';
+        return COMMENT;
+      }
+
       tokennumber = 0;    /* Reset for each statement. */
-      parencount = 0;     /* Reset for each statement. */
+      parencount  = 0;    /* Reset for each statement. */
       format_stmt = 0;    /* Reset for each statement. */
-      firsttoken = 0;
+      firsttoken  = 0;    /* Reset for each statement. */
     }
 
     if(lexdebug)
@@ -195,14 +207,15 @@ yylex ()
 	  {
 	    if (isalpha (*buffer.stmt))
 	      token = name_scan (&buffer);
+
             if (token)
-              {
+            {
 	        tokennumber++;
                 if(lexdebug)
                   printf("1: lexer returns %s (%s)\n",
                     tok2str(token),buffer.stmt);
 	        return token;
-              }
+            }
 	    /*  Trap errors.  */
 	  }
 
@@ -305,8 +318,7 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 */
 
     if ((letterseen == TRUE        &&
-	(firsttoken == IF      ||
-	 firsttoken == ELSEIF)     &&
+	(firsttoken == IF || firsttoken == ELSEIF)     &&
 	 parencount == 0)          ||
 	/*  Takes care of labeled (numbered) statements,
 	    i.e. 10 CONTINUE.  */
@@ -318,20 +330,31 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
             char *text_copy = strdup(buffer.text);
 
             /* First, look for labeled DO statement */
-	    if((token = keyscan (tab_stmt, &buffer)) == DO)
+            if((token = keyscan (tab_stmt, &buffer)) == DO)
             {
               if(lexdebug)
                 printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
               return token;
             }
 
-            /* should we also look for labeled IF statement? */
+/*
+            strcpy(buffer.stmt,stmt_copy);
+            strcpy(buffer.text,text_copy);
+
+            if((token = keyscan (tab_stmt, &buffer)) == IF)
+            {
+              if(lexdebug)
+                printf("7.1.2: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+              return token;
+            }
+*/
 
             strcpy(buffer.stmt,stmt_copy);
             strcpy(buffer.text,text_copy);
 
             if (isalpha (*buffer.stmt))
-	       token = name_scan (&buffer);
+              token = name_scan (&buffer);
+
             if (token)
 	      {
 		tokennumber++;
@@ -355,7 +378,8 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 	       bad keywords. */
             if (token)  
 	      {
-                if((token == DO) || (token == IF))
+                if(((token == DO) || (token == IF)) && 
+                   ((tokennumber != 1) && (firsttoken != INTEGER)))
                 {
                   if(lexdebug)
                     printf("got incorrect DO or IF keyword, restoring buffer\n");
@@ -533,7 +557,7 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
    is whether there is six spaces of white at the
    beginning of each statement.
  */
-void
+int
 prelex (BUFFER * bufstruct)
 {
     extern FILE *ifp;
@@ -560,9 +584,13 @@ prelex (BUFFER * bufstruct)
 	      bufstruct->stmt[0] == '\n')
 	    {
 		lineno++;
-		if(lexdebug)printf ("First char in buffer: %c\n", 
-                                     bufstruct->stmt[0]);
-		continue;  /* Found a comment, get another line. */
+                strcpy(yylval.lexeme, bufstruct->stmt);
+                return COMMENT;
+/*
+ *              if(lexdebug)printf ("First char in buffer: %c\n", 
+ *                bufstruct->stmt[0]);
+ *              continue;
+ */
 	    }
 	  if(lexdebug)printf ("First char in buffer: %c\n", 
                                bufstruct->stmt[0]);
@@ -579,12 +607,13 @@ prelex (BUFFER * bufstruct)
 	  lineno++;
 	  statementno++;
           func_stmt_num++;
-	  return;
+	  return 0;
       }
     /* EOF conditions. */
     if(lexdebug)printf ("EOF\n");
     bufstruct->stmt[0] = '\0';
     eofflag = -1;
+    return 0;
 }
 
 
@@ -746,43 +775,47 @@ check_continued_lines (FILE * ifp, char *current_line)
     while (1)
       {
 	  items = fread (next_line, 6, 1, ifp);
+
 	  /* If we are NOT at the end of file, reset the 
 	     pointer to the start of the line so that 
 	     the next fgets will grab the entire line.
 	   */
+
 	  if (items == 0)
 	      return;		/* End of file. */
+
 #if FUNKYCOMMENTS
-	  if (next_line[0] == '*')
+	  if (next_line[0] != ' ')
 	    {
 	      fseek (ifp, -6, 1);
 		return;
 	    }
 #endif
-	  /*  Accept either "$", "*", "+", or "&" in column 6 to
-	      indicate that the statement continues on
-	      the next line.  */
-	  if (next_line[5] != '*' &&
-	      next_line[5] != '&' &&
-	      next_line[5] != '+' &&
-	      next_line[5] != '$')
+          /* F77 spec says that any character other than a
+             blank or 0 signifies a continuation */
+
+          if((strlen(next_line) < 6) ||
+             (next_line[5] == ' ') || 
+             (next_line[5] == '0'))
+	  {
 	      /*  There is no continuation marker.  Reset the 
-	         pointer to the start of the line, and return. */
-	    {
+                  pointer to the start of the line, and return. */
+
 		fseek (ifp, -6, 1);
 		return;
-	    }
+	  }
 	  else
+	  {
 	      /* We have a continuation marker.  Get another line
 	         and cat it to the previous. */
-	    {
+
 		if(lexdebug)
 		  printf ("char 6, next_line: %c\n", next_line[5]);
 		fgets (next_line, 100, ifp);
                 next_line[strlen(next_line)-1] = '\0';
 		strcat (current_line, next_line);
 		lineno++;
-	    }
+	  }
       }
 }          /* End of check_continued_lines().  */
 
@@ -886,15 +919,15 @@ name_scan (BUFFER * bufstruct)
     tcp = bufstruct->text;
 
 /*  Find the name. 
-   We checked the first character in yylex to make sure 
-   it was alphabetic. 
+ * We checked the first character in yylex to make sure 
+ * it was alphabetic. 
  */
 
     while (isalnum (*ncp))
-      {
-	  ncp++;
-	  tokenlength++;
-      }
+    {
+      ncp++;
+      tokenlength++;
+    }
     strncpy (yylval.lexeme, tcp, tokenlength);
     yylval.lexeme[tokenlength] = '\0';
     tcp += tokenlength;

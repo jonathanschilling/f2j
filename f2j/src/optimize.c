@@ -18,6 +18,8 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+#ifdef OPT_SCALAR
+
 int optdebug = FALSE;
 
 char * strdup ( const char * );
@@ -213,6 +215,7 @@ optimize (AST * root, AST * rptr)
     case Goto:
     case Return:
     case Statement:
+    case Comment:
     case DataList:
     case Equivalence:
     case Typedec:
@@ -983,3 +986,4 @@ assign_optimize (AST * root, AST *rptr)
 
   expr_optimize (root->astnode.assignment.rhs, rptr);
 }
+#endif

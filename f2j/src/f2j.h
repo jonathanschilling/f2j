@@ -15,7 +15,8 @@ typedef int BOOLEAN;
 #define LAPACK 1
 #define DEFAULT_TARGET_LANG 0 /* 0 for JAVA, 1 for JAS */
 #define TYPECHECK
-#define OPT_SCALAR
+
+/* #define OPT_SCALAR  */
 
 /* defines for optimization of the use of object wrappers */
 
@@ -108,6 +109,7 @@ typedef struct ast_node
 	    Function,
             Program,
 	    Blockif,
+            Comment,
             Common,
             DataStmt,
             DataList,
@@ -120,6 +122,7 @@ typedef struct ast_node
 	    Identifier,
 	    Label,
 	    Logicalif,
+	    Arithmeticif,
 	    Typedec,
 	    Assignment,
 	    Expression,
@@ -175,6 +178,7 @@ typedef struct ast_node
                   SYMTABLE *equivalence_table; 
                   struct ast_node *dataStmtList;
                   struct ast_node *equivalences;
+                  struct ast_node *prologComments;
                   int needs_input;
                   int needs_reflection;
 #ifdef OPT_SCALAR
@@ -270,6 +274,13 @@ typedef struct ast_node
 		  struct ast_node *elseifstmts, *elsestmts;
 	      }
 	    logicalif, blockif;
+
+	    struct _arithmeticif
+	      {
+		  int neg_label, zero_label, pos_label;
+		  struct ast_node *cond;
+	      }
+	    arithmeticif;
 
 	    struct _goto
 	      {

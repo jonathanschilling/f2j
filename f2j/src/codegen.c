@@ -5173,6 +5173,8 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
    */
 
   if(arg_count == 1) {
+    temp = root->astnode.ident.arraylist;
+
     fprintf (curfp, "(");
     intrinsic_arg_emit(temp,entry->ret);
     fprintf (curfp, ")");
@@ -5245,6 +5247,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
     fprintf (curfp, ", ");
     temp = temp->nextstmt;
     intrinsic_arg_emit(temp, entry->ret);
+    fprintf (curfp, "), ");
 
     ta_tmp = strdup(threearg);
 
@@ -8678,7 +8681,14 @@ get_methodref(AST *node)
 
     new_mref->classname  = get_full_classname(tempname);
     new_mref->methodname = strdup(node->astnode.ident.name);
-    new_mref->descriptor = strdup(ht->variable->astnode.source.descriptor);
+    if(ht->variable->astnode.source.descriptor == NULL) {
+      fprintf(stderr, "Warning: null descriptor for %s...", 
+          new_mref->methodname);
+      fprintf(stderr, "probably not declared EXTERNAL\n");
+      new_mref->descriptor = strdup("()V");
+    }
+    else
+      new_mref->descriptor = strdup(ht->variable->astnode.source.descriptor);
   }
   else
   {

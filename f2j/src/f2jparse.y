@@ -1347,6 +1347,7 @@ Arraydeclaration: Name OP Arraynamelist CP
 
 		    store_array_var($$);
                   }
+;
 
 Arraynamelist:    Arrayname 
                   {
@@ -1381,6 +1382,7 @@ Arrayname: Exp
              $$->astnode.expression.lhs = $1;
              $$->astnode.expression.rhs = $3;
            }
+;
 
 /*  We reduce STAR here, make changes in the Binaryops
  *  reductions for that.  This handles the fortran array
@@ -1579,6 +1581,7 @@ Label: Integer Statement
 
          type_insert(format_table,$2,0,tmpLabel);
        }
+;
 
 /*  The following productions for FORMAT parsing are derived
  *  from Robert K. Moniot's grammar (see ftnchek-2.9.4) 
@@ -1981,6 +1984,7 @@ IfBlock:  /* Empty. */ {$$=0;} /* if block may be null */
           {
              $$ = $1;
           }
+;
 
 Elseifs:  /* Empty. */ {$$=0;} /* No `else if' statements, NULL pointer. */
         |  Elseif 

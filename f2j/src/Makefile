@@ -5,7 +5,7 @@ PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
-YACC=bison
+YACC=bison -t
 JFILES = *.j
 JAVAFILES = *.java
 
@@ -51,3 +51,6 @@ lexdebug:  f2jlex.c
 
 clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.h tmp f2j core a.out *.output *~
+
+realclean: clean
+	rm -f f2java

@@ -44,6 +44,7 @@ char
   tempname[60];                   /* temporary string                        */
 
 AST 
+  * unit_args = NULL,             /* pointer to args for this program unit   */
   * equivList = NULL;             /* list to keep track of equivalences      */
 
 Dlist subroutine_names;           /* holds the names of subroutines          */
@@ -505,6 +506,8 @@ Program:      PROGRAM UndeclaredName NL
                  if(debug)
                    printf("Program ->  PROGRAM UndeclaredName\n");
                  
+                 unit_args = NULL;
+
                  $$ = addnode();
 	         $2->parent = $$; /* 9-4-97 - Keith */
 		 lowercase($2->astnode.ident.name);
@@ -523,6 +526,8 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
               {
                  if(debug)
                    printf("Subroutine ->  SUBROUTINE UndeclaredName Functionargs NL\n");
+
+                 unit_args = $3;
 
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
@@ -544,6 +549,8 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
                  if(debug)
                    printf("Subroutine ->  SUBROUTINE UndeclaredName NL\n");
 
+                 unit_args = NULL;
+
                  init_tables();
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
@@ -563,6 +570,8 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
            {
              if(debug)
                printf("Function ->  Type FUNCTION UndeclaredName Functionargs NL\n");
+
+             unit_args = $4;
 
              $$ = addnode();
 
@@ -591,6 +600,8 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
           {
              enum returntype ret;
 
+             unit_args = $3;
+
              $$ = addnode();
 
              $2->parent = $$;  
@@ -614,12 +625,29 @@ Function:  Type FUNCTION UndeclaredName Functionargs NL
 
 Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            {
+             AST *tmparg;
+
              if(debug){
                printf("Specstmts -> SpecStmtList\n");
              }
              $1 = switchem($1);
              type_hash($1); 
              $$=$1;
+
+             for(tmparg = unit_args; tmparg; tmparg=tmparg->nextstmt) {
+               HASHNODE *ht;
+
+               ht = type_lookup(type_table, tmparg->astnode.ident.name);
+
+               if(ht) {
+                 if(!ht->variable->astnode.ident.explicit)
+                   ht->variable->vartype = 
+                     implicit_table[tolower(tmparg->astnode.ident.name[0]) - 'a'].type;
+               }
+               else
+                 fprintf(stderr, "warning: didn't find %s in symbol table\n", 
+                   tmparg->astnode.ident.name);
+             }
            }
 ;
 

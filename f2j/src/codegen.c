@@ -1570,7 +1570,7 @@ newarray_emit(AST *root)
       bytecode1(jvm_newarray, jvm_array_type[root->vartype]);
       break;
     default:
-      fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
+      fprintf(stderr,"WARNING: newarray_emit() unknown vartype\n");
   }
 }
 
@@ -3331,7 +3331,7 @@ get_var_info(AST *root)
     varnum = ht->variable->astnode.ident.localvnum;
   }
   else {
-    fprintf(stderr,"WARNING: push_array_var() '%s' not in hash table!\n",
+    fprintf(stderr,"WARNING: get_var_info() '%s' not in hash table!\n",
       root->astnode.ident.name);
     desc = "asdfjkl";
   }
@@ -3354,7 +3354,7 @@ get_var_info(AST *root)
 
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
-      fprintf(stderr,"push_array_var:Cant find %s in type_table\n",
+      fprintf(stderr,"get_var_info:Cant find %s in type_table\n",
           root->astnode.ident.name);
 
     if(ht->variable->astnode.ident.merged_name != NULL)
@@ -3375,12 +3375,12 @@ get_var_info(AST *root)
 
   if (name == NULL)
   {
-    fprintf(stderr,"push_array_var: setting name to NULL!\n");
+    fprintf(stderr,"get_var_info: setting name to NULL!\n");
     name = root->astnode.ident.name;
   }
 
   if(gendebug)
-    printf("### #in push_array_var, setting name = %s\n",name);
+    printf("### #in get_var_info, setting name = %s\n",name);
 
   /* Determine whether this variable is an argument to the current
    * program unit.
@@ -5068,8 +5068,14 @@ expr_emit (AST * root)
   {
     /* We should not have a NULL expression */
 
-    fprintf(stderr,"Warning: NULL root in expr_emit\n");
+    fprintf(stderr,"Warning: NULL root in expr_emit (%s)\n", cur_filename);
     return;
+  }
+
+  if(gendebug) {
+    printf("expr_emit(): nodetype = %s\n", print_nodetype(root));
+    if(root->nodetype == Binaryop)
+      printf("\toptype = %c\n",root->astnode.expression.optype);
   }
 
   switch (root->nodetype)
@@ -5129,35 +5135,70 @@ expr_emit (AST * root)
       }
       break;
     case Binaryop:
-      expr_emit (root->astnode.expression.lhs);
+      /* handle special case for string concatenation in bytecode..   we
+       * must create a new StringBuffer which contains the LHS and append
+       * the RHS to the STringBuffer.
+       */
+      if(root->token == CAT)
+      {
+        ct = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                  STRINGBUFFER);
 
-      if(root->astnode.expression.lhs->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]);
+        bytecode1(jvm_new,ct->index);
+        bytecode0(jvm_dup);
+        expr_emit (root->astnode.expression.lhs);
+        if((root->astnode.expression.lhs->vartype != String) &&
+           (root->astnode.expression.lhs->vartype != Character) )
+        {
+          fprintf(stderr,"WARNING, string cat with non-string types unsupported\n");
+        }
+        ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
 
-      fprintf (curfp, "%c", root->astnode.expression.optype);
-      expr_emit (root->astnode.expression.rhs);
+        bytecode1(jvm_invokespecial, ct->index);
+        expr_emit (root->astnode.expression.rhs);
+        if((root->astnode.expression.rhs->vartype != String) &&
+           (root->astnode.expression.rhs->vartype != Character) )
+        {
+          fprintf(stderr,"WARNING, string cat with non-string types unsupported\n");
+        }
+        ct = newMethodref(cur_const_table,STRINGBUFFER, "append", 
+                          append_descriptor[String]);
+        bytecode1(jvm_invokevirtual, ct->index);
+        ct = newMethodref(cur_const_table,STRINGBUFFER, "toString", 
+                          TOSTRING_DESC);
+        bytecode1(jvm_invokevirtual, ct->index);
+      }
+      else {
+        expr_emit (root->astnode.expression.lhs);
 
-      if(root->astnode.expression.rhs->vartype > root->vartype)
-        bytecode0(
-          typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]);
+        if(root->astnode.expression.lhs->vartype > root->vartype)
+          bytecode0(
+            typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]);
 
-      switch(root->astnode.expression.optype) {
-        case '+':
-          bytecode0(add_opcode[root->vartype]);
-          break;
-        case '-':
-          bytecode0(sub_opcode[root->vartype]);
-          break;
-        case '/':
-          bytecode0(div_opcode[root->vartype]);
-          break;
-        case '*':
-          bytecode0(mul_opcode[root->vartype]);
-          break;
-        default:
-          fprintf(stderr,"WARNING: unsupported optype\n");
-          break;  /* for ANSI C compliance */
+        fprintf (curfp, "%c", root->astnode.expression.optype);
+        expr_emit (root->astnode.expression.rhs);
+
+        if(root->astnode.expression.rhs->vartype > root->vartype)
+          bytecode0(
+            typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]);
+
+        switch(root->astnode.expression.optype) {
+          case '+':
+            bytecode0(add_opcode[root->vartype]);
+            break;
+          case '-':
+            bytecode0(sub_opcode[root->vartype]);
+            break;
+          case '/':
+            bytecode0(div_opcode[root->vartype]);
+            break;
+          case '*':
+            bytecode0(mul_opcode[root->vartype]);
+            break;
+          default:
+            fprintf(stderr,"WARNING: unsupported optype\n");
+            break;  /* for ANSI C compliance */
+        }
       }
 
       break;

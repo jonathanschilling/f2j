@@ -34,7 +34,7 @@
  *****************************************************************************/
 
 int 
-  debug = TRUE,                  /* set to TRUE for debugging output        */
+  debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok;                        /* temporary token for an inline expr      */
@@ -1120,15 +1120,15 @@ End:    END  NL
  *
  * i inlined the call to init_tables() because when parsing the
  * argument list, if some arg matched a name previously defined as
- * a PARAMETER, then arg_table_load() would catch that and assume
- * that the Name represented a paramter and reinitialize the node
- * as if it were a constant.  kgs 7/26/00
+ * a PARAMETER in some other program unit, then arg_table_load()
+ * would catch that and assume that the Name represented a paramter
+ * and reinitialize the node as if it were a constant.  kgs 7/26/00
  */
 
 Functionargs:   OP {init_tables();} Namelist CP   
                 {
                   $3 = switchem($3);
-		  arg_table_load($3);
+                  arg_table_load($3);
                   $$ = $3;
                 }
               | OP CP
@@ -2320,6 +2320,7 @@ arith_expr: term
                 $$->astnode.expression.lhs = 0;
                 $$->astnode.expression.minus = '-';   
                 $$->nodetype = Unaryop;
+		  $$->vartype = $2->vartype;
               }
             }
           | PLUS term
@@ -2334,6 +2335,7 @@ arith_expr: term
                 $$->astnode.expression.lhs = 0;
                 $$->astnode.expression.minus = '+';
                 $$->nodetype = Unaryop;
+		  $$->vartype = $2->vartype;
               }
             }
           | arith_expr PLUS term
@@ -2346,6 +2348,7 @@ arith_expr: term
               $3->parent = $$;
               $$->astnode.expression.lhs = $1;
               $$->astnode.expression.rhs = $3;
+              $$->vartype = MIN($1->vartype, $3->vartype);
               $$->nodetype = Binaryop;
               $$->astnode.expression.optype = '+';
             }
@@ -2359,6 +2362,7 @@ arith_expr: term
               $3->parent = $$;
               $$->astnode.expression.lhs = $1;
               $$->astnode.expression.rhs = $3;
+              $$->vartype = MIN($1->vartype, $3->vartype);
               $$->nodetype = Binaryop;
               $$->astnode.expression.optype = '-';
             }
@@ -2378,12 +2382,14 @@ term: factor
         $3->parent = $$;
         $$->astnode.expression.lhs = $1;
         $$->astnode.expression.rhs = $3;
+	 $$->vartype = MIN($1->vartype, $3->vartype);
         $$->nodetype = Binaryop;
         $$->astnode.expression.optype = '/';
       }
     | term STAR factor
       {
         $$=addnode();
+
         $$->token = STAR;
         $1->expr_side = left;
         $3->expr_side = right;
@@ -2391,6 +2397,7 @@ term: factor
         $3->parent = $$;
         $$->astnode.expression.lhs = $1;
         $$->astnode.expression.rhs = $3;
+	 $$->vartype = MIN($1->vartype, $3->vartype);
         $$->nodetype = Binaryop;
         $$->astnode.expression.optype = '*';
       }
@@ -2405,9 +2412,10 @@ factor: char_expr
           $$=addnode();
           $1->parent = $$;
           $3->parent = $$;
-	  $$->nodetype = Power;
+ 	  $$->nodetype = Power;
 	  $$->astnode.expression.lhs = $1;
 	  $$->astnode.expression.rhs = $3;
+          $$->vartype = MIN($1->vartype, $3->vartype);
         }
 ;
 
@@ -2425,6 +2433,7 @@ char_expr: primary
              $3->parent = $$;
              $$->astnode.expression.lhs = $1;
              $$->astnode.expression.rhs = $3;
+             $$->vartype = MIN($1->vartype, $3->vartype);
              $$->nodetype = Binaryop;
              $$->astnode.expression.optype = '+';
            }
@@ -2446,6 +2455,7 @@ primary:     Name {$$=$1;}
                $$->astnode.expression.parens = TRUE;
                $$->astnode.expression.rhs = $2;
                $$->astnode.expression.lhs = 0;
+               $$->vartype = $2->vartype;
              }
 ;
 
@@ -3303,11 +3313,13 @@ eval_const_expr(AST *root)
         result1 = eval_const_expr (root->astnode.expression.lhs);
 
       result2 = eval_const_expr (root->astnode.expression.rhs);
-      root->token = root->astnode.expression.rhs->token;
-      root->nodetype = root->astnode.expression.rhs->nodetype;
-      root->vartype = root->astnode.expression.rhs->vartype;
-      strcpy(root->astnode.constant.number,
-          root->astnode.expression.rhs->astnode.constant.number);
+      /*
+       * root->token = root->astnode.expression.rhs->token;
+       * root->nodetype = root->astnode.expression.rhs->nodetype;
+       * root->vartype = root->astnode.expression.rhs->vartype;
+       * strcpy(root->astnode.constant.number,
+       *     root->astnode.expression.rhs->astnode.constant.number);
+	*/
       return (result2);
       break;
     case Power:
@@ -3343,8 +3355,12 @@ eval_const_expr(AST *root)
      */
       break;
     case Constant:
-      if(root->token == STRING)
-        fprintf (stderr, "String in array dec!\n");
+      if(root->token == STRING) {
+        if(!strcmp(root->astnode.ident.name,"*"))
+	   return 0;
+        else
+          fprintf (stderr, "String in array dec (%s)!\n", root->astnode.constant.number);
+      }
       else
         return( atof(root->astnode.constant.number) );
       break;

@@ -55,6 +55,7 @@ void
   insertEquivalences(AST *),
   type_insert(SYMTABLE *, AST *, enum returntype, char *),
   external_check(AST *),
+  typedec_check(AST *),
   intrinsic_check(AST *),
   array_check(AST *, HASHNODE *),
   subcall_check(AST *);
@@ -183,6 +184,11 @@ typecheck (AST * root)
         typecheck(root->nextstmt);
       break;
     case Typedec:
+      typedec_check(root);
+      
+      if (root->nextstmt != NULL)
+        typecheck (root->nextstmt);
+      break;
     case Specification:
     case Dimension:
     case Statement:
@@ -344,6 +350,28 @@ typecheck (AST * root)
       fprintf(stderr,"typecheck(): Error, bad nodetype (%s)\n",
          print_nodetype(root));
   }				/* switch on nodetype.  */
+}
+
+void
+typedec_check (AST * root)
+{
+  AST *temp, *temp2;
+
+  for(temp=root->astnode.typeunit.declist; temp != NULL; temp = temp->nextstmt)
+  {
+    if(temp->astnode.ident.arraylist != NULL) {
+
+      temp2 = temp->astnode.ident.arraylist;
+      for( ;temp2!=NULL;temp2=temp2->nextstmt) {
+        if(temp2->nodetype == ArrayIdxRange) {
+          expr_check(temp2->astnode.expression.lhs);
+          expr_check(temp2->astnode.expression.rhs);
+        }
+        else
+          expr_check(temp2);
+      }
+    }
+  }
 }
 
 /*****************************************************************************
@@ -798,8 +826,16 @@ name_check (AST * root)
         }
         else
         {
-          fprintf(stderr,"Undeclared variable: %s\n",root->astnode.ident.name);
-          root->vartype = 0;
+          /* this is a hack for typechecking expressions within
+           * an array declaration - just set type of * to Integer.
+           */
+          if(!strcmp(root->astnode.ident.name,"*")) {
+            root->vartype = Integer;
+          }
+          else {
+            fprintf(stderr,"Undeclared variable: %s\n",root->astnode.ident.name);
+            root->vartype = 0;
+          }
         }
 
         if (root->astnode.ident.arraylist == NULL)

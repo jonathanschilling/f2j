@@ -5969,8 +5969,8 @@ expr_emit (AST * root)
          ((root->astnode.expression.rhs->vartype == String) ||
           (root->astnode.expression.rhs->vartype == Character)))
       {
-        CPNODE *c, *s;
-        BOOLEAN lhs_substring, rhs_substring;
+        CPNODE *c;
+        int len;
 
         if((root->token != rel_eq) && (root->token != rel_ne)) {
           fprintf(stderr,"WARNING: didn't expect this relop on a STring type!\n");
@@ -5980,69 +5980,59 @@ expr_emit (AST * root)
         cur_vt = root->astnode.expression.lhs->vartype;
 
         c = newMethodref(cur_const_table,JL_STRING,
-               "trim", TRIM_DESC);
+               "regionMatches", REGIONMATCHES_DESC);
 
         if(root->token == rel_ne)
           fprintf(curfp,"!");
 
         expr_emit (root->astnode.expression.lhs);
-        bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
+
+        bytecode0(jvm_iconst_0);
+        fprintf(curfp,".regionMatches(0, ");
+
+        expr_emit (root->astnode.expression.rhs);
+        bytecode0(jvm_iconst_0);
+
+        len = 1;
       
-        lhs_substring = FALSE;
-        rhs_substring = FALSE;
-
-        if(root->astnode.expression.lhs->nodetype == Identifier) {
+        if(root->astnode.expression.lhs->nodetype == Constant) {
+          len = strlen(root->astnode.expression.lhs->astnode.constant.number);
+        }
+        else if(root->astnode.expression.lhs->nodetype == Identifier) {
           HASHNODE *h;
-
+ 
           h = type_lookup(cur_type_table, 
                 root->astnode.expression.lhs->astnode.ident.name);
 
-          if(h && (h->variable->astnode.ident.len == 1))
-            lhs_substring = TRUE;
+          if(h)
+            len = h->variable->astnode.ident.len;
         }
 
-        if(root->astnode.expression.rhs->nodetype == Identifier) {
-          HASHNODE *h;
+        if(root->astnode.expression.rhs->nodetype == Constant) {
+          int rlen;
 
+          rlen = strlen(root->astnode.expression.rhs->astnode.constant.number);
+
+          if(rlen < len)
+            len = rlen;
+        }
+        else if(root->astnode.expression.rhs->nodetype == Identifier) {
+          HASHNODE *h;
+ 
           h = type_lookup(cur_type_table, 
                 root->astnode.expression.rhs->astnode.ident.name);
 
-          if(h && (h->variable->astnode.ident.len == 1))
-            rhs_substring = TRUE;
+          if(h)
+            if( h->variable->astnode.ident.len < len)
+              len = h->variable->astnode.ident.len;
         }
-         
-        if(lhs_substring) {
-          s = newMethodref(cur_const_table,JL_STRING,
-               "substring", SUBSTR_DESC);
+        
+        /* bytecode0(jvm_iconst_1); */
+        pushIntConst(len);
 
-          bytecode0(jvm_iconst_0);
-          bytecode0(jvm_iconst_1);
-          bytecode1(jvm_invokevirtual, s->index);  /* call substring(0,1) */
+        fprintf(curfp,", 0, %d) ",len);
 
-          fprintf(curfp,".trim().substring(0,1).equalsIgnoreCase(");
-        }
-        else
-          fprintf(curfp,".trim().equalsIgnoreCase(");
-
-        expr_emit (root->astnode.expression.rhs);
-        bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
-
-        if(rhs_substring) {
-          s = newMethodref(cur_const_table,JL_STRING,
-               "substring", SUBSTR_DESC);
-
-          bytecode0(jvm_iconst_0);
-          bytecode0(jvm_iconst_1);
-          bytecode1(jvm_invokevirtual, s->index);  /* call substring(0,1) */
-
-          fprintf(curfp,".trim().substring(0,1))");
-        }
-        else
-          fprintf(curfp,".trim())");
-
-        c = newMethodref(cur_const_table,JL_STRING,
-               "equalsIgnoreCase", STREQV_DESC);
-        bytecode1(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+        bytecode1(jvm_invokevirtual, c->index);  /* call regionMatches() */
 
         /* now check the op type & reverse if .NE. */
         if(root->token == rel_ne) {

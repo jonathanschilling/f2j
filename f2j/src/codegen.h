@@ -61,6 +61,7 @@
 #define OUT_DESC "Ljava/io/PrintStream;"
 #define STRINGBUFFER "java/lang/StringBuffer"
 #define STRBUF_DESC "(Ljava/lang/String;)V"
+#define REGIONMATCHES_DESC "(ILjava/lang/String;II)Z"
 #define TOSTRING_DESC "()Ljava/lang/String;"
 #define CHARAT_DESC "(I)C"
 #define COMPARE_DESC "(Ljava/lang/String;)I"

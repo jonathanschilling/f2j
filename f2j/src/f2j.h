@@ -246,10 +246,19 @@ KWDTAB;
 /* Java intrinsic methods.. */
 typedef struct method_tab
   {
-      char fortran_name[30];
-      char java_method[150];  /*  Some of the jasmin names are long. */
+      char *fortran_name;
+      char *java_method;  /*  Some of the jasmin names are long. */
   }
 METHODTAB;
+
+/* 
+typedef struct method_tab
+  {
+      char fortran_name[30];
+      char java_method[150];
+  }
+METHODTAB;
+*/
 
 /* relops */
 enum relops

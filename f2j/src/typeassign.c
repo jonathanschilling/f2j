@@ -8,7 +8,7 @@
 
 int labelnumber = 1;
 
-/* char * strdup(char*);  */
+char * strdup(const char *);
 
 AST *returnname;
 int typedebug = 0;

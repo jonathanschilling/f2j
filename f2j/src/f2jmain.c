@@ -27,6 +27,7 @@ main (int argc, char **argv)
     char jasminname[130];
     char vcgname[130];
 
+    char *strdup(const char *);
     /* yydebug = DEBUGGEM; */
 
     /* 

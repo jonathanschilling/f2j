@@ -19,6 +19,8 @@
 #define ONED 1
 #define TWOD 0
 
+char *strdup(const char *);
+
 char *progname;
 char *returnname;
 int gendebug = 0;

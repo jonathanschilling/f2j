@@ -590,17 +590,22 @@ methodscan (METHODTAB * tab, char * name)
 	`NULL' last entry in the table shuts down the for()
 	loop.  */
 /*  for (temptab;temptab->fortran_name  != NULL;temptab++)  */
-while (tab->fortran_name != NULL)
-    { 
-if (*tab->fortran_name == NULL) return 0;
-      if (!strcmp (tab->fortran_name,name))
-	{
-	  if(lexdebug)printf("java_name: %s\n", tab->java_method); 
-	  return tab->java_method; 
-        }
-tab++;
-    }                           /* Close for() loop.   */
-printf("Segfault after here\n");
+
+  while (tab->fortran_name != NULL) { 
+    /* if (*tab->fortran_name == NULL) return 0; */
+    if (tab->fortran_name == NULL) return 0;
+
+    if (!strcmp (tab->fortran_name,name)) {
+      if(lexdebug)printf("java_name: %s\n", tab->java_method); 
+      printf("java_name: %s\n", tab->java_method); 
+
+      return tab->java_method; 
+    }
+    tab++;
+  }                           /* Close for() loop.   */
+
+  printf("Segfault after here\n");
+
   return 0;                     /* Not in table.       */
 }				/* Close methodscan(). */
 

@@ -13,6 +13,7 @@ extern BOOLEAN typedecs;
 
 /* Some of these are probably not necessary.  Need to
    run gcc with -Wall to filter unused variables. */
+char *strdup(const char *);
 void yyerror(char *);
 AST * addnode();
 AST * switchem();
@@ -81,7 +82,6 @@ in alphabetic order. */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
 %type <ptnode> Arrayindexlist Arrayindex Arrayindexop
-%type <ptnode> /* Arithmeticop */  Assignment 
 %type <ptnode> Binaryop Blockif Boolean
 %type <ptnode> Call Char Complex Constant  Constantlist Continue
 %type <ptnode> Data Do_incr Doloop 

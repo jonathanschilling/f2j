@@ -10,6 +10,8 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+char *strdup(const char *);
+
 char *progname;
 char *returnname;
 char temp_buf[200];
@@ -18,12 +20,11 @@ void emit_vcg(AST *,int);
 void vcg_elseif_emit(AST *,int);
 void vcg_else_emit(AST *,int);
 
-/*  Global variables, a necessary evil when working with
-   yacc. */
-
 extern char *returnstring[];
 
 int node_num = 1;
+
+int vcg_debug = 0;
 
 void start_vcg(AST *root)
 {
@@ -55,7 +56,8 @@ void start_vcg(AST *root)
   
 void print_vcg_node(int num, char *label)
 {
-  printf("creating node \"%s\"\n",label);
+  if(vcg_debug)
+    printf("creating node \"%s\"\n",label);
 
   fprintf(vcgfp,
     "node: {color: black textcolor: white title:\"%d\"\n",num);
@@ -71,7 +73,8 @@ void print_vcg_node(int num, char *label)
 
 void print_vcg_typenode(int num, char *label)
 {
-  printf("creating typenode \"%s\"\n",label);
+  if(vcg_debug)
+    printf("creating typenode \"%s\"\n",label);
 
   fprintf(vcgfp, "node: { title: \"%d\"\n",num);
   fprintf(vcgfp, " label: \"%s\"\n",label);
@@ -102,27 +105,39 @@ emit_vcg (AST * root, int parent)
     switch (root->nodetype)
       {
       case 0:
-	  printf ("Bad node\n");
+	  fprintf(stderr,"Bad node in emit_vcg()\n");
 	  emit_vcg (root->nextstmt,node_num);
       case Source:
-printf("case Source\n");
+          if(vcg_debug)
+            printf("case Source\n");
           print_vcg_node(node_num,"Source");
-printf("case Source: Going to emit PROGTYPE\n");
+
+          if(vcg_debug)
+            printf("case Source: Going to emit PROGTYPE\n");
 	  emit_vcg (root->astnode.source.progtype, my_node);
-printf("case Source: Going to emit TYPEDECS\n");
+
+          if(vcg_debug)
+            printf("case Source: Going to emit TYPEDECS\n");
 	  emit_vcg (root->astnode.source.typedecs, my_node);
-printf("case Source: Going to emit STATEMENTS\n");
+
+          if(vcg_debug)
+            printf("case Source: Going to emit STATEMENTS\n");
 	  emit_vcg (root->astnode.source.statements, my_node);
+
 	  break;
       case Subroutine:
-printf("case Subroutine\n");
+          if(vcg_debug)
+            printf("case Subroutine\n");
+
           print_vcg_node(node_num,"Subroutine");
           print_vcg_edge(parent, my_node);
 
 	  returnname = NULL;	/* Subroutines return void. */
 	  break;
       case Function:
-printf("case Function\n");
+          if(vcg_debug)
+            printf("case Function\n");
+
 	  sprintf (temp_buf,"Function: %s\n", 
              root->astnode.source.name->astnode.ident.name);
           print_vcg_node(node_num,temp_buf);
@@ -130,19 +145,25 @@ printf("case Function\n");
 	  returnname = root->astnode.source.name->astnode.ident.name;
 	  break;
       case Typedec:
-printf("case Typedec\n");
+          if(vcg_debug)
+            printf("case Typedec\n");
+
 	  vcg_typedec_emit (root, parent);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit_vcg (root->nextstmt, my_node);
 	  break;
       case Specification:
-printf("case Specification\n");
+          if(vcg_debug)
+            printf("case Specification\n");
+
 	  vcg_spec_emit (root, parent);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit_vcg (root->nextstmt, my_node);
 	  break;
       case Statement:
-printf("case Statement\n");
+          if(vcg_debug)
+            printf("case Statement\n");
+
           print_vcg_node(node_num,"Statement");
           print_vcg_edge(parent, my_node);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
@@ -259,7 +280,9 @@ vcg_typedec_emit (AST * root, int parent)
   int name_nodenum = 0;
   int prev_node = 0;
 
-printf("in vcg_typedec_emit\n");
+  if(vcg_debug)
+    printf("in vcg_typedec_emit\n");
+
   temp = root->astnode.typeunit.declist;
 
   /* This may have to be moved into the looop also.  Could be
@@ -268,7 +291,10 @@ printf("in vcg_typedec_emit\n");
   hashtemp = type_lookup (external_table, temp->astnode.ident.name);
 
   if (hashtemp) {
-    printf("returning from vcg_typedec_emit, found something in hash table\n");
+    if(vcg_debug) {
+      printf("returning from vcg_typedec_emit,");
+      printf(" found something in hash table\n");
+    }
     print_vcg_node(node_num,"External");
     print_vcg_edge(parent, my_node);
     return 1;
@@ -283,12 +309,14 @@ printf("in vcg_typedec_emit\n");
   prev_node = my_node;
 
   for (temp; temp != NULL; temp = temp->nextstmt) {
-printf("in the loop\n");
+    if(vcg_debug)
+      printf("in the loop\n");
     name_nodenum = vcg_name_emit (temp, parent);
     print_vcg_nearedge(prev_node,name_nodenum);
     prev_node = name_nodenum;
   }
-printf("leaving vcg_typdec_emit\n");
+  if(vcg_debug)
+    printf("leaving vcg_typdec_emit\n");
 }
 
 int
@@ -302,7 +330,8 @@ vcg_name_emit (AST * root, int parent)
   int my_node = node_num;
   int temp_num;
 
-  printf("in vcg_name_emit\n");
+  if(vcg_debug)
+    printf("in vcg_name_emit\n");
 
   sprintf(temp_buf,"Name (%s)",root->astnode.ident.name);
   print_vcg_node(my_node,temp_buf);
@@ -343,7 +372,9 @@ vcg_name_emit (AST * root, int parent)
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
-  printf ("Tempname  %s\n", tempname);
+
+  if(vcg_debug)
+    printf ("Tempname  %s\n", tempname);
 
   javaname = (char *) methodscan (intrinsic_toks, tempname);
 	  
@@ -407,7 +438,9 @@ vcg_name_emit (AST * root, int parent)
         /* fprintf (javafp, "%s", root->astnode.ident.name); */
       }
       else if (hashtemp != NULL) {
-        printf ("Array... %s\n", root->astnode.ident.name);
+        if(vcg_debug)
+          printf ("Array... %s\n", root->astnode.ident.name);
+
         temp = root->astnode.ident.arraylist;
 
         /* Now, what needs to happen here is the context of the
@@ -661,7 +694,9 @@ vcg_spec_emit (AST * root, int parent)
     int my_node = node_num;
     int temp_num;
 
-printf("in vcg_spec_emit, my_node = %d, parent = %d\n",my_node,parent);
+    if(vcg_debug)
+      printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
+        my_node,parent);
 
     print_vcg_node(node_num,"Specification");
     print_vcg_edge(parent, my_node);

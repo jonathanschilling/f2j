@@ -131,7 +131,7 @@ METHODTAB intrinsic_toks[]=
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
   {"DSQRT", "Math.sqrt"},
-  { NULL , NULL}     /* Ends a scanning loop.  See comment above. */
+  {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
 
@@ -142,7 +142,7 @@ METHODTAB java_toks[]=
   {"ABS", "Math.abs"},
   {"DABS", "Math.abs"},
   {"SQRT", "Math.sqrt"},
-  { NULL , NULL}     /* Ends a scanning loop.  See comment above. */
+  { NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
 /* There are some long strings associated with these, so 

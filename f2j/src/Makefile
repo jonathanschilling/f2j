@@ -18,10 +18,10 @@ f2jmain.o:  f2jmain.c f2j.h f2jparse.y
 	$(CC) -c $(CFLAGS) f2jmain.c
 
 f2jlex: f2jlex.o f2j.h
-	$(CC) $(FLAGS) -o f2jlex f2jlex.o
+	$(CC) $(CFLAGS) -o f2jlex f2jlex.o
 
 f2jlex.o: f2jlex.c
-	$(CC) -c $(FLAGS) f2jlex.c
+	$(CC) -c $(CFLAGS) f2jlex.c
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 	$(CC) -c $(CFLAGS) f2jparse.tab.c

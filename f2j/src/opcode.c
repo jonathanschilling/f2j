@@ -342,6 +342,9 @@ jas_expr_emit (AST * root)
 	      fprintf (jasminfp, Mindent1 "%s Label%d\n",
 		       root->astnode.expression.opcode,
 		       root->astnode.expression.label);
+          break;
+      default:
+          fprintf(stderr,"Unknown node type in jas_expr_emit()\n");
       }
 }
 

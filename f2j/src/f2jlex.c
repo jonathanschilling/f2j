@@ -44,7 +44,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -89,7 +89,7 @@ char
 int
   name_scan (BUFFER *),
   keyscan (register KWDTAB *, BUFFER *),
-  number_scan (BUFFER *, int),
+  number_scan (BUFFER *, int, int),
   string_or_char_scan (BUFFER *);
 
 void
@@ -297,7 +297,7 @@ yylex ()
 
       /*  Scan for a labeled (numbered) statement. */
       if (isdigit ((int) *buffer.stmt))
-        token = number_scan (&buffer,format_stmt);
+        token = number_scan (&buffer,format_stmt, tokennumber);
 
       if (token)
       {
@@ -577,7 +577,7 @@ yylex ()
   }
 
   if(isdigit ((int) *buffer.stmt) || *buffer.stmt == '.') {
-    token = number_scan (&buffer,format_stmt);
+    token = number_scan (&buffer,format_stmt, tokennumber);
   }
 
   if (token)
@@ -623,7 +623,7 @@ yylex ()
     return token;
 
   if (isdigit (*buffer.stmt))
-    token = number_scan (&buffer,format_stmt);
+    token = number_scan (&buffer,format_stmt, tokennumber);
   if (token)
     return token;
 
@@ -1143,7 +1143,7 @@ name_scan (BUFFER * bufstruct)
  *****************************************************************************/
 
 int
-number_scan (BUFFER * bufstruct, int fmt)
+number_scan (BUFFER * bufstruct, int fmt, int toknum)
 {
   char *ncp, *tcp;
   BUFFER tempbuf;
@@ -1159,7 +1159,7 @@ number_scan (BUFFER * bufstruct, int fmt)
     printf("   buf.text = '%s'\n",bufstruct->text);
   }
 
-  if(fmt) {
+  if(fmt || (toknum == 0)) {
     while(isdigit ((int) *ncp)) {
       ncp++;
       tokenlength++;

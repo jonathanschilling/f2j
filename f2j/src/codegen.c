@@ -9278,7 +9278,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 void
 emit_adapters()
 {
-  char *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc;
+  char *tempname, *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc;
   struct method_info *adapter_method;
   HASHNODE *hashtemp;
   METHODREF *mref;
@@ -9298,8 +9298,43 @@ emit_adapters()
 
     hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
-    if(hashtemp)
-      adapter_emit_from_table(cval,hashtemp);
+    if(hashtemp) {
+      mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
+
+      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.args,
+         cval->astnode.ident.arraylist);
+
+      if(hashtemp->variable->nodetype == Function)
+        ret_desc = field_descriptor[hashtemp->variable->astnode.source.returns][0];
+      else
+        ret_desc = "V";
+
+      cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
+        strlen(ret_desc) + 10);
+
+      strcpy(cur_desc,"(");
+      strcat(cur_desc,tmpdesc);
+      strcat(cur_desc,")");
+      strcat(cur_desc,ret_desc);
+
+      tempname = strdup( cval->astnode.ident.name );
+      *tempname = toupper(*tempname);
+
+      mref->classname = get_full_classname(tempname);
+      mref->methodname = strdup(hashtemp->variable->astnode.source.name->astnode.ident.name);
+      /*mref->descriptor = get_desc_from_arglist(hashtemp->variable->astnode.ident.arraylist); */
+      tmpdesc = get_desc_from_arglist(hashtemp->variable->astnode.source.args);
+      mref->descriptor = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
+        strlen(ret_desc) + 10);
+
+      strcpy(mref->descriptor,"(");
+      strcat(mref->descriptor,tmpdesc);
+      strcat(mref->descriptor,")");
+      strcat(mref->descriptor,ret_desc);
+ 
+      /* adapter_emit_from_table(cval,hashtemp); */
+      adapter_emit_from_descriptor(mref, cval);
+    }
     else {
       printf("looking up descriptor for %s\n",cval->astnode.ident.name);
 
@@ -9313,7 +9348,7 @@ emit_adapters()
         if(ret[0] == 'V')
           ret_desc = "V";
         else
-          ret_desc = returnstring[get_type_from_field_desc(ret)];
+          ret_desc = field_descriptor[get_type_from_field_desc(ret)][0];
 
         tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist);
 
@@ -9435,7 +9470,8 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
     arg->astnode.ident.localvnum = lvnum;
 
     if(dptr == NULL) {
-      fprintf(stderr,"Error: mismatch between adapter call and prototype\n");
+      fprintf(stderr,"adapter_args_emit_from_descriptor():");
+      fprintf(stderr,"mismatch between adapter call and prototype\n");
       break;
     }
 
@@ -9706,11 +9742,11 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
     {
       if(omitWrappers) {
         if(dptr[0] == 'L')
-          adapter_assign_emit(arg->astnode.ident.localvnum, lv_temp++, dptr);
+          adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
       else
       {
-        adapter_assign_emit(arg->astnode.ident.localvnum, lv_temp++, dptr);
+        adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
     }
 
@@ -9727,7 +9763,7 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
  *****************************************************************************/
 
 void
-adapter_assign_emit(int i, int lv, char *dptr)
+adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
 {
   enum returntype vt;
   CPNODE *c;
@@ -9736,8 +9772,8 @@ adapter_assign_emit(int i, int lv, char *dptr)
 
   vt = get_type_from_field_desc(dptr);
 
-  gen_load_op(i, Object);
-  gen_load_op(i+1, Integer);
+  gen_load_op(argvnum, Object);
+  gen_load_op(argvnum+1, Integer);
 
   gen_load_op(lv, Object);
   c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
@@ -9826,7 +9862,8 @@ adapter_args_emit_from_table(AST *temp, AST *arg)
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
     if(temp == NULL) {
-      fprintf(stderr,"Error: mismatch between adapter call and prototype\n");
+      fprintf(stderr,"adapter_args_emit_from_table():");
+      fprintf(stderr,"mismatch between adapter call and prototype\n");
       break;
     }
 
@@ -9939,7 +9976,9 @@ adapter_temps_emit_from_table(AST *temp, AST *arg)
 void
 adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
 {
-  char *tempname;
+  char *tempname, *adapter_classname, *adapter_methodname,
+    *adapter_descriptor;
+  CPNODE *c;
   AST *temp, *arg;
   int i;
 
@@ -9967,26 +10006,7 @@ adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
       break;
 
     lv_temp = adapter_methcall_arg_emit(arg, i, lv_temp, 
-                  get_field_desc_from_ident(arg));
-
-/*
- *  if((arg->nodetype == Identifier) && 
- *     (arg->astnode.ident.arraylist != NULL) &&
- *     (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
- *     (temp->astnode.ident.arraylist == NULL))
- *  {
- *    if(omitWrappers && !temp->astnode.ident.passByRef)
- *      fprintf(curfp,"arg%d",i);
- *    else
- *      fprintf(curfp,"_f2j_tmp%d",i);
- *  }
- *  else if((arg->nodetype == Identifier) &&
- *          (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
- *          (temp->astnode.ident.arraylist != NULL))
- *     fprintf(curfp,"arg%d, arg%d_offset",i,i);
- *  else
- *     fprintf(curfp,"arg%d",i);
- */
+                  get_field_desc_from_ident(temp));
 
     if(temp != NULL)
       temp = temp->nextstmt;
@@ -9994,6 +10014,15 @@ adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
   }
+
+  adapter_classname = get_full_classname(tempname);
+  adapter_methodname = strdup(node->astnode.ident.name);
+  adapter_descriptor = get_desc_from_arglist(node->astnode.ident.arraylist);
+
+  c = newMethodref(cur_const_table, adapter_classname, adapter_methodname,
+    adapter_descriptor);
+ 
+  bytecode1(jvm_invokestatic, c->index);
 
   fprintf(curfp,");\n\n");
 }
@@ -10008,7 +10037,7 @@ adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
  *****************************************************************************/
 
 void
-adapter_assign_emit_from_table(AST *temp, AST *arg)
+adapter_assign_emit_from_table(AST *temp, int lv_temp, AST *arg)
 {
   int i;
 
@@ -10023,12 +10052,15 @@ adapter_assign_emit_from_table(AST *temp, AST *arg)
        (temp->astnode.ident.arraylist == NULL))
     {
       if(omitWrappers) {
-        if(temp->astnode.ident.passByRef)
-          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+        if(temp->astnode.ident.passByRef) {
+          adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++,
+            get_field_desc_from_ident(temp));
+        }
       }
       else
       {
-        fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+        adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++,
+          get_field_desc_from_ident(temp));
       }
     }
 
@@ -11201,12 +11233,12 @@ calcStack(char *d)
    */
 
   if(len < 3) {
-    fprintf(stderr,"WARNING: invalid descriptor.\n");
+    fprintf(stderr,"WARNING: invalid descriptor '%s' (len < 3).\n", d);
     return tmp;
   }
 
   if(d[0] != '(') {
-    fprintf(stderr,"WARNING: invalid descriptor.\n");
+    fprintf(stderr,"WARNING: invalid descriptor '%s' (bad 1st char).\n", d);
     return tmp;
   }
 
@@ -11677,6 +11709,8 @@ get_type_from_field_desc(char * fd)
       return Logical;
     case 'V':
       return Object; /* no void in the array, so use object instead */ 
+    case '[':
+      return get_type_from_field_desc(fd+1);
     case 'L':
       wrap = get_wrapper_from_desc(fd);
 
@@ -11692,11 +11726,9 @@ get_type_from_field_desc(char * fd)
         return Float;
       else if(!strcmp(wrap, "booleanW"))
         return Logical;
-      
-      /* if we hit none of the above, drop to default below.. */
+      /* else drop to default case.  break intentionally missing. */
     default:
-      /* could be an array or reference type.  */
-      fprintf(stderr,"get_type_from_field_desc() hit default case (%s)!!\n",
+      fprintf(stderr,"get_type_from_field_desc() hit default case '%s'!!\n",
         fd);
       return Integer;
   }
@@ -11756,4 +11788,64 @@ get_field_desc_from_ident(AST *node)
     fdesc = wrapped_field_descriptor[node->vartype][node->astnode.ident.dim];
 
   return fdesc;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_adapter_desc                                                          *
+ *                                                                           *
+ * given a pointer to the function arg list, this function returns the       *
+ * corresponding descriptor.                                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_adapter_desc(AST *temp, AST *arg)
+{
+  struct _str * temp_desc = NULL;
+  int i;
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(temp == NULL) {
+      fprintf(stderr,"get_adapter_desc():");
+      fprintf(stderr,"mismatch between adapter call and prototype\n");
+      break;
+    }
+
+    if(temp->astnode.ident.arraylist) {
+      temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][1]);
+      temp_desc = strAppend(temp_desc, "I");
+    }
+    else if ( (arg->nodetype == Identifier) && 
+              (arg->astnode.ident.arraylist != NULL) &&
+              type_lookup(cur_array_table,arg->astnode.ident.name) )
+    {
+      if(omitWrappers && !temp->astnode.ident.passByRef) {
+        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][0]);
+      }
+      else {
+        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][1]);
+        temp_desc = strAppend(temp_desc, "I");
+      }
+    }
+    else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
+    {
+      temp_desc = strAppend(temp_desc, field_descriptor[Object][0]);
+    }
+    else
+    {
+      if(omitWrappers && !temp->astnode.ident.passByRef) {
+        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][0]);
+      }
+      else {
+        temp_desc = strAppend(temp_desc, wrapped_field_descriptor[temp->vartype][0]);
+      }
+    }
+
+    if(temp != NULL)
+      temp = temp->nextstmt;
+  }
+
+  return temp_desc->val;
 }

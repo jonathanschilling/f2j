@@ -131,7 +131,8 @@ char
   * get_return_type_from_descriptor(char *),
   * get_wrapper_from_desc(char *),
   * get_field_desc_from_ident(AST *),
-  * get_desc_from_arglist(AST *);
+  * get_desc_from_arglist(AST *),
+  * get_adapter_desc(AST *, AST *);
 
 METHODTAB
   * methodscan (METHODTAB * , char * );
@@ -234,7 +235,7 @@ void
   adapter_args_emit_from_table(AST *, AST *),
   adapter_temps_emit_from_table(AST *, AST *),
   adapter_methcall_emit_from_table(AST *, int, AST *),
-  adapter_assign_emit_from_table(AST *, AST *),
+  adapter_assign_emit_from_table(AST *, int, AST *),
   adapter_emit_from_table(AST *, HASHNODE *),
   adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
@@ -242,7 +243,7 @@ void
   adapter_methcall_emit_from_descriptor(AST *, int, METHODREF *, char *),
   adapter_assign_emit_from_descriptor(AST *, int, char *),
   adapter_tmp_assign_emit(int, enum returntype),
-  adapter_assign_emit(int, int, char *),
+  adapter_assign_emit(int, int, int, char *),
   inc_stack(int);
 
 int

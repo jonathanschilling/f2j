@@ -38,6 +38,8 @@ void code_zero_op(enum _opcode),
      code_one_op(enum _opcode, int),
      code_one_op_w(enum _opcode, int);
 
+int  isPassByRef(char *);
+
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
 /*****************************************************************************
@@ -147,8 +149,6 @@ emit (AST * root)
     struct ClassFile * newClassFile(AST *,char *);
 
     char * tok2str(int);
-
-    int isPassByRef(char *);
 
     switch (root->nodetype)
     {
@@ -1062,7 +1062,6 @@ vardec_emit(AST *root, enum returntype returns)
   void name_emit (AST *);
   void expr_emit (AST *);
   void print_string_initializer(AST *);
-  int isPassByRef(char *);
 
   prefix = "static ";
 
@@ -1238,7 +1237,6 @@ void
 print_string_initializer(AST *root)
 {
   HASHNODE *ht;
-  int isPassByRef(char *);
 
   ht = type_lookup(cur_type_table,root->astnode.ident.name);
   if(ht == NULL)
@@ -1476,7 +1474,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 
   AST * data_array_emit(int , AST *, AST *, int );
   void data_scalar_emit(enum returntype, AST *, AST *, int);
-  int determine_var_length(HASHNODE *), isPassByRef(char *);
+  int determine_var_length(HASHNODE *);
 
   /* check to see whether we're going to be assigning to
    * an array element.  If so, the declaration for the array
@@ -1740,7 +1738,6 @@ void
 data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   void expr_emit (AST *);
-  int isPassByRef(char *);
 
   if(Ctemp->nodetype == Binaryop)
   {
@@ -1857,7 +1854,6 @@ name_emit (AST * root)
   void scalar_emit(AST *, HASHNODE *);
   void array_emit(AST *, HASHNODE *);
   void subcall_emit(AST *);
-  int isPassByRef(char *);
 
   if(gendebug)
     printf("entering name_emit\n");
@@ -1954,6 +1950,18 @@ subcall_emit(AST *root)
    */
   if(root->nodetype == Substring) {
     fprintf(curfp,"%s",root->astnode.ident.name);
+
+    if(omitWrappers) {
+      if(isPassByRef(root->astnode.ident.name))
+      fprintf(curfp,".val.substring((");
+    else
+      fprintf(curfp,".substring((");
+    }
+    else
+    {
+      fprintf(curfp,".val.substring((");
+    }
+
     return;
   }
 
@@ -2051,7 +2059,6 @@ void
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
   int is_ext)
 {
-  int isPassByRef(char *);
   void expr_emit (AST *);
   int needs_cast = FALSE;
 
@@ -3715,16 +3722,6 @@ expr_emit (AST * root)
         /* Substring operations are handled with java.lang.String.substring */
 
         name_emit(root);
-        if(omitWrappers) {
-          if(isPassByRef(root->astnode.ident.name))
-            fprintf(curfp,".val.substring((");
-          else
-            fprintf(curfp,".substring((");
-        }
-        else
-        {
-          fprintf(curfp,".val.substring((");
-        }
 
         expr_emit(root->astnode.ident.arraylist);
         fprintf(curfp,")-1,");
@@ -6084,7 +6081,6 @@ substring_assign_emit(AST *root)
   AST *lhs = root->astnode.assignment.lhs;
   AST *rhs = root->astnode.assignment.rhs;
   char *lname = lhs->astnode.ident.name;
-  int isPassByRef(char *);
 
   if(gendebug)
     printf("substring_assign_emit\n");

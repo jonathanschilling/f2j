@@ -1672,11 +1672,11 @@ typedec_emit (AST * root)
  *****************************************************************************/
 
 void
-newarray_emit(AST *root)
+newarray_emit(enum returntype vtype)
 {
   CPNODE *c;
 
-  switch(root->vartype) {
+  switch(vtype) {
     case String:
     case Character:
       c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
@@ -1687,7 +1687,7 @@ newarray_emit(AST *root)
     case Float:
     case Integer:
     case Logical:
-      bytecode1(jvm_newarray, jvm_array_type[root->vartype]);
+      bytecode1(jvm_newarray, jvm_array_type[vtype]);
       break;
     default:
       fprintf(stderr,"WARNING: newarray_emit() unknown vartype\n");
@@ -1833,7 +1833,7 @@ vardec_emit(AST *root, enum returntype returns)
      * different opcodes for creating these arrays.
      */
 
-    newarray_emit(root);
+    newarray_emit(root->vartype);
 
     c = newFieldref(cur_const_table,cur_filename, name, desc); 
     bytecode1(jvm_putstatic, c->index);
@@ -2368,7 +2368,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
     size = length;
   
   pushIntConst(size);
-  newarray_emit(ht->variable);
+  newarray_emit(ht->variable->vartype);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++) {
 
@@ -9456,13 +9456,21 @@ needs_adapter(AST *root)
           (dptr[0] != '[') && isPassByRef_desc(dptr))
              return 1;
     }
-    else
-    {
+    else {
       if((temp->nodetype == Identifier) && 
         type_lookup(cur_array_table, temp->astnode.ident.name) &&
         (dptr[0] != '['))
            return 1;
     }
+
+    /*
+     * otherwise...
+     * if the arg is NOT in the array table  AND
+     *    the function IS expecting an array
+     */
+    if( ! type_lookup(cur_array_table, temp->astnode.ident.name)  &&
+          dptr[0] != '[')
+      return 1;
 
     /* consume the offset arg if necessary */
     if(dptr[0] == '[')
@@ -10043,6 +10051,7 @@ BOOLEAN
 adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 {
   int this_arg_is_arrayacc, other_arg_is_arrayacc, i;
+  int this_arg_is_scalar, other_arg_is_scalar;
   AST *this_call, *other_call;
   BOOLEAN diff;
   char *dptr;
@@ -10078,9 +10087,16 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
           (other_call->astnode.ident.arraylist != NULL) &&
           type_lookup(cur_array_table, other_call->astnode.ident.name);
 
-    /* if( (dptr[0] != '[') && */
     if( (dptr[0] == 'L') &&
         (this_arg_is_arrayacc != other_arg_is_arrayacc ))
+    {
+      diff = TRUE;
+    }
+
+    this_arg_is_scalar = !type_lookup(cur_array_table, this_call->astnode.ident.name);
+    other_arg_is_scalar = !type_lookup(cur_array_table, other_call->astnode.ident.name);
+
+    if( (dptr[0] == '[') && (this_arg_is_scalar != other_arg_is_scalar ))
     {
       diff = TRUE;
     }
@@ -10327,9 +10343,20 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
 printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
 
     if(dptr[0] == '[') {
-      fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
-        returnstring[get_type_from_field_desc(dptr+1)], i, i);
-      lvnum += 2;
+      if(type_lookup(cur_array_table,arg->astnode.ident.name)) {
+        fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
+          returnstring[get_type_from_field_desc(dptr+1)], i, i);
+        lvnum += 2;
+      }
+      else {
+        fprintf(curfp,"%s arg%d ",
+          returnstring[get_type_from_field_desc(dptr+1)], i);
+
+        if(ctype == Double)
+          lvnum+=2;
+        else
+          lvnum++;
+      }
       
       /* consume the offset arg */
       dptr = skipToken(dptr);
@@ -10420,6 +10447,29 @@ adapter_tmp_assign_emit(int arglocal, enum returntype argtype)
 
 /*****************************************************************************
  *                                                                           *
+ * adapter_tmp_array_assign_emit                                             *
+ *                                                                           *
+ * this function generates the bytecode for the assignment to a temp         *
+ * variable in the adapter.   for example:                                   *
+ *          int [] _f2j_tmp3 = new int[1];                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_tmp_array_assign_emit(int arglocal, enum returntype argtype)
+{
+
+  bytecode0(jvm_iconst_1);
+  newarray_emit(argtype);
+  bytecode0(jvm_dup);
+  bytecode0(jvm_iconst_0);
+  gen_load_op(arglocal, argtype);
+  bytecode0(array_store_opcodes[argtype]);
+  gen_store_op(getNextLocal(Object), Object);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * adapter_temps_emit_from_descriptor                                        *
  *                                                                           *
  * this function generates the temporary variable declarations for an        *
@@ -10465,8 +10515,18 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
 
       f2jfree(wrapper, strlen(wrapper)+1);
     }
-    else if(dptr[0] == '[')
+    else if(dptr[0] == '[') {
+      if(! type_lookup(cur_array_table,arg->astnode.ident.name)) {
+        enum returntype ctype = get_type_from_field_desc(dptr);
+
+        fprintf(curfp,"%s _f2j_tmp%d = { arg%d };\n", returnstring[ctype], i, i);
+
+        adapter_tmp_array_assign_emit(arg->astnode.ident.localvnum,
+          ctype);
+      }
+
       dptr = skipToken(dptr);
+    }
 
     dptr = skipToken(dptr);
   }
@@ -10558,6 +10618,12 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
       fprintf(curfp,"_f2j_tmp%d",i);
       gen_load_op(lv++, Object);
     }
+  }
+  else if( ! type_lookup(cur_array_table,arg->astnode.ident.name) &&
+          (dptr[0] == '['))
+  {
+    fprintf(curfp,"_f2j_tmp%d",i);
+    gen_load_op(lv++, Object);
   }
   else if((arg->nodetype == Identifier) &&
           (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&

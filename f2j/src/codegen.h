@@ -188,7 +188,7 @@ void
   print_string_initializer(AST *),
   vardec_emit(AST *, enum returntype),
   emit_adapters(void),
-  newarray_emit(AST *),
+  newarray_emit(enum returntype),
   constructor (AST *),
   typedec_emit (AST *),
   data_emit(AST *),

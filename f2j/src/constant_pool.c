@@ -778,12 +778,31 @@ newMethodref(Dlist list, char *cname, char *mname, char *dname)
 {
   METHODREF *methodref;
 
+  methodref = newMethodNode(cname,mname,dname);
+
+  return cp_find_or_insert(list, CONSTANT_Methodref, methodref);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newMethodNode                                                             *
+ *                                                                           *
+ * this function creates a new method 'node' initialized with the given      *
+ * values for class name, method name, and descriptor.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+METHODREF *
+newMethodNode(char *cname, char *mname, char *dname)
+{
+  METHODREF *methodref;
+
   methodref = (METHODREF *)f2jalloc(sizeof(METHODREF));
   methodref->classname = cname;
   methodref->methodname = mname;
   methodref->descriptor = dname;
 
-  return cp_find_or_insert(list, CONSTANT_Methodref, methodref);
+  return methodref;
 }
 
 /*****************************************************************************

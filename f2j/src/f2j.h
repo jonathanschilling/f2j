@@ -20,6 +20,7 @@
 #include"symtab.h"
 #include"dlist.h"
 #include"class.h"
+#include"constant_pool.h"
 
 typedef int BOOLEAN;
 
@@ -52,6 +53,13 @@ typedef int BOOLEAN;
 #define NOT_VISITED 0
 #define VISITED     1
 #define FINISHED    2
+
+/*****************************************************************************
+ * F2J_PATH_VAR defines the environment variable used to specify the search  *
+ * path for .f2j method/descriptor files.                                    *
+ *****************************************************************************/
+
+#define F2J_PATH_VAR "F2J_SEARCH_PATH"
 
 /*****************************************************************************
  * bitfields representing the valid arguments to intrinsics.   the generic   *
@@ -128,7 +136,8 @@ SYMTABLE
   *global_common_table,    /* Global COMMON table                            */
   *generic_table;          /* table of the generic intrinsic functions       */
 
-Dlist constants_table;     /* constants (for bytecode constant pool gen.)    */
+Dlist constants_table,     /* constants (for bytecode constant pool gen.)    */
+  descriptor_table;        /* list of method descriptors from *.f2j files    */
 
 /* Enumeration of the different kinds of Specification statements */
 

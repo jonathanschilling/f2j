@@ -237,9 +237,9 @@ void   write_interfaces(struct ClassFile *, FILE *);
 void   write_fields(struct ClassFile *, FILE *); 
 void   write_methods(struct ClassFile *, FILE *); 
 void   write_attributes(Dlist, Dlist, FILE *);
-FILE * open_output_classfile(struct ClassFile *);
 void   write_u1(u1, FILE *);
 void   write_u2(u2, FILE *);
 void   write_u4(u4, FILE *);
- 
+FILE * open_output_classfile(struct ClassFile *);
+
 #endif

@@ -12,6 +12,9 @@
  *                                                                           *
  *****************************************************************************/
 
+#include<stdlib.h>
+#include<sys/types.h>
+#include<dirent.h>
 #include<stdio.h>
 #include<stdarg.h>
 #include<ctype.h>
@@ -20,6 +23,8 @@
 #include<signal.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
+#include"dlist.h"
+#include"constant_pool.h"
 
 extern char *java_reserved_words[];
 extern char *jasmin_reserved_words[];
@@ -37,6 +42,7 @@ int yyparse (void);
 extern int getopt(int, char *const *, const char *);
 void type_insert (SYMTABLE *, AST *, enum returntype, char *);
 void handle_segfault(int);
+void insert_entries(char *, Dlist);
 
 /*****************************************************************************
  * main                                                                      *
@@ -55,6 +61,7 @@ main (int argc, char **argv)
   char jasminname[130];
   char vcgname[130];
   char *tmpname, *indexname;
+  char *f2jpath;
 
   AST *temp;
   int errflg = 0;
@@ -215,6 +222,15 @@ will most likely not work for other code.\n";
 
   for(i=0;generic_intrinsics[i] != NULL; i++)
     type_insert(generic_table,temp,0,generic_intrinsics[i]);
+
+  f2jpath = getenv(F2J_PATH_VAR);
+
+  if(f2jpath == NULL) {
+    /* can't use strtok on constant strings, so create a new one here */
+    f2jpath = strdup(".");
+  }
+
+  descriptor_table = build_method_table(f2jpath);
 
   fprintf(stderr,"%s:\n",inputfilename);
   yyparse ();
@@ -479,4 +495,130 @@ alloc_error(size_t size)
      (int)size);
   perror("Reason:");
   exit(1);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * build_method_table                                                        *
+ *                                                                           *
+ * this function searches through all the .f2j files found in directories    *
+ * specified in the user's F2J_SEARCH_PATH environment variable and builds   *
+ * a list of the method descriptors.                                         *
+ *                                                                           *
+ *****************************************************************************/
+
+Dlist
+build_method_table(char *path)
+{
+  char *token;
+  struct dirent *dir_entry;
+  DIR *cur_dir;
+  int len;
+  int size = 5;
+  char * full_path;
+  Dlist paths, tmp, new_table;
+
+  new_table = make_dl();
+
+  full_path = (char *)malloc(size);
+
+  token = strtok(path, ":");
+
+  if(token == NULL)
+    return NULL;
+
+  paths = make_dl();
+
+  /* gotta build a list of tokens in the F2J_SEARCH_PATH
+   * because nested calls to strtok() don't work.
+   */
+  do {
+    dl_insert_b(paths, token);
+  } while( (token = strtok(NULL, ":")) != NULL);
+
+  dl_traverse(tmp, paths) {
+    token = (char *) tmp->val;
+
+    if((cur_dir = opendir(token)) == NULL)
+      continue;
+
+    while((dir_entry = readdir(cur_dir))) {
+      len = strlen(dir_entry->d_name);
+      if((len > 4) && !strncmp(dir_entry->d_name+(len-4), ".f2j", 4)) {
+
+        if((len + strlen(token) +2) > size) {
+          size = len + strlen(token) * 2;  /* double for good measure */
+          full_path = realloc(full_path, size);
+        }
+
+        strcpy(full_path, token);
+        if(full_path[strlen(full_path)-1] != '/')
+          strcat(full_path, "/");
+        strcat(full_path, dir_entry->d_name);
+        insert_entries(full_path, new_table);
+      }
+    }
+  }
+
+  return new_table;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * find_method                                                               *
+ *                                                                           *
+ * this function searches the given Dlist for a method reference matching    *
+ * the given method name.  the first matching entry is returned.             *
+ *                                                                           *
+ *****************************************************************************/
+
+METHODREF *
+find_method(char *meth, Dlist methtab)
+{
+  Dlist tmp;
+  METHODREF * entry;
+
+  dl_traverse(tmp, methtab) {
+    entry = (METHODREF *) tmp->val;
+
+    if( !strcmp(entry->methodname, meth) )
+      return entry;
+  }
+
+  return NULL;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * insert_entries                                                            *
+ *                                                                           *
+ * given the filename, insert all method/descriptor entries from that file   *
+ * into the specified Dlist.                                                 *
+ *                                                                           *
+ *****************************************************************************/
+#define BUFSZ 400
+
+void
+insert_entries(char *path, Dlist methtab)
+{
+  char * class, * method, * desc;
+  char buf[BUFSZ];
+  FILE *in;
+  
+  if((in = fopen(path, "r")) == NULL)
+    return;
+
+  while(fgets(buf, BUFSZ, in) != NULL) {
+    buf[strlen(buf)-1] = '\0';
+    class  = strtok(buf,":");
+    method = strtok(NULL,":");
+    desc   = strtok(NULL,":");
+
+    if(!class || !method || !desc)
+      continue;
+
+    dl_insert_b(methtab, newMethodNode(class,method,desc));
+  }
+
+  return;
 }

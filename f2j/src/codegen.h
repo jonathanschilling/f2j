@@ -286,4 +286,7 @@ METHODREF
 
 struct stack_info * calcStack(char *);
 
+METHODREF
+  * find_method(char *, Dlist);
+
 #endif

@@ -213,7 +213,7 @@ void
   invoke_constructor(char *, AST *, char *),
   set_bytecode_status(int),
   inline_format_emit(AST *, BOOLEAN),
-  endNewMethod(struct method_info *, char *, char *, unsigned int),
+  endNewMethod(struct method_info *, char *, char *, unsigned int, Dlist),
   releaseLocal(enum returntype),
   assign_emit (AST *),
   expr_emit(AST *),
@@ -226,6 +226,7 @@ void
   invocation_exception_handler_emit(ExceptionTableEntry *),
   data_scalar_emit(enum returntype, AST *, AST *, int),
   func_array_emit(AST *, HASHNODE *, char *, int, int),
+  methcall_obj_array_emit(AST *),
   inc_stack(int);
 
 int
@@ -239,6 +240,7 @@ int
   getStackDecrement(enum _opcode, u4),
   method_name_emit (AST *, BOOLEAN),
   data_repeat_emit(AST *, unsigned int),
+  methcall_arglist_emit(AST *),
   determine_var_length(HASHNODE *);
 
 double
@@ -251,7 +253,8 @@ struct ClassFile
   * newClassFile(char *,char *);
 
 struct attribute_info
-  * newCodeAttribute(void);
+  * newCodeAttribute(void),
+  * newExceptionsAttribute(Dlist);
 
 struct method_info 
   * beginNewMethod(unsigned int);

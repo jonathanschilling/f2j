@@ -187,7 +187,7 @@ struct Code_attribute {
 
 struct Exceptions_attribute {
   u2 number_of_exceptions;    /* number of entries in exception_index_table  */
-  u2 *exception_index_table;  /* table of exceptions a method can throw      */
+  Dlist exception_index_table;/* table of exceptions a method can throw      */
 };
 
 struct SourceFile_attribute {

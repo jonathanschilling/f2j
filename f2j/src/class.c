@@ -225,7 +225,7 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
 {
   struct attribute_info *tmpattr;
   char *attr_name;
-  Dlist tmpPtr;
+  Dlist tmpPtr, tmpPtr2;
   CPNODE *c;
 
 
@@ -264,6 +264,15 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       if(tmpattr->attr.Code->attributes_count > 0)
         write_attributes(tmpattr->attr.Code->attributes, const_pool, out);
     } 
+    else if(!strcmp(attr_name,"Exceptions")) {
+      int *idx;
+
+      write_u2(tmpattr->attr.Exceptions->number_of_exceptions, out);
+      dl_traverse(tmpPtr2, tmpattr->attr.Exceptions->exception_index_table) {
+        idx = (int *) tmpPtr2->val;
+        write_u2(*idx, out);
+      }
+    }
     else {
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
     }

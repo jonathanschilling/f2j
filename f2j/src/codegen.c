@@ -240,7 +240,7 @@ emit (AST * root)
            */
           if(pc > 0) {
             bytecode0(jvm_return);
-            endNewMethod(clinit_method, "<clinit>", "()V", 1);
+            endNewMethod(clinit_method, "<clinit>", "()V", 1, NULL);
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, clinit_method);
           }
@@ -310,15 +310,15 @@ emit (AST * root)
            */
 
           if(pc > 0) {
-            endNewMethod(main_method, methodname, method_desc, num_locals);
+            endNewMethod(main_method,methodname,method_desc,num_locals,NULL);
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, main_method);
           }
 
+          emit_invocations(root->astnode.source.progtype);
+
           /* following line is only temporary... */
           main_method = beginNewMethod(ACC_PUBLIC);
-
-          emit_invocations(root->astnode.source.progtype);
 
           emit_adapters();
 
@@ -1361,7 +1361,7 @@ common_emit(AST *root)
        */
       if(pc > 0) {
         bytecode0(jvm_return);
-        endNewMethod(clinit_method, "<clinit>", "()V", 1);
+        endNewMethod(clinit_method, "<clinit>", "()V", 1, NULL);
         cur_class_file->methods_count++;
         dl_insert_b(cur_class_file->methods, clinit_method);
       }
@@ -8063,6 +8063,7 @@ call_emit (AST * root)
 {
   BOOLEAN adapter = FALSE;
   METHODREF *mref;
+  CPNODE *c;
 
   assert (root != NULL);
 
@@ -8079,8 +8080,8 @@ call_emit (AST * root)
   if(gendebug)
     printf("@##@ call_emit, %s not already emitted\n",root->astnode.ident.name);
 
-  if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
-     (root->astnode.ident.arraylist == NULL))
+  if((root->astnode.ident.arraylist == NULL) ||
+     (root->astnode.ident.arraylist->nodetype == EmptyArgList))
   {
     /* the arg list is empty, just emit "()" and return */
 
@@ -8089,10 +8090,16 @@ call_emit (AST * root)
     printf("call_emit (type: %s), got class = '%s', name = '%s'\n", 
       returnstring[root->vartype], mref->classname, mref->methodname);
 
+    c = newMethodref(cur_const_table,mref->classname, mref->methodname,
+                     mref->descriptor);
+
+    bytecode1(jvm_invokestatic, c->index);
+
     if(root->nodetype == Call)
       fprintf (curfp, "();\n");
     else
       fprintf (curfp, "()");
+
     return;
   }
 
@@ -9452,95 +9459,163 @@ get_desc_from_arglist(AST *list)
 void
 emit_invocations(AST *root)
 {
-  HASHNODE *ht;
-  AST *temp, *arg;
-  Dlist p, tmplist;
-  int i, count = 0;
+  struct method_info *inv_method;
+  Dlist p, tmplist, exc_list;
+  int count = 0;
+  char *cur_name;
+  AST *temp;
+
+  exc_list = make_dl();
+  dl_insert_b(exc_list, "java/lang/reflect/InvocationTargetException");
+  dl_insert_b(exc_list, "java/lang/IllegalAccessException");
 
   dl_traverse(p,methcall_list) {
     tmplist = (Dlist) dl_val(p);
     
     temp = (AST *) dl_val(dl_first(tmplist));
 
-    fprintf(curfp,"// reflective method invocation for %s\n",temp->astnode.ident.name);
-    fprintf(curfp,"private static %s %s_methcall( java.lang.reflect.Method _funcptr", 
-       returnstring[temp->vartype], temp->astnode.ident.name);
+    inv_method = beginNewMethod(ACC_PRIVATE | ACC_STATIC);
 
-    count = 0;
+    /* allocate enough space for the name + "_methcall" and null-term */
 
-    for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
-      fprintf(curfp,",");
+    cur_name = (char *)f2jrealloc(cur_name,
+      strlen(temp->astnode.ident.name) + 10);
+    strcpy(cur_name, temp->astnode.ident.name);
 
-      if(omitWrappers) {
-        if( arg->nodetype == Identifier ) {
-          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-          if(ht)
-            fprintf(curfp," %s _arg%d ", returnstring[ht->variable->vartype], count);
-          else
-            fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
-        }
-        else if( arg->nodetype == Constant )
-          fprintf(curfp," %s _arg%d ", 
-            returnstring[get_type(arg->astnode.constant.number)], count);
-        else
-          fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
-      }
-      else
-      {
-        if( arg->nodetype == Identifier ) {
-          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-          if(ht)
-            fprintf(curfp," %s _arg%d ", wrapper_returns[ht->variable->vartype], count);
-          else
-            fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
-        }
-        else if( arg->nodetype == Constant )
-          fprintf(curfp," %s _arg%d ", 
-            wrapper_returns[get_type(arg->astnode.constant.number)], count);
-        else
-          fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
-      }
+    fprintf(curfp,"// reflective method invocation for %s\n",
+       temp->astnode.ident.name);
+    fprintf(curfp,"private static %s %s(",
+       returnstring[temp->vartype], cur_name);
+    fprintf(curfp,"java.lang.reflect.Method _funcptr");
 
-      count++;
-    }
+    count = methcall_arglist_emit(temp);
 
-    fprintf(curfp,")\n   throws java.lang.reflect.InvocationTargetException,\n");
+    fprintf(curfp,")\n throws java.lang.reflect.InvocationTargetException,\n");
     fprintf(curfp,"          java.lang.IllegalAccessException\n{\n"); 
 
     fprintf(curfp,"Object [] _funcargs = new Object [%d];\n", count);
     fprintf(curfp,"%s _retval;\n", returnstring[temp->vartype]);
 
-    i = 0;
-    for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt, i++) {
-      if(omitWrappers) {
-        if( arg->nodetype == Identifier ) {
-          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-          if(ht)
-            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-              i,java_wrapper[ht->variable->vartype], i);
-          else
-            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-              i,java_wrapper[arg->vartype], i);
-        }
-        else if( arg->nodetype == Constant )
-            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-              i,java_wrapper[get_type(arg->astnode.constant.number)], i);
-        else
-            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-              i,java_wrapper[arg->vartype], i);
-      }
-      else
-      {
-        fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
-      }
-    }
+    methcall_obj_array_emit(temp);
 
-    fprintf(curfp,"_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",
+    fprintf(curfp,
+      "_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",
       java_wrapper[temp->vartype], returnstring[temp->vartype]);
 
     fprintf(curfp,"return _retval;\n");
     fprintf(curfp,"}\n"); 
+
+    endNewMethod(inv_method, cur_name, 
+       get_desc_from_arglist(temp->astnode.ident.arraylist), 
+       temp->vartype == Double ? 3 : 2, exc_list );
   } 
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * methcall_arglist_emit                                                     *
+ *                                                                           *
+ * This function generates the list of arguments to the method adapter.      *
+ * the return value is an integer representing the number of arguments.      *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+methcall_arglist_emit(AST *temp)
+{
+  enum returntype rtype;
+  HASHNODE *ht;
+  int count = 0;
+  AST *arg;
+
+  for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
+    fprintf(curfp,",");
+
+    if(omitWrappers) {
+      if( arg->nodetype == Identifier ) {
+        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+
+        if(ht)
+          rtype = ht->variable->vartype;
+        else
+          rtype = arg->vartype;
+
+        fprintf(curfp," %s _arg%d ", returnstring[rtype], count);
+      }
+      else if( arg->nodetype == Constant )
+        fprintf(curfp," %s _arg%d ", 
+          returnstring[get_type(arg->astnode.constant.number)], count);
+      else
+        fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
+    }
+    else
+    {
+      if( arg->nodetype == Identifier ) {
+        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+
+        if(ht)
+          rtype = ht->variable->vartype;
+        else
+          rtype = arg->vartype;
+
+        fprintf(curfp," %s _arg%d ", wrapper_returns[rtype], count);
+      }
+      else if( arg->nodetype == Constant )
+        fprintf(curfp," %s _arg%d ", 
+          wrapper_returns[get_type(arg->astnode.constant.number)], count);
+      else
+        fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
+    }
+
+    count++;
+  }
+
+  return count;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * methcall_obj_array_emit                                                   *
+ *                                                                           *
+ * This function generates the initialization of the object array which we   *
+ * must pass to the reflective invoke call.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+methcall_obj_array_emit(AST *temp)
+{
+  enum returntype rtype;
+  HASHNODE *ht;
+  int i = 0;
+  AST *arg;
+
+  for(arg=temp->astnode.ident.arraylist;arg != NULL;arg=arg->nextstmt, i++)
+  {
+    if(omitWrappers) {
+      if( arg->nodetype == Identifier ) {
+        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+
+        if(ht)
+          rtype = ht->variable->vartype;
+        else
+          rtype = arg->vartype;
+
+        fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+          i,java_wrapper[rtype], i);
+      }
+      else if( arg->nodetype == Constant )
+          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+            i,java_wrapper[get_type(arg->astnode.constant.number)], i);
+      else
+          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+            i,java_wrapper[arg->vartype], i);
+    }
+    else
+    {
+      fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
+    }
+  }
 }
 
 /*****************************************************************************
@@ -9606,6 +9681,55 @@ newCodeAttribute()
   tmp->attr.Code->exception_table = NULL;
   tmp->attr.Code->attributes_count = 0;
   tmp->attr.Code->attributes = NULL;
+
+  return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newExceptionsAttribute                                                    *
+ *                                                                           *
+ * creates a new attribute_info structure and initializes the                *
+ * Exception_attribute section with some initial values.                     *
+ *                                                                           *
+ *****************************************************************************/
+
+struct attribute_info *
+newExceptionsAttribute(Dlist exc)
+{
+  struct attribute_info * tmp;
+  CPNODE *c;
+  Dlist dtmp, new;
+  int cnt=0;
+  char *entry;
+  int *copy;
+
+  tmp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, "Exceptions");
+  tmp->attribute_name_index = c->index;
+
+  tmp->attr.Exceptions = (struct Exceptions_attribute *)
+                 f2jalloc(sizeof(struct Exceptions_attribute));
+
+  new = make_dl();
+
+  dl_traverse(dtmp, exc) {
+    entry = (char *) dtmp->val;
+
+    cnt++;
+    c = cp_find_or_insert(cur_const_table, CONSTANT_Class, entry);
+
+    copy = (int *)f2jalloc(sizeof(int));
+    *copy = c->index;
+
+    dl_insert_b(new, copy);
+  }
+
+  tmp->attribute_length = 2 + (cnt * 2);
+
+  tmp->attr.Exceptions->number_of_exceptions = cnt;
+  tmp->attr.Exceptions->exception_index_table = new;
 
   return tmp;
 }
@@ -9711,7 +9835,7 @@ printf("##creating new entry, this -> %s\n",fullclassname);
   bytecode1(jvm_invokespecial, c->index);
   bytecode0(jvm_return);
   
-  endNewMethod(meth_tmp, "<init>", "()V", 1);
+  endNewMethod(meth_tmp, "<init>", "()V", 1, NULL);
 
   dl_insert_b(tmp->methods, meth_tmp);
 
@@ -9763,8 +9887,8 @@ beginNewMethod(unsigned int flags)
   tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
   tmp->access_flags = acc;
 
-  tmp->attributes_count = 1;
   tmp->attributes = make_dl();
+  tmp->attributes_count = 1;
 
   cur_code = newCodeAttribute();
   exc_table = make_dl();
@@ -9784,13 +9908,19 @@ beginNewMethod(unsigned int flags)
 
 void
 endNewMethod(struct method_info * meth, char * name, char * desc,
-  unsigned int mloc)
+  unsigned int mloc, Dlist exceptions)
 {
   ExceptionTableEntry *et_entry;
   CPNODE *c;
   Dlist tmp;
   int idx;
   u2 maxloc;
+
+  if(exceptions != NULL) {
+    dl_insert_b(meth->attributes, newExceptionsAttribute(exceptions));
+
+    meth->attributes_count += 1;
+  }
 
   maxloc = (u2)mloc;
 

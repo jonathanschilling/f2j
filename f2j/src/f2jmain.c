@@ -618,25 +618,66 @@ find_method(char *meth, Dlist methtab)
 
 /*****************************************************************************
  *                                                                           *
+ * get_line                                                                  *
+ *                                                                           *
+ * Keeps reading chunks from the specified file until a newline is found.    *
+ * Appends all the chunks to one string and returns that.                    *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_line(FILE *in)
+{
+#define BUFSZ 400
+  char buf[BUFSZ];
+  char *rv, *line, *ltmp;
+  int idx = 0, cur_size = BUFSZ;
+
+  if(!in) return NULL;
+
+  line = (char *)malloc(BUFSZ);
+  *line = '\0';
+
+  if(!line) return NULL;
+
+  do {
+    rv = fgets(buf, BUFSZ, in);
+
+    if(!rv)
+      return NULL;
+
+    memcpy(line+idx, buf, BUFSZ);
+    idx += strlen(buf);
+
+    cur_size += BUFSZ;
+    ltmp = realloc(line, cur_size);
+
+    if(!ltmp) return NULL;
+    line = ltmp;
+  } while(buf[strlen(buf)-1] != '\n');
+
+  return line;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * insert_entries                                                            *
  *                                                                           *
  * given the filename, insert all method/descriptor entries from that file   *
  * into the specified Dlist.                                                 *
  *                                                                           *
  *****************************************************************************/
-#define BUFSZ 400
 
 void
 insert_entries(char *path, Dlist methtab)
 {
-  char * class, * method, * desc;
-  char buf[BUFSZ];
+  char * class, * method, * desc, * buf;
   FILE *in;
   
   if((in = fopen(path, "rb")) == NULL)
     return;
 
-  while(f2j_fgets(buf, BUFSZ, in) != NULL) {
+  while((buf=get_line(in)) != NULL) {
     buf[strlen(buf)-1] = '\0';
     class  = strtok(buf,":");
     method = strtok(NULL,":");

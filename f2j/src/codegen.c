@@ -229,15 +229,19 @@ emit (AST * root)
 
           clinit_method = beginNewMethod((u2)(ACC_PUBLIC | ACC_STATIC)); 
           
+fprintf(stderr,"1: exc_table = %s\n", exc_table ? "non-null" : "null");
           emit (root->astnode.source.typedecs);
+fprintf(stderr,"2: exc_table = %s\n", exc_table ? "non-null" : "null");
  
           emit (root->astnode.source.progtype);
 
+fprintf(stderr,"3: exc_table = %s\n", exc_table ? "non-null" : "null");
           /* check whether any class initialization code was generated.
            * if so, finish initializing the method and insert it into this
            * class.
            */
           if(pc > 0) {
+fprintf(stderr,"4: exc_table = %s\n", exc_table ? "non-null" : "null");
             bytecode0(jvm_return);
             endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
           }
@@ -1338,7 +1342,7 @@ common_emit(AST *root)
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
   int needs_dec = FALSE;
-  Dlist save_const_table;
+  Dlist save_const_table, save_exc_table;
   struct ClassFile *save_class_file;
   struct attribute_info *save_code;
   int save_stack, save_pc, save_handlers;
@@ -1359,6 +1363,8 @@ common_emit(AST *root)
   save_code = cur_code;
   save_stack = stacksize;
   save_pc = pc;
+  save_exc_table = exc_table;
+  exc_table = NULL;
 
   /*
    * Ctemp loops through each common block name specified
@@ -1485,6 +1491,7 @@ printf("common_emit.2: set curfp = %p\n", curfp);
   num_handlers = save_handlers;
   cur_filename = save_filename; 
   clinit_method = save_clinit;
+  exc_table = save_exc_table;
   stacksize = save_stack;
   cur_code = save_code;
   pc = save_pc;

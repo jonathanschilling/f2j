@@ -44,7 +44,7 @@
 #define JL_OBJECT "java/lang/Object"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define TRIM_DESC "()Ljava/lang/String;"
-#define STREQV_DESC "()Z"
+#define STREQV_DESC "(Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
@@ -69,6 +69,7 @@
 #define INVOKE_DESC "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
 #define THROWABLE_CLASS "java/lang/Throwable"
 #define GETMSG_DESC "()Ljava/lang/String;"
+#define TOLOWER_DESC "()Ljava/lang/String;"
 #define INVOKE_EXCEPTION "java/lang/reflect/InvocationTargetException"
 #define ACCESS_EXCEPTION "java/lang/IllegalAccessException"
 
@@ -76,6 +77,12 @@
 #define THREEARG_MIN_FUNC "Util.min"
 
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
+/*****************************************************************************
+ * comment out the following line to disable the generation of VCG control   *
+ * flow graphs.                                                              *
+ *****************************************************************************/
+#define VCG_CONTROL_FLOW
 
 /*****************************************************************************
  * Definitions of code generation status.  These are used to set the target  *
@@ -116,6 +123,10 @@ struct var_info {
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
+
+#ifdef VCG_CONTROL_FLOW
+void cfg_emit(Dlist, char *);
+#endif
 
 char 
   * tok2str(int),

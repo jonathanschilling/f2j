@@ -27,14 +27,14 @@
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
  *****************************************************************************/
 
-#define YYDEBUG 1
+#define YYDEBUG 0
 
 /*****************************************************************************
  * Global variables.                                                         *
  *****************************************************************************/
 
 int 
-  debug = TRUE,                  /* set to TRUE for debugging output        */
+  debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok;                        /* temporary token for an inline expr      */
@@ -1117,14 +1117,19 @@ End:    END  NL
  * variables that are passed in as arguments to our function or
  * subroutine.  Also need to pass `namelist' off to a procedure
  * to load a local variable table for opcode generation.   
+ *
+ * i inlined the call to init_tables() because when parsing the
+ * argument list, if some arg matched a name previously defined as
+ * a PARAMETER, then arg_table_load() would catch that and assume
+ * that the Name represented a paramter and reinitialize the node
+ * as if it were a constant.  kgs 7/26/00
  */
 
-Functionargs:   OP Namelist CP   
+Functionargs:   OP {init_tables();} Namelist CP   
                 {
-                  $2 = switchem($2);
-                  init_tables();
-		  arg_table_load($2);
-                  $$ = $2;
+                  $3 = switchem($3);
+		  arg_table_load($3);
+                  $$ = $3;
                 }
               | OP CP
                 {
@@ -2803,8 +2808,6 @@ type_hash(AST * types)
          the next for() loop.  */
     return_type = temptypes->astnode.typeunit.returns;
 
-printf("looking at node type %s\n",print_nodetype(temptypes));
-
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
       /* Stuff names and return types into the symbol table. */
@@ -2819,23 +2822,16 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
          */
         AST *node;
 
-printf("DIMENSION stmt.  looking for '%s' in hash table.\n",
- tempnames->astnode.ident.name);
- 
         hash_entry = type_lookup(type_table, tempnames->astnode.ident.name);
         if(hash_entry)
           node = hash_entry->variable;
         else {
-printf("not found... inserting new node w/default type.\n");
           node = initialize_name(tempnames->astnode.ident.name );
           type_insert(type_table, node, 
              default_implicit_table[tempnames->astnode.ident.name[0] - 'a'],
              tempnames->astnode.ident.name);
         }
 
-if(node == NULL)
-  printf("NULL node!!\n");
-  
         node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
         node->astnode.ident.dim = tempnames->astnode.ident.dim;
         node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
@@ -2851,13 +2847,11 @@ if(node == NULL)
          * for idents that were previously dimensioned, we need to get this
          * info out of the table.
          */
-printf("looking for DIMENSION for '%s'\n",tempnames->astnode.ident.name);
 
         hash_entry = type_lookup(array_table,tempnames->astnode.ident.name);
         if(hash_entry) {
           AST *var = hash_entry->variable;
   
-printf("found.\n");
           tempnames->astnode.ident.arraylist = var->astnode.ident.arraylist;
           tempnames->astnode.ident.dim = var->astnode.ident.dim;
           tempnames->astnode.ident.leaddim = var->astnode.ident.leaddim;
@@ -2874,7 +2868,8 @@ printf("found.\n");
           if(hash_entry == NULL) {
             tempnames->vartype = return_type;
 
-            type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
+            type_insert(type_table, tempnames, return_type,
+               tempnames->astnode.ident.name);
           }
           else {
             if(debug)
@@ -2982,6 +2977,7 @@ arg_table_load(AST * arglist)
    for(temp = arglist; temp; temp = temp->nextstmt)
    {
      type_insert(args_table, temp, 0, temp->astnode.ident.name);
+printf("#@Arglist var. name: %s\n", temp->astnode.ident.name);
      if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
    }
 }

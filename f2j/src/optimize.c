@@ -1294,6 +1294,10 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
     if (returns > MAX_RETURNS)
       fprintf (stderr,"Bad return value, check types.\n");
 
+printf("@#OPTIMIZE(%s) - arg = '%s'\n", 
+root->astnode.source.name->astnode.ident.name,
+tempnode->astnode.ident.name);
+
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
            isPassByRef(tempnode->astnode.ident.name,ttable,ctable,etable))

@@ -331,7 +331,11 @@ emit (AST * root)
 
         returnname = NULL;	/* Subroutines return void. */
         cur_unit = root;
-        unit_name = root->astnode.source.name->astnode.ident.name;
+        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
+
+        if(gendebug)
+          printf ("Subroutine name: %s\n",  unit_name);
+
         constructor (root);
         break;
       case Function:
@@ -340,11 +344,10 @@ emit (AST * root)
 
         returnname = root->astnode.source.name->astnode.ident.name;
         cur_unit = root;
-        unit_name = root->astnode.source.name->astnode.ident.name;
+        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
 
         if(gendebug)
-          printf ("Function name: %s\n", 
-            root->astnode.source.name->astnode.ident.name);
+          printf ("Function name: %s\n",  unit_name);
 
         constructor (root);
         break;
@@ -354,11 +357,10 @@ emit (AST * root)
 
         returnname = NULL;	/* programs return void. */
         cur_unit = root;
-        unit_name = root->astnode.source.name->astnode.ident.name;
+        unit_name = strdup(root->astnode.source.name->astnode.ident.name);
 
         if (gendebug)
-          printf ("Program name: %s\n", 
-             root->astnode.source.name->astnode.ident.name);
+          printf ("Program name: %s\n", unit_name);
 
         constructor(root);
         break;
@@ -3098,7 +3100,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
   if(ht) {
 
     if(ht->variable->nodetype != Identifier) {
-      fprintf(stderr,"isPassByRef():  non-ident node found.\n");
+      fprintf(stderr,"isPassByRef():  non-ident node found (%s).\n", name);
       return FALSE;
     }
 
@@ -4013,23 +4015,81 @@ external_emit(AST *root)
 
   if (root->astnode.ident.arraylist != NULL)
   {
+    CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
+    CPNODE *c;
+
+    temp = root->astnode.ident.arraylist;
+
     if (!strcmp (tempname, "LSAME"))
     {
       /* LSAME should return TRUE if the two character arguments are
        * the same letter, regardless of case.
        */ 
 
-      temp = root->astnode.ident.arraylist;
-
       if(gendebug)
         printf("emitting a call to LSAME...first nodetype = %s, next = %s\n",
           print_nodetype(temp), print_nodetype(temp->nextstmt));
 
+      if(temp == NULL) {
+        fprintf(stderr,"No args to LSAME\n");
+        return;
+      } 
+      else if(temp->nextstmt == NULL) {
+        fprintf(stderr,"Not enough args to LSAME\n");
+        return;
+      }
+
       fprintf(curfp, "(");
       expr_emit(temp);
+
+      if((temp->vartype != String) && (temp->vartype != Character)) {
+        fprintf(stderr,"WARNING: non-string arg to LSAME");
+        fprintf(stderr," -- typecast not yet implemented.\n");
+      }
       fprintf(curfp, ".toLowerCase().charAt(0) == ");
+
+      c = newMethodref(cur_const_table,JL_STRING,
+             "toLowerCase", TOLOWER_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      bytecode0(jvm_iconst_0);
+
+      c = newMethodref(cur_const_table,JL_STRING,
+             "charAt", CHARAT_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
       expr_emit(temp->nextstmt);
+
+      if((temp->nextstmt->vartype != String)  &&
+         (temp->nextstmt->vartype != Character))
+      {
+        fprintf(stderr,"WARNING: non-string arg to LSAME");
+        fprintf(stderr," -- typecast not yet implemented.\n");
+      }
       fprintf(curfp, ".toLowerCase().charAt(0))");
+
+      c = newMethodref(cur_const_table,JL_STRING,
+             "toLowerCase", TOLOWER_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      bytecode0(jvm_iconst_0);
+
+      c = newMethodref(cur_const_table,JL_STRING,
+             "charAt", CHARAT_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      cmp_node = bytecode0(jvm_if_icmpeq);
+      bytecode0(jvm_iconst_0);
+      goto_node = bytecode0(jvm_goto);
+      iconst_node = bytecode0(jvm_iconst_1);
+      cmp_node->branch_target = iconst_node;
+
+      /* create a dummy instruction node following the iconst so that
+       * we have a branch target for the goto statement.  it'll be
+       * removed later.
+       */
+      next_node = bytecode0(jvm_impdep1);
+      goto_node->branch_target = next_node;
 
       return;
     }
@@ -4039,8 +4099,6 @@ external_emit(AST *root)
        * two arguments are the same, regardless of case.  Currently
        * this is mapped to java.lang.String.regionMatches().
        */
-
-      temp = root->astnode.ident.arraylist;
 
       /* first, make sure there are enough args to work with */
       if(temp == NULL) {
@@ -4058,10 +4116,19 @@ external_emit(AST *root)
 
       expr_emit(temp->nextstmt);
       fprintf (curfp, "%s(true,0,", javaname);
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_iconst_0);
       expr_emit (temp->nextstmt->nextstmt);
       fprintf (curfp, ",0,");
+      bytecode0(jvm_iconst_0);
       expr_emit (temp);
       fprintf (curfp, ")");
+
+      c = newMethodref(cur_const_table,entry->class_name, 
+                        entry->method_name, entry->descriptor);
+
+      bytecode1(jvm_invokevirtual, c->index);
+
       return;
     }
   }
@@ -5421,7 +5488,7 @@ expr_emit (AST * root)
 
         c = newMethodref(cur_const_table,JL_STRING,
                  "substring", SUBSTR_DESC);
-        bytecode1(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+        bytecode1(jvm_invokevirtual, c->index);
 
       }
       break;
@@ -10736,6 +10803,10 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth, char * name, c
 
   traverse_code(cur_code->attr.Code->code);
 
+#ifdef VCG_CONTROL_FLOW
+  cfg_emit(cur_code->attr.Code->code, name);
+#endif
+
   cur_code->attr.Code->exception_table_length = num_handlers;
 
   if(num_handlers > 0) {
@@ -10899,6 +10970,62 @@ traverse_code(Dlist cgraph)
 
 }
 
+#ifdef VCG_CONTROL_FLOW
+
+/*****************************************************************************
+ *                                                                           *
+ * cfg_emit                                                                  *
+ *                                                                           *
+ * this function generates a VCG (visualization of compiler graphs) file     *
+ * containing a representation of the control flow graph.                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+cfg_emit(Dlist cgraph, char *mname)
+{
+  CodeGraphNode *val;
+  char *filename, *warn;
+  char node_label[200];
+  FILE *v;
+  Dlist tmp;
+  
+  filename = (char *)f2jalloc(strlen(cur_filename) + strlen(mname) + 10);
+  sprintf(filename, "%s_%s.cfg", cur_filename, mname);
+
+  v = fopen(filename,"w");
+
+  if(v) {
+  
+    print_vcg_header(v, "Control Flow Graph");
+
+    dl_traverse(tmp,cgraph) {
+      val = (CodeGraphNode *) tmp->val;
+  
+      if(!val->visited)
+        warn = "(UNVISITED!!)";
+      else
+        warn = "";
+
+      sprintf(node_label,"%d: %s %s\nstack_pre: %d", val->pc, 
+         jvm_opcode[val->op].op, warn, val->stack_depth);
+
+      print_vcg_node(v, val->pc, node_label);
+      if((val->next != NULL) && (val->op != jvm_goto))
+        print_vcg_nearedge(v, val->pc, val->next->pc);
+
+      if(val->branch_target != NULL)
+        print_vcg_edge(v, val->pc, val->branch_target->pc);
+    }
+
+    print_vcg_trailer(v);
+    fclose(v);
+  }
+  else
+    fprintf(stderr, "couldn't open vcg file: '%s'\n",filename);
+}
+#endif
+
 /*****************************************************************************
  *                                                                           *
  * calcOffsets                                                               *
@@ -10915,13 +11042,13 @@ void
 calcOffsets(CodeGraphNode *val)
 {
   /* if we already visited this node, then do not visit again. */
+  printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
+         jvm_opcode[val->op].op,val->stack_depth);
+
   if(val->visited)
     return;
 
   val->visited = TRUE;
-
-  printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
-         jvm_opcode[val->op].op,val->stack_depth);
 
   stacksize = val->stack_depth;
 
@@ -10954,11 +11081,15 @@ calcOffsets(CodeGraphNode *val)
           printf(" **found** target pc is %d\n", label_node->pc); 
           if(label_node->stack_depth == -1)
             label_node->stack_depth = stacksize;
-          else if(label_node->stack_depth != stacksize)
+          else if(label_node->stack_depth != stacksize) {
             fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s)\n",
                     label_node->pc, cur_filename);
+            printf("WARNING: hit pc %d with diff stack sizes (%s)\n",
+                    label_node->pc, cur_filename);
+          }
 
           val->operand = label_node->pc - val->pc;
+          val->branch_target = label_node;
           calcOffsets(label_node);
         }
         else 
@@ -10973,9 +11104,12 @@ calcOffsets(CodeGraphNode *val)
 
       if(val->branch_target->stack_depth == -1)
         val->branch_target->stack_depth = stacksize;
-      else if (val->branch_target->stack_depth != stacksize)
-        fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
-                val->branch_target->pc);
+      else if (val->branch_target->stack_depth != stacksize) {
+        fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s).\n",
+                val->branch_target->pc, cur_filename);
+        printf("WARNING: hit pc %d with diff stack sizes (%s).\n",
+                val->branch_target->pc, cur_filename);
+      }
 
       val->operand = val->branch_target->pc - val->pc;
       calcOffsets(val->branch_target);

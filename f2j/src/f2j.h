@@ -646,7 +646,13 @@ void
   alloc_error(size_t),
   * f2jalloc(size_t),
   * f2jcalloc(size_t, size_t),
-  * f2jrealloc(void *, size_t);
+  * f2jrealloc(void *, size_t),
+  print_vcg_header(FILE *, char *),
+  print_vcg_trailer(FILE *),
+  print_vcg_node(FILE *, int, char *),
+  print_vcg_nearedge(FILE *, int, int),
+  print_vcg_edge(FILE *, int, int),
+  print_vcg_typenode(FILE *, int, char *);
 
 Dlist
   build_method_table(char *);

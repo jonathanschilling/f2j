@@ -36,10 +36,6 @@ void
   emit_vcg(AST *,int),
   vcg_elseif_emit(AST *,int),
   vcg_else_emit(AST *,int),
-  print_vcg_node(int, char *),
-  print_vcg_nearedge(int, int),
-  print_vcg_edge(int, int),
-  print_vcg_typenode(int, char *),
   vcg_typedec_emit (AST *, int),
   vcg_spec_emit (AST *, int),
   vcg_assign_emit (AST *, int),
@@ -83,31 +79,58 @@ void
 start_vcg(AST *root)
 {
   /* print header information */
-
-  fprintf(vcgfp,"graph: { title: \"SYNTAXTREE\"\n");
-
-  fprintf(vcgfp,"x: 30\n");
-  fprintf(vcgfp,"y: 30\n");
-  fprintf(vcgfp,"width:  850\n");
-  fprintf(vcgfp,"height: 800\n");
-  fprintf(vcgfp,"color: lightcyan\n");
-
-  fprintf(vcgfp,"stretch: 4\n");
-  fprintf(vcgfp,"shrink: 10\n");
-  fprintf(vcgfp,"layout_upfactor: 10\n");
-  fprintf(vcgfp,"manhatten_edges: yes\n");
-  fprintf(vcgfp,"smanhatten_edges: yes\n");
-  fprintf(vcgfp,"layoutalgorithm: tree\n\n");
-
-  fprintf(vcgfp,"node: {color: black textcolor: white title:\"0\"\n");
-  fprintf(vcgfp,"label: \"Nothing should hang here\"\n");
-  fprintf(vcgfp,"}\n\n");
+  print_vcg_header(vcgfp, "SYNTAX TREE");
 
   emit_vcg(root, 0);
 
-  fprintf(vcgfp,"}\n");
+  print_vcg_trailer(vcgfp);
 }
   
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_header                                                          *
+ *                                                                           *
+ * this function prints the VCG header, with the given title.                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+print_vcg_header(FILE *gfp, char *title)
+{
+  fprintf(gfp,"graph: { title: \"%s\"\n", title);
+
+  fprintf(gfp,"x: 30\n");
+  fprintf(gfp,"y: 30\n");
+  fprintf(gfp,"width:  850\n");
+  fprintf(gfp,"height: 800\n");
+  fprintf(gfp,"color: lightcyan\n");
+
+  fprintf(gfp,"stretch: 4\n");
+  fprintf(gfp,"shrink: 10\n");
+  fprintf(gfp,"layout_upfactor: 10\n");
+  fprintf(gfp,"manhatten_edges: yes\n");
+  fprintf(gfp,"smanhatten_edges: yes\n");
+  fprintf(gfp,"layoutalgorithm: tree\n\n");
+
+  fprintf(gfp,"node: {color: black textcolor: white title:\"f2j\"\n");
+  fprintf(gfp,"label: \"Nothing should hang here\"\n");
+  fprintf(gfp,"}\n\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_trailer                                                         *
+ *                                                                           *
+ * this function prints the VCG trailer.                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+print_vcg_trailer(FILE *gfp)
+{
+  fprintf(gfp,"}\n");
+}
+
 /*****************************************************************************
  *                                                                           *
  * print_vcg_node                                                            *
@@ -117,18 +140,18 @@ start_vcg(AST *root)
  *****************************************************************************/
 
 void
-print_vcg_node(int num, char *label)
+print_vcg_node(FILE *gfp, int num, char *label)
 {
   if(vcg_debug)
     printf("creating node \"%s\"\n",label);
 
-  fprintf(vcgfp,
+  fprintf(gfp,
     "node: {color: black textcolor: white title:\"%d\"\n",num);
 
-  fprintf(vcgfp,
+  fprintf(gfp,
     "label: \"%s\"\n",label);
 
-  fprintf(vcgfp,
+  fprintf(gfp,
     "}\n\n");
 
   node_num++;
@@ -144,14 +167,14 @@ print_vcg_node(int num, char *label)
  *****************************************************************************/
 
 void
-print_vcg_typenode(int num, char *label)
+print_vcg_typenode(FILE *gfp, int num, char *label)
 {
   if(vcg_debug)
     printf("creating typenode \"%s\"\n",label);
 
-  fprintf(vcgfp, "node: { title: \"%d\"\n",num);
-  fprintf(vcgfp, " label: \"%s\"\n",label);
-  fprintf(vcgfp, "}\n\n");
+  fprintf(gfp, "node: { title: \"%d\"\n",num);
+  fprintf(gfp, " label: \"%s\"\n",label);
+  fprintf(gfp, "}\n\n");
 
   node_num++;
 }
@@ -166,9 +189,9 @@ print_vcg_typenode(int num, char *label)
  *****************************************************************************/
 
 void
-print_vcg_edge(int source, int dest)
+print_vcg_edge(FILE *gfp, int source, int dest)
 {
-  fprintf(vcgfp,
+  fprintf(gfp,
     "edge: { thickness: 6 color: red sourcename: \"%d\" targetname: \"%d\"}\n\n",
     source, dest);
 }
@@ -183,11 +206,11 @@ print_vcg_edge(int source, int dest)
  *****************************************************************************/
 
 void 
-print_vcg_nearedge(int source, int dest)
+print_vcg_nearedge(FILE *gfp, int source, int dest)
 {
-  fprintf(vcgfp,"nearedge: { sourcename: \"%d\" targetname: \"%d\"\n",
+  fprintf(gfp,"nearedge: { sourcename: \"%d\" targetname: \"%d\"\n",
       source, dest);
-  fprintf(vcgfp,"color: blue thickness: 6\n}\n\n");
+  fprintf(gfp,"color: blue thickness: 6\n}\n\n");
 }
 
 /*****************************************************************************
@@ -215,7 +238,7 @@ emit_vcg (AST * root, int parent)
       if(vcg_debug)
         printf("case Source\n");
 
-      print_vcg_node(node_num,"Progunit");
+      print_vcg_node(vcgfp, node_num,"Progunit");
 
       if(vcg_debug)
         printf("case Source: Going to emit PROGTYPE\n");
@@ -237,8 +260,8 @@ emit_vcg (AST * root, int parent)
       if(vcg_debug)
         printf("case Subroutine\n");
 
-      print_vcg_node(node_num,"Subroutine");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Subroutine");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       returnname = NULL;	/* Subroutines return void. */
       break;
@@ -248,8 +271,8 @@ emit_vcg (AST * root, int parent)
 
       sprintf (temp_buf,"Function: %s\n", 
         root->astnode.source.name->astnode.ident.name);
-      print_vcg_node(node_num,temp_buf);
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,temp_buf);
+      print_vcg_edge(vcgfp, parent, my_node);
       returnname = root->astnode.source.name->astnode.ident.name;
       break;
     case Typedec:
@@ -272,15 +295,15 @@ emit_vcg (AST * root, int parent)
       if(vcg_debug)
         printf("case Statement\n");
 
-      print_vcg_node(node_num,"Statement");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Statement");
+      print_vcg_edge(vcgfp, parent, my_node);
       if (root->nextstmt != NULL)	/* End of typestmt list. */
         emit_vcg (root->nextstmt, my_node);
       break;
 
     case Assignment:
-      print_vcg_node(node_num,"Assignment");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Assignment");
+      print_vcg_edge(vcgfp, parent, my_node);
       vcg_assign_emit (root, my_node);
       if (root->nextstmt != NULL)
         emit_vcg (root->nextstmt, my_node);
@@ -291,8 +314,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Forloop:
-      print_vcg_node(node_num,"For loop");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"For loop");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       vcg_forloop_emit (root, my_node);
 
@@ -300,8 +323,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Blockif:
-      print_vcg_node(node_num,"Block if");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Block if");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       vcg_blockif_emit (root, my_node);
 
@@ -309,8 +332,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Elseif:
-      print_vcg_node(node_num,"Else if");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Else if");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       vcg_elseif_emit (root, my_node);
 
@@ -318,8 +341,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Else:
-      print_vcg_node(node_num,"Else");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Else");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       vcg_else_emit (root, my_node);
 
@@ -327,8 +350,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Logicalif:
-      print_vcg_node(node_num,"Logical If");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"Logical If");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       vcg_logicalif_emit (root, my_node);
 
@@ -341,16 +364,16 @@ emit_vcg (AST * root, int parent)
       else
         sprintf (temp_buf, "Return");
 
-      print_vcg_node(node_num,temp_buf);
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,temp_buf);
+      print_vcg_edge(vcgfp, parent, my_node);
 
       if (root->nextstmt != NULL)	/* End of typestmt list. */
         emit_vcg (root->nextstmt, my_node);
       break;
     case Goto:
       sprintf (temp_buf,"Goto (%d)", root->astnode.go_to.label);
-      print_vcg_node(node_num,temp_buf);
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,temp_buf);
+      print_vcg_edge(vcgfp, parent, my_node);
 
       if (root->nextstmt != NULL)
         emit_vcg (root->nextstmt, my_node);
@@ -362,14 +385,14 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case End:
-      print_vcg_node(node_num,"End");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"End");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       /* end of the program */
       break;
     case Unimplemented:
-      print_vcg_node(node_num,"UNIMPLEMENTED");
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,"UNIMPLEMENTED");
+      print_vcg_edge(vcgfp, parent, my_node);
 
       if (root->nextstmt != NULL)
         emit_vcg (root->nextstmt, my_node);
@@ -378,8 +401,8 @@ emit_vcg (AST * root, int parent)
       sprintf(temp_buf,"Constant(%s)",
       root->astnode.constant.number);
       
-      print_vcg_node(node_num,temp_buf);
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,temp_buf);
+      print_vcg_edge(vcgfp, parent, my_node);
     default:
       fprintf (stderr,"vcg_emitter: Default case reached!\n");
   }				/* switch on nodetype.  */
@@ -417,16 +440,16 @@ vcg_typedec_emit (AST * root, int parent)
       printf("returning from vcg_typedec_emit,");
       printf(" found something in hash table\n");
     }
-    print_vcg_node(node_num,"External");
-    print_vcg_edge(parent, my_node);
+    print_vcg_node(vcgfp, node_num,"External");
+    print_vcg_edge(vcgfp, parent, my_node);
     return;
   } 
 
   returns = root->astnode.typeunit.returns;
 
   sprintf(temp_buf,"TypeDec (%s)", returnstring[returns]);
-  print_vcg_node(node_num,temp_buf);
-  print_vcg_edge(parent, my_node);
+  print_vcg_node(vcgfp, node_num,temp_buf);
+  print_vcg_edge(vcgfp, parent, my_node);
 
   prev_node = my_node;
 
@@ -434,7 +457,7 @@ vcg_typedec_emit (AST * root, int parent)
     if(vcg_debug)
       printf("in the loop\n");
     name_nodenum = vcg_name_emit (temp, parent);
-    print_vcg_nearedge(prev_node,name_nodenum);
+    print_vcg_nearedge(vcgfp, prev_node,name_nodenum);
     prev_node = name_nodenum;
   }
   if(vcg_debug)
@@ -463,7 +486,7 @@ vcg_name_emit (AST * root, int parent)
     printf("in vcg_name_emit\n");
 
   sprintf(temp_buf,"Name (%s)",root->astnode.ident.name);
-  print_vcg_node(my_node,temp_buf);
+  print_vcg_node(vcgfp, my_node,temp_buf);
 
   /* Check to see whether name is in external table.  Names are
    * loaded into the external table from the parser.   
@@ -494,7 +517,7 @@ vcg_name_emit (AST * root, int parent)
       if (!strcmp (root->astnode.ident.name, "LSAME")) {
         temp = root->astnode.ident.arraylist;
         temp_num = vcg_name_emit (temp->nextstmt, my_node);
-        print_vcg_edge(my_node,temp_num);
+        print_vcg_edge(vcgfp, my_node,temp_num);
         return my_node;
        }
     }
@@ -636,12 +659,12 @@ vcg_expr_emit (AST * root, int parent)
   switch (root->nodetype)
   {
     case Identifier:
-      print_vcg_node(my_node,"Ident");
-      print_vcg_edge(parent,my_node);
+      print_vcg_node(vcgfp, my_node,"Ident");
+      print_vcg_edge(vcgfp, parent,my_node);
 
       temp_num = vcg_name_emit (root, my_node);
 
-      print_vcg_edge(my_node,temp_num);
+      print_vcg_edge(vcgfp, my_node,temp_num);
       break;
     case Expression:
       if (root->astnode.expression.lhs != NULL)
@@ -650,8 +673,8 @@ vcg_expr_emit (AST * root, int parent)
       vcg_expr_emit (root->astnode.expression.rhs, parent);
       break;
     case Power:
-      print_vcg_node(my_node,"pow()");
-      print_vcg_edge(parent,my_node);
+      print_vcg_node(vcgfp, my_node,"pow()");
+      print_vcg_edge(vcgfp, parent,my_node);
 
       vcg_expr_emit (root->astnode.expression.lhs, my_node);
       vcg_expr_emit (root->astnode.expression.rhs, my_node);
@@ -659,8 +682,8 @@ vcg_expr_emit (AST * root, int parent)
     case Binaryop:
       sprintf(temp_buf,"%c", root->astnode.expression.optype);
 
-      print_vcg_node(my_node,temp_buf);
-      print_vcg_edge(parent,my_node);
+      print_vcg_node(vcgfp, my_node,temp_buf);
+      print_vcg_edge(vcgfp, parent,my_node);
 
       vcg_expr_emit (root->astnode.expression.lhs, my_node);
       vcg_expr_emit (root->astnode.expression.rhs, my_node);
@@ -668,27 +691,27 @@ vcg_expr_emit (AST * root, int parent)
     case Unaryop:
       sprintf(temp_buf,"%c", root->astnode.expression.minus);
 
-      print_vcg_node(my_node,temp_buf);
-      print_vcg_edge(parent,my_node);
+      print_vcg_node(vcgfp, my_node,temp_buf);
+      print_vcg_edge(vcgfp, parent,my_node);
 
       vcg_expr_emit (root->astnode.expression.rhs, my_node);
       break;
     case Constant:
       sprintf(temp_buf,"Constant(%s)", root->astnode.constant.number);
 
-      print_vcg_node(node_num,temp_buf);
-      print_vcg_edge(parent, my_node);
+      print_vcg_node(vcgfp, node_num,temp_buf);
+      print_vcg_edge(vcgfp, parent, my_node);
       break;
     case Logicalop:
       if(root->token == AND)
-        print_vcg_node(my_node,"AND");
+        print_vcg_node(vcgfp, my_node,"AND");
       else if(root->token == OR)
-        print_vcg_node(my_node,"OR");
+        print_vcg_node(vcgfp, my_node,"OR");
            
       if (root->astnode.expression.lhs == NULL)
-        print_vcg_node(my_node,"NOT");
+        print_vcg_node(vcgfp, my_node,"NOT");
 
-      print_vcg_edge(parent,my_node);
+      print_vcg_edge(vcgfp, parent,my_node);
 
       if (root->astnode.expression.lhs != NULL)
         vcg_expr_emit (root->astnode.expression.lhs, my_node);
@@ -699,27 +722,27 @@ vcg_expr_emit (AST * root, int parent)
       switch (root->token)
       {
         case rel_eq:
-          print_vcg_node(my_node,"==");
+          print_vcg_node(vcgfp, my_node,"==");
           break;
         case rel_ne:
-          print_vcg_node(my_node,"!=");
+          print_vcg_node(vcgfp, my_node,"!=");
           break;
         case rel_lt:
-          print_vcg_node(my_node,"<");
+          print_vcg_node(vcgfp, my_node,"<");
           break;
         case rel_le:
-          print_vcg_node(my_node,"<=");
+          print_vcg_node(vcgfp, my_node,"<=");
           break;
         case rel_gt:
-          print_vcg_node(my_node,">");
+          print_vcg_node(vcgfp, my_node,">");
           break;
         case rel_ge:
-          print_vcg_node(my_node,">=");
+          print_vcg_node(vcgfp, my_node,">=");
           break;
         default:
-          print_vcg_node(my_node,"Unknown RelationalOp");
+          print_vcg_node(vcgfp, my_node,"Unknown RelationalOp");
       }
-      print_vcg_edge(parent,my_node);
+      print_vcg_edge(vcgfp, parent,my_node);
 
       vcg_expr_emit (root->astnode.expression.lhs, my_node);
       vcg_expr_emit (root->astnode.expression.rhs, my_node);
@@ -782,8 +805,8 @@ vcg_label_emit (AST * root, int parent)
 
   sprintf(temp_buf,"Label (%d)",root->astnode.label.number);
 
-  print_vcg_node(node_num,temp_buf);
-  print_vcg_edge(parent, my_node);
+  print_vcg_node(vcgfp, node_num,temp_buf);
+  print_vcg_edge(vcgfp, parent, my_node);
 
   if (root->astnode.label.stmt != NULL)
     emit_vcg (root->astnode.label.stmt,my_node);
@@ -868,8 +891,8 @@ vcg_call_emit (AST * root, int parent)
   *tempname = toupper (*tempname);
 
   sprintf(temp_buf,"Call (%s)",root->astnode.ident.name);
-  print_vcg_node(node_num,temp_buf);
-  print_vcg_edge(parent, my_node);
+  print_vcg_node(vcgfp, node_num,temp_buf);
+  print_vcg_edge(vcgfp, parent, my_node);
 
   assert (root->astnode.ident.arraylist != NULL);
 
@@ -902,8 +925,8 @@ vcg_spec_emit (AST * root, int parent)
     printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
       my_node,parent);
 
-  print_vcg_node(node_num,"Specification");
-  print_vcg_edge(parent, my_node);
+  print_vcg_node(vcgfp, node_num,"Specification");
+  print_vcg_edge(vcgfp, parent, my_node);
 
   /* I am reaching every case in this switch.  */
   switch (root->astnode.typeunit.specification)
@@ -923,7 +946,7 @@ vcg_spec_emit (AST * root, int parent)
 
     case Intrinsic:
       temp_num = vcg_name_emit (root, parent);
-      print_vcg_edge(my_node, temp_num);
+      print_vcg_edge(vcgfp, my_node, temp_num);
       break;
     case External:
     case Implicit:
@@ -946,6 +969,6 @@ vcg_assign_emit (AST * root, int parent)
   int temp_num;
 
   temp_num = vcg_name_emit (root->astnode.assignment.lhs, parent);
-  print_vcg_edge(parent,temp_num);
+  print_vcg_edge(vcgfp, parent,temp_num);
   vcg_expr_emit (root->astnode.assignment.rhs, parent);
 }

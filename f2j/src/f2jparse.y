@@ -34,7 +34,7 @@
  *****************************************************************************/
 
 int 
-  debug = FALSE,                  /* set to TRUE for debugging output        */
+  debug = TRUE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok;                        /* temporary token for an inline expr      */
@@ -2808,6 +2808,15 @@ type_hash(AST * types)
          the next for() loop.  */
     return_type = temptypes->astnode.typeunit.returns;
 
+    if(debug)
+      printf("type_hash(): type dec is %s\n", print_nodetype(temptypes));
+
+    /* skip parameter statements and data statements */
+    if(( (temptypes->nodetype == Specification) &&
+         (temptypes->astnode.typeunit.specification == Parameter)) 
+        || (temptypes->nodetype == DataList))
+      continue;
+
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
       /* ignore parameter assignment stmts */
@@ -2836,6 +2845,9 @@ type_hash(AST * types)
           type_insert(type_table, node, 
              default_implicit_table[tempnames->astnode.ident.name[0] - 'a'],
              tempnames->astnode.ident.name);
+
+          if(debug)
+            printf("Type hash (DIM): %s\n", tempnames->astnode.ident.name);
         }
 
         node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
@@ -2876,6 +2888,10 @@ type_hash(AST * types)
 
             type_insert(type_table, tempnames, return_type,
                tempnames->astnode.ident.name);
+
+            if(debug)
+              printf("Type hash (non-external): %s\n",
+                  tempnames->astnode.ident.name);
           }
           else {
             if(debug)
@@ -2887,7 +2903,8 @@ type_hash(AST * types)
       }
 
       /* Now separate out the EXTERNAL from the INTRINSIC on the
-         fortran side.  */
+       * fortran side.
+       */
 
       if(temptypes != NULL) {
         AST *newnode;
@@ -2905,10 +2922,20 @@ type_hash(AST * types)
           case INTRINSIC:
             type_insert(intrinsic_table, 
                     newnode, return_type, newnode->astnode.ident.name);
+
+            if(debug)
+              printf("Type hash (INTRINSIC): %s\n",
+                newnode->astnode.ident.name);
+
             break;
           case EXTERNAL:
             type_insert(external_table,
                     newnode, return_type, newnode->astnode.ident.name);
+
+            if(debug)
+              printf("Type hash (EXTERNAL): %s\n",
+                newnode->astnode.ident.name);
+
             break;
         } /* Close switch().  */
       }

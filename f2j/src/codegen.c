@@ -6278,7 +6278,8 @@ forloop_emit (AST * root)
  *                                                                           *
  *****************************************************************************/
 
-void forloop_bytecode_emit(AST *root) 
+void
+forloop_bytecode_emit(AST *root) 
 {
   set_bytecode_status(JVM_ONLY);
 
@@ -6339,8 +6340,8 @@ printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
      */ 
 
     /*
-    fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
-    */
+     * fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
+     */
 
     /* well... in order to allow the continuation statement of the DO loop
      * to be any arbitrary statement, we cannot translate this to a labeled
@@ -10744,6 +10745,8 @@ beginNewMethod(unsigned int flags)
 
   tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
   tmp->access_flags = acc;
+
+printf("access flags = %d\n", flags);
 
   tmp->attributes = make_dl();
   tmp->attributes_count = 1;

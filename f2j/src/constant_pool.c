@@ -15,6 +15,10 @@
 
 #define NUM_CONSTANT_TAGS 13
 
+#define CHECK_NONZERO(str,val)\
+   if((val) == 0)\
+      fprintf(stderr,"Not expecting zero value (%s)\n", (str))
+
 int cp_debug = TRUE;    /* set to TRUE to generate deubugging output        */
 
 char * constant_tags [NUM_CONSTANT_TAGS] = {
@@ -266,17 +270,33 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
   return NULL;
 }
 
+CPNODE *
+cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
+  CPNODE *temp;
+
+  temp = cp_find_function_body(list, tag, value);
+  
+  if(temp != NULL)
+    CHECK_NONZERO("cp_find_or_insert", temp->index);
+
+  return temp;
+}
+
 /*****************************************************************************
  *                                                                           *
- * cp_find_or_insert                                                         *
+ * cp_find_function_body                                                     *
  *                                                                           *
  * return a pointer to the node if it exists in the constant pool.  if not,  *
  * create a new entry and return a pointer to it.                            *
  *                                                                           *
+ * the only time we expect to return NULL from this function is when looking *
+ * up an integer or double constant that doesn't need to be in the constant  *
+ * pool (e.g. 0, 1, 0.0, etc).                                               *
+ *                                                                           *
  *****************************************************************************/
 
 CPNODE *
-cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
+cp_find_function_body(Dlist list, enum _constant_tags tag, void *value) {
   CPNODE *temp;
 
   if(cp_debug)
@@ -431,6 +451,9 @@ insert_constant(Dlist list, int tok, void * tag)
   int idx;
   CPNODE *c;
 
+  if(cp_debug)
+    printf("insert_constant: tok is '%s'\n", tok2str(tok));
+
   switch(tok) {
     case INTEGER:
       {
@@ -500,8 +523,12 @@ printf("inserting a string... '%s'\n",(char *)tag);
 
       c = cp_lookup(list, CONSTANT_Utf8, tag);
 
-      if(c)
+      if(c) {
         idx = c->index;
+
+        if(idx == 0)
+          fprintf(stderr,"WARNING insert_constant(): idx is 0\n");
+      }
       else
       {
         if(cp_debug)

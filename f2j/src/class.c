@@ -42,38 +42,66 @@ write_class(struct ClassFile *class)
 
   cfp = open_output_classfile(class);
 
-  if(classdebug) {
-    printf("write_class() - magic: %d\n", class->magic);
-    printf("write_class() - minor_ver: %d\n", class->minor_version);
-    printf("write_class() - major_ver: %d\n", class->major_version);
-    printf("write_class() - cp_count: %d\n", class->constant_pool_count);
-    printf("write_class() - acc_flags: %d\n", class->access_flags);
-    printf("write_class() - this_class: %d\n", class->this_class);
-    printf("write_class() - super_class: %d\n", class->super_class);
-    printf("write_class() - int_count: %d\n", class->interfaces_count);
-    printf("write_class() - fields_count: %d\n", class->fields_count);
-    printf("write_class() - methods_count: %d\n", class->methods_count);
-    printf("write_class() - attributes_count: %d\n", class->attributes_count);
-  }
-
+  if(class_debug) report_position("magic number", cfp);
   write_u4(class->magic, cfp);
+
+  if(class_debug) report_position("minor version", cfp);
   write_u2(class->minor_version, cfp);
+
+  if(class_debug) report_position("major_version", cfp);
   write_u2(class->major_version, cfp);
+
+  if(class_debug) report_position("cp count", cfp);
   write_u2(class->constant_pool_count, cfp);
+
+  if(class_debug) report_position("constant pool", cfp);
   write_constant_pool(class, cfp);
+
+  if(class_debug) report_position("access flags", cfp);
   write_u2(class->access_flags, cfp);
+
+  if(class_debug) report_position("this class", cfp);
   write_u2(class->this_class, cfp);
+
+  if(class_debug) report_position("super class", cfp);
   write_u2(class->super_class, cfp);
+
+  if(class_debug) report_position("interfaces count", cfp);
   write_u2(class->interfaces_count, cfp);
+
+  if(class_debug) report_position("interfaces", cfp);
   write_interfaces(class,cfp);
+
+  if(class_debug) report_position("fields count", cfp);
   write_u2(class->fields_count, cfp);
+
+  if(class_debug) report_position("fields", cfp);
   write_fields(class,cfp);
+
+  if(class_debug) report_position("methods count", cfp);
   write_u2(class->methods_count, cfp);
+
+  if(class_debug) report_position("methods", cfp);
   write_methods(class,cfp);
+
+  if(class_debug) report_position("attributes count", cfp);
   write_u2(class->attributes_count, cfp);
+
+  if(class_debug) report_position("attributes", cfp);
   write_attributes(class->attributes,class->constant_pool,cfp);
 
   fclose(cfp);
+}
+
+void
+report_position(char *prefix, FILE *stream)
+{
+  fpos_t p;
+  int pos;
+
+  pos = fgetpos(stream, &p);
+
+  printf("%s at position %ld\n",prefix, (long)p);
 }
 
 /*****************************************************************************
@@ -229,23 +257,22 @@ write_methods(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->methods) {
     tmpmeth = (struct method_info *) tmpPtr->val;
 
-    if(classdebug)
-      printf("write_methods() - name idx: %d, desc idx: %d, att cnt: %d\n",
-        tmpmeth->name_index, tmpmeth->descriptor_index,
-        tmpmeth->attributes_count);
-
+    if(class_debug) report_position("method access flags", out);
     write_u2(tmpmeth->access_flags,out);
+
+    if(class_debug) report_position("method name index", out);
     write_u2(tmpmeth->name_index,out);
+
+    if(class_debug) report_position("method descriptor index", out);
     write_u2(tmpmeth->descriptor_index,out);
+
+    if(class_debug) report_position("method attributes count", out);
     write_u2(tmpmeth->attributes_count,out);
 
     cnt = write_attributes(tmpmeth->attributes,class->constant_pool,out);
 
-    if(cnt != tmpmeth->attributes_count) {
-      fprintf(stderr,"WARNING: expected to write %d attributes,", 
-        tmpmeth->attributes_count);
-      fprintf(stderr,"but actually wrote %d.\n", cnt);
-    }
+    if(class_debug) report_position("method attributes", out);
+    write_attributes(tmpmeth->attributes,class->constant_pool,out);
   }
 }
 
@@ -279,9 +306,15 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       continue;
     } 
       
-    attr_name = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    attr_name = null_term(c->val->cpnode.Utf8.bytes,c->val->cpnode.Utf8.length);
 
+
+    if(class_debug) printf("attribute name = '%s'\n", attr_name);
+
+    if(class_debug) report_position("attribute name index", out);
     write_u2(tmpattr->attribute_name_index,out);
+
+    if(class_debug) report_position("attribute length", out);
     write_u4(tmpattr->attribute_length,out);
 
     if(classdebug)
@@ -289,44 +322,51 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
         tmpattr->attribute_length, tmpattr->attribute_name_index);
 
     if(!strcmp(attr_name,"SourceFile")) {
-      if(classdebug)
-        printf("write_attributes() - writing SourceFile attribute\n");
-
+      if(class_debug) report_position("sourcefile index", out);
       write_u2(tmpattr->attr.SourceFile->sourcefile_index,out);
     } 
     else if(!strcmp(attr_name,"Code")) {
-      if(classdebug) {
-        printf("write_attributes() - writing Code attribute\n");
-        printf("            max_stack = %d\n", tmpattr->attr.Code->max_stack);
-        printf("           max_locals = %d\n", tmpattr->attr.Code->max_locals);
-        printf("          code length = %d\n", tmpattr->attr.Code->code_length);
-        printf("     exc table length = %d\n", tmpattr->attr.Code->exception_table_length);
-        printf("     attributes count = %d\n", tmpattr->attr.Code->attributes_count);
-      }
-
+      if(class_debug) report_position("max stack", out);
       write_u2(tmpattr->attr.Code->max_stack,out);
+
+      if(class_debug) report_position("max locals", out);
       write_u2(tmpattr->attr.Code->max_locals,out); 
+
+      if(class_debug) report_position("code length", out);
       write_u4(tmpattr->attr.Code->code_length,out);
+
+      if(class_debug) report_position("code", out);
       write_code(tmpattr->attr.Code->code, out);
+
+      if(class_debug) report_position("exception table length", out);
       write_u2(tmpattr->attr.Code->exception_table_length,out);
-      if(tmpattr->attr.Code->exception_table_length > 0)
+
+      if(tmpattr->attr.Code->exception_table_length > 0) {
+        if(class_debug) report_position("exception table", out);
+
         write_exception_table(tmpattr->attr.Code->exception_table, 
           tmpattr->attr.Code->exception_table_length, out);
+      }
+
+      if(class_debug) report_position("code attributes count", out);
+      if(class_debug) printf("code attributes count = %d\n", tmpattr->attr.Code->attributes_count);
       write_u2(tmpattr->attr.Code->attributes_count,out);
-      if(tmpattr->attr.Code->attributes_count > 0)
+ 
+      if(tmpattr->attr.Code->attributes_count > 0) {
+        if(class_debug) report_position("code attributes", out);
         write_attributes(tmpattr->attr.Code->attributes, const_pool, out);
+      }
     } 
     else if(!strcmp(attr_name,"Exceptions")) {
       int *idx;
 
-      if(classdebug) {
-        printf("write_attributes() - writing Exceptions attribute\n");
-        printf("       num attributes = %d\n", tmpattr->attr.Exceptions->number_of_exceptions);
-      }
-
+      if(class_debug) report_position("num exceptions", out);
       write_u2(tmpattr->attr.Exceptions->number_of_exceptions, out);
+
       dl_traverse(tmpPtr2, tmpattr->attr.Exceptions->exception_index_table) {
         idx = (int *) tmpPtr2->val;
+
+        if(class_debug) report_position("exception idx", out);
         write_u2(*idx, out);
       }
     }

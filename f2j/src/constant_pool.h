@@ -51,6 +51,7 @@ METHODREF * newMethodNode(char *, char *, char *);
 METHODREF * find_method(char *, Dlist);
 CPNODE    * cp_lookup(Dlist, enum _constant_tags, void *);
 CPNODE    * cp_find_or_insert(Dlist, enum _constant_tags, void *);
+CPNODE    * cp_find_function_body(Dlist, enum _constant_tags, void *);
 CPNODE    * cp_entry_by_index(Dlist, unsigned int);
 CPNODE    * cp_insert(Dlist, struct cp_info *, unsigned int);
 CPNODE    * insert_constant(Dlist, int, void *);

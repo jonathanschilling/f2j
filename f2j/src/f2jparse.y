@@ -3,7 +3,7 @@
 #include "f2j.h"
 #include<string.h>
 
-#define YYDEBUG 1
+#define YYDEBUG 0
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -22,6 +22,7 @@ char * tname;
 int temptok;
 void start_vcg();
 void emit();
+void jas_emit();
 AST * tempnode;
 AST * headnode;
 AST * localvarlist; 
@@ -120,15 +121,19 @@ Sourcecode:   Program  Specstmts  Statements End
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
-#if JAS
-		assign_local_vars(localvarlist); 
-		assign_local_vars($2); 
-                assign($$); 
-#endif
+
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
-                if(emittem) emit($$);
+
+                if(JAS) {
+		  assign_local_vars(localvarlist); 
+		  assign_local_vars($2); 
+                  assign($$); 
+                  if(emittem) jas_emit($$);
+                }else {
+                  if(emittem) emit($$);
+                }
               }
 
            |  Subroutine Specstmts Statements End 
@@ -141,15 +146,17 @@ Sourcecode:   Program  Specstmts  Statements End
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
-#if JAS
-		assign_local_vars(localvarlist); 
-		assign_local_vars($2); 
-                assign($$); 
-#endif
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
-                if(emittem) emit($$);
+                if(JAS) {
+		  assign_local_vars(localvarlist); 
+		  assign_local_vars($2); 
+                  assign($$); 
+                  if(emittem) jas_emit($$);
+                }else {
+                  if(emittem) emit($$);
+                }
               }
           |   Function Specstmts Statements  End
               {
@@ -161,15 +168,17 @@ Sourcecode:   Program  Specstmts  Statements End
                 $$->astnode.source.typedecs = $2;
 		$4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
-#if JAS
-		assign_local_vars(localvarlist);
-		assign_local_vars($2);
-                assign($$);
-#endif
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
-                if(emittem) emit($$);
+                if(JAS) {
+		  assign_local_vars(localvarlist);
+		  assign_local_vars($2);
+                  assign($$);
+                  if(emittem) jas_emit($$);
+                }else {
+                  if(emittem) emit($$);
+                }
               }
 ;
 
@@ -340,12 +349,10 @@ End:    END  NL
    to load a local variable table for opcode generation.   */
 Functionargs:   OP Namelist CP   
                 {
-#if JAS
-  		  localvarlist = switchem($2);
-#endif
-#if JAVA
-		  $2 = switchem($2);  
-#endif	
+                  if(JAS)
+  		    localvarlist = switchem($2);
+                  else
+		    $2 = switchem($2);  
 		  arg_table_load($2);
                   $$ = $2;
                 }

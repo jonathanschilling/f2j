@@ -9,11 +9,10 @@
 typedef int BOOLEAN;
 #define TRUE 1
 #define FALSE 0
-#define JAS 0
-#define JAVA 1
 #define VCG 1    /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
+#define DEFAULT_TARGET_LANG 0   /* 0 == Java, 1 == Jasmin */
 
 /*  If 1, yyparse produces voluminous, detailed
     output to stderr during parsing.  */
@@ -26,6 +25,7 @@ FILE *ifp;
 FILE *jasminfp;
 FILE *javafp;
 FILE *vcgfp;
+int JAS;
 
 /* Dlist tokenstack; */
 SYMTABLE *type_table;

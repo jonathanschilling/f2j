@@ -8,9 +8,8 @@
 
 #define Mindent1 "   "		/* Indentation space macro.  */
 
-
 AST *returnname;
-int gendebug = 0;
+int jas_gendebug = 0;
 int labelno = 1;		/* Matches output from D-Java. */
 int breaklabel;			/* Global to deal with if-then-else-endif. */
 
@@ -23,24 +22,31 @@ CODES;
 
 /* Prototypes.  */
 
-char *returnstring[] =
+void jas_elseif_emit (AST *);
+void jas_else_emit (AST *);
+int  jas_name_emit (AST *);
+int  jas_expr_emit (AST *);
+void jas_return_emit (AST *);
+void jas_logicalop_emit (AST *);
+
+char *jas_returnstring[] =
 {"Ljava/lang/String;", "complex", "D", "F", "I", "B"};
 
 char *typestring[] =
 {"Ljava/lang/String;", "complex", "d", "f", "i", "b"};
 
-emit (AST * root)
+jas_emit (AST * root)
 {
 
     switch (root->nodetype)
       {
       case 0:
-	  if (gendebug)
+	  if (jas_gendebug)
 	      printf ("Bad node\n");
-	  emit (root->nextstmt);
+	  jas_emit (root->nextstmt);
       case Source:
-	  emit (root->astnode.source.progtype);
-	  emit (root->astnode.source.statements);
+	  jas_emit (root->astnode.source.progtype);
+	  jas_emit (root->astnode.source.statements);
 	  break;
       case Subroutine:
 	  returnname = NULL;
@@ -51,69 +57,69 @@ emit (AST * root)
 	  method (root);
 	  break;
       case Logicalif:
-	  logicalif_emit (root);
+	  jas_logicalif_emit (root);
 	  /*  I think the way this works is that there are two cases
 	     "true" and "false", therefore need to increment the
 	     label number by two. Could be interesting when I try
 	     to handle if-then-else...  */
 	  labelno += 2;
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
       case Blockif:
-	  blockif_emit (root);
+	  jas_blockif_emit (root);
 	  labelno += 2;
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
       case Elseif:
-	  elseif_emit (root);
+	  jas_elseif_emit (root);
 	  labelno += 2;
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
 
       case Else:
-	  else_emit (root);
+	  jas_else_emit (root);
 	  labelno += 2;
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
 
       case Assignment:
-	  assign_emit (root);
+	  jas_assign_emit (root);
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
       case Forloop:
-	  forloop_emit (root);
+	  jas_forloop_emit (root);
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
       case End:
 	  fprintf (jasminfp, ".end method\n");
 	  break;
       case Goto:
-	  goto_emit (root);
+	  jas_goto_emit (root);
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
 
       case Return:
-	  return_emit (root);
+	  jas_return_emit (root);
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
 
       case Label:
-	  label_emit (root);
+	  jas_label_emit (root);
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
 
       default:
 	  if (root->nextstmt != NULL)
-	      emit (root->nextstmt);
+	      jas_emit (root->nextstmt);
 	  break;
       }				/* Close switch().  */
 }
@@ -151,8 +157,8 @@ method (AST * root)
 	    }
 	  returns = hashtemp->type;
 
-	  /* tempstring = strdup (returnstring[returns]);  */
-	  tempstring = returnstring[returns];
+	  /* tempstring = strdup (jas_returnstring[returns]);  */
+	  tempstring = jas_returnstring[returns];
 
 	  if (hashtemp->variable->astnode.ident.arraylist)
 	    {
@@ -167,7 +173,7 @@ method (AST * root)
 
 /*  Returns...  */
     if (returnname)
-	fprintf (jasminfp, ")%s\n", returnstring[root->astnode.source.returns]);
+	fprintf (jasminfp, ")%s\n", jas_returnstring[root->astnode.source.returns]);
     else
 	fprintf (jasminfp, ")V\n\n");
 
@@ -184,11 +190,11 @@ method (AST * root)
    The first part has to done in expr, because that is the
    big action is.  */
 int
-logicalif_emit (AST * root)
+jas_logicalif_emit (AST * root)
 {
     fprintf (jasminfp, "\n; Logical `if' statement.\n");
     if (root->astnode.logicalif.conds != NULL)
-	expr_emit (root->astnode.logicalif.conds);
+	jas_expr_emit (root->astnode.logicalif.conds);
 
 
     /*  Big test.  All the rest works great... */
@@ -201,7 +207,7 @@ logicalif_emit (AST * root)
 	fprintf (jasminfp, "Label%d:\n",
 		 root->astnode.logicalif.fall_label);
 
-    emit (root->astnode.logicalif.stmts);
+    jas_emit (root->astnode.logicalif.stmts);
 
     fprintf (jasminfp, "Label%d:\n",
 	     root->astnode.logicalif.skip_label);
@@ -209,7 +215,7 @@ logicalif_emit (AST * root)
 
 
 int
-blockif_emit (AST * root)
+jas_blockif_emit (AST * root)
 {
     extern int breaklabel;
     breaklabel = root->astnode.blockif.break_label;
@@ -217,10 +223,10 @@ blockif_emit (AST * root)
     fprintf (jasminfp, "\n; Block `if' statement.\n");
 
     if (root->astnode.blockif.conds != NULL)
-	expr_emit (root->astnode.blockif.conds);
+	jas_expr_emit (root->astnode.blockif.conds);
 
     if (root->astnode.blockif.stmts != NULL)
-	emit (root->astnode.blockif.stmts);
+	jas_emit (root->astnode.blockif.stmts);
 
     fprintf (jasminfp, Mindent1 "goto Label%d:\t; No falling through.\n",
 	     breaklabel);
@@ -242,22 +248,22 @@ blockif_emit (AST * root)
       }
 
     if (root->astnode.blockif.elseifstmts != NULL)
-	emit (root->astnode.blockif.elseifstmts);
+	jas_emit (root->astnode.blockif.elseifstmts);
 
     if (root->astnode.blockif.elsestmts != NULL)
       {
-	  emit (root->astnode.blockif.elsestmts);
+	  jas_emit (root->astnode.blockif.elsestmts);
 	  fprintf (jasminfp, "Label%d:\n", breaklabel);
       }
 }
 
 void
-elseif_emit (AST * root)
+jas_elseif_emit (AST * root)
 {
     extern int breaklabel;
 
     if (root->astnode.blockif.conds != NULL)
-	expr_emit (root->astnode.blockif.conds);
+	jas_expr_emit (root->astnode.blockif.conds);
 
     if (root->astnode.blockif.conds->token == AND)
 	fprintf (jasminfp, "Label%d:\n",
@@ -267,7 +273,7 @@ elseif_emit (AST * root)
 	fprintf (jasminfp, "Label%d:\n",
 		 root->astnode.blockif.fall_label);
 
-    emit (root->astnode.blockif.stmts);
+    jas_emit (root->astnode.blockif.stmts);
 
     fprintf (jasminfp, Mindent1 "goto Label%d:\t; Skip remainder.\n",
 	     breaklabel);
@@ -278,13 +284,13 @@ elseif_emit (AST * root)
 }
 
 void
-else_emit (AST * root)
+jas_else_emit (AST * root)
 {
-    emit (root->astnode.blockif.stmts);
+    jas_emit (root->astnode.blockif.stmts);
 }
 
 int
-expr_emit (AST * root)
+jas_expr_emit (AST * root)
 {
 
     CODES *codetags;
@@ -294,32 +300,32 @@ expr_emit (AST * root)
       {
       case Expression:
 	  if (root->astnode.expression.lhs != NULL)
-	      expr_emit (root->astnode.expression.lhs);
-	  expr_emit (root->astnode.expression.rhs);
+	      jas_expr_emit (root->astnode.expression.lhs);
+	  jas_expr_emit (root->astnode.expression.rhs);
       case Identifier:
-	  name_emit (root);
+	  jas_name_emit (root);
 	  break;
       case Constant:
-	  constant_emit (root);
+	  jas_constant_emit (root);
 	  break;
       case Binaryop:
-	  expr_emit (root->astnode.expression.lhs);
-	  expr_emit (root->astnode.expression.rhs);
+	  jas_expr_emit (root->astnode.expression.lhs);
+	  jas_expr_emit (root->astnode.expression.rhs);
 	  fprintf (jasminfp, Mindent1 "%s\t\t; %c\n",
 		   root->astnode.expression.opcode,
 		   root->astnode.expression.optype);
 	  break;
       case Logicalop:
 	  /*  Might be easier to inline this procedure.  */
-	  logicalop_emit (root);
+	  jas_logicalop_emit (root);
 	  break;
 	  /*  May have to change the way these work because of
 	     problems with getting logical operations such as
 	     AND and OR to work properly.   */
       case Relationalop:
 
-	  expr_emit (root->astnode.expression.rhs);
-	  expr_emit (root->astnode.expression.lhs);
+	  jas_expr_emit (root->astnode.expression.rhs);
+	  jas_expr_emit (root->astnode.expression.lhs);
 
 	  if (root->parent->token == AND /* && root->expr_side == left */ )
 	      fprintf (jasminfp, Mindent1 "%s Label%d\n",
@@ -342,7 +348,7 @@ expr_emit (AST * root)
 /* There is a really nasty segfault occurring in this routine,
    and it is screwing up a bunch of stuff.  I have no idea where
    it is or why it is occurring.  */
-name_emit (AST * root)
+jas_name_emit (AST * root)
 {
     AST *temp;
 
@@ -390,12 +396,12 @@ name_emit (AST * root)
 		  fprintf (jasminfp, "%d", hashtemp->localvarnum);
 		  fprintf (jasminfp, "\t; %s\n", root->astnode.ident.name);
 		  temp = root->astnode.ident.arraylist;
-		  expr_emit(temp);
+		  jas_expr_emit(temp);
 		  if (temp->nextstmt != NULL)
 		    {
 		      temp = temp->nextstmt;
-		      expr_emit(temp);
-		      expr_emit(root->astnode.ident.leaddim);
+		      jas_expr_emit(temp);
+		      jas_expr_emit(root->astnode.ident.leaddim);
 		      fprintf(jasminfp, "imult\n");
 		      fprintf(jasminfp, "iadd\n");
 		    }
@@ -413,7 +419,7 @@ name_emit (AST * root)
 
 
 int
-assign_emit (AST * root)
+jas_assign_emit (AST * root)
 {
 
     AST *temp;
@@ -424,7 +430,7 @@ assign_emit (AST * root)
     {0};
 
     javaname = root->astnode.assignment.lhs->astnode.ident.name;
-    expr_emit (root->astnode.assignment.rhs);
+    jas_expr_emit (root->astnode.assignment.rhs);
     fprintf (jasminfp, Mindent1 "%s ", root->astnode.assignment.opcode);
 
 
@@ -441,7 +447,7 @@ assign_emit (AST * root)
 
 
 int
-constant_emit (AST * root)
+jas_constant_emit (AST * root)
 {
     char *tempstring;
 
@@ -460,12 +466,12 @@ constant_emit (AST * root)
 
 
 int
-forloop_emit (AST * root)
+jas_forloop_emit (AST * root)
 {
     extern labelno;
 
     fprintf (jasminfp, "\n; do loop.\n; Initialize counter.\n");
-    assign_emit (root->astnode.forloop.start);
+    jas_assign_emit (root->astnode.forloop.start);
 
 /*    fprintf (jasminfp, Mindent1 "goto Label%d\n", labelno + 1);  */
 
@@ -477,11 +483,11 @@ forloop_emit (AST * root)
 	     root->astnode.forloop.startlabel);
 
     fprintf (jasminfp, "; Executable statements.\n");
-    emit (root->astnode.forloop.stmts);
+    jas_emit (root->astnode.forloop.stmts);
 
     fprintf (jasminfp, "\n; Increment counter.\n");
     /*  Put the increment counter in here.  */
-    incr_emit (root->astnode.forloop.counter);
+    jas_incr_emit (root->astnode.forloop.counter);
 
 /*     fprintf (jasminfp, "\nLabel%d:\n", labelno);  */
     fprintf (jasminfp, "\nLabel%d:\n", root->astnode.forloop.stoplabel);
@@ -491,10 +497,10 @@ forloop_emit (AST * root)
     fprintf (jasminfp, "; Compare, jump to Label%d to iterate.\n",
 	     root->astnode.forloop.startlabel);
 
-    expr_emit (root->astnode.forloop.stop);
+    jas_expr_emit (root->astnode.forloop.stop);
 
     /*  Need to get the variable name and number to load here. */
-    name_emit (root->astnode.forloop.counter);
+    jas_name_emit (root->astnode.forloop.counter);
 
 /*    fprintf (jasminfp, Mindent1 "if_icmplt Label%d\n", labelno - 1);  */
     fprintf (jasminfp, Mindent1 "if_icmplt Label%d\n",
@@ -504,7 +510,7 @@ forloop_emit (AST * root)
 }
 
 int
-incr_emit (AST * root)
+jas_incr_emit (AST * root)
 {
     HASHNODE *hashtemp;
 
@@ -524,25 +530,25 @@ incr_emit (AST * root)
       }
 }
 
-goto_emit (AST * root)
+jas_goto_emit (AST * root)
 {
     fprintf (jasminfp, Mindent1 "goto S_label%d\n", root->astnode.go_to.label);
 }
 
-label_emit (AST * root)
+jas_label_emit (AST * root)
 {
     fprintf (jasminfp, "\nS_label%d:\n", root->astnode.label.number);
-    emit (root->astnode.label.stmt);
+    jas_emit (root->astnode.label.stmt);
 }
 
 
 
 void
-return_emit (AST * root)
+jas_return_emit (AST * root)
 {
     if (returnname)
       {
-	  name_emit (returnname);
+	  jas_name_emit (returnname);
 	  fprintf (jasminfp, Mindent1 "ireturn\n\n");
       }
     else
@@ -552,11 +558,11 @@ return_emit (AST * root)
 
 
 void
-logicalop_emit (AST * root)
+jas_logicalop_emit (AST * root)
 {
 
     fprintf (jasminfp, "; Logical operation.\n");
-    expr_emit (root->astnode.expression.lhs);
-    expr_emit (root->astnode.expression.rhs);
+    jas_expr_emit (root->astnode.expression.lhs);
+    jas_expr_emit (root->astnode.expression.rhs);
 
 }

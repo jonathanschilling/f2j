@@ -6,13 +6,11 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
-extern yydebug;
+/* extern yydebug; */
 char *inputfilename;		/* Hack for getting input file to write
 				   output header.  */
 main (int argc, char **argv)
 {
-
-
     /* I loath all these character arrays.  There has to be
        a better way to do this using char *.  */
     char classname[130];
@@ -24,25 +22,105 @@ main (int argc, char **argv)
     extern int lineno;
     extern int statementno;
 
+    char *truncfilename;
     char sourcename[130];
     char jasminname[130];
     char vcgname[130];
 
-    yydebug = DEBUGGEM;
+    /* yydebug = DEBUGGEM; */
 
-    assert(argc == 2);
+    /* 
+       The program is used as follows:
 
-    inputfilename = strdup (argv[1]);
+       To compile a program into Java source code:
+           f2java -java filename
+           f2java filename -java
 
-    ifp = fopen (argv[1], "r");
+       To compile a program into Jasmin assembly code:
+           f2java -jas filename
+           f2java filename -jas
 
-    argv[1] = strtok (argv[1], ".");
-    *argv[1] = toupper (*argv[1]);
+       If no language is specified (e.g. "f2java filename"),
+       the default behavior is to generate Java source code.
+    */
+
+    if((argc < 2) || (argc > 3)) {  
+
+      /* 
+         If there are fewer than 2 or more than 3 args, they
+         can't be correct - print an error message and exit. 
+      */
+      fprintf(stderr,"Usage: f2java [-java/-jas] <filename>\n");
+      exit(1);
+    }
+    else if(argc == 2) {
+
+      /* 
+         Only two args specified.  If one is -jas or -java,
+         generate an error message, otherwise assume that the
+         arg represents the filename and use the default
+         selection for the target language.
+      */
+    
+      if((strcmp(argv[1], "-jas") == 0) ||
+         (strcmp(argv[1],"-java") == 0)) {
+           fprintf(stderr,"You must specify a filename.\n");
+           fprintf(stderr,"Usage: f2java [-java/-jas] <filename>\n");
+           exit(1);
+      }
+
+      inputfilename = strdup(argv[1]);
+      JAS = DEFAULT_TARGET_LANG;
+    }
+    else {
+
+      /* 
+          There are three args, the first of which is the
+          name of the program (f2java).  Of the remaining two,
+          one must be the filename and the other must be the
+          target language selection.  If not, generate an
+          error message.
+      */
+      if(strcmp(argv[1],"-jas") == 0) {
+        JAS = 1;
+        inputfilename = strdup(argv[2]);
+      }
+      else if(strcmp(argv[1],"-java") == 0) {
+        JAS = 0;
+        inputfilename = strdup(argv[2]);
+      }
+      else if(strcmp(argv[2],"-jas") == 0) {
+        JAS = 1;
+        inputfilename = strdup(argv[1]);
+      }
+      else if(strcmp(argv[2],"-java") == 0) {
+        JAS = 0;
+        inputfilename = strdup(argv[1]);
+      }
+      else {
+        fprintf(stderr,"Invalid target language specification!\n");
+        fprintf(stderr,"Use either -jas or -java\n");
+        exit(1);
+      }        
+    }
+
+    printf("Ok... compiling '%s' to %s\n", inputfilename, 
+       JAS == 1 ? "JAS" : "JAVA");
+
+    if((ifp = fopen (inputfilename, "r"))==NULL) {
+      fprintf(stderr,"Input file not found: '%s'\n",inputfilename);
+      exit(1);
+    }
+
+    truncfilename = strdup(inputfilename);
+    truncfilename = strtok (truncfilename, ".");
+    *truncfilename = toupper (*truncfilename);
+
     /* Loathsome hacks... */
-    strcpy (classname, argv[1]);
-    strcpy (sourcename, argv[1]);
-    strcpy (jasminname, argv[1]);
-    strcpy (vcgname, argv[1]);
+    strcpy (classname, truncfilename);
+    strcpy (sourcename, truncfilename);
+    strcpy (jasminname, truncfilename);
+    strcpy (vcgname, truncfilename);
 
     strcat (sourcename, ".java");
     strcat (jasminname, ".j");
@@ -50,32 +128,44 @@ main (int argc, char **argv)
 
     initialize ();
 
-#if JAS
-    jasminfp = fopen (jasminname, "w");
-    jasminheader (jasminfp, classname);
-#endif
-#if JAVA
-    javafp = fopen (sourcename, "w");
-    javaheader (javafp, classname);
-    /* Write to standard out to debug code
-       generation.  */
-    /*  javafp = stdout;     */
-#endif
+    if(JAS) {
+      if((jasminfp = fopen (jasminname, "w"))==NULL) {
+        fprintf(stderr,"Cannot open output file '%s'.\n",jasminname);
+        perror("Reason");
+        exit(1);
+      }
+      jasminheader (jasminfp, classname);
+    } else {
+      if((javafp = fopen (sourcename, "w"))==NULL) {
+        fprintf(stderr,"Cannot open output file '%s'.\n",sourcename);
+        perror("Reason");
+        exit(1);
+      }
+      javaheader (javafp, classname);
+      /* Write to standard out to debug code
+         generation.  */
+      /*  javafp = stdout;     */
+    }
+
 #if VCG
-    vcgfp = fopen(vcgname, "w");
+    if((vcgfp = fopen(vcgname, "w"))==NULL) {
+      fprintf(stderr,"Cannot open output file '%s'.\n",sourcename);
+      perror("Reason");
+      exit(1);
+    }
 #endif
 
     yyparse ();
 
-#if JAS
-    fclose (jasminfp);
-#endif
-#if JAVA
-    fclose (javafp);
-#endif
+    if(JAS)
+      fclose (jasminfp);
+    else
+      fclose (javafp);
+
 #if VCG
     fclose (vcgfp);
 #endif
+
     printf("Line number: %d\n", lineno);
     printf("Statement number: %d\n", statementno);
     exit (0);

@@ -203,7 +203,7 @@ break;
 	printf("Found an array in typeassign\n");
 	root->astnode.ident.opcode = strdup ("aload");
 	temp = root->astnode.ident.arraylist;
-	expr_emit(temp);
+	jas_expr_emit(temp);
 	if (temp->nextstmt != NULL)
 	  temp = temp->nextstmt;
       }

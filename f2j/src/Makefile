@@ -1,11 +1,9 @@
-
 HOME=/shag/homes/doolin
 CFLAGS= -g -ansi #-p
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
-OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o #initialize.o
-JASMINOBS=f2jparse.tab.o f2jlex.o f2jmain.o symtab.o typeassign.o opcode.o
+OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o vcg_emitter.o typeassign.o opcode.o
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison
 JFILES = *.j
@@ -15,15 +13,9 @@ JAVAFILES = *.java
 
 f2java: f2j.h f2jparse.y $(OBJS) 
 	${CC} $(CFLAGS) -o $@ $(OBJS) 
-#	cp f2java $(HOME)/bin/
-
-f2jas: f2j.h f2jparse.y $(JASMINOBS)
-	$(PURIFY) ${CC} $(CFLAGS) -o $@ $(JASMINOBS) 
-
 
 f2jmain.o:  f2jmain.c f2j.h f2jparse.y
 	$(CC) -c $(CFLAGS) f2jmain.c
-
 
 f2jlex: f2jlex.o f2j.h
 	$(CC) $(FLAGS) -o f2jlex f2jlex.o

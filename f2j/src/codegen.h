@@ -40,6 +40,7 @@
 
 #define JL_STRING "java/lang/String"
 #define JL_CHAR "java/lang/Character"
+#define JL_OBJECT "java/lang/Object"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "()Z"
@@ -60,6 +61,9 @@
 #define ETIME_CLASS "org/netlib/util/Etime"
 #define ETIME_DESC "()V"
 #define IOEXCEPTION "java/io/IOException"
+#define METHOD_CLASS "java/lang/reflect/Method"
+#define GETMETHODS_DESC "()[Ljava/lang/reflect/Method;"
+#define GETCLASS_DESC "()Ljava/lang/Class;"
 
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"

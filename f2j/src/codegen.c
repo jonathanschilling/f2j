@@ -34,6 +34,7 @@ char
   * strdup ( const char * ),
   * print_nodetype ( AST * ),
   * lowercase ( char * ),
+  * get_common_prefix(char *),
   * getVarDescriptor(AST *);
 
 METHODTAB
@@ -56,11 +57,15 @@ void
   expr_emit(AST *),
   forloop_bytecode_emit(AST *),
   else_emit (AST *),
-  LHS_bytecode_emit(AST *);
+  LHS_bytecode_emit(AST *),
+  insert_adapter(AST *),
+  insert_methcall(Dlist, AST *),
+  reflect_declarations_emit(AST *);
 
 int
   isPassByRef(char *),
-  getNextLocal(enum returntype);
+  getNextLocal(enum returntype),
+  needs_adapter(AST *);
 
 HASHNODE 
   * format_lookup(SYMTABLE *, char *);
@@ -378,12 +383,20 @@ emit (AST * root)
             bytecode1(jvm_invokestatic, c->index);
           }
 
-          /* The 'catch' corresponding to the following try is generated
-           * in case End. 
+          /* if one of the arguments is a function, we must use the
+           * reflection mechanism to perform the method call.
            */
 
-          if(import_reflection) 
+          if(import_reflection) {
+            reflect_delcarations_emit(
+               root->astnode.source.progtype->astnode.source.args);
+
+            /* The 'catch' corresponding to the following try is generated
+             * in case End. 
+             */
+
             fprintf(curfp,"try {\n");
+          }
 
           emit(root->astnode.source.statements);
 
@@ -735,6 +748,64 @@ set_bytecode_status(int mode)
 
 /*****************************************************************************
  *                                                                           *
+ * reflect_declarations_emit                                                 *
+ *                                                                           *
+ * this function emits declarations for each function passed in as an arg.   *
+ * the arg type is Object, so we call Object.getClass().getDeclaredMethods() *
+ * to get the Method array of that object.  then we assign the first method  *
+ * to the next available local variable.                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+reflect_declarations_emit(AST *root)
+{
+  HASHNODE *hashtemp, *ht2;
+  AST *tempnode;
+  CPNODE *c;
+
+  for(tempnode = root; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    hashtemp = type_lookup(cur_external_table, tempnode->astnode.ident.name);
+    if(hashtemp)
+    {
+      hashtemp->variable->astnode.ident.localvnum = getNextLocal(Object);
+
+      fprintf(curfp,"  java.lang.reflect.Method _%s_meth ", 
+        tempnode->astnode.ident.name);
+      fprintf(curfp," = %s.getClass().getDeclaredMethods()[0];\n",
+        tempnode->astnode.ident.name);
+
+      ht2 = type_lookup(cur_type_table, tempnode->astnode.ident.name);
+      if(!ht2) {
+        fprintf(stderr,"Error: expected to find %s in symbol table.\n",
+          tempnode->astnode.ident.name);
+        exit(-1);
+      }
+
+      if(hashtemp->variable == ht2->variable)
+        printf("ASDF  pointers are equal!!!\n");
+      printf("ASDF %s -> %d\n", tempnode->astnode.ident.name, ht2->variable->astnode.ident.localvnum);
+
+      gen_load_op(ht2->variable->astnode.ident.localvnum, Object);
+
+      c = newMethodref(cur_const_table, JL_OBJECT, "getClass",
+            GETCLASS_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      c = newMethodref(cur_const_table, METHOD_CLASS, "getDeclaredMethods",
+            GETMETHODS_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      pushIntConst(0);
+      bytecode0(jvm_aaload);
+      gen_store_op(hashtemp->variable->astnode.ident.localvnum, Object);
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * end_emit                                                                  *
  *                                                                           *
  * We only generate one real return statement.  The other return statements  *
@@ -750,17 +821,6 @@ end_emit(AST *root)
 {
   void return_emit();
 
-  fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
-
-  if (returnname != NULL) {
-    if(omitWrappers && !isPassByRef(returnname))
-      fprintf (curfp, "return %s;\n", returnname);
-    else
-      fprintf (curfp, "return %s.val;\n", returnname);
-  }
-  else
-    fprintf (curfp, "return;\n");
-
   if(import_reflection) {
     fprintf(curfp, "%s%s%s%s%s%s%s",
        "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
@@ -771,6 +831,17 @@ end_emit(AST *root)
        "  \"+ _e2.getMessage());\n",
        "}\n");
   }
+
+  fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
+
+  if (returnname != NULL) {
+    if(omitWrappers && !isPassByRef(returnname))
+      fprintf (curfp, "return %s;\n", returnname);
+    else
+      fprintf (curfp, "return %s.val;\n", returnname);
+  }
+  else
+    fprintf (curfp, "return;\n");
 
   fprintf (curfp, "   }\n");
 
@@ -3817,7 +3888,6 @@ external_emit(AST *root)
   uppercase(tempname);
 
   entry = methodscan (intrinsic_toks, tempname);
-  javaname = entry->java_method;
 
   /*  
    *  This block of code is only called if the identifier
@@ -3826,12 +3896,14 @@ external_emit(AST *root)
    *  something in the blas or lapack packages.  
    */
 
-  if (javaname == NULL)
+  if (entry == NULL)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_emit (root);
     return;
   }
+
+  javaname = entry->java_method;
 
   /* Ensure that the call has arguments */
 
@@ -5632,25 +5704,6 @@ constructor (AST * root)
   }
 
   method_desc = temp_desc->val;
-
-  /* if one of the arguments is a function, we must use the
-   * reflection mechanism to perform the method call.
-   */
-
-  if(import_reflection) {
-    fprintf(stderr,"WARNING: reflection stuff not implemented for bytecode\n");
-    tempnode = root->astnode.source.args;
-    for (; tempnode != NULL; tempnode = tempnode->nextstmt)
-    {
-      if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
-      {
-        fprintf(curfp,"  java.lang.reflect.Method _%s_meth ", 
-          tempnode->astnode.ident.name);
-        fprintf(curfp," = %s.getClass().getDeclaredMethods()[0];\n",
-          tempnode->astnode.ident.name);
-      }
-    }
-  }
 }				/*  Close  constructor(). */
 
 /*****************************************************************************
@@ -7782,33 +7835,22 @@ else_emit (AST * root)
 
 /*****************************************************************************
  *                                                                           *
- * call_emit                                                                 *
+ * method_name_emit                                                          *
  *                                                                           *
- * This procedure implements Lapack and Blas type methods.                   *
- * They are translated to static method invocations.                         *
- * This is not a portable solution, it is specific to                        *
- * the Blas and Lapack.                                                      *
+ * This function generates the correct method name for this function call.   *
+ * Depending on whether adapters are necessary, we may emit the name of the  *
+ * Fortran function, the name of a reflective method invocation, or an       *
+ * adapter method.                                                           *
+ *                                                                           *
+ * Returns 1 if the Call is completely generated here, 0 otherwise.          *
  *                                                                           *
  *****************************************************************************/
 
-void
-call_emit (AST * root)
+int
+method_name_emit (AST *root, BOOLEAN adapter)
 {
+  char *tempname;
   AST *temp;
-  char *tempname, *com_prefix;
-  HASHNODE *hashtemp, *ht, *ht2;
-  int adapter = FALSE;
-  int needs_adapter(AST *);
-  void insert_adapter(AST *);
-  void insert_methcall(Dlist, AST *);
-  char *get_common_prefix(char *);
-
-  assert (root != NULL);
-
-  if(gendebug)
-    printf("@##@ in call_emit, %s\n",root->astnode.ident.name);
-
-  adapter = needs_adapter(root);
 
   /* shouldn't be necessary to lowercase the name
    *   lowercase (root->astnode.ident.name);
@@ -7835,14 +7877,14 @@ call_emit (AST * root)
 
       /* no args.  either function or subroutine. */
 
-      fprintf(curfp,"((%s)_%s_meth.invoke(null,null)).%sValue()",
-        java_wrapper[root->vartype], root->astnode.ident.name, 
-        returnstring[root->vartype]);
-
       if(root->nodetype == Call)
-        fprintf(curfp,";");
+        fprintf(curfp,"_%s_meth.invoke(null,null);\n", root->astnode.ident.name);
+      else
+        fprintf(curfp,"((%s)_%s_meth.invoke(null,null)).%sValue()",
+          java_wrapper[root->vartype], root->astnode.ident.name, 
+          returnstring[root->vartype]);
 
-      return;
+      return 1;
     }
     else if (root->nodetype == Call) {
 
@@ -7883,7 +7925,7 @@ call_emit (AST * root)
 
       fprintf(curfp,"_%s_meth.invoke(null,_%s_args);\n",
         root->astnode.ident.name, root->astnode.ident.name);
-      return;
+      return 1;
     }
     else   /* function with args. */
     {
@@ -7894,13 +7936,12 @@ call_emit (AST * root)
       fprintf(curfp,"%s_methcall",root->astnode.ident.name);
     }
   }
-
-  /* analyze this function call to determine if we need to generate an 
-   * 'adapter' which will simulate passing array elements by reference.
-   */
-
   else if( adapter )
   {
+    /* we need to generate an 'adapter' which will simulate
+     * passing array elements by reference.
+     */
+
     if(gendebug)
       printf("wow, guess we need an adapter for %s.\n", 
         root->astnode.ident.name);
@@ -7912,6 +7953,40 @@ call_emit (AST * root)
   }
   else
     fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
+
+  return 0;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * call_emit                                                                 *
+ *                                                                           *
+ * This procedure implements Lapack and Blas type methods.                   *
+ * They are translated to static method invocations.                         *
+ * This is not a portable solution, it is specific to                        *
+ * the Blas and Lapack.                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+call_emit (AST * root)
+{
+  AST *temp;
+  char *com_prefix;
+  HASHNODE *hashtemp, *ht, *ht2;
+  BOOLEAN adapter = FALSE;
+
+  assert (root != NULL);
+
+  if(gendebug)
+    printf("@##@ in call_emit, %s\n",root->astnode.ident.name);
+
+  adapter = needs_adapter(root);
+
+  /* if method_name_emit() can completely generate the call, return now */
+
+  if( method_name_emit(root, adapter) )
+    return;
 
   if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
      (root->astnode.ident.arraylist == NULL))
@@ -10072,7 +10147,7 @@ assign_local_vars(AST * root)
 {
   AST * locallist;
   HASHNODE * hashtemp;
-  static int localnum = 0;
+  int localnum = 0;
   extern int locals;
 
   /* if root is NULL, this is probably a PROGRAM (no args) */
@@ -10095,6 +10170,8 @@ assign_local_vars(AST * root)
       exit(-1);
     }
 
+    hashtemp->variable->astnode.ident.localvnum = localnum;
+
     /* Check to see if it is a double or if it is an array declaration.
      * Doubles take up two stack entries, so we increment by 2.  Arrays
      * only take up one stack entry, but we add an integer offset 
@@ -10103,19 +10180,13 @@ assign_local_vars(AST * root)
 
     if (hashtemp->type == Double ||
         hashtemp->variable->astnode.ident.arraylist != NULL)
-    {
-      hashtemp->variable->astnode.ident.localvnum = localnum;
-      if(gendebug)
-        printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
       localnum += 2;
-    }
     else
-    {
-      hashtemp->variable->astnode.ident.localvnum = localnum;
-      if(gendebug)
-        printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
       localnum++;
-    }
+
+    if(gendebug)
+      printf("ARG %s %d\n", hashtemp->variable->astnode.ident.name, 
+        hashtemp->variable->astnode.ident.localvnum); 
   }
 
   locals = localnum;

@@ -1182,7 +1182,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
   HASHNODE *hashtemp;
   AST * tempnode;
   int isArray = 0;
-  char *tempstring, *ret_desc;
+  char *ret_desc;
 
   temp_desc = strAppend(temp_desc, "(");
 
@@ -1208,9 +1208,15 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
     hashtemp = type_lookup (ttable, tempnode->astnode.ident.name);
     if (hashtemp == NULL)
     {
-      fprintf (stderr,"Type table is screwed (typecheck.c).\n");
-      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-      exit (-1);
+      if(type_lookup(etable, tempnode->astnode.ident.name) != NULL) {
+        temp_desc = strAppend(temp_desc, field_descriptor[Object][0]);
+        continue;
+      }
+      else {
+        fprintf (stderr,"Type table is screwed (optimize.c).\n");
+        fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+        exit (-1);
+      }
     }
 
     isArray = hashtemp->variable->astnode.ident.arraylist != NULL;
@@ -1234,28 +1240,19 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        isPassByRef(tempnode->astnode.ident.name,ttable))
-      {
-        tempstring = wrapper_returns[returns];
+           isPassByRef(tempnode->astnode.ident.name,ttable))
         temp_desc = strAppend(temp_desc,
                       wrapped_field_descriptor[returns][isArray]);
-      }
-      else {
-        tempstring = returnstring[returns];
+      else
         temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
-      }
     }
     else
     {
-      if (hashtemp->variable->astnode.ident.arraylist == NULL) {
-        tempstring = wrapper_returns[returns];
+      if (hashtemp->variable->astnode.ident.arraylist == NULL)
         temp_desc = strAppend(temp_desc,
                       wrapped_field_descriptor[returns][isArray]);
-      }
-      else {
-        tempstring = returnstring[returns];
+      else
         temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
-      }
     }
     /* if this is an array, then append an I to the descriptor to
      * represent the integer offset arg.

@@ -5492,9 +5492,18 @@ constructor (AST * root)
     hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
     if (hashtemp == NULL)
     {
-      fprintf (stderr,"Type table is screwed (codegen.c).\n");
-      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-      exit (-1);
+      if( type_lookup (cur_external_table, tempnode->astnode.ident.name) ) {
+        fprintf (curfp, "Object %s", tempnode->astnode.ident.name);
+
+        if (tempnode->nextstmt)
+          fprintf (curfp, ",\n");
+        continue;
+      }
+      else {
+        fprintf (stderr,"Type table is screwed (codegen.c).\n");
+        fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+        exit (-1);
+      }
     }
 
     /* If this variable is declared external and it is an argument to
@@ -7894,6 +7903,7 @@ METHODREF *
 get_method_name(AST *root, BOOLEAN adapter)
 {
   char *buf, *tempname;
+  char *tmpdesc;
   METHODREF *newmeth;
 
   tempname = strdup (root->astnode.ident.name);
@@ -7915,8 +7925,6 @@ get_method_name(AST *root, BOOLEAN adapter)
       /* should not hit this */
     }
     else {
-      char *tmpdesc;
-      
       sprintf(buf,"%s_methcall",root->astnode.ident.name);
       newmeth->classname = strdup(cur_filename);
       newmeth->methodname = strdup(buf);
@@ -7941,7 +7949,18 @@ get_method_name(AST *root, BOOLEAN adapter)
     sprintf (buf, "%s_adapter", root->astnode.ident.name);
     newmeth->classname = strdup(cur_filename);
     newmeth->methodname = strdup(buf);
-    newmeth->descriptor = get_desc_from_arglist(root->astnode.ident.arraylist);
+    tmpdesc = get_desc_from_arglist(root->astnode.ident.arraylist);
+    newmeth->descriptor = (char*)f2jalloc(strlen(tmpdesc) + 
+      strlen(field_descriptor[root->vartype][0]) + 10);
+    strcpy(newmeth->descriptor, "(");
+    strcat(newmeth->descriptor, tmpdesc);
+    strcat(newmeth->descriptor, ")");
+    if(!type_lookup(cur_type_table, root->astnode.ident.name))
+      strcat(newmeth->descriptor, "V");
+    else
+      strcat(newmeth->descriptor, field_descriptor[root->vartype][0]);
+
+    printf("get_method_name:  descriptor = '%s'\n",newmeth->descriptor);
   }
   else
   {
@@ -9186,7 +9205,6 @@ emit_adapters()
       mref->classname = get_full_classname(tempname);
       mref->methodname = strdup(hashtemp->variable->astnode.source.name->astnode.ident.name);
       mref->descriptor = strdup(hashtemp->variable->astnode.source.descriptor);
- 
 
       adapter_emit_from_descriptor(mref, cval);
     }
@@ -10956,9 +10974,15 @@ assign_local_vars(AST * root)
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
     if(hashtemp == NULL)
     {
-      fprintf(stderr,"Type table is screwed in assign locals.\n");
-      fprintf(stderr,"could not find %s\n", locallist->astnode.ident.name);
-      exit(-1);
+      if( type_lookup(cur_external_table, locallist->astnode.ident.name) ) {
+        localnum++;
+        continue;
+      }
+      else {
+        fprintf(stderr,"Type table is screwed in assign locals.\n");
+        fprintf(stderr,"could not find %s\n", locallist->astnode.ident.name);
+        exit(-1);
+      }
     }
 
     hashtemp->variable->astnode.ident.localvnum = localnum;

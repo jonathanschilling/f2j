@@ -5969,7 +5969,8 @@ expr_emit (AST * root)
          ((root->astnode.expression.rhs->vartype == String) ||
           (root->astnode.expression.rhs->vartype == Character)))
       {
-        CPNODE *c;
+        CPNODE *c, *s;
+        BOOLEAN lhs_substring, rhs_substring;
 
         if((root->token != rel_eq) && (root->token != rel_ne)) {
           fprintf(stderr,"WARNING: didn't expect this relop on a STring type!\n");
@@ -5987,12 +5988,57 @@ expr_emit (AST * root)
         expr_emit (root->astnode.expression.lhs);
         bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
       
-        fprintf(curfp,".trim().equalsIgnoreCase(");
+        lhs_substring = FALSE;
+        rhs_substring = FALSE;
+
+        if(root->astnode.expression.lhs->nodetype == Identifier) {
+          HASHNODE *h;
+
+          h = type_lookup(cur_type_table, 
+                root->astnode.expression.lhs->astnode.ident.name);
+
+          if(h && (h->variable->astnode.ident.len == 1))
+            lhs_substring = TRUE;
+        }
+
+        if(root->astnode.expression.rhs->nodetype == Identifier) {
+          HASHNODE *h;
+
+          h = type_lookup(cur_type_table, 
+                root->astnode.expression.rhs->astnode.ident.name);
+
+          if(h && (h->variable->astnode.ident.len == 1))
+            rhs_substring = TRUE;
+        }
+         
+        if(lhs_substring) {
+          s = newMethodref(cur_const_table,JL_STRING,
+               "substring", SUBSTR_DESC);
+
+          bytecode0(jvm_iconst_0);
+          bytecode0(jvm_iconst_1);
+          bytecode1(jvm_invokevirtual, s->index);  /* call substring(0,1) */
+
+          fprintf(curfp,".trim().substring(0,1).equalsIgnoreCase(");
+        }
+        else
+          fprintf(curfp,".trim().equalsIgnoreCase(");
 
         expr_emit (root->astnode.expression.rhs);
         bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
 
-        fprintf(curfp,".trim())");
+        if(rhs_substring) {
+          s = newMethodref(cur_const_table,JL_STRING,
+               "substring", SUBSTR_DESC);
+
+          bytecode0(jvm_iconst_0);
+          bytecode0(jvm_iconst_1);
+          bytecode1(jvm_invokevirtual, s->index);  /* call substring(0,1) */
+
+          fprintf(curfp,".trim().substring(0,1))");
+        }
+        else
+          fprintf(curfp,".trim())");
 
         c = newMethodref(cur_const_table,JL_STRING,
                "equalsIgnoreCase", STREQV_DESC);

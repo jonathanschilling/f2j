@@ -7075,22 +7075,28 @@ label_emit (AST * root)
   if((loop != NULL) &&
      (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
   {
-    /*
-     * finally pop this loop's label number off the stack and
-     * emit the label (for experimental goto resolution)
-     */
+    do {
+      /*
+       * finally pop this loop's label number off the stack and
+       * emit the label (for experimental goto resolution)
+       */
 
-    fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
-    dl_pop(doloop);
+      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
 
-    if((root->astnode.label.stmt != NULL) &&
-       (root->astnode.label.stmt->nodetype != Format))
-      emit (root->astnode.label.stmt);
+      dl_pop(doloop);
 
-    fprintf(curfp, "}              //  Close for() loop. \n");
-    fprintf(curfp, "}\n");
+      if((root->astnode.label.stmt != NULL) &&
+         (root->astnode.label.stmt->nodetype != Format))
+        emit (root->astnode.label.stmt);
 
-    forloop_end_bytecode(loop);
+      fprintf(curfp, "}              //  Close for() loop. \n");
+      fprintf(curfp, "}\n");
+
+      forloop_end_bytecode(loop);
+
+      loop = dl_astnode_examine(doloop);
+    } while((loop != NULL) &&
+       (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num));
   }
   else {
     /* this labeled statement is not associated with a DO loop */

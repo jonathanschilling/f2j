@@ -38,7 +38,8 @@ int
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok,                        /* temporary token for an inline expr      */
-  save_all;                       /* is there a SAVE stmt without a var list */
+  save_all,                       /* is there a SAVE stmt without a var list */
+  cur_do_label;                   /* current 'do..end do' loop label         */
   
 char
   tempname[60];                   /* temporary string                        */
@@ -47,7 +48,9 @@ AST
   * unit_args = NULL,             /* pointer to args for this program unit   */
   * equivList = NULL;             /* list to keep track of equivalences      */
 
-Dlist subroutine_names;           /* holds the names of subroutines          */
+Dlist 
+  subroutine_names,               /* holds the names of subroutines          */
+  do_labels;                      /* generated labels for 'do..end do' loops */
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -128,7 +131,7 @@ ITAB_ENTRY implicit_table[26];
 /* a zillion keywords */
 
 %token IF THEN ELSE ELSEIF ENDIF DO GOTO ASSIGN TO CONTINUE STOP
-%token RDWR END  STRING CHAR  PAUSE
+%token RDWR END ENDDO STRING CHAR  PAUSE
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
 %token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
 %token <type> TYPE  
@@ -155,7 +158,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
 %type <ptnode> Arrayindexlist Arithmeticif ArraydecList
 %type <ptnode> Blockif Boolean Close Comment
-%type <ptnode> Call Constant Continue
+%type <ptnode> Call Constant Continue EndDo
 %type <ptnode> Data DataList DataConstantExpr DataConstant DataItem 
 %type <ptnode> /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
@@ -1248,6 +1251,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Label;
               }
+            | EndDo
+              {
+                $$ = $1;
+                $$->nodetype = Label;
+              }
             | Continue
               {
                 $$ = $1;
@@ -1989,6 +1997,28 @@ Do_incr:  DO Integer
           { 
             $$ = $2;
           }
+        | DO 
+          {
+            char *loop_label;
+
+            loop_label = (char *)malloc(32);
+            if(!loop_label) {
+              fprintf(stderr,"Malloc error\n");
+              exit(EXIT_FAILURE);
+            }
+            sprintf(loop_label,"%d", cur_do_label);
+            cur_do_label++;
+
+            $$ = addnode();
+            $$->token = INTEGER;
+            $$->nodetype = Constant;
+            strcpy($$->astnode.constant.number, loop_label);
+            $$->vartype = Integer;
+
+            dl_insert_b(do_labels, strdup($$->astnode.constant.number));
+
+            free(loop_label);
+          }
 ;
 
 
@@ -2211,6 +2241,20 @@ Continue:  Integer CONTINUE NL
 	 $$->astnode.label.stmt = NULL;
          free_ast_node($1);
        }
+;
+
+EndDo:  ENDDO NL
+        {
+          char *loop_label;
+
+          $$ = addnode();
+          $$->nodetype = Label;
+
+          loop_label = (char *)dl_pop(do_labels);
+
+          $$->astnode.label.number = atoi(loop_label);
+          $$->astnode.label.stmt = NULL;
+        }
 ;
 
 Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
@@ -3853,7 +3897,10 @@ init_tables()
   equivList       = NULL;
   save_all        = FALSE;
 
+  cur_do_label = 1000000;
+
   subroutine_names = make_dl();
+  do_labels = make_dl();
 }
 
 /*****************************************************************************

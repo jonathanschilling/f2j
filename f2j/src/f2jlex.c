@@ -1762,6 +1762,8 @@ tok2str(int tok)
       return("ELSEIF");
     case ENDIF:
       return("ENDIF");
+    case ENDDO:
+      return("ENDDO");
     case DO:
       return("DO");
     case GOTO:

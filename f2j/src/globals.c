@@ -94,6 +94,7 @@ KWDTAB tab_stmt[] =
     {"DATA", DATA, 0},
     {"DIMENSION", DIMENSION, 0},
     {"DO", DO, 0},
+    {"ENDDO", ENDDO, 0},
     {"ENDIF", ENDIF, 0},
     {"END", END, 0},
     {"ELSEIF", ELSEIF, 0},

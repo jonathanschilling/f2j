@@ -692,6 +692,7 @@ reflect_declarations_emit(AST *root)
   HASHNODE *hashtemp, *ht2;
   AST *tempnode;
   CPNODE *c;
+  int meth_var_num = 0;
 
   for(tempnode = root; tempnode != NULL; tempnode = tempnode->nextstmt)
   {
@@ -706,13 +707,31 @@ reflect_declarations_emit(AST *root)
         tempnode->astnode.ident.name);
 
       ht2 = type_lookup(cur_type_table, tempnode->astnode.ident.name);
-      if(!ht2) {
-        fprintf(stderr,"Error: expected to find %s in symbol table.\n",
-          tempnode->astnode.ident.name);
-        exit(-1);
+
+      if(ht2) {
+        meth_var_num = ht2->variable->astnode.ident.localvnum;
+
+        if(gendebug)
+          printf("found '%s' in type table, using localvnum = %d\n",
+             tempnode->astnode.ident.name, meth_var_num);
+      }
+      else {
+        ht2 = type_lookup(cur_args_table, tempnode->astnode.ident.name);
+
+        if(ht2) {
+          meth_var_num = ht2->variable->astnode.ident.localvnum;
+          if(gendebug)
+            printf("found '%s' in args table, using localvnum = %d\n",
+               tempnode->astnode.ident.name, meth_var_num);
+        }
+        else {
+          fprintf(stderr,"(1)Error: expected to find %s in symbol table.\n",
+            tempnode->astnode.ident.name);
+          exit(-1);
+        }
       }
 
-      gen_load_op(ht2->variable->astnode.ident.localvnum, Object);
+      gen_load_op(meth_var_num, Object);
 
       c = newMethodref(cur_const_table, JL_OBJECT, "getClass",
             GETCLASS_DESC);
@@ -3895,13 +3914,17 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         printf("The parent node is : %s\n",print_nodetype(root->parent));
       }
 
-      /*
-       * if((root->parent->nodetype == Call) && 
-       *   (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
-       */
       if(root->parent->nodetype == Call)
       {
-        if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL ) {
+        if(type_lookup(cur_args_table, root->parent->astnode.ident.name)) {
+          /* if the parent is a function passed as an arg to this function,
+           * then we do not append the offset.
+           */
+          fprintf (curfp, "%s%s", com_prefix, name);
+          pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+        }
+        else if(type_lookup(cur_args_table,root->astnode.ident.name)) {
           fprintf (curfp, "%s%s,_%s_offset", com_prefix, name, name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
@@ -8111,7 +8134,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       ht = type_lookup(cur_external_table, root->astnode.ident.name);
       if(!ht) {
-        fprintf(stderr,"Error: expected to find '%s' in external table.\n",
+        fprintf(stderr,"(2)Error: expected to find '%s' in external table.\n",
             root->astnode.ident.name);
         exit(-1);
       }
@@ -8160,8 +8183,14 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       unsigned int cnt = 0, arr_local;
 
-      for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
+      for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt) {
         cnt++;
+
+        if((temp->nodetype == Identifier) && 
+           (temp->astnode.ident.arraylist == NULL) &&
+           type_lookup(cur_array_table, temp->astnode.ident.name))
+          cnt++;
+      }
       
       /* create object array to hold the args */
 
@@ -8187,9 +8216,31 @@ method_name_emit (AST *root, BOOLEAN adapter)
         gen_load_op(arr_local,Object);
         pushIntConst(cnt);
 
-        if((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL))
+        if((temp->nodetype == Identifier) && 
+           (temp->astnode.ident.arraylist == NULL) &&
+           type_lookup(cur_array_table, temp->astnode.ident.name))
         {
           expr_emit (temp);
+          bytecode0(jvm_aastore);
+
+          fprintf(curfp,";\n");
+          fprintf(curfp,"_%s_args[%d] = new Integer(0);\n", 
+             root->astnode.ident.name, ++cnt);
+
+          gen_load_op(arr_local,Object);
+          pushIntConst(cnt);  /* incremented 2 lines above */
+
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                numeric_wrapper[Integer]);
+
+          bytecode1(jvm_new,c->index);
+          bytecode0(jvm_dup);
+
+          c = newMethodref(cur_const_table,numeric_wrapper[Integer],
+                "<init>", wrapper_descriptor[Integer]);
+          pushIntConst(0);
+
+          bytecode1(jvm_invokespecial, c->index);
         }
         else
         {
@@ -8201,25 +8252,23 @@ method_name_emit (AST *root, BOOLEAN adapter)
           bytecode1(jvm_new,c->index);
           bytecode0(jvm_dup);
 
-          c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype], "<init>",
-                 wrapper_descriptor[temp->vartype]);
+          c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype],
+                "<init>", wrapper_descriptor[temp->vartype]);
 
           expr_emit (temp);
-          fprintf(curfp,")");
+          fprintf(curfp,");\n");
 
           bytecode1(jvm_invokespecial, c->index);
         }
 
         bytecode0(jvm_aastore);
 
-        fprintf(curfp, ";\n");
-
         cnt++;
       }
 
       ht = type_lookup(cur_external_table, root->astnode.ident.name);
       if(!ht) {
-        fprintf(stderr,"Error: expected to find '%s' in external table.\n",
+        fprintf(stderr,"(3)Error: expected to find '%s' in external table.\n",
             root->astnode.ident.name);
         exit(-1);
       }
@@ -8237,6 +8286,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       releaseLocal(Object);
 
+      bytecode0(jvm_pop);
       return 1;
     }
     else   /* function with args. */
@@ -8511,7 +8561,7 @@ call_emit (AST * root)
 
     ht = type_lookup(cur_external_table, root->astnode.ident.name);
     if(!ht) {
-      fprintf(stderr,"Error: expected to find '%s' in external table.\n",
+      fprintf(stderr,"(4)Error: expected to find '%s' in external table.\n",
           root->astnode.ident.name);
       exit(-1);
     }
@@ -8560,10 +8610,13 @@ emit_call_arguments(AST *root, BOOLEAN adapter)
    * the parameters.
    */
 
-  if(gendebug)
-    printf("Looking up function name %s...\n", root->astnode.ident.name);
+  mref = get_methodref(root);
 
-  if( (mref = get_methodref(root)) != NULL)
+  if(gendebug)
+    printf("Looking up function name %s...%s\n", root->astnode.ident.name,
+       mref ? "Found" : "Not found");
+
+  if(mref != NULL)
     emit_call_args_known(root, mref->descriptor, adapter);
   else
     emit_call_args_unknown(root);
@@ -8587,6 +8640,9 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
   char *com_prefix, *dptr;
   HASHNODE *ht;
   AST *temp;
+
+  if(gendebug)
+    printf("emit_call_args_known: desc = '%s'\n", desc);
 
   temp = root->astnode.ident.arraylist;
   dptr = skipToken(desc);
@@ -10646,7 +10702,7 @@ methcall_obj_array_emit(AST *temp, int lv)
       }
     }
 
-    if(rtype == Double)
+    if((rtype == Double) && (dim == 0))
       i++;
   }
 }
@@ -11721,7 +11777,7 @@ void
 assign_local_vars(AST * root)
 {
   AST * locallist;
-  HASHNODE * hashtemp;
+  HASHNODE * hashtemp, * ht2;
   int localnum = 0;
 
   /* if root is NULL, this is probably a PROGRAM (no args) */
@@ -11740,7 +11796,11 @@ assign_local_vars(AST * root)
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
     if(hashtemp == NULL)
     {
-      if( type_lookup(cur_external_table, locallist->astnode.ident.name) ) {
+      ht2=type_lookup(cur_args_table, locallist->astnode.ident.name);
+      if(ht2) {
+        if(gendebug)
+          printf("assign_local_vars(%s): %s in args table, setting local varnum: %d\n",cur_filename, locallist->astnode.ident.name, localnum);
+        ht2->variable->astnode.ident.localvnum = localnum;
         localnum++;
         continue;
       }

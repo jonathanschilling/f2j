@@ -43,6 +43,8 @@
    *** EXTERNAL VARIABLES                               ***
    ******************************************************** */
 
+extern char *filename;
+
 /* global information 
    ****************** */
 
@@ -62,6 +64,8 @@ static u2_int        glo_sta, glo_pad, glo_loc, glo_stm;
 static s4_int        glo_def, glo_npa, glo_low, glo_hig;
 
 static u2_int        cur_sp;
+
+static char          *thisClassName;
 
 #ifndef TRANS_DEBUG
 #define TRANS_DEBUG 0
@@ -956,6 +960,10 @@ back:
          char *met   = (char *) constant_pool[d] -> u.utf8.s;
          char *op;
 
+         u1_int  ee  = byt[last_offset+1u];
+         u2_int  C1  = constant_pool[ee] -> u.indices.index1;
+         char *caller = (char *) constant_pool[C1]->u.utf8.s;
+
          if(( !strcmp(cla,"Dummy") || !strcmp(cla,"org/netlib/util/Dummy"))
           && !strcmp(met,"label"))
             op = "label";
@@ -964,8 +972,8 @@ back:
             op = "goto";
          else
          {
-           fprintf(stderr,"Error: encountered unknown Dummy method! (%s.%s)\n",
-              cla,met);
+           fprintf(stderr,"%s: encountered unknown Dummy method! (%s.%s)\n",
+              filename, cla,met);
            op = "unknown";
          }
 
@@ -1021,7 +1029,8 @@ back:
              inst_size = 2;
              break;
            default:
-             fprintf(stderr,"Bad opcode encountered, output may be incorrect.\n");
+             fprintf(stderr,"%s:Bad opcode encountered, output may be incorrect.\n",
+                filename);
              branch_label = 0;
              inst_size = 0;
          }
@@ -1030,11 +1039,17 @@ back:
 
          if(!strcmp(op,"label"))
          {
-           if(type_lookup(att->label_table,lbuf) != NULL)
-             fprintf(stderr,"Warning: duplicate label: %s\n",lbuf);
-
-           idx = hash(lbuf) % att->label_table->num_entries;
-           type_insert(&(att->label_table->entry[idx]), prev_offset, strdup(lbuf));
+           if(type_lookup(att->label_table,lbuf) ||
+              strcmp(caller, thisClassName)) 
+           {
+             fprintf(stderr,"%s: duplicate or invalid label: %s\n",
+                filename,lbuf);
+           }
+           else {
+             idx = hash(lbuf) % att->label_table->num_entries;
+             type_insert(&(att->label_table->entry[idx]), 
+                prev_offset, strdup(lbuf));
+           }
 
            bzero(byt+last_offset, inst_size + 5);
          }
@@ -1046,40 +1061,46 @@ back:
              printf("ok, I'm looking at a goto branching to label %d\n",
                branch_label);
 
-           if((ht=type_lookup(att->label_table,lbuf)) != NULL)
-           {
-             int temp = ht->val - i;
+           if(!strcmp(caller,thisClassName)) {
 
-             if(trdebug)
-               printf("Found the label! offset = %d\n", ht->val);
+             if((ht=type_lookup(att->label_table,lbuf)) != NULL)
+             {
+               int temp = ht->val - i;
 
-              /* zero out the 2 previous instructions.  the
-                 first 'ldc' is always 2 bytes, so add that
-                 to the size of the previous instruction. */
+               if(trdebug)
+                 printf("Found the label! offset = %d\n", ht->val);
 
-             bzero(byt+last_offset, inst_size + 2 - 2);
+                /* zero out the 2 previous instructions.  the
+                   first 'ldc' is always 2 bytes, so add that
+                   to the size of the previous instruction. */
 
-              /* use the goto_w opcode just to be sure we
-                 have enough space for the branchoffset */
+               bzero(byt+last_offset, inst_size + 2 - 2);
 
-             byt[i-2] = 200;
+                /* use the goto_w opcode just to be sure we
+                   have enough space for the branchoffset */
+  
+               byt[i-2] = 200;
 
-             if(trdebug)
-               printf("copying %d (%x) into byt\n",temp,temp);
+               if(trdebug)
+                 printf("copying %d (%x) into byt\n",temp,temp);
 
-             bcopy(&temp,byt+i-1, 4);
+               bcopy(&temp,byt+i-1, 4);
+             }
+             else
+             {
+               if(trdebug)
+                 printf("did NOT find the label!\n");
+             }
            }
-           else
-           {
-             if(trdebug)
-               printf("did NOT find the label!\n");
+           else {
+             bzero(byt+last_offset, inst_size + 5);
            }
          }
          else if(!strcmp(op,"unknown"))
-           fprintf(stderr,"Skipping unknown method invokation at offset %d\n",
-              i);
+           fprintf(stderr,"%s:Skipping unknown method invocation at offset %d\n",
+              filename, i);
          else
-           fprintf(stderr,"Weird, op not set properly.\n");
+           fprintf(stderr,"%s:Weird, op not set properly.\n",filename);
           
        }
 
@@ -1223,6 +1244,11 @@ static void byte_codeattr(attribute_ptr a, u2_int w_arg,
 void byte_proc(void) {
   
   u4_int i, j;       /* wide counters */
+  char *strdup(char *);
+  extern char * thisClassName;
+
+  thisClassName = (char *) 
+    constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s;
 
 #ifdef CHECK_TABLE
 
@@ -1257,7 +1283,7 @@ void byte_proc(void) {
     if (is_inst) /* Determine type of `this': set to java.lang.Object */ {
 
       u2_int  e = constant_pool[this_class] -> u.indices.index1;
-      char   *s = (char *) constant_pool[e]          -> u.utf8.s;
+      char   *s = (char *) constant_pool[e] -> u.utf8.s;
       u2_int  l = strlen(s);
 
       this_arg_type = (char *) make_mem((l+2u) * sizeof(char));

@@ -42,6 +42,7 @@
 u1_int  my_not = 4u;
 u1_int  error  = 0u;
 u4_int  n_par  = 0u, n_nest  = 0u, n_loop = 0u, n_triv  = 0u;
+char   *filename = NULL;
 
 /* PRIVATE
    ******* */
@@ -49,7 +50,6 @@ u4_int  n_par  = 0u, n_nest  = 0u, n_loop = 0u, n_triv  = 0u;
 static u1_int tot_err   = 0u; 
 static u4_int files     = 0u;
 static FILE   *file     = NULL;
-static char   *filename = NULL;
 
 /* ********************************************************
    *** PRIVATE FUNCTIONS                                ***
@@ -61,7 +61,7 @@ static char   *filename = NULL;
 
 static FILE *new_file(char *oldname) {
   int    i,  last = -1;
-  char   *newname = NULL, c;
+  char   *newname = NULL, c = '\0';
   FILE   *newfile = NULL;
 
   if (! oldname)   /* Safety */

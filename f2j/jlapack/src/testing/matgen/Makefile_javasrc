@@ -1,0 +1,33 @@
+.SUFFIXES: .f .java
+
+ROOT=../../..
+
+include $(ROOT)/make.def
+
+BLAS=$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR)
+LAPACK=$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR)
+
+tester: $(BLAS) $(LAPACK) $(OUTDIR)/Matgen.f2j
+	/bin/rm -f `find $(OUTDIR) -name "*.class"`
+	mkdir -p $(JAVASRC_OUTDIR)
+	$(JAVAC) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(MATGEN_PDIR)/*.java
+	/bin/rm -f $(JAVASRC_OUTDIR)/$(MATGEN_PDIR)/*.old
+	$(JAVAB) $(JAVASRC_OUTDIR)/$(MATGEN_PDIR)/*.class
+	/bin/rm -f $(MATGEN_JAR)
+	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(MATGEN_JAR) `find . -name "*.class"`
+
+$(OUTDIR)/Matgen.f2j:	matgen.f
+	$(MAKE) nojar
+
+$(BLAS):
+	cd $(ROOT)/$(BLAS_DIR); $(MAKE) -f Makefile_javasrc
+
+$(LAPACK):
+	cd $(ROOT)/$(LAPACK_DIR); $(MAKE) -f Makefile_javasrc
+
+
+verify: $(ROOT)/$(MATGEN_IDX)
+	cd $(JAVASRC_OUTDIR); $(JAVA) $(MORE_MEM_FLAG) -classpath .:$(JUSTICE):$(BCEL):$(ROOT)/../$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/../$(ERR_DIR)/$(ERR_JAR):$(ROOT)/../$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/../$(LAPACK_DIR)/$(LAPACK_JAR) $(VERIFY) $(MATGEN_PDIR)/*.class
+
+clean:
+	/bin/rm -rf *.java *.class *.f2j $(JAVASRC_OUTDIR) $(OUTDIR) $(MATGEN_JAR)

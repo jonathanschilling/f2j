@@ -1,0 +1,45 @@
+.PHONY:	blas1 blas2 blas3 runtests clean
+
+ROOT=../..
+
+include $(ROOT)/make.def
+
+testers:	blas1 blas2 blas3 eig lin
+
+blas1:	$(ROOT)/$(BLAS1TEST_IDX)
+blas2:	$(ROOT)/$(BLAS2TEST_IDX)
+blas3:	$(ROOT)/$(BLAS3TEST_IDX)
+eig:	$(ROOT)/$(EIGTEST_IDX)
+lin:	$(ROOT)/$(LINTEST_IDX)
+
+$(ROOT)/$(BLAS1TEST_IDX):
+	cd blas1;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(BLAS2TEST_IDX):
+	cd blas2;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(BLAS3TEST_IDX):
+	cd blas3;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(EIGTEST_IDX):
+	cd eig;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(LINTEST_IDX):
+	cd lin;$(MAKE) -f Makefile_javasrc
+
+runtests:	blastest lintest eigtest
+
+blastest:
+	cd blas1;$(MAKE) -f Makefile_javasrc runtest
+	cd blas2;$(MAKE) -f Makefile_javasrc runtest
+	cd blas3;$(MAKE) -f Makefile_javasrc runtest
+
+eigtest:
+	cd eig;$(MAKE) -f Makefile_javasrc runtest
+
+lintest:
+	cd lin;$(MAKE) -f Makefile_javasrc runtest
+	
+clean:
+	cd blas1;$(MAKE) -f Makefile_javasrc clean
+	cd blas2;$(MAKE) -f Makefile_javasrc clean
+	cd blas3;$(MAKE) -f Makefile_javasrc clean
+	cd eig;$(MAKE) -f Makefile_javasrc clean
+	cd lin;$(MAKE) -f Makefile_javasrc clean
+	cd matgen;$(MAKE) -f Makefile_javasrc clean

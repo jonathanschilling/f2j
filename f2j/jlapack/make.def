@@ -5,7 +5,6 @@ JAVA=java
 MORE_MEM_FLAG=-Xmx256M
 JAVAC=javac
 JAVAB=javab
-JFLAGS=
 JAR=jar
 ZIP=zip
 TAR=tar
@@ -14,6 +13,9 @@ GZIP=gzip
 VERIFY=java de.fub.bytecode.verifier.Verifier
 JUSTICE=$$HOME/bin/JustIce.jar
 BCEL=$$HOME/bin/BCEL.jar
+
+# uncomment and set the following to override the user's JFLAGS setting
+# JFLAGS=
 
 # uncomment the following to force all locals to be emitted static
 # STATIC=-vs

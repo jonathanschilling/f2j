@@ -547,7 +547,7 @@ build_method_table(char *path)
       if((len > 4) && !strncmp(dir_entry->d_name+(len-4), ".f2j", 4)) {
 
         if((len + strlen(token) +2) > size) {
-          size = len + strlen(token) * 2;  /* double for good measure */
+          size = (len + strlen(token)) * 2;  /* double for good measure */
           full_path = realloc(full_path, size);
         }
 

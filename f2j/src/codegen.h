@@ -148,7 +148,7 @@ char
   * get_wrapper_from_desc(char *),
   * get_field_desc_from_ident(AST *),
   * get_desc_from_arglist(AST *),
-  * get_adapter_desc(AST *, AST *);
+  * get_adapter_desc(char *, AST *);
 
 METHODTAB
   * methodscan (METHODTAB * , char * );

@@ -9,6 +9,7 @@ CFLAGS= -g -ansi -Wall -pedantic
 #CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
+PFLAGS=-cache-dir=/tmp
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
      codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o \
@@ -27,7 +28,7 @@ JAVAB=../bin/javab
 
 #  The purify version...
 puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB)
-	$(PURIFY) ${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+	$(PURIFY) $(PFLAGS) ${CC} $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 	mv $@ ../bin
 
 

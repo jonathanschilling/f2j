@@ -8205,10 +8205,31 @@ get_method_name(AST *root, BOOLEAN adapter)
   }
   else if(adapter)
   {
+    HASHNODE *hashtemp;
+
     sprintf (buf, "%s_adapter", root->astnode.ident.name);
     newmeth->classname = strdup(cur_filename);
     newmeth->methodname = strdup(buf);
-    tmpdesc = get_desc_from_arglist(root->astnode.ident.arraylist);
+
+    hashtemp = type_lookup(function_table, root->astnode.ident.name);
+
+    if(hashtemp) {
+      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.descriptor,
+         root->astnode.ident.arraylist);
+    }
+    else {
+      METHODREF *mref;
+
+      mref = find_method(root->astnode.ident.name, descriptor_table);
+      if(mref)
+        tmpdesc = get_adapter_desc(mref->descriptor,
+           root->astnode.ident.arraylist);
+      else {
+        fprintf(stderr, "WARNING: could not find method descriptor\n");
+        tmpdesc = "IIIIIII";  /* just some junk */
+      }
+    }
+
     newmeth->descriptor = (char*)f2jalloc(strlen(tmpdesc) + 
       strlen(field_descriptor[root->vartype][0]) + 10);
     strcpy(newmeth->descriptor, "(");
@@ -9670,8 +9691,7 @@ emit_adapters()
     if(hashtemp) {
       mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
 
-      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.args,
-         cval->astnode.ident.arraylist);
+      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.descriptor, cval->astnode.ident.arraylist);
 
       if(hashtemp->variable->nodetype == Function)
         ret_desc = field_descriptor[hashtemp->variable->astnode.source.returns][0];
@@ -9710,7 +9730,8 @@ emit_adapters()
         else
           ret_desc = field_descriptor[get_type_from_field_desc(ret)][0];
 
-        tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist);
+        /* tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist); */
+        tmpdesc = get_adapter_desc(mref->descriptor,cval->astnode.ident.arraylist);
 
         cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
           strlen(ret_desc) + 10);
@@ -10162,7 +10183,7 @@ adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
 
 /*****************************************************************************
  *                                                                           *
- * get_desc_from_arraylist                                                   *
+ * get_desc_from_arglist                                                     *
  *                                                                           *
  * this function generates the argument descriptors based on an the list     *
  * of arguments. note that the descriptor returned does not include the      *
@@ -11980,32 +12001,37 @@ get_field_desc_from_ident(AST *node)
  *****************************************************************************/
 
 char *
-get_adapter_desc(AST *temp, AST *arg)
+get_adapter_desc(char *dptr, AST *arg)
 {
   struct _str * temp_desc = NULL;
   int i;
 
+  dptr = skipToken(dptr);
+
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
-    if(temp == NULL) {
+    if(dptr == NULL) {
       fprintf(stderr,"get_adapter_desc():");
       fprintf(stderr,"mismatch between adapter call and prototype\n");
       break;
     }
 
-    if(temp->astnode.ident.arraylist) {
-      temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][1]);
+    if(dptr[0] == '[') {
+      temp_desc = strAppend(temp_desc, 
+           field_descriptor[get_type_from_field_desc(dptr+1)][1]);
       temp_desc = strAppend(temp_desc, "I");
+      dptr = skipToken(dptr);
     }
     else if ( (arg->nodetype == Identifier) && 
-              /* (arg->astnode.ident.arraylist != NULL) && */
               type_lookup(cur_array_table,arg->astnode.ident.name))
     {
-      if(omitWrappers && !temp->astnode.ident.passByRef) {
-        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][0]);
+      if(omitWrappers && !isPassByRef_desc(dptr)) {
+        temp_desc = strAppend(temp_desc, 
+            field_descriptor[get_type_from_field_desc(dptr)][0]);
       }
       else {
-        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][1]);
+        temp_desc = strAppend(temp_desc,
+            field_descriptor[get_type_from_field_desc(dptr)][1]);
         temp_desc = strAppend(temp_desc, "I");
       }
     }
@@ -12015,16 +12041,17 @@ get_adapter_desc(AST *temp, AST *arg)
     }
     else
     {
-      if(omitWrappers && !temp->astnode.ident.passByRef) {
-        temp_desc = strAppend(temp_desc, field_descriptor[temp->vartype][0]);
+      if(omitWrappers && !isPassByRef_desc(dptr)) {
+        temp_desc = strAppend(temp_desc,
+            field_descriptor[get_type_from_field_desc(dptr)][0]);
       }
       else {
-        temp_desc = strAppend(temp_desc, wrapped_field_descriptor[temp->vartype][0]);
+        temp_desc = strAppend(temp_desc, 
+            wrapped_field_descriptor[get_type_from_field_desc(dptr)][0]);
       }
     }
 
-    if(temp != NULL)
-      temp = temp->nextstmt;
+    dptr = skipToken(dptr);
   }
 
   return temp_desc->val;

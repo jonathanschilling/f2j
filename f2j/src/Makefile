@@ -43,8 +43,7 @@ $(JAVAB):
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y
 
-depend:	f2j.dep
-f2j.dep:
+depend:	
 	rm -f f2j.dep
 	$(CC) -M $(SRC) > f2j.dep
 

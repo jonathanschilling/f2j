@@ -1,0 +1,120 @@
+f2jparse.tab.o: f2jparse.tab.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/ctype.h \
+ /usr/include/string.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h constant_pool.h f2jmem.h
+f2jlex.o: f2jlex.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/string.h \
+ /usr/include/ctype.h initialize.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h f2jparse.tab.h f2jmem.h
+f2jmain.o: f2jmain.c /usr/include/stdlib.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/types.h /usr/include/sys/machtypes.h \
+ /usr/include/sys/int_types.h /usr/include/sys/select.h \
+ /usr/include/sys/time.h /usr/include/time.h \
+ /usr/include/sys/time_impl.h /usr/include/dirent.h \
+ /usr/include/sys/dirent.h /usr/include/stdio.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h \
+ /usr/local/lib/gcc-lib/sparc-sun-solaris2.7/2.8.1/include/stdarg.h \
+ /usr/local/lib/gcc-lib/sparc-sun-solaris2.7/2.8.1/include/va-sparc.h \
+ /usr/include/ctype.h /usr/include/string.h /usr/include/signal.h \
+ /usr/include/sys/signal.h /usr/include/sys/unistd.h \
+ /usr/include/sys/siginfo.h /usr/include/sys/machsig.h \
+ /usr/include/sys/procset.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+symtab.o: symtab.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h f2jmem.h \
+ /usr/local/lib/gcc-lib/sparc-sun-solaris2.7/2.8.1/include/limits.h \
+ /usr/local/lib/gcc-lib/sparc-sun-solaris2.7/2.8.1/include/syslimits.h \
+ /usr/include/limits.h /usr/include/sys/int_limits.h
+codegen.o: codegen.c codegen.h /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/string.h \
+ /usr/include/ctype.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+vcg_emitter.o: vcg_emitter.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/string.h /usr/include/ctype.h \
+ f2j.h /usr/local/sparc-sun-solaris2.7/include/assert.h \
+ /usr/include/stdlib.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h
+typeassign.o: typeassign.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/ctype.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h \
+ /usr/include/stdlib.h symtab.h dlist.h class.h graph.h opcodes.h \
+ /usr/include/string.h f2jparse.tab.h
+opcode.o: opcode.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h /usr/include/string.h f2jparse.tab.h
+dlist.o: dlist.c /usr/include/stdio.h /usr/include/sys/feature_tests.h \
+ /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h \
+ /usr/include/stdio_tag.h /usr/include/stdio_impl.h \
+ /usr/include/stdlib.h dlist.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h class.h \
+ graph.h opcodes.h f2jmem.h
+typecheck.o: typecheck.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/string.h /usr/include/ctype.h \
+ f2j.h /usr/local/sparc-sun-solaris2.7/include/assert.h \
+ /usr/include/stdlib.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h f2jmem.h
+optimize.o: optimize.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/string.h \
+ /usr/include/ctype.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h dlist.h \
+ class.h graph.h opcodes.h codegen.h f2jparse.tab.h constant_pool.h \
+ f2jmem.h
+constant_pool.o: constant_pool.c /usr/include/stdio.h \
+ /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h \
+ /usr/include/sys/va_list.h /usr/include/stdio_tag.h \
+ /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/string.h \
+ /usr/include/ctype.h constant_pool.h class.h dlist.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h graph.h \
+ opcodes.h f2jparse.tab.h f2jmem.h
+class.o: class.c /usr/include/stdio.h /usr/include/sys/feature_tests.h \
+ /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h \
+ /usr/include/stdio_tag.h /usr/include/stdio_impl.h \
+ /usr/include/stdlib.h /usr/include/string.h /usr/include/ctype.h \
+ /usr/include/unistd.h /usr/include/sys/types.h \
+ /usr/include/sys/machtypes.h /usr/include/sys/int_types.h \
+ /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h \
+ /usr/include/sys/time_impl.h /usr/include/sys/unistd.h \
+ /usr/include/sys/stat.h /usr/include/errno.h /usr/include/sys/errno.h \
+ class.h dlist.h codegen.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h symtab.h graph.h \
+ opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+globals.o: globals.c f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h \
+ /usr/include/stdlib.h /usr/include/sys/feature_tests.h \
+ /usr/include/sys/isa_defs.h symtab.h dlist.h class.h \
+ /usr/include/stdio.h /usr/include/sys/va_list.h \
+ /usr/include/stdio_tag.h /usr/include/stdio_impl.h graph.h opcodes.h \
+ f2jparse.tab.h
+f2jmem.o: f2jmem.c f2jmem.h f2j.h \
+ /usr/local/sparc-sun-solaris2.7/include/assert.h \
+ /usr/include/stdlib.h /usr/include/sys/feature_tests.h \
+ /usr/include/sys/isa_defs.h symtab.h dlist.h class.h \
+ /usr/include/stdio.h /usr/include/sys/va_list.h \
+ /usr/include/stdio_tag.h /usr/include/stdio_impl.h graph.h opcodes.h

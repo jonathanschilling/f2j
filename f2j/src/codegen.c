@@ -323,6 +323,8 @@ emit (AST * root)
           cur_class_file->constant_pool = cur_const_table;
 
           write_class(cur_class_file);
+ 
+          cp_quickdump(cur_const_table);
           break;
         }
       case Subroutine:

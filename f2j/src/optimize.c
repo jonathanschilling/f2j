@@ -1055,6 +1055,10 @@ args_optimize(AST *root, AST *rptr)
          if(isPassByRef_desc(p))
            set_passByRef(temp, rptr);
        }
+
+       /* skip extra element to compensate for array offset arg */
+       if(p[0] == '[')
+         p = skipToken(p);
     }
   }
   else

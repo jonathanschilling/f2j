@@ -79,12 +79,16 @@ typecheck (AST * root)
     case Format:
     case Stop:
     case Save:
-    case Common:
     case Unimplemented:
       if (checkdebug)
         printf ("typecheck(): %s.\n", print_nodetype(root));
 
-      if (root->nextstmt != NULL)	/* End of typestmt list. */
+      if (root->nextstmt != NULL)
+        typecheck (root->nextstmt);
+      break;
+    case Common:
+      common_check(root);
+      if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
       break;
     case Assignment:
@@ -184,6 +188,62 @@ data_check(AST * root)
           hashtemp->variable->astnode.ident.needs_declaration = TRUE;
         else
           hashtemp->variable->astnode.ident.needs_declaration = FALSE;
+      }
+    }
+  }
+}
+
+int
+common_check(AST *root)
+{
+  HASHNODE *ht;
+  AST *Ctemp, *Ntemp;
+  int i,idx;
+  char **names;
+
+  for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
+  {
+    if(Ctemp->astnode.common.name != NULL)
+    {
+      if((ht=type_lookup(common_block_table, Ctemp->astnode.common.name))==NULL)
+      {
+        fprintf(stderr,"typecheck: can't find common block %s in table\n",
+           Ctemp->astnode.common.name);
+        continue;
+      }
+
+      names = (char **)ht->variable;
+
+      i=0;
+      for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt,i++)
+      {
+        if (checkdebug)
+        {
+          printf("typecheck:Common block %s -- %s\n",Ctemp->astnode.common.name,
+            Ntemp->astnode.ident.name);
+          printf("typecheck:Looking up %s in the type table\n",
+            Ntemp->astnode.ident.name);
+        }
+
+        if((ht=type_lookup(chk_type_table,Ntemp->astnode.ident.name)) == NULL)
+        {
+          fprintf(stderr,"typecheck Error: can't find type for common %s\n",
+            Ntemp->astnode.ident.name);
+          if (checkdebug)
+            printf("Not Found\n");
+          continue;
+        }
+
+        ht->variable->astnode.ident.merged_name = names[i];
+        idx = hash(ht->variable->astnode.ident.name)%chk_type_table->num_entries;
+
+        if(checkdebug)
+          printf("# @#Typecheck: inserting %s into the type table, merged = %s\n",
+            ht->variable->astnode.ident.name, 
+            ht->variable->astnode.ident.merged_name);
+
+        type_insert(&(chk_type_table->entry[idx]),ht->variable,ht->variable->vartype,
+          ht->variable->astnode.ident.name);
       }
     }
   }
@@ -473,15 +533,9 @@ printf("temp->next is %s\n",
     return;
   }
 
-  if (!strcmp (tempname, "ICHAR"))
-  {
-    temp = root->astnode.ident.arraylist;
-    expr_check(temp);
-    root->vartype = Integer;
-    return;
-  }
-
-  if (!strcmp (tempname, "INT")
+  if (!strcmp (tempname, "ICHAR")
+   || !strcmp (tempname, "INT")
+   || !strcmp (tempname, "LEN")
    || !strcmp (tempname, "NINT"))
   {
     temp = root->astnode.ident.arraylist;

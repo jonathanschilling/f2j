@@ -1181,6 +1181,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
   int is_arg=FALSE;
   char *get_common_prefix(char *);
   char *com_prefix;
+  char *name;
 
   if (gendebug)
     printf ("Array... %s, My node type is %s\n", 
@@ -1188,6 +1189,30 @@ array_emit(AST *root, HASHNODE *hashtemp)
       print_nodetype(root));
 
   com_prefix = get_common_prefix(root->astnode.ident.name);
+
+  name = root->astnode.ident.name;
+
+  if(com_prefix[0] != '\0')
+  {
+    HASHNODE *ht;
+
+    ht = type_lookup(cur_type_table,root->astnode.ident.name);
+    if (ht == NULL)
+      fprintf(stderr,"scalar_emit:Cant find %s in type_table\n",
+          root->astnode.ident.name);
+
+    if(ht->variable->astnode.ident.merged_name != NULL)
+      name = ht->variable->astnode.ident.merged_name;
+  }
+
+  if (name == NULL)
+  {
+    fprintf(stderr,"array_emit: setting name to NULL!\n");
+    name = root->astnode.ident.name;
+  }
+
+  if(gendebug)
+    printf("### #in array_emit, setting name = %s\n",name);
 
   /* 
    * Now, what needs to happen here is the context of the
@@ -1199,21 +1224,21 @@ array_emit(AST *root, HASHNODE *hashtemp)
    */
 
   if((root->parent != NULL) && (root->parent->nodetype == Typedec))
-    fprintf (curfp, "%s", root->astnode.ident.name);
+    fprintf (curfp, "%s", name);
   else
-    fprintf (curfp, "%s%s", com_prefix, root->astnode.ident.name);
+    fprintf (curfp, "%s%s", com_prefix, name);
 
   temp = root->astnode.ident.arraylist;
 
   if(root->parent == NULL) {
     /* Under normal circumstances, I dont think this should 
        be reached */
-    fprintf (stderr,"Array... %s, NO PARENT - ", root->astnode.ident.name);
+    fprintf (stderr,"Array... %s, NO PARENT - ", name);
     fprintf (stderr,"This is not good!\n");
   } else {
     if(gendebug)
       printf ("Array... %s, Parent node type... %s\n", 
-        root->astnode.ident.name,
+        name,
         print_nodetype(root->parent));
 
     if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
@@ -1281,18 +1306,43 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 {
   extern METHODTAB intrinsic_toks[];
   char *com_prefix;
+  char *name;
+
+  com_prefix = get_common_prefix(root->astnode.ident.name);
+
+  name = root->astnode.ident.name;
+
+  if(com_prefix[0] != '\0')
+  {
+    HASHNODE *ht;
+
+    ht = type_lookup(cur_type_table,root->astnode.ident.name);
+    if (ht == NULL)
+      fprintf(stderr,"scalar_emit:Cant find %s in type_table\n",
+          root->astnode.ident.name);
+
+    if(ht->variable->astnode.ident.merged_name != NULL)
+      name = ht->variable->astnode.ident.merged_name;
+  }
+
+  if (name == NULL)
+  {
+    fprintf(stderr,"scalar_emit: setting name to NULL!\n");
+    name = root->astnode.ident.name;
+  }
 
   if(hashtemp == NULL) {
     if(gendebug) {
-      printf("here we are emitting a scalar: %s,",root->astnode.ident.name);
+      printf("here we are emitting a scalar: %s, len = %d",
+        root->astnode.ident.name, root->astnode.ident.len);
       printf("The parent node is : %s\n",print_nodetype(root->parent));
     }
  
-    com_prefix = get_common_prefix(root->astnode.ident.name);
+    if(gendebug)
+      printf("### #in scalar_emit, setting name = %s\n",name);
 
     if(root->parent == NULL) {
-      fprintf(stderr,"name_emit(): NO PARENT! (%s)\n",
-        root->astnode.ident.name);
+      fprintf(stderr,"name_emit(): NO PARENT! (%s)\n", name);
     } else {
       if (root->parent->nodetype == Call) {
         char *tempname;
@@ -1300,7 +1350,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         if(gendebug)
           printf("in CALL, '%s' <- '%s'\n", 
             root->parent->astnode.ident.name,
-            root->astnode.ident.name);
+            name);
 
         tempname = strdup(root->parent->astnode.ident.name);
         uppercase(tempname);
@@ -1311,30 +1361,30 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           if(gendebug)
             printf("did not find %s in intrinsics table\n",
                root->parent->astnode.ident.name);
-          fprintf (curfp, "%s%s", com_prefix, root->astnode.ident.name);
+          fprintf (curfp, "%s%s", com_prefix, name);
         }
         else
         {
           if(gendebug)
             printf("found %s in intrinsics\n",
                root->parent->astnode.ident.name);
-          fprintf (curfp, "%s%s.val", com_prefix,root->astnode.ident.name);
+          fprintf (curfp, "%s%s.val", com_prefix,name);
         }
       }
       else if(root->parent->nodetype == Typedec) {
         if(gendebug)
-          printf("Emitting typedec name: %s\n", root->astnode.ident.name);
-        fprintf (curfp, "%s", root->astnode.ident.name);
+          printf("Emitting typedec name: %s\n", name);
+        fprintf (curfp, "%s", name);
       }
       else if(root->parent->nodetype == ArrayDec) {
-        fprintf (curfp, "%s%s.val", com_prefix, root->astnode.ident.name);
+        fprintf (curfp, "%s%s.val", com_prefix, name);
       }
       else {
         if( (global_sub.name != NULL) && 
-            !strcmp(global_sub.name, root->astnode.ident.name))
+            !strcmp(global_sub.name, name))
           fprintf (curfp, " %d ", global_sub.val);
         else
-          fprintf (curfp, "%s%s.val", com_prefix, root->astnode.ident.name);
+          fprintf (curfp, "%s%s.val", com_prefix, name);
       }
     }
   }
@@ -1349,28 +1399,26 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
      * is 0.   10/10/97  --Keith 
      */
 
-/* Add common prefix stuff to this part also */
-
     if(root->parent == NULL) 
     {
       fprintf(stderr,"name_emit(): NO PARENT!\n");
     } 
     else 
     {
- printf("CRAP here we are emitting a scalar: %s,",root->astnode.ident.name);
- printf("The parent node is : %s\n",print_nodetype(root->parent));
+      printf("CRAP here we are emitting a scalar: %s,",name);
+      printf("The parent node is : %s\n",print_nodetype(root->parent));
 
       if((root->parent->nodetype == Call) && 
          (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
       {
         if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
-          fprintf (curfp, "%s,_%s_offset", root->astnode.ident.name,
-             root->astnode.ident.name);
+          fprintf (curfp, "%s,_%s_offset", name,
+             name);
         else
-          fprintf (curfp, "%s,0", root->astnode.ident.name);
+          fprintf (curfp, "%s,0", name);
       }
       else 
-        fprintf (curfp, "%s", root->astnode.ident.name);
+        fprintf (curfp, "%s", name);
     }
   }
 }
@@ -1542,6 +1590,26 @@ intrinsic_emit(AST *root)
     fprintf (curfp, "(%s(", javaname);
     expr_emit (temp);
     fprintf (curfp, ") / 2.30258509)");
+    return;
+  }
+
+  if(!strcmp(tempname,"LEN"))
+  {
+    HASHNODE *ht;
+
+    temp = root->astnode.ident.arraylist;
+
+    if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
+    {
+      fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
+      printf("LEN(%s) = %d\n",temp->astnode.ident.name,
+        ht->variable->astnode.ident.len);
+    }
+    else
+    {
+      fprintf (curfp, " 1 ");
+      printf("LEN(%s) = 1\n");
+    }
     return;
   }
 
@@ -2009,7 +2077,8 @@ constructor (AST * root)
       }
 
     fprintf (curfp, ")  {\n\n");
-
+    if(type_lookup(cur_external_table,"etime") != NULL)
+      fprintf(curfp, "  Etime.etime();\n");
 }				/*  Close  constructor(). */
 
 

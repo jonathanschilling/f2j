@@ -54,7 +54,7 @@ BOOLEAN letterseen;
 BOOLEAN equalseen;
 BOOLEAN commaseen;
 
-int lexdebug = 0;
+int lexdebug = 1;
 
 char *tok2str(int);
 char *strdup(const char *);
@@ -298,6 +298,9 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
       {
 	if (equalseen == TRUE)
 	  {
+            char *stmt_copy = strdup(buffer.stmt);
+            char *text_copy = strdup(buffer.text);
+
             /* First, look for labeled DO statement */
 	    if((token = keyscan (tab_stmt, &buffer)) == DO)
             {
@@ -306,13 +309,20 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
               return token;
             }
 
+            strcpy(buffer.stmt,stmt_copy);
+            strcpy(buffer.text,text_copy);
+
             if (isalpha (*buffer.stmt))
 	       token = name_scan (&buffer);
             if (token)
 	      {
 		tokennumber++;
                 if(lexdebug)
+                {
                   printf("7.2: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+                  if(token == NAME)
+                    printf("7.2: ...and the name is %s\n",yylval.lexeme);
+                }
 	        return token;
 	      }
 	  }
@@ -327,7 +337,7 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 	       bad keywords. */
             if (token)  
 	      {
-                if(token == DO)
+                if((token == DO) || (token == IF))
                 {
                   printf("got incorrect DO keyword, resoring buffer\n");
                   strcpy(buffer.stmt,stmt_copy);
@@ -751,6 +761,7 @@ check_continued_lines (FILE * ifp, char *current_line)
 		if(lexdebug)
 		  printf ("char 6, next_line: %c\n", next_line[5]);
 		fgets (next_line, 100, ifp);
+                next_line[strlen(next_line)-1] = '\0';
 		strcat (current_line, next_line);
 		lineno++;
 	    }

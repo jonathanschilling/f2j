@@ -38,6 +38,7 @@ SYMTABLE *jasmin_table;
 
 int emittem = 1;
 int debug = 0;
+int len = 1;
 
 AST *dataStmtList = NULL;
 
@@ -478,6 +479,7 @@ Specstmt:  DIMENSION
 Common:     COMMON CommonList NL
             {
               $$ = switchem($2);
+              merge_common_blocks($$);
             }
 ;
 
@@ -892,7 +894,10 @@ Typestmt:      Types Typevarlist NL
                  $$->nodetype = Typedec;
 
                  for(temp = $2; temp != NULL; temp = temp->nextstmt)
+                 {
                    temp->vartype = $1;
+                   temp->astnode.ident.len = len;
+                 }
 
                  $$->astnode.typeunit.declist = $2;
                  $$->astnode.typeunit.returns = $1; 
@@ -903,14 +908,17 @@ Typestmt:      Types Typevarlist NL
 Types:       Type 
              {
                $$ = $1;
+               len = 1;
              }
           |  Type Star Integer
              {
                $$ = $1;
+               len = atoi($3->astnode.constant.number);
              }
 	  |  Type Star OP Star CP
              {
                $$ = $1;
+               len = 1;
              }
 ;
 
@@ -983,7 +991,10 @@ Name:    NAME
 #ifdef TYPECHECK
            hashtemp = type_lookup(type_table, $$->astnode.ident.name);
            if(hashtemp)
+           {
              $$->vartype = hashtemp->variable->vartype;
+             $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+           }
 #endif
          }
 
@@ -1075,7 +1086,10 @@ Arraydeclaration: Name OP Arraynamelist CP
 		      $$->astnode.ident.leaddim = 
                        strdup($$->astnode.ident.arraylist->astnode.ident.name);
                     }
-                    printf("leaddim nodetype = %s\n",print_nodetype($$->astnode.ident.arraylist));
+                    if(debug)
+                      printf("leaddim nodetype = %s\n",
+                        print_nodetype($$->astnode.ident.arraylist));
+
                     if($$->astnode.ident.leaddim != NULL)
                       printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
 		    store_array_var($$);
@@ -2579,6 +2593,61 @@ init_tables()
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
   dataStmtList    = NULL;
+}
+
+int
+merge_common_blocks(AST *root)
+{
+  HASHNODE *ht;
+  AST *Clist, *temp;
+  int idx, count;
+  char ** name_array;
+
+  for(Clist = root; Clist != NULL; Clist = Clist->nextstmt)
+  {
+    /* 
+     * First check whether this common block is already in
+     * the table.
+     */
+
+    ht=type_lookup(common_block_table,Clist->astnode.common.name);
+
+    for(temp=Clist->astnode.common.nlist, count = 0; 
+              temp!=NULL; temp=temp->nextstmt) 
+      count++;
+
+    name_array = (char **) malloc( count * sizeof(name_array) );
+    if(name_array == NULL) {
+      perror("Unsuccessful malloc");
+      exit(1);
+    }
+
+    for(temp=Clist->astnode.common.nlist, count = 0; 
+               temp!=NULL; temp=temp->nextstmt, count++) 
+    {
+      if(  (ht != NULL)
+        && strcmp(temp->astnode.ident.name, ((char **)ht->variable)[count]))
+      {
+        name_array[count] = (char *) malloc(strlen(temp->astnode.ident.name) 
+           + strlen(((char **)ht->variable)[count]) + 2);
+
+        if(name_array[count] == NULL) {
+           perror("Unsuccessful malloc");
+           exit(1);
+        }
+
+        strcpy(name_array[count],temp->astnode.ident.name);
+        strcat(name_array[count],"_");
+        strcat(name_array[count],((char **)ht->variable)[count]);
+      }
+      else
+        name_array[count] = strdup(temp->astnode.ident.name);
+    }
+
+    idx = hash(Clist->astnode.common.name)%common_block_table->num_entries;
+    type_insert(&(common_block_table->entry[idx]), (AST *)name_array, 
+       Float, Clist->astnode.common.name);
+  }
 }
 
 int

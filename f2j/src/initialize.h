@@ -158,6 +158,7 @@ METHODTAB intrinsic_toks[]=
   {"NINT", "(int)"},
   {"REAL", "(double)"},
   {"SIGN", "(int)"},
+  {"LEN", "(int)"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 

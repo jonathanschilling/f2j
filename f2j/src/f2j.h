@@ -42,6 +42,7 @@ SYMTABLE *parameter_table;
 SYMTABLE *function_table; 
 SYMTABLE *java_keyword_table; 
 SYMTABLE *jasmin_keyword_table; 
+SYMTABLE *common_block_table;
 
 int locals;
 int stacksize;
@@ -220,7 +221,9 @@ typedef struct ast_node
                   char *commonBlockName;
 		  int localvnum;
 		  char name[80];
+                  char *merged_name;
                   int needs_declaration;
+                  int len;
 	      }
 	    ident;
 

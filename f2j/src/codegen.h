@@ -173,6 +173,7 @@ void
   emit_call_arguments(AST *, BOOLEAN),
   aint_intrinsic_emit(AST *, METHODTAB *),
   intrinsic_arg_emit(AST *, enum returntype),
+  intrinsic0_call_emit(AST *, METHODTAB *),
   intrinsic_call_emit(AST *, METHODTAB *, enum returntype),
   intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
   intrinsic_lexical_compare_emit(AST *, METHODTAB *),

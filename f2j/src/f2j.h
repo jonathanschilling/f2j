@@ -88,6 +88,7 @@ struct _str {
 #define REAL_ARG      4
 #define INT_ARG       2
 #define LOGICAL_ARG   1
+#define NO_ARG        0
 
 #define IRDC_ARGS (INT_ARG | REAL_ARG | DOUBLE_ARG | COMPLEX_ARG)
 #define IRD_ARGS (INT_ARG | REAL_ARG | DOUBLE_ARG)
@@ -588,7 +589,7 @@ enum _intrinsics {
   ifunc_DTAN, ifunc_ASIN, ifunc_DASIN, ifunc_ACOS, ifunc_DACOS, ifunc_ATAN,
   ifunc_DATAN, ifunc_ATAN2, ifunc_DATAN2, ifunc_SINH, ifunc_DSINH, ifunc_COSH,
   ifunc_DCOSH, ifunc_TANH, ifunc_DTANH, ifunc_LGE, ifunc_LGT, ifunc_LLE,
-  ifunc_LLT, ifunc_LSAME, ifunc_LSAMEN, ifunc_ETIME
+  ifunc_LLT, ifunc_LSAME, ifunc_LSAMEN, ifunc_ETIME, ifunc_SECOND
 };
 
 typedef struct method_tab

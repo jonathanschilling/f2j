@@ -266,8 +266,7 @@ emit (AST * root)
             gen_store_op(stdin_lvar, Object);
           }
 
-          if((type_lookup(cur_external_table,"etime") != NULL) ||
-             (type_lookup(cur_external_table,"second") != NULL))
+          if(type_lookup(cur_external_table,"etime") != NULL)
           {
             fprintf(curfp, "  Etime.etime();\n");
 
@@ -325,7 +324,7 @@ emit (AST * root)
 
           write_class(cur_class_file);
  
-          /* cp_dump(cur_const_table); */
+          cp_dump(cur_const_table);
           break;
         }
       case Subroutine:
@@ -3959,6 +3958,7 @@ external_emit(AST *root)
   char *tempname, *javaname;
   METHODTAB *entry;
   AST *temp;
+  CPNODE *c;
 
   if(gendebug) {
     printf("here we are in external_emit (%s)\n", root->astnode.ident.name);
@@ -4041,12 +4041,14 @@ external_emit(AST *root)
 
   javaname = entry->java_method;
 
+printf("javaname = %s\n",javaname);
+printf("args = %p\n", root->astnode.ident.arraylist);
+
   /* Ensure that the call has arguments */
 
   if (root->astnode.ident.arraylist != NULL)
   {
     CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
-    CPNODE *c;
 
     temp = root->astnode.ident.arraylist;
 
@@ -4178,6 +4180,15 @@ external_emit(AST *root)
                         entry->method_name, entry->descriptor);
 
       bytecode1(jvm_invokestatic, c->index);
+    }
+    else if(!strcmp(tempname, "SECOND")) {
+      fprintf(curfp, "(double) System.currentTimeMillis()");
+
+      c = newMethodref(cur_const_table,entry->class_name, 
+                        entry->method_name, entry->descriptor);
+
+      bytecode1(jvm_invokestatic, c->index);
+      bytecode0(jvm_l2d);
     }
   }
 }
@@ -4717,6 +4728,34 @@ intrinsic_lexical_compare_emit(AST *root, METHODTAB *entry)
    * removed later.
    */
   goto_node->branch_target = bytecode0(jvm_impdep1);
+}
+
+
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic0_call_emit                                                      *
+ *                                                                           *
+ * generates a call to an intrinsic which has no args.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+intrinsic0_call_emit(AST *root, METHODTAB *entry)
+{
+  CPNODE *c;
+
+  if(entry->ret != root->vartype)
+    fprintf(curfp, "(%s)", returnstring[root->vartype]);
+
+  fprintf (curfp, "%s()", entry->java_method);
+
+  c = newMethodref(cur_const_table,entry->class_name, 
+                    entry->method_name, entry->descriptor);
+
+  bytecode1(jvm_invokestatic, c->index);
+
+  if(entry->ret != root->vartype)
+    bytecode0(typeconv_matrix[entry->ret][root->vartype]);
 }
 
 /*****************************************************************************

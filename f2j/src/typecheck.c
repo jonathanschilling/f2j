@@ -999,6 +999,9 @@ external_check(AST *root)
       expr_check (root->astnode.ident.arraylist);
       root->vartype = Double;
     }
+    else if( !strcmp(tempname, "SECOND") ) {
+      root->vartype = Double;
+    }
   }
 }
 

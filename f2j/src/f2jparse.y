@@ -143,7 +143,7 @@ SYMTABLE
 %type <ptnode> Label Lhs Logicalif
 %type <ptnode> Name Namelist LhsList
 %type <ptnode> Parameter  Pdec Pdecs Program 
-%type <ptnode> Read IoExp IoExplist Return 
+%type <ptnode> Read IoExp IoExplist Return  Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
@@ -1101,6 +1101,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Comment;
               }
+            | Rewind
+              {
+                $$ = $1;
+                $$->nodetype = Unimplemented;
+              }
 ;           
 
 Comment: COMMENT NL
@@ -1116,6 +1121,13 @@ Close:  CLOSE OP Name CP NL
         {
           fprintf(stderr,"WArning: CLOSE not implemented.\n");
           $$ = $3;
+        }
+;
+
+Rewind: REWIND Name NL
+        {
+          fprintf(stderr,"Warning: REWIND not implemented.\n");
+          $$ = $2;
         }
 ;
 

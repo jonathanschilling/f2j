@@ -585,7 +585,7 @@ emit (AST * root)
           break;
       case Unimplemented:
 	  fprintf (curfp, 
-            "// WARNING: Unimplemented statement in Fortran source.\n");
+            " ; // WARNING: Unimplemented statement in Fortran source.\n");
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;

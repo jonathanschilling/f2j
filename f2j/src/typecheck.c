@@ -904,22 +904,28 @@ subcall_check(AST *root)
 void
 func_array_check(AST *root, HASHNODE *hashtemp)
 {
+  AST *tmp;
 
   if(root == NULL)
     fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
 
-  expr_check (root);
+  for(tmp = root; tmp != NULL; tmp = tmp->nextstmt)
+    expr_chec(tmp);
 
-  if(   (hashtemp->variable->astnode.ident.leaddim != NULL)
-     && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
-     && (root->nextstmt != NULL))
-  {
-    expr_check (root->nextstmt);
+/*
+* expr_check (root);
+*
+* if(   (hashtemp->variable->astnode.ident.leaddim != NULL)
+*    && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
+*    && (root->nextstmt != NULL))
+* {
+*   expr_check (root->nextstmt);
+*
+*   if(root->nextstmt->nextstmt)
+*     expr_check (root->nextstmt->nextstmt);
+* }
+*/
 
-    /* go up to 3 dimensions if necessary */
-    if(root->nextstmt->nextstmt)
-      expr_check (root->nextstmt->nextstmt);
-  }
 }
 
 /*****************************************************************************

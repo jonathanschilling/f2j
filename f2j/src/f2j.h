@@ -396,7 +396,6 @@ struct _ident
 {
   int 
     dim,                            /* number of dimensions (for arrays)     */
-    D[MAX_ARRAY_DIM],               /* num elements in each dim              */
     position;                       /* ident's position in COMMON block      */
 
   unsigned int
@@ -408,6 +407,8 @@ struct _ident
     needs_declaration;              /* does this ident need a declaration    */
 
   struct ast_node 
+    *startDim[MAX_ARRAY_DIM],       /* start expression for each dimension   */
+    *endDim[MAX_ARRAY_DIM],         /* ending expression for each dimension  */
     *arraylist,                     /* expression representing array size    */
     *lead_expr;                     /* leading dimension expression          */
 

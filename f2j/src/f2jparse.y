@@ -1461,41 +1461,62 @@ printf("reduced arraydeclaration... calling switchem\n");
                       exit(-1);
                     }
 
+                    $$->astnode.ident.dim = count;
+
                     for(temp = $$->astnode.ident.arraylist, i = 0;
                         temp != NULL; 
                         temp=temp->nextstmt, i++)
                     {
-                      $$->astnode.ident.D[i] = (int) eval_const_expr(temp);
-                      if(temp->nodetype == ArrayIdxRange)
-                        printf("@#@# %s dim %d is a range\n",$$->astnode.ident.name,
-                           i);
+/* $$->astnode.ident.D[i] = (int) eval_const_expr(temp); */
+
+                      /* if this dimension is an implied size, then set both
+                       * start and end to NULL.
+                       */
+
+                      if((temp->nodetype == Identifier) && 
+                        (temp->astnode.ident.name[0] == '*'))
+                      {
+                        $$->astnode.ident.startDim[i] = NULL;
+                        $$->astnode.ident.endDim[i] = NULL;
+                      }
+                      else if(temp->nodetype == ArrayIdxRange) {
+                        $$->astnode.ident.startDim[i] = temp->astnode.expression.lhs;
+                        $$->astnode.ident.endDim[i] = temp->astnode.expression.rhs;
+                      }
+                      else {
+                        $$->astnode.ident.startDim[i] = NULL;
+                        $$->astnode.ident.endDim[i] = temp;
+                      }
                     }
                        
-                    $$->astnode.ident.dim = count;
-                    $$->astnode.ident.lead_expr = NULL;
+/*
+*                    $$->astnode.ident.lead_expr = NULL;
+*/
    
                     /* leaddim might be a constant, so check for that.  --keith */
-                    if($$->astnode.ident.arraylist->nodetype == Constant) 
-                    {
-		      $$->astnode.ident.leaddim = 
-                       strdup($$->astnode.ident.arraylist->astnode.constant.number);
-                    }
-                    else if(($$->astnode.ident.arraylist->nodetype == Binaryop) ||
-                            ($$->astnode.ident.arraylist->nodetype == ArrayIdxRange)) {
-		      $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
-                    } else {
-		      $$->astnode.ident.leaddim = 
-                       strdup($$->astnode.ident.arraylist->astnode.ident.name);
-                    }
-
-                    if(debug)
-                    {
-                      printf("leaddim nodetype = %s\n",
-                        print_nodetype($$->astnode.ident.arraylist));
-
-                      if($$->astnode.ident.leaddim != NULL)
-                        printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
-                    }
+/*
+*                   if($$->astnode.ident.arraylist->nodetype == Constant) 
+*                   {
+*	              $$->astnode.ident.leaddim = 
+*                      strdup($$->astnode.ident.arraylist->astnode.constant.number);
+*                   }
+*                   else if(($$->astnode.ident.arraylist->nodetype == Binaryop) ||
+*                           ($$->astnode.ident.arraylist->nodetype == ArrayIdxRange)) {
+*	              $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
+*                   } else {
+*	              $$->astnode.ident.leaddim = 
+*                      strdup($$->astnode.ident.arraylist->astnode.ident.name);
+*                   }
+*
+*                   if(debug)
+*                   {
+*                     printf("leaddim nodetype = %s\n",
+*                       print_nodetype($$->astnode.ident.arraylist));
+*
+*                     if($$->astnode.ident.leaddim != NULL)
+*                       printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
+*                   }
+*/
 
 		    store_array_var($$);
                   }

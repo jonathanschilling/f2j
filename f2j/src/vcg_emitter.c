@@ -609,20 +609,14 @@ vcg_name_emit (AST * root, int parent)
 
         vcg_expr_emit (temp, my_node);
 
-        if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
-                 temp->nextstmt != NULL) {
-          temp = temp->nextstmt;
-
-          /*fprintf (javafp, "+"); */
-
-          vcg_expr_emit (temp, my_node);
-
-          /*
-            fprintf (javafp, "*"); 
-            fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-          */
-        }
-        /*fprintf(javafp, "]"); */
+/*
+ *      if (hashtemp->variable->astnode.ident.leaddim[0] != '*' &&
+ *               temp->nextstmt != NULL) {
+ *        temp = temp->nextstmt;
+ *
+ *        vcg_expr_emit (temp, my_node);
+ *      }
+ */
       }
       else {
         /*fprintf (javafp, "%s", root->astnode.ident.name); */

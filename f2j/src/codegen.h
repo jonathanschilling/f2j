@@ -218,11 +218,6 @@ void
   data_scalar_emit(enum returntype, AST *, AST *, int),
   func_array_emit(AST *, HASHNODE *, char *, int, int),
   methcall_obj_array_emit(AST *, int),
-  adapter_args_emit_from_table(AST *, AST *),
-  adapter_temps_emit_from_table(AST *, AST *),
-  adapter_methcall_emit_from_table(AST *, int, AST *),
-  adapter_assign_emit_from_table(AST *, int, AST *),
-  adapter_emit_from_table(AST *, HASHNODE *),
   adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
   adapter_temps_emit_from_descriptor(AST *, char *),
@@ -296,7 +291,6 @@ METHODREF
   * find_method(char *, Dlist);
 
 BOOLEAN
-  adapter_insert_from_table(AST *, AST *, HASHNODE *),
   adapter_insert_from_descriptor(AST *, AST *, char *);
 
 #endif

@@ -9008,7 +9008,7 @@ dl_name_search(Dlist l, char *name)
 void
 insert_adapter(AST *node)
 {
-  HASHNODE *hashtemp;
+  HASHNODE *ht;
   METHODREF *tmp;
   AST *ptr;
   int found = FALSE;
@@ -9031,19 +9031,19 @@ insert_adapter(AST *node)
     {
       found = TRUE;
 
-      /* this function call is already in the list.  now we must determine whether
-       * the prototypes of the adapters would be the same.  If so, there's no need
-       * to insert this node in the adapter list.  If the prototypes would be 
-       * different, then we must insert this node.
+      /* this function call is already in the list.  now we must determine
+       * whether the prototypes of the adapters would be the same.  If so,
+       * there's no need to insert this node in the adapter list.  If the
+       * prototypes would be different, then we must insert this node.
        */
   
       if(gendebug)
         printf("** %s is already in adapter_list.  now checking args.\n",
           node->astnode.ident.name);
 
-      if((hashtemp=type_lookup(function_table, node->astnode.ident.name)) != NULL)
+      if((ht=type_lookup(function_table, node->astnode.ident.name)) != NULL)
       {
-        if(!adapter_insert_from_table(node,ptr,hashtemp)) {
+        if(!adapter_insert_from_descriptor(node,ptr,ht->variable->astnode.source.descriptor)) {
           if(gendebug)
             printf("** found an equivalent adapter.  no need to insert.\n");
 
@@ -9070,66 +9070,6 @@ insert_adapter(AST *node)
       node->astnode.ident.name);
 
   dl_insert_b(adapter_list,node);
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_insert_from_table                                                 *
- *                                                                           *
- * this function determines whether the call pointed to by node is different *
- * from the call pointed to by ptr.                                          *
- *                                                                           *
- *****************************************************************************/
-
-BOOLEAN
-adapter_insert_from_table(AST *node, AST *ptr, HASHNODE *avar)
-{
-  int this_arg_is_arrayacc, other_arg_is_arrayacc;
-  AST *t2, *this_call, *other_call;
-  BOOLEAN diff;
-  int i;
-
-  this_call = node->astnode.ident.arraylist;
-  other_call = ptr->astnode.ident.arraylist;
-
-  t2 = avar->variable->astnode.source.args;
-
-  diff = FALSE;
-
-  for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
-  {
-    if(t2 == NULL)
-      break;
-
-    if( other_call == NULL )
-    {
-      fprintf(stderr,"2:Function calls to %s in unit %s ", 
-        node->astnode.ident.name, unit_name);
-      fprintf(stderr,"don't have same number of params\n");
-      return TRUE;
-    }
-
-    this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
-          (this_call->astnode.ident.arraylist != NULL) &&
-          type_lookup(cur_array_table, this_call->astnode.ident.name);
-
-    other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
-          (other_call->astnode.ident.arraylist != NULL) &&
-          type_lookup(cur_array_table, other_call->astnode.ident.name);
-
-    if( (! t2->astnode.ident.arraylist) &&
-        (this_arg_is_arrayacc != other_arg_is_arrayacc ))
-    {
-      diff = TRUE;
-    }
-
-    other_call = other_call->nextstmt;
-
-    if(t2 != NULL)
-      t2 = t2->nextstmt;
-  }
-
-  return diff;
 }
 
 /*****************************************************************************
@@ -9249,9 +9189,7 @@ emit_adapters()
       mref->methodname = strdup(hashtemp->variable->astnode.source.name->astnode.ident.name);
       mref->descriptor = strdup(hashtemp->variable->astnode.source.descriptor);
  
-printf("argh.. desc = '%s'\n", mref->descriptor);
 
-      /* adapter_emit_from_table(cval,hashtemp); */
       adapter_emit_from_descriptor(mref, cval);
     }
     else {
@@ -9700,292 +9638,6 @@ adapter_assign_emit(int i, int argvnum, int lv, char *dptr)
   bytecode1(jvm_getfield, c->index);
 
   bytecode0(array_store_opcodes[vt]);
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_emit_from_table                                                   *
- *                                                                           *
- * This function generates an adapters based on a prototype found in the     *
- * symbol table.                                                             *
- *                                                                           *
- *****************************************************************************/
-
-void
-adapter_emit_from_table(AST *node, HASHNODE *hashtemp)
-{
-  int lv_temp;
-
-  fprintf(curfp,"// adapter for %s\n", 
-    node->astnode.ident.name);
-  
-  /* first generate the method header */
-
-  if(hashtemp->variable->nodetype == Function)
-    fprintf(curfp,"private static %s %s_adapter(", 
-        returnstring[hashtemp->variable->astnode.source.returns],
-        hashtemp->variable->astnode.source.name->astnode.ident.name);
-  else
-    fprintf(curfp,"private static void %s_adapter(", 
-        hashtemp->variable->astnode.source.name->astnode.ident.name);
-
-  adapter_args_emit_from_table(hashtemp->variable->astnode.source.args,
-     node->astnode.ident.arraylist);
-
-  fprintf(curfp,")\n{\n");
-
-  lv_temp = cur_local;
-
-  adapter_temps_emit_from_table(hashtemp->variable->astnode.source.args,
-     node->astnode.ident.arraylist);
-
-  /*  now emit the call */
-
-  adapter_methcall_emit_from_table( node, lv_temp, hashtemp->variable);
-
-  /*  assign the temp variables to the array elements */
-
-  adapter_assign_emit_from_table(hashtemp->variable->astnode.source.args,
-     lv_temp, node->astnode.ident.arraylist);
-    
-  if(hashtemp->variable->nodetype == Function)
-  {
-    fprintf(curfp,"\nreturn %s_retval;\n", 
-        hashtemp->variable->astnode.source.name->astnode.ident.name);
-
-    gen_load_op(cur_local, hashtemp->variable->astnode.source.returns);
-    bytecode0(return_opcodes[hashtemp->variable->astnode.source.returns]);
-  }
-  else
-    bytecode0(jvm_return);
-
-  fprintf(curfp,"}\n\n");
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_args_emit_from_table                                              *
- *                                                                           *
- * this function generates the argument list for an adapter, when the        *
- * prototype can be found in the symbol table.                               *
- *                                                                           *
- *****************************************************************************/
-
-void
-adapter_args_emit_from_table(AST *temp, AST *arg)
-{
-  int i, lvnum;
-
-  lvnum = 0;
-
-  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
-  {
-    if(temp == NULL) {
-      fprintf(stderr,"adapter_args_emit_from_table():");
-      fprintf(stderr,"mismatch between adapter call and prototype\n");
-      break;
-    }
-
-    if(temp->astnode.ident.arraylist) {
-      fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
-        returnstring[temp->vartype], i, i);
-      lvnum+=2;
-    }
-    else if ( (arg->nodetype == Identifier) && 
-              (arg->astnode.ident.arraylist != NULL) &&
-              type_lookup(cur_array_table,arg->astnode.ident.name) )
-    {
-      if(omitWrappers && !temp->astnode.ident.passByRef) {
-        fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        if(temp->vartype == Double)
-          lvnum+=2;
-        else
-          lvnum++;
-      }
-      else {
-        fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
-          returnstring[temp->vartype], i, i);
-        lvnum+=2;
-      }
-    }
-    else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
-    {
-      fprintf(curfp,"Object arg%d ", i);
-      lvnum++;
-    }
-    else
-    {
-      if(omitWrappers && !temp->astnode.ident.passByRef) {
-        fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        if(temp->vartype == Double)
-          lvnum+=2;
-        else
-          lvnum++;
-      }
-      else {
-        fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
-        lvnum++;
-      }
-    }
-
-    if(temp != NULL)
-      temp = temp->nextstmt;
-    if(arg->nextstmt != NULL)
-      fprintf(curfp,",");
-  }
-
-  num_locals = cur_local = lvnum;
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_temps_emit_from_table                                             *
- *                                                                           *
- * this function generates the temporary variable declarations for an        *
- * adapter, when the prototype can be found in the symbol table.             *
- *                                                                           *
- *****************************************************************************/
-
-void
-adapter_temps_emit_from_table(AST *temp, AST *arg)
-{
-  int i;
-
-  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
-  {
-    if(temp == NULL)
-      break;
-
-    if((arg->nodetype == Identifier) &&
-       (arg->astnode.ident.arraylist != NULL) &&
-       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-       (temp->astnode.ident.arraylist == NULL))
-    {
-      if(omitWrappers) {
-        if(temp->astnode.ident.passByRef) {
-          fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-            wrapper_returns[temp->vartype], i, 
-            wrapper_returns[temp->vartype], i, i);
-          adapter_tmp_assign_emit(arg->astnode.ident.localvnum,temp->vartype);
-        }
-      }
-      else
-      {
-        fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-          wrapper_returns[temp->vartype], i,
-          wrapper_returns[temp->vartype], i, i);
-        adapter_tmp_assign_emit(arg->astnode.ident.localvnum,temp->vartype);
-      }
-    }
-
-    if(temp != NULL)
-      temp = temp->nextstmt;
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_methcall_emit_from_table                                          *
- *                                                                           *
- * this function generates the actual method call within the adapter.        *
- * used in the case when the prototype is found in the symbol table.         *
- *                                                                           *
- *****************************************************************************/
-
-void
-adapter_methcall_emit_from_table(AST *node, int lv_temp, AST *var)
-{
-  char *tempname, *adapter_classname, *adapter_methodname,
-    *adapter_descriptor;
-  CPNODE *c;
-  AST *temp, *arg;
-  int i;
-
-  tempname = strdup( node->astnode.ident.name );
-  *tempname = toupper(*tempname);
-
-  if(var->nodetype == Function)
-  {
-    fprintf(curfp,"%s %s_retval;\n\n", 
-        returnstring[var->astnode.source.returns],
-        var->astnode.source.name->astnode.ident.name);
-
-    fprintf(curfp,"%s_retval = %s.%s(", node->astnode.ident.name,
-       tempname,  node->astnode.ident.name );
-  }
-  else
-    fprintf(curfp,"\n%s.%s(",tempname,  node->astnode.ident.name );
-
-  temp = var->astnode.source.args;
-  arg = node->astnode.ident.arraylist;
-    
-  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
-  {
-    if(temp == NULL)
-      break;
-
-    lv_temp = adapter_methcall_arg_emit(arg, i, lv_temp, 
-                  get_field_desc_from_ident(temp));
-
-    if(temp != NULL)
-      temp = temp->nextstmt;
-
-    if(arg->nextstmt != NULL)
-      fprintf(curfp,",");
-  }
-
-  adapter_classname = get_full_classname(tempname);
-  adapter_methodname = strdup(node->astnode.ident.name);
-  adapter_descriptor = get_desc_from_arglist(node->astnode.ident.arraylist);
-
-  c = newMethodref(cur_const_table, adapter_classname, adapter_methodname,
-    adapter_descriptor);
- 
-  bytecode1(jvm_invokestatic, c->index);
-
-  fprintf(curfp,");\n\n");
-}
-
-/*****************************************************************************
- *                                                                           *
- * adapter_assign_emit_from_table                                            *
- *                                                                           *
- * this function emits the final assignments back to the array elements      *
- * after the call.                                                           *
- *                                                                           *
- *****************************************************************************/
-
-void
-adapter_assign_emit_from_table(AST *temp, int lv_temp, AST *arg)
-{
-  int i;
-
-  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
-  {
-    if(temp == NULL)
-      break;
-
-    if((arg->nodetype == Identifier) && 
-       (arg->astnode.ident.arraylist != NULL) &&
-       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-       (temp->astnode.ident.arraylist == NULL))
-    {
-      if(omitWrappers) {
-        if(temp->astnode.ident.passByRef) {
-          adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++,
-            get_field_desc_from_ident(temp));
-        }
-      }
-      else
-      {
-        adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++,
-          get_field_desc_from_ident(temp));
-      }
-    }
-
-    if(temp != NULL)
-      temp = temp->nextstmt;
-  }
 }
 
 /*****************************************************************************

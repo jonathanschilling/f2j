@@ -17,12 +17,10 @@
 
 /*****************************************************************************
  * MAX_RETURNS is the number of data types.                                  *
- * MAX_DIMS is the maximum number of array dimensions supported.             *
  * OBJECT_TYPE identifies the type 'Object'.                                 *
  * CPIDX_MAX is the maximum value for a 1-byte constant pool index.          *
  *****************************************************************************/
 
-#define MAX_DIMS    3
 #define OBJECT_TYPE 7
 #define CPIDX_MAX 255
 #define MAX_RETURNS 7
@@ -282,8 +280,8 @@ extern char * numericValue_method[MAX_RETURNS+1];
 
 /* method descriptors corresponding to the above methods.                    */
 extern char * numericValue_descriptor[MAX_RETURNS+1];
-extern char *field_descriptor[MAX_RETURNS+1][MAX_DIMS+1];
-extern char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1];
+extern char *field_descriptor[MAX_RETURNS+1][2];
+extern char *wrapped_field_descriptor[MAX_RETURNS+1][2];
 
 /* types for scalars passed by reference:    */
 extern char *wrapper_returns[MAX_RETURNS+1];

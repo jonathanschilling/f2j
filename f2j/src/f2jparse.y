@@ -1533,6 +1533,10 @@ Arraynamelist:    Arrayname
                     temp = addnode();
                     temp->nodetype = ArrayDec;
                     $1->parent = temp;
+                    if($1->nodetype == ArrayIdxRange) {
+                      $1->astnode.expression.lhs->parent = temp;
+                      $1->astnode.expression.rhs->parent = temp;
+                    }
 
                     $$=$1;
                   }
@@ -1540,6 +1544,10 @@ Arraynamelist:    Arrayname
                   {
                     $3->prevstmt = $1; 
                     $3->parent = $1->parent;
+                    if($3->nodetype == ArrayIdxRange) {
+                      $3->astnode.expression.lhs->parent = $1->parent;
+                      $3->astnode.expression.rhs->parent = $1->parent;
+                    }
                     $$ = $3;
                   }
 ;

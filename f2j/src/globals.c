@@ -580,49 +580,33 @@ char * numericValue_descriptor[MAX_RETURNS+1] = {
  * matrix (and the following wrapped_field_descriptor) should be updated.
  */
 
-char *field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
-  {JSTR, JSTR_ARR,JSTR_ARR,JSTR_ARR},
-  {JSTR, JSTR_ARR,JSTR_ARR,JSTR_ARR},
-  {"D", "[D", "[D", "[D"},
-  {"D", "[D", "[D", "[D"},
-  {"F", "[F", "[F", "[F"},
-  {"I", "[I", "[I", "[I"},
-  {"Z", "[Z", "[Z", "[Z"},
-  {JOBJ, JOBJ_ARR,JOBJ_ARR,JOBJ_ARR}
+char *field_descriptor[MAX_RETURNS+1][2] = {
+  {JSTR, JSTR_ARR},
+  {JSTR, JSTR_ARR},
+  {"D", "[D"},
+  {"D", "[D"},
+  {"F", "[F"},
+  {"I", "[I"},
+  {"Z", "[Z"},
+  {JOBJ, JOBJ_ARR}
 };
 
-char *wrapped_field_descriptor[MAX_RETURNS+1][MAX_DIMS+1] = {
+char *wrapped_field_descriptor[MAX_RETURNS+1][2] = {
   {"Lorg/netlib/util/StringW;",
-   "[Ljava/lang/String;",
-   "[Ljava/lang/String;",
    "[Ljava/lang/String;"},
   {"Lorg/netlib/util/StringW;",
-   "[Ljava/lang/String;",
-   "[Ljava/lang/String;",
    "[Ljava/lang/String;"},
   {"Lorg/netlib/util/complexW;",
-   "[Lorg/netlib/util/complexW;",
-   "[Lorg/netlib/util/complexW;",
    "[Lorg/netlib/util/complexW;"},
   {"Lorg/netlib/util/doubleW;",
-   "[D",
-   "[D",
    "[D"},
   {"Lorg/netlib/util/floatW;",
-   "[F",
-   "[F",
    "[F"},
   {"Lorg/netlib/util/intW;",
-   "[I",
-   "[I",
    "[I"},
   {"Lorg/netlib/util/booleanW;",
-   "[Z",
-   "[Z",
    "[Z"},
   {"Ljava/lang/Object;",
-   "[Ljava/lang/Object;",
-   "[Ljava/lang/Object;",
    "[Ljava/lang/Object;"}
 };
 

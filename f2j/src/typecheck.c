@@ -910,7 +910,7 @@ func_array_check(AST *root, HASHNODE *hashtemp)
     fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
 
   for(tmp = root; tmp != NULL; tmp = tmp->nextstmt)
-    expr_chec(tmp);
+    expr_check(tmp);
 
 /*
 * expr_check (root);

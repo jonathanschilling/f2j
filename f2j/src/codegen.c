@@ -2041,7 +2041,7 @@ getMergedDescriptor(AST *root, enum returntype returns)
     if(ht2 && ht2->variable->astnode.ident.descriptor)
       desc = ht2->variable->astnode.ident.descriptor;
     else {
-      desc = field_descriptor[returns][root->astnode.ident.dim];
+      desc = field_descriptor[returns][(root->astnode.ident.dim > 0)];
     }
   }
 
@@ -2750,7 +2750,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
   fprintf(curfp,"};\n");
 
   c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
-        field_descriptor[ht->variable->vartype][ht->variable->astnode.ident.dim]);
+        field_descriptor[ht->variable->vartype][(ht->variable->astnode.ident.dim > 0)]);
 
   bytecode1(jvm_putstatic, c->index);
 
@@ -3285,253 +3285,83 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     if(gendebug)
       printf("~Could not find!\n");
   }
-  else if(ht->variable->astnode.ident.dim == 3)
-  {
-    unsigned int d1, d0, offset;
-
-    /* This section handles 3 dimensional array access.  we should already
-     * know the dimensions of this array.
-     */
-
-    if(gendebug) {
-      printf("~found %s, has dim %d\n",ht->variable->astnode.ident.name,
-         ht->variable->astnode.ident.dim);
-
-      printf("Ok, the dims are %d,%d,%d\n",
-        ht->variable->astnode.ident.D[0],
-        ht->variable->astnode.ident.D[1],
-        ht->variable->astnode.ident.D[2]);
-    }
-
-    d0 = ht->variable->astnode.ident.D[0];
-    d1 = ht->variable->astnode.ident.D[1];
-
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist))
-      d0 = ht->variable->astnode.ident.D[0] + 1;
-
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt))
-      d1 = ht->variable->astnode.ident.D[1] + 1;
-        
-    offset = 1 + ( (1 + d1) * d0);
-
-    fprintf (curfp, "(");
-    expr_emit(root);
-    if(root->vartype != Integer)
-      bytecode0(typeconv_matrix[root->vartype][Integer]);
-
-    if(d0 != ht->variable->astnode.ident.D[0]) {
-      fprintf (curfp, "+1");
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_iadd);
-    }
-    fprintf (curfp, ")");
-    
-    fprintf (curfp, "+((");
-
-    fprintf (curfp, "(");
-    expr_emit(root->nextstmt);
-    if(root->nextstmt->vartype != Integer)
-      bytecode0(typeconv_matrix[root->nextstmt->vartype][Integer]);
-
-    if(d1 != ht->variable->astnode.ident.D[1]) {
-      fprintf (curfp, "+1");
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_iadd);
-    }
-    fprintf (curfp, ")");
-    
-    fprintf (curfp, "+(");
-
-    fprintf (curfp, "(");
-    expr_emit(root->nextstmt->nextstmt);
-    if(root->nextstmt->nextstmt->vartype != Integer)
-      bytecode0(typeconv_matrix[root->nextstmt->nextstmt->vartype][Integer]);
-
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt)) {
-      fprintf (curfp, "+1");
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_iadd);
-    }
-    fprintf (curfp, ")");
-    
-    fprintf (curfp, " * %d)) *%d) - %d", d1, d0,offset);
-
-    pushIntConst(d1);
-    bytecode0(jvm_imul);
-    bytecode0(jvm_iadd);
-    pushIntConst(d0);
-    bytecode0(jvm_imul);
-    bytecode0(jvm_iadd);
-    pushIntConst(offset);
-    bytecode0(jvm_isub);
-  }
-  else if(ht->variable->astnode.ident.dim > 3)
+  else
   {
     AST *tmp;
-    int i,j,d;
+    int i,j;
+
+    /* hack alert!  what i'm doing here is changing the
+     * nodetype of the array dimension expression's parent.
+     * the reason being that when we emit the start and
+     * end dimensions, if the parent nodetype is ArrayDec
+     * then nothing will be emitted for bytecode.  --keith
+     * p.s. note that we only need to set this for one
+     * dimension since they all share the same parent node.
+     */
+
+    if(ht->variable->astnode.ident.endDim[0])
+      ht->variable->astnode.ident.endDim[0]->parent->nodetype = Identifier;
 
     tmp = root;
     for(i=0;i<ht->variable->astnode.ident.dim;i++) {
+      AST *start, *end;
+
+      if(tmp != root)
+        fprintf(curfp,"+");
+
+      fprintf(curfp,"(");
       expr_emit(tmp);
+      if(tmp->vartype != Integer)
+        bytecode0(typeconv_matrix[tmp->vartype][Integer]);
+      fprintf(curfp,"-(");
 
-      for(j=i-1;j>0;j--) {
-        d = ht->variable->astnode.ident.D[j];
-        if(!idxNeedsDecr(tmp))
-          d++;
+      start = ht->variable->astnode.ident.startDim[i];
 
-        fprintf(curfp," * ");
-      }
-
-      fprintf(curfp," + ");
-      tmp = tmp->nextstmt;
-    }
-  }
-  else 
-  {
-    /* if this isn't a 3 dimensional array, it is handled here */
-
-    int decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist);
-
-    fprintf (curfp, "(");
-    expr_emit (root);
-
-    if(root->vartype != Integer)
-      bytecode0(typeconv_matrix[root->vartype][Integer]);
-
-    if(decrementIndex) {
-      fprintf (curfp, ")- 1");
-      bytecode0(jvm_iconst_1);
-      bytecode0(jvm_isub);
-    }
-    else
-      fprintf (curfp, ")");
-
-    if((hashtemp->variable->astnode.ident.lead_expr != NULL)
-         && root->nextstmt != NULL)
-    {
-      root = root->nextstmt;
-      decrementIndex = TRUE;
-
-      if(ht->variable->astnode.ident.arraylist->nextstmt == NULL)
-        fprintf(stderr,"Error: array %s doesn't have that many dimensions\n",
-          root->astnode.ident.name);
-      else
-        decrementIndex = 
-           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt);
-
-      fprintf (curfp, "+");
-      fprintf (curfp, "(");
-      expr_emit (root);
-      if(root->vartype != Integer)
-        bytecode0(typeconv_matrix[root->vartype][Integer]);
-
-      if(decrementIndex) {
-        fprintf (curfp, "- 1)");
-        bytecode0(jvm_iconst_1);
-        bytecode0(jvm_isub);
-      }
-      else
-        fprintf (curfp, ")");
-
-      fprintf (curfp, "* (");
-      if(hashtemp->variable->astnode.ident.lead_expr->nodetype == ArrayIdxRange)
-      {
-        AST * lhs = hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs;
-        AST * rhs = hashtemp->variable->astnode.ident.lead_expr->astnode.expression.rhs;
-
-        expr_emit(rhs);
-        if(rhs->vartype != Integer)
-          bytecode0(typeconv_matrix[rhs->vartype][Integer]);
-        fprintf (curfp, " - ");
-        expr_emit(lhs);
-        if(lhs->vartype != Integer)
-          bytecode0(typeconv_matrix[lhs->vartype][Integer]);
-        fprintf (curfp, " + 1 ");
-        bytecode0(jvm_isub);
-        bytecode0(jvm_iconst_1);
-        bytecode0(jvm_iadd);
+      if(start != NULL) {
+        expr_emit(start);
+        if(start->vartype != Integer)
+          bytecode0(typeconv_matrix[start->vartype][Integer]);
       }
       else {
-        AST * lead_exp = hashtemp->variable->astnode.ident.lead_expr;
-
-printf("going to emit lead_exp...\n");
-        expr_emit(lead_exp);
-printf("done emitting lead_exp...\n");
-        if(lead_exp->vartype != Integer)
-          bytecode0(typeconv_matrix[lead_exp->vartype][Integer]);
+        fprintf(curfp,"1");
+        pushIntConst(1);
       }
+      fprintf(curfp,"))");
+      bytecode0(jvm_isub);
 
-      fprintf (curfp, ")");
+      for(j=i-1;j>=0;j--) {
+        fprintf(curfp," * ");
+        fprintf(curfp,"(");
 
-      bytecode0(jvm_imul);
-      bytecode0(jvm_iadd);
-    }
-    else if((hashtemp->variable->astnode.ident.leaddim != NULL)
-         && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
-         && (root->nextstmt != NULL))
-    {
-      root = root->nextstmt;
-      decrementIndex = TRUE;
+        start = ht->variable->astnode.ident.startDim[j];
+        end = ht->variable->astnode.ident.endDim[j];
 
-      if(ht->variable->astnode.ident.arraylist->nextstmt == NULL)
-        fprintf(stderr,"Error: array %s doesn't have that many dimensions\n",
-          root->astnode.ident.name);
-      else
-        decrementIndex = 
-           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt);
-
-      fprintf (curfp, "+");
-      fprintf (curfp, "(");
-      expr_emit (root);
-      if(root->vartype != Integer)
-        bytecode0(typeconv_matrix[root->vartype][Integer]);
-
-      if(decrementIndex) {
-        fprintf (curfp, "- 1)");
-        bytecode0(jvm_iconst_1);
-        bytecode0(jvm_isub);
-      }
-      else
-        fprintf (curfp, ")");
-
-      fprintf (curfp, "*");
-
-      if(gendebug)
-        printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
-
-      ht = type_lookup(cur_type_table, hashtemp->variable->astnode.ident.leaddim);
-
-      if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
-
-        /* ht should be non-NULL here. */
-        if(!ht) {
-          fprintf(stderr,"func_array_emit(): Type table is screwed!\n");
-          fprintf(stderr,"   looked up %s\n",hashtemp->variable->astnode.ident.leaddim);
-          exit(-1);
-        }
-
-        if(omitWrappers && !cgPassByRef(hashtemp->variable->astnode.ident.leaddim)) {
-          fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-          pushVar(ht->variable->vartype,is_arg,cur_filename,
-                  hashtemp->variable->astnode.ident.leaddim,
-                  field_descriptor[ht->variable->vartype][0],
-                  ht->variable->astnode.ident.localvnum, FALSE);
+        if(start != NULL) {
+          expr_emit(end);
+          if(end->vartype != Integer)
+            bytecode0(typeconv_matrix[end->vartype][Integer]);
+          fprintf(curfp," - ");
+          expr_emit(start);
+          if(start->vartype != Integer)
+            bytecode0(typeconv_matrix[start->vartype][Integer]);
+          bytecode0(jvm_isub);
+          fprintf(curfp," + 1");
+          pushIntConst(1);
+          bytecode0(jvm_iadd);
         }
         else {
-          fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
-          pushVar(ht->variable->vartype,is_arg,cur_filename,
-                  hashtemp->variable->astnode.ident.leaddim,
-                  field_descriptor[ht->variable->vartype][0],
-                  ht->variable->astnode.ident.localvnum, TRUE);
+          expr_emit(end);
+          if(end->vartype != Integer)
+            bytecode0(typeconv_matrix[end->vartype][Integer]);
         }
+        fprintf(curfp,")");
+        bytecode0(jvm_imul);
       }
-      else {
-        fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-        pushIntConst(atoi(hashtemp->variable->astnode.ident.leaddim));
-      }
-      bytecode0(jvm_imul);
-      bytecode0(jvm_iadd);
-    }  /* Multi dimension.  */
+
+      if(tmp != root)
+        bytecode0(jvm_iadd);
+      tmp = tmp->nextstmt;
+    }
   }
 
   if(is_arg) {
@@ -3991,11 +3821,10 @@ printf("commonblockname = '%s'\n",ht->variable->astnode.ident.commonBlockName);
 char *
 getVarDescriptor(AST *root)
 {
-
   if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
-    return field_descriptor[root->vartype][root->astnode.ident.dim];
+    return field_descriptor[root->vartype][(root->astnode.ident.dim > 0)];
   else
-    return wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+    return wrapped_field_descriptor[root->vartype][(root->astnode.ident.dim > 0)];
 }
 
 /*****************************************************************************
@@ -11210,12 +11039,12 @@ get_desc_from_arglist(AST *list)
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
         if(ht) {
-          dim = ht->variable->astnode.ident.dim;
+          dim = ht->variable->astnode.ident.dim > 0;
 
           temp_desc = strAppend(temp_desc, field_descriptor[ht->variable->vartype][dim]);
         }
         else {
-          dim = arg->astnode.ident.dim;
+          dim = arg->astnode.ident.dim > 0;
 
           temp_desc = strAppend(temp_desc, field_descriptor[arg->vartype][dim]);
         }
@@ -11233,12 +11062,12 @@ get_desc_from_arglist(AST *list)
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
         if(ht) {
-          dim = ht->variable->astnode.ident.dim;
+          dim = ht->variable->astnode.ident.dim > 0;
 
           temp_desc = strAppend(temp_desc, wrapped_field_descriptor[ht->variable->vartype][dim]);
         }
         else {
-          dim = arg->astnode.ident.dim;
+          dim = arg->astnode.ident.dim > 0;
 
           temp_desc = strAppend(temp_desc, wrapped_field_descriptor[arg->vartype][dim]);
         }
@@ -11251,7 +11080,7 @@ get_desc_from_arglist(AST *list)
            wrapped_field_descriptor[arg->vartype][0]);
     }
 
-    if(dim > 0)
+    if(dim)
       temp_desc = strAppend(temp_desc, "I");
   }
 
@@ -13273,11 +13102,12 @@ char *
 get_field_desc_from_ident(AST *node)
 {
   char *fdesc;
+  int isArray = node->astnode.ident.dim > 0;
 
   if(omitWrappers && !node->astnode.ident.passByRef)
-    fdesc = field_descriptor[node->vartype][node->astnode.ident.dim];
+    fdesc = field_descriptor[node->vartype][isArray];
   else
-    fdesc = wrapped_field_descriptor[node->vartype][node->astnode.ident.dim];
+    fdesc = wrapped_field_descriptor[node->vartype][isArray];
 
   return fdesc;
 }

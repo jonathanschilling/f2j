@@ -4216,42 +4216,34 @@ constructor (AST * root)
 
   if (root->nodetype == Function)
   {
-    returns = root->astnode.source.returns;
+    char *name, *desc;
+    CPNODE *c;
 
-    printf("this is a Function, needs implicit variable\n");
-    printf("method name = %s\n", 
-      root->astnode.source.name->astnode.ident.name);
-    printf("desc = %s\n",
-      field_descriptor[root->astnode.source.returns][0]);
-    if(omitWrappers && !isPassByRef(root->astnode.source.name->astnode.ident.name)) {
-      addField(
-        root->astnode.source.name->astnode.ident.name,
-        field_descriptor[returns][0]);
+    returns = root->astnode.source.returns;
+    name = root->astnode.source.name->astnode.ident.name;
+
+    if(omitWrappers && !isPassByRef(name)) {
+      addField( name, field_descriptor[returns][0]);
+      desc = field_descriptor[returns][0];
     }
     else {
-      addField(
-        root->astnode.source.name->astnode.ident.name,
-        wrapped_field_descriptor[returns][0]);
+      addField(name, wrapped_field_descriptor[returns][0]);
+      desc = wrapped_field_descriptor[returns][0];
     }
+
+    printf("this is a Function, needs implicit variable\n");
+    printf("method name = %s\n", name);
+    printf("desc = %s\n", desc);
 
     /* Test code.... */
     if ((returns == String) || (returns == Character))
     {
-      char *name, *desc;
-      CPNODE *c;
-
-      name = root->astnode.source.name->astnode.ident.name;
-
-      if(omitWrappers && !isPassByRef(name)) {
+      if(omitWrappers && !isPassByRef(name))
         c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                 JL_STRING);
-        desc = field_descriptor[returns][0];
-      }
-      else {
+      else
         c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                 full_wrappername[returns]);
-        desc = wrapped_field_descriptor[returns][0];
-      }
 
       code_one_op_w(jvm_new,c->index);
       code_zero_op(jvm_dup);
@@ -4270,16 +4262,36 @@ constructor (AST * root)
     {
       if(omitWrappers && 
         !isPassByRef(root->astnode.source.name->astnode.ident.name))
+      {
           fprintf (curfp, "static %s %s = %s;\n\n", 
             returnstring[returns],
             root->astnode.source.name->astnode.ident.name,
             init_vals[returns]);
+      }
       else
+      {
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                  full_wrappername[returns]);
+
+        code_one_op_w(jvm_new,c->index);
+        code_zero_op(jvm_dup);
+
+        code_zero_op(init_opcodes[returns]);
+
+        c = newMethodref(cur_const_table,full_wrappername[returns],
+               "<init>", wrapper_descriptor[returns]);
+
+        code_one_op_w(jvm_invokespecial, c->index);
+
+        c = newFieldref(cur_const_table,cur_filename,name,desc); 
+        code_one_op_w(jvm_putstatic, c->index);
+
         fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
           wrapper_returns[returns],
           root->astnode.source.name->astnode.ident.name,
           wrapper_returns[returns],
           init_vals[returns]);
+      }
     }
 
     /* Define the constructor for the class. */

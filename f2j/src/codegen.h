@@ -238,8 +238,9 @@ void
   adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
   adapter_temps_emit_from_descriptor(AST *, char *),
-  adapter_methcall_emit_from_descriptor(AST *, char *, char *),
+  adapter_methcall_emit_from_descriptor(AST *, METHODREF *, char *),
   adapter_assign_emit_from_descriptor(AST *, char *),
+  adapter_tmp_assign_emit(int, enum returntype),
   inc_stack(int);
 
 int
@@ -255,6 +256,7 @@ int
   data_repeat_emit(AST *, unsigned int),
   methcall_arglist_emit(AST *),
   num_locals_in_descriptor(char *),
+  adapter_methcall_arg_emit(AST *, int, int, char *),
   determine_var_length(HASHNODE *);
 
 double

@@ -9289,7 +9289,7 @@ emit_adapters()
   {
     cval = (AST *)dl_val(p);
 
-    cur_name = (char *)f2jrealloc(cur_name, strlen(cval->astnode.ident.name) + 10);
+    cur_name=(char *)f2jrealloc(cur_name,strlen(cval->astnode.ident.name)+10);
 
     strcpy(cur_name, cval->astnode.ident.name);
     strcat(cur_name, "_adapter");
@@ -9384,7 +9384,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
   adapter_temps_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
 
-  adapter_methcall_emit_from_descriptor(node, mref->descriptor, ret);
+  adapter_methcall_emit_from_descriptor(node, mref, ret);
 
   adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
@@ -9395,6 +9395,8 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
       node->astnode.ident.name);
     bytecode0(return_opcodes[get_type_from_field_desc(ret)]);
   }
+  else
+    bytecode0(jvm_return);
 
   fprintf(curfp,"}\n\n");
 }
@@ -9413,12 +9415,16 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
 {
   enum returntype ctype;
   char *dptr;
-  int i;
+  int i, lvnum;
 
   dptr = skipToken(desc);
 
+  lvnum = 0;
+
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
   {
+    arg->astnode.ident.localvnum = lvnum;
+
     if(dptr == NULL) {
       fprintf(stderr,"Error: mismatch between adapter call and prototype\n");
       break;
@@ -9456,7 +9462,49 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
 
     if(arg->nextstmt != NULL)
       fprintf(curfp,",");
+
+    if(dptr[0] == 'D')
+      lvnum+=2;
+    else
+      lvnum++;
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_tmp_assign_emit                                                   *
+ *                                                                           *
+ * this function generates the bytecode for the assignment to a temp         *
+ * variable in the adapter.   for example:                                   *
+ *          _f2j_tmp3 = new intW(arg3[arg3_offset])                          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_tmp_assign_emit(int arglocal, enum returntype argtype)
+{
+  CPNODE *c;
+  char *classname, *desc;
+
+  classname = full_wrappername[argtype]; 
+  desc = wrapper_descriptor[argtype];
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
+
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
+
+  /* emit arg%d[arg%d_offset] */
+  gen_load_op(arglocal, Object);
+  gen_load_op(arglocal + 1, Integer);
+  bytecode0(array_load_opcodes[argtype]);
+
+  c = newMethodref(cur_const_table, classname, "<init>", desc);
+
+  bytecode1(jvm_invokespecial, c->index);
+
+  /* now assign value to next local */
+  gen_store_op(getNextLocal(Object), Object);
 }
 
 /*****************************************************************************
@@ -9489,14 +9537,19 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       wrapper = get_wrapper_from_desc(dptr);
 
       if(omitWrappers) {
-        if(dptr[0] == 'L')
+        if(dptr[0] == 'L') {
           fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
             wrapper, i, wrapper, i, i);
+          adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
+            get_type_from_field_desc(dptr));
+        }
       }
       else
       {
         fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
           wrapper, i, wrapper, i, i);
+        adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
+          get_type_from_field_desc(dptr));
       }
     }
 
@@ -9514,11 +9567,14 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
  *****************************************************************************/
 
 void
-adapter_methcall_emit_from_descriptor(AST *node, char *desc, char *ret)
+adapter_methcall_emit_from_descriptor(AST *node, METHODREF *mref, char *ret)
 {
   char *tempname, *dptr;
+  CPNODE *c;
   AST *arg;
-  int i;
+  int i, lv_temp;
+
+  lv_temp = num_locals_in_descriptor(mref->descriptor);
 
   tempname = strdup( node->astnode.ident.name );
   *tempname = toupper(*tempname);
@@ -9534,7 +9590,7 @@ adapter_methcall_emit_from_descriptor(AST *node, char *desc, char *ret)
        tempname,  node->astnode.ident.name );
   }
 
-  dptr = skipToken(desc);
+  dptr = skipToken(mref->descriptor);
   arg = node->astnode.ident.arraylist;
 
   for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
@@ -9542,22 +9598,7 @@ adapter_methcall_emit_from_descriptor(AST *node, char *desc, char *ret)
     if(dptr == NULL)
       break;
 
-    if((arg->nodetype == Identifier) &&
-       (arg->astnode.ident.arraylist != NULL) &&
-       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-       (dptr[0] != '['))
-    {
-      if(omitWrappers && (dptr[0] != 'L'))
-        fprintf(curfp,"arg%d",i);
-      else
-        fprintf(curfp,"_f2j_tmp%d",i);
-    }
-    else if((arg->nodetype == Identifier) &&
-            (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
-            (dptr[0] == '['))
-       fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    else
-       fprintf(curfp,"arg%d",i);
+    lv_temp = adapter_methcall_arg_emit(arg, i, lv_temp, dptr);
 
     dptr = skipToken(dptr);
 
@@ -9566,6 +9607,52 @@ adapter_methcall_emit_from_descriptor(AST *node, char *desc, char *ret)
   }
 
   fprintf(curfp,");\n\n");
+
+  c = newMethodref(cur_const_table, mref->classname, 
+            mref->methodname,mref->descriptor);
+ 
+  bytecode1(jvm_invokestatic, c->index);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_methcall_arg_emit                                                 *
+ *                                                                           *
+ * emit the argument to an adapter methodcall.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
+{
+  if((arg->nodetype == Identifier) &&
+     (arg->astnode.ident.arraylist != NULL) &&
+     (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+     (dptr[0] != '['))
+  {
+    if(omitWrappers && (dptr[0] != 'L')) {
+      fprintf(curfp,"arg%d",i);
+      gen_load_op(i, get_type_from_field_desc(dptr));
+    }
+    else {
+      fprintf(curfp,"_f2j_tmp%d",i);
+      gen_load_op(lv++, get_type_from_field_desc(dptr));
+    }
+  }
+  else if((arg->nodetype == Identifier) &&
+          (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+          (dptr[0] == '['))
+  {
+    fprintf(curfp,"arg%d, arg%d_offset",i,i);
+    gen_load_op(i, get_type_from_field_desc(dptr+1));
+    gen_load_op(i+1, Integer);
+  }
+  else {
+    fprintf(curfp,"arg%d",i);
+    gen_load_op(i, get_type_from_field_desc(dptr));
+  }
+
+  return lv;
 }
 
 /*****************************************************************************

@@ -9353,6 +9353,7 @@ emit_adapters()
 void
 adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 {
+  enum returntype ret_type;
   char *ret;
 
   fprintf(curfp,"// adapter for %s\n", 
@@ -9371,10 +9372,12 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
   if(ret[0] == 'V')
     fprintf(curfp,"private static void %s_adapter(", 
       node->astnode.ident.name);
-  else
+  else {
     fprintf(curfp,"private static %s %s_adapter(", 
       returnstring[get_type_from_field_desc(ret)],
       node->astnode.ident.name);
+    ret_type = get_type_from_field_desc(ret);
+  }
 
   adapter_args_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
@@ -9386,6 +9389,9 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 
   adapter_methcall_emit_from_descriptor(node, mref, ret);
 
+  if(ret[0] != 'V')
+    gen_store_op(getNextLocal(ret_type), ret_type);
+
   adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
 
@@ -9393,7 +9399,9 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
   {
     fprintf(curfp,"\nreturn %s_retval;\n",
       node->astnode.ident.name);
-    bytecode0(return_opcodes[get_type_from_field_desc(ret)]);
+
+    gen_load_op(cur_local, ret_type);
+    bytecode0(return_opcodes[ret_type]);
   }
   else
     bytecode0(jvm_return);
@@ -9636,7 +9644,7 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
     }
     else {
       fprintf(curfp,"_f2j_tmp%d",i);
-      gen_load_op(lv++, get_type_from_field_desc(dptr));
+      gen_load_op(lv++, Object);
     }
   }
   else if((arg->nodetype == Identifier) &&
@@ -9647,7 +9655,8 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
     gen_load_op(i, get_type_from_field_desc(dptr+1));
     gen_load_op(i+1, Integer);
   }
-  else {
+  else
+  {
     fprintf(curfp,"arg%d",i);
     gen_load_op(i, get_type_from_field_desc(dptr));
   }
@@ -9668,7 +9677,9 @@ void
 adapter_assign_emit_from_descriptor(AST *arg, char *desc)
 {
   char *dptr;
-  int i;
+  int i, lv_temp;
+
+  lv_temp = num_locals_in_descriptor(desc);
 
   dptr = skipToken(desc);
 
@@ -9684,16 +9695,45 @@ adapter_assign_emit_from_descriptor(AST *arg, char *desc)
     {
       if(omitWrappers) {
         if(dptr[0] == 'L')
-          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+          adapter_assign_emit(i, lv_temp++, dptr);
       }
       else
       {
-        fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+        adapter_assign_emit(i, lv_temp++, dptr);
       }
     }
 
     dptr = skipToken(dptr);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_assign_emit                                                       *
+ *                                                                           *
+ * emit the assignment back to the array element.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_assign_emit(int i, int lv, char *dptr)
+{
+  enum returntype vt;
+  CPNODE *c;
+
+  fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+
+  vt = get_type_from_field_desc(dptr);
+
+  gen_load_op(lv, Object);
+  c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
+         val_descriptor[vt]);
+  bytecode1(jvm_getfield, c->index);
+
+  gen_load_op(i, Object);
+  gen_load_op(i+1, Integer);
+
+  bytecode0(array_store_opcodes[vt]);
 }
 
 /*****************************************************************************

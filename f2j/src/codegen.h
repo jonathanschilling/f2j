@@ -241,6 +241,7 @@ void
   adapter_methcall_emit_from_descriptor(AST *, METHODREF *, char *),
   adapter_assign_emit_from_descriptor(AST *, char *),
   adapter_tmp_assign_emit(int, enum returntype),
+  adapter_assign_emit(int, int, char *),
   inc_stack(int);
 
 int

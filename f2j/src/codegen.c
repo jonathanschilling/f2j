@@ -2692,6 +2692,7 @@ substring_emit(AST *root)
 void 
 subcall_emit(AST *root)
 {
+  METHODREF *mref;
   AST *temp;
   char *tempstr;
   char *desc;
@@ -2701,13 +2702,6 @@ subcall_emit(AST *root)
     root->astnode.ident.name);
   fprintf(stderr," (likely to be emitted wrong)\n");
 
-  /* captialize the first letter of the subroutine name to get the 
-   * class name. 
-   */
-
-  tempstr = strdup (root->astnode.ident.name);
-  *tempstr = toupper (*tempstr);
-
   if(gendebug) {
     printf("@##@ in subcall_emit, %s\n",root->astnode.ident.name);
 
@@ -2715,7 +2709,25 @@ subcall_emit(AST *root)
       printf("@@ calling passed-in func %s\n",root->astnode.ident.name);
   }
 
-  fprintf(curfp, "%s.%s", tempstr,root->astnode.ident.name);
+  /* captialize the first letter of the subroutine name to get the 
+   * class name. 
+   */
+
+  tempstr = strdup (root->astnode.ident.name);
+  *tempstr = toupper (*tempstr);
+
+  mref = get_method_name(root, FALSE);
+
+  /* mref should always be non-null, though i guess it's
+   * possible that the elements may be null.
+   */
+
+  if((mref->classname != NULL) && (strlen(mref->classname) > 0))
+    fprintf (curfp, "%s.%s", char_substitution(mref->classname, '/', '.'),
+      root->astnode.ident.name);
+  else
+    fprintf (curfp, "%s.%s", tempstr, root->astnode.ident.name);
+
   temp = root->astnode.ident.arraylist;
   desc = get_desc_from_arglist(temp);
 
@@ -5686,8 +5698,10 @@ printf("open_output_file.1: set curfp = %p\n", curfp);
   if(import_reflection)
     strcat(import_stmt,"import java.lang.reflect.*;\n");
 
-  if(import_blas)
-    strcat(import_stmt,"import org.netlib.blas.*;\n");
+/*
+ *if(import_blas)
+ *  strcat(import_stmt,"import org.netlib.blas.*;\n");
+ */
 
   javaheader(javafp,import_stmt);
 
@@ -8316,8 +8330,19 @@ method_name_emit (AST *root, BOOLEAN adapter)
     /* Assume all methods that are invoked are static.  */
     fprintf (curfp, "%s_adapter", root->astnode.ident.name);
   }
-  else
-    fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
+  else {
+    METHODREF *mref = get_method_name(root, adapter);
+
+    /* mref should always be non-null, though i guess it's
+     * possible that the elements may be null.
+     */
+
+    if((mref->classname != NULL) && (strlen(mref->classname) > 0))
+      fprintf (curfp, "%s.%s", char_substitution(mref->classname, '/', '.'),
+        root->astnode.ident.name);
+    else
+      fprintf (curfp, "%s.%s", tempname, root->astnode.ident.name);
+  }
 
   return 0;
 }

@@ -62,7 +62,7 @@ main (int argc, char **argv)
   char sourcename[130];
   char jasminname[130];
   char vcgname[130];
-  char *tmpname, *indexname;
+  char *indexname;
   char *f2jpath;
 
   AST *temp;
@@ -184,13 +184,9 @@ will most likely not work for other code.\n";
   }
 #endif
 
-  if(package_name != NULL)
-    tmpname = get_full_classname(truncfilename);
-  else 
-    tmpname = truncfilename;
+  indexname = (char *)f2jalloc(strlen(truncfilename) + 5);
 
-  indexname = (char *)f2jalloc(strlen(tmpname) + 5);
-  strcpy(indexname, tmpname);
+  strcpy(indexname, truncfilename);
   strcat(indexname, ".f2j");
 
   if((indexfp = fopen_fullpath(indexname,"w")) == NULL) {

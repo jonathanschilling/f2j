@@ -425,16 +425,10 @@ char isBigEndian()
 void *
 f2jalloc(size_t numbytes)
 {
-  void * mem;
+  void * mem = malloc(numbytes);
 
-  mem = malloc(numbytes);
-
-  if(mem == NULL) {
-    fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
-       (int)numbytes);
-    perror("Reason:");
-    exit(1);
-  }
+  if(mem == NULL)
+    alloc_error(numbytes);
 
   return mem;
 }
@@ -452,16 +446,49 @@ f2jalloc(size_t numbytes)
 void *
 f2jcalloc(size_t numitems, size_t numbytes)
 {
-  void * mem;
+  void * mem = calloc(numitems, numbytes);
 
-  mem = calloc(numitems, numbytes);
-
-  if(mem == NULL) {
-    fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
-       (int)numbytes);
-    perror("Reason:");
-    exit(1);
-  }
+  if(mem == NULL)
+    alloc_error(numbytes);
 
   return mem;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * f2jrealloc                                                                *
+ *                                                                           *
+ * Error-checking memory allocation routine for f2java.  we can't recover    *
+ * from an out of memory condition, so we'll just call exit() which will     *
+ * close all open streams for us.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void *
+f2jrealloc(void *ptr, size_t size)
+{
+  void *mem = realloc(ptr, size);
+
+  if(mem == NULL)
+    alloc_error(size);
+
+  return mem;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * alloc_error                                                               *
+ *                                                                           *
+ * called when there is an error allocating memory.  this function prints    *
+ * an error message and exits.                                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+alloc_error(size_t size)
+{
+  fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
+     (int)size);
+  perror("Reason:");
+  exit(1);
 }

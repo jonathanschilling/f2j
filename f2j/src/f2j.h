@@ -65,8 +65,7 @@ int
   ignored_formatting,      /* number of format statements ignored            */
   bad_format_count,        /* number of invalid format stmts encountered     */
   locals,                  /* number of local variables in current unit      */
-  stacksize,               /* size of stack for current unit                 */
-  max_stack;               /* maximum stacksize for current unit             */
+  stacksize;               /* size of stack for current unit                 */
 
 FILE 
   *ifp,                    /* input file pointer                             */
@@ -570,8 +569,10 @@ void
   initialize(),
   uppercase(char *),
   while_emit(AST *),
+  alloc_error(size_t),
   * f2jalloc(size_t),
-  * f2jcalloc(size_t, size_t);
+  * f2jcalloc(size_t, size_t),
+  * f2jrealloc(void *, size_t);
 
 AST *format_item_emit(AST *, AST**);
 

@@ -35,8 +35,8 @@ char
   *methodscan (METHODTAB * , char * );
 
 void code_zero_op(enum _opcode),
-     code_one_op(enum _opcode, int),
-     code_one_op_w(enum _opcode, int);
+     code_one_op(enum _opcode, u1),
+     code_one_op_w(enum _opcode, u2);
 
 int  isPassByRef(char *);
 
@@ -53,8 +53,7 @@ int gendebug = FALSE;  /* set to TRUE to generate debugging output           */
 extern int 
   ignored_formatting,  /* number of FORMAT statements ignored                */
   bad_format_count,    /* number of bad FORMAT statements encountered        */
-  stacksize,           /* current stacksize at some point in execution       */
-  max_stack;           /* maximum stacksize encountered so far               */
+  stacksize;           /* current stacksize at some point in execution       */
 
 char 
   *unit_name,          /* name of this function/subroutine                   */
@@ -94,6 +93,9 @@ Dlist cur_const_table;  /* constants designated to go into the constant pool */
 
 struct ClassFile
   *cur_class_file;      /* class file for the current program unit           */
+
+struct Code_attribute
+  *cur_code;            /* current code attr. to which f2j writes code       */
 
 AST 
   *cur_equivList;       /* list of equivalences                              */
@@ -185,7 +187,14 @@ emit (AST * root)
           cur_class_file = root->astnode.source.class = 
                 newClassFile(tmpname,inputfilename);
        
-          stacksize = max_stack = pc = 0;
+          /* newClassFile alters the pc,stacksize,and cur_code
+           * globals, so we reset them here.
+           */
+          stacksize = pc = 0;
+
+          /* temporary until i get something owrking... */
+          cur_code = (struct Code_attribute *) 
+             f2jalloc(sizeof(struct Code_attribute));
           
           if(gendebug)
             print_equivalences(cur_equivList);
@@ -239,8 +248,10 @@ emit (AST * root)
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
 
-          cp_dump(cur_const_table);
-          fields_dump(cur_class_file->fields, cur_const_table);
+/*
+ *        cp_dump(cur_const_table);
+ *        fields_dump(cur_class_file->fields, cur_const_table);
+ */
  
           cur_class_file->constant_pool_count = 
              (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
@@ -6735,8 +6746,8 @@ inc_stack(int inc)
 {
   stacksize += inc;
   
-  if(stacksize > max_stack)
-    max_stack = stacksize;
+  if(stacksize > cur_code->max_stack)
+    cur_code->max_stack = stacksize;
 }
 
 /*****************************************************************************
@@ -6754,6 +6765,37 @@ dec_stack(int dec) {
 
 /*****************************************************************************
  *                                                                           *
+ * check_code_size                                                           *
+ *                                                                           *
+ * determines whether the byte array is large enough to include an           *
+ * instruction with the given width.  if so...fine, just return.  if not...  *
+ * then we must reallocate cur_code with more memory.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+check_code_size(int width)
+{
+  /* note that we're somewhat misusing the cur_code->code_length variable.
+   * it should hold the length of the code, not the amount of memory allocated.
+   * however, we will temporarily use it to keep track of memory allocation
+   * and after generating all the code for this method, we will replace the
+   * code_length variable with the correct number.  --kgs 4/26/00
+   */
+  if(cur_code->code == NULL) {
+    cur_code->code = (u1 *)f2jalloc(CODE_ALLOC_INIT * sizeof(u1));
+    cur_code->code_length = CODE_ALLOC_INIT;
+    return;
+  }
+
+  if(pc+width > cur_code->code_length) {
+    cur_code->code_length += CODE_ALLOC_CHUNK;
+    cur_code->code = (u1 *)f2jrealloc(cur_code->code, cur_code->code_length);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * code_zero_op                                                              *
  *                                                                           *
  * generate code for instructions with no operands (e.g. type conversions).  *
@@ -6763,8 +6805,12 @@ dec_stack(int dec) {
 void
 code_zero_op(enum _opcode op)
 {
+  u1 this_opcode = op;
+
   dec_stack(jvm_opcode[op].stack_pre);
-  CODE("%d %s\n", pc, jvm_opcode[op].op);
+  check_code_size(jvm_opcode[op].width);
+  memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
+  printf("%d %s\n", pc, jvm_opcode[op].op);
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
 }
@@ -6779,8 +6825,10 @@ code_zero_op(enum _opcode op)
  *****************************************************************************/
 
 void
-code_one_op(enum _opcode op, int opval)
+code_one_op(enum _opcode op, u1 opval)
 {
+  u1 this_opcode = op;
+
   /* if this is a 'wide' op, then call code_one_op_w() */
 
   if((op == jvm_ldc_w) || (op == jvm_ldc2_w)) {
@@ -6788,7 +6836,10 @@ code_one_op(enum _opcode op, int opval)
   }
   else {
     dec_stack(jvm_opcode[op].stack_pre);
-    CODE("%d %s %d\n",pc, jvm_opcode[op].op, opval);
+    check_code_size(jvm_opcode[op].width);
+    memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
+    memcpy(cur_code->code + pc + 1, &opval, sizeof(opval));
+    printf("%d %s %d\n",pc, jvm_opcode[op].op, opval);
     pc += jvm_opcode[op].width;
     inc_stack(jvm_opcode[op].stack_post);
   }
@@ -6804,12 +6855,49 @@ code_one_op(enum _opcode op, int opval)
  *****************************************************************************/
 
 void
-code_one_op_w(enum _opcode op, int index)
+code_one_op_w(enum _opcode op, u2 index)
 {
+  u1 this_opcode = op;
+
   dec_stack(jvm_opcode[op].stack_pre);
-  CODE("%d %s #%d\n", pc, jvm_opcode[op].op, index);
+  memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
+  memcpy(cur_code->code + pc + 1, &index, sizeof(index));
+  printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * newCodeAttribute                                                          *
+ *                                                                           *
+ * creates a new attribute_info structure and initializes the Code_attribute *
+ * section with some initial values.                                         *
+ *                                                                           *
+ *****************************************************************************/
+
+struct attribute_info *
+newCodeAttribute()
+{
+  struct attribute_info * tmp;
+  CPNODE *c;
+
+  tmp = (struct attribute_info *)f2jalloc(sizeof(struct attribute_info));
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, "Code");
+  tmp->attribute_name_index = c->index;
+  tmp->attribute_length = 0;
+  tmp->attr.Code = (struct Code_attribute *)f2jalloc(sizeof(struct Code_attribute));
+  tmp->attr.Code->max_stack = 0;
+  tmp->attr.Code->max_locals = 0;
+  tmp->attr.Code->code_length = 0;
+  tmp->attr.Code->code = NULL;
+  tmp->attr.Code->exception_table_length = 0;
+  tmp->attr.Code->exception_table = NULL;
+  tmp->attr.Code->attributes_count = 0;
+  tmp->attr.Code->attributes = NULL;
+
+  return tmp;
 }
 
 /*****************************************************************************
@@ -6893,8 +6981,10 @@ newClassFile(char *name, char *srcFile)
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, "SourceFile");
   attr_temp->attribute_name_index = c->index;
   attr_temp->attribute_length = 2;  /* SourceFile attr length always 2 */
+  attr_temp->attr.SourceFile = 
+    (struct SourceFile_attribute *) f2jalloc(sizeof(struct SourceFile_attribute));
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, srcFile);
-  attr_temp->attr.SourceFile.sourcefile_index = c->index;
+  attr_temp->attr.SourceFile->sourcefile_index = c->index;
 
   dl_insert_b(tmp->attributes,attr_temp);
 
@@ -6912,8 +7002,38 @@ newClassFile(char *name, char *srcFile)
   meth_tmp->name_index = c->index;
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"()V");
   meth_tmp->descriptor_index = c->index;
-  meth_tmp->attributes_count = 0;
-  meth_tmp->attributes = NULL;
+
+  meth_tmp->attributes_count = 1;
+  meth_tmp->attributes = make_dl();
+
+  attr_temp = newCodeAttribute();
+
+  cur_code = attr_temp->attr.Code;
+  stacksize = pc = 0;
+
+  c = newMethodref(cur_const_table,"java/lang/Object", "<init>", "()V");
+
+  code_zero_op(jvm_aload_0);
+  code_one_op_w(jvm_invokespecial, c->index);
+  code_zero_op(jvm_return);
+  
+  /* attribute_length is calculated as follows:
+   *   max_stack               2 bytes
+   *   max_locals              2 bytes
+   *   code_length             4 bytes
+   *   code                   pc bytes
+   *   exception_table_length  2 bytes
+   *   exception_table         0 bytes  (no exceptions generated)
+   *   attributes_count        2 bytes
+   *   attributes              0 bytes  (no attributes generated)
+   *  ---------------------------------
+   *   total             pc + 12 bytes
+   */
+  attr_temp->attribute_length = pc + 12;
+  cur_code->max_locals = 1;
+  cur_code->code_length = pc;
+
+  dl_insert_b(meth_tmp->attributes, attr_temp);
 
   dl_insert_b(tmp->methods, meth_tmp);
 

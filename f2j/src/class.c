@@ -247,9 +247,27 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       sizeof(tmpattr->attribute_length),1,out);
 
     if(!strcmp(attr_name,"SourceFile")) {
-      fwrite(&(tmpattr->attr.SourceFile.sourcefile_index),
-         sizeof(tmpattr->attr.SourceFile.sourcefile_index),1,out);
-    } else {
+      fwrite(&(tmpattr->attr.SourceFile->sourcefile_index),
+         sizeof(tmpattr->attr.SourceFile->sourcefile_index),1,out);
+    } 
+    else if(!strcmp(attr_name,"Code")) {
+      fwrite(&(tmpattr->attr.Code->max_stack), 
+         sizeof(tmpattr->attr.Code->max_stack), 1, out);
+      fwrite(&(tmpattr->attr.Code->max_locals), 
+         sizeof(tmpattr->attr.Code->max_locals), 1, out);
+      fwrite(&(tmpattr->attr.Code->code_length), 
+         sizeof(tmpattr->attr.Code->code_length), 1, out);
+      fwrite(tmpattr->attr.Code->code, tmpattr->attr.Code->code_length, 1, out);
+      fwrite(&(tmpattr->attr.Code->exception_table_length), 
+         sizeof(tmpattr->attr.Code->exception_table_length), 1, out);
+      if(tmpattr->attr.Code->exception_table_length > 0)
+        fprintf(stderr,"WARNING: dont know how to write exception table yet.\n");
+      fwrite(&(tmpattr->attr.Code->attributes_count), 
+         sizeof(tmpattr->attr.Code->attributes_count), 1, out);
+      if(tmpattr->attr.Code->attributes_count > 0)
+        write_attributes(tmpattr->attr.Code->attributes, const_pool, out);
+    } 
+    else {
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
     }
   }

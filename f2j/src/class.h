@@ -134,9 +134,7 @@ struct field_info {
   u2 name_index;              /* cp index of field name, rep. as Utf8 string */
   u2 descriptor_index;        /* cp index of valid field descriptor          */
   u2 attributes_count;        /* number of additional field attributes       */
-
-  struct attribute_info
-     *attributes;             /* attributes of this field                    */
+  Dlist attributes;           /* attributes of this field                    */
 };
 
 struct method_info {
@@ -157,16 +155,16 @@ struct Code_attribute {
   u4 code_length;             /* number of bytes in the code array           */
   u1 * code;                  /* byte array containing code for this method  */
   u2 exception_table_length;  /* number of entries in the exception table    */
+
   struct {
     u2 start_pc;              /* valid index into code of starting opcode    */
     u2 end_pc;                /* valid index into code of ending opcode      */
     u2 handler_pc;            /* start of exception handler code             */
     u2 catch_type;            /* cp index of exception class to catch        */
   } * exception_table;
-  u2 attributes_count;        /* number of additional code attributes        */
 
-  struct attribute_info
-     *attributes;             /* attributes of this code                     */
+  u2 attributes_count;        /* number of additional code attributes        */
+  Dlist attributes;           /* attributes of this code                     */
 };
 
 struct Exceptions_attribute {
@@ -201,13 +199,13 @@ struct attribute_info {
   u2 attribute_name_index;    /* cp index to name of attribute (in Utf8)     */
   u4 attribute_length;        /* # bytes pointed to by the info field        */
   union {
-    struct ConstantValue_attribute ConstantValue;
-    struct Code_attribute Code;
-    struct Exceptions_attribute Exceptions;
-    void * Synthetic;
-    struct SourceFile_attribute SourceFile;
-    struct LineNumberTable_attribute LineNumberTable;
-    struct LocalVariableTable_attribute LocalVariableTable;
+    struct ConstantValue_attribute      * ConstantValue;
+    struct Code_attribute               * Code;
+    struct Exceptions_attribute         * Exceptions;
+    void                                * Synthetic;
+    struct SourceFile_attribute         * SourceFile;
+    struct LineNumberTable_attribute    * LineNumberTable;
+    struct LocalVariableTable_attribute * LocalVariableTable;
   } attr;
 };
 

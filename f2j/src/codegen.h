@@ -33,14 +33,16 @@
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define F2J_UTIL "org/netlib/util"
 
-
 /*****************************************************************************
- * CODE is just a temporary macro so that the printf's in the code generator *
- * that emit jvm opcodes can be easily distinguished from the java source    *
- * code printfs.                                                             *
+ * When we're generating the byte array to hold the jvm opcodes, we dont     *
+ * know the size ahead of time.  so we allocate an initial piece of memory   *
+ * whose size is specified by CODE_ALLOC_INIT.  if the size of the code      *
+ * exceeds the amount currently allocated, we add CODE_ALLOC_CHUNK bytes     *
+ * and reallocate.                                                           *
  *****************************************************************************/
 
-#define CODE printf
+#define CODE_ALLOC_INIT    2048
+#define CODE_ALLOC_CHUNK   1024
 
 /*****************************************************************************
  * enumeration of all the java opcodes.                                      *

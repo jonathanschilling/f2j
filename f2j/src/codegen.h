@@ -47,6 +47,20 @@
 #define CODE_ALLOC_CHUNK   1024
 
 /*****************************************************************************
+ * Definitions for an expandable string structure.  STR_INIT is the initial  *
+ * size of the string, while STR_CHUNK is the number of bytes by which we    *
+ * increment the string when it is too small.                                *
+ *****************************************************************************/
+
+#define STR_INIT  50
+#define STR_CHUNK 20
+
+struct _str {
+  int size;
+  char *val;
+};
+
+/*****************************************************************************
  * enumeration of all the java opcodes.                                      *
  *****************************************************************************/
 

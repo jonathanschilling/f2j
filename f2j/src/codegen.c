@@ -60,17 +60,18 @@ void
  *****************************************************************************/
 
 int
-  gendebug = FALSE;  /* set to TRUE to generate debugging output           */
+  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
 
 extern int 
-  ignored_formatting,  /* number of FORMAT statements ignored                */
-  bad_format_count,    /* number of bad FORMAT statements encountered        */
-  stacksize;           /* current stacksize at some point in execution       */
+  ignored_formatting,   /* number of FORMAT statements ignored               */
+  bad_format_count,     /* number of bad FORMAT statements encountered       */
+  stacksize;            /* current stacksize at some point in execution      */
 
 char 
-  *unit_name,          /* name of this function/subroutine                   */
-  *returnname,         /* return type of this prog. unit                     */
-  *cur_filename;       /* name of the class file currently writing           */
+  *unit_name,           /* name of this function/subroutine                  */
+  *returnname,          /* return type of this prog. unit                    */
+  *cur_filename,        /* name of the class file currently writing          */
+  *method_desc = NULL;  /* descriptor for method representing this prog unit */
 
 Dlist 
   doloop = NULL,        /* stack of do loop labels                           */
@@ -284,8 +285,12 @@ emit (AST * root)
 
           emit(root->astnode.source.statements);
 
+          /* check if code was generated for this program unit's method.
+           * if so, finish initializing the method and insert it into this
+           * class.
+           */
+
           if(pc > 0) {
-            /*code_zero_op(jvm_return);*/
             /*
             endNewMethod(main_method, "<clinit>", "()V", 1);
             cur_class_file->methods_count++;
@@ -4189,6 +4194,41 @@ open_output_file(AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * strAppend                                                                 *
+ *                                                                           *
+ * Append the given string value (new) to the expandable string (str),       *
+ * allocating more memory if necessary.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+struct _str *
+strAppend(struct _str *str, char *new)
+{
+  if(str == NULL) {
+    str = (struct _str *)f2jalloc(sizeof (struct _str));
+    str->size = STR_INIT;
+    str->val = (char *)f2jalloc(STR_INIT);
+    str->val[0] = '\0';
+  }
+
+  if(strlen(new) + strlen(str->val) >= str->size) {
+    if(strlen(new) > STR_CHUNK) {
+      str->val = (char *)f2jrealloc(str->val, str->size + strlen(new));
+      str->size += strlen(new);
+    }
+    else {
+      str->val = (char *)f2jrealloc(str->val, str->size + STR_CHUNK);
+      str->size += STR_CHUNK;
+    }
+  }
+
+  strcat(str->val, new);
+
+  return str;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * constructor                                                               *
  *                                                                           *
  * This function generates the method header for the current                 *
@@ -4202,10 +4242,12 @@ constructor (AST * root)
   enum returntype returns;
   extern char *returnstring[];
   AST *tempnode;
-  char *tempstring;
+  char *tempstring, *ret_desc;
   HASHNODE *hashtemp;
   void print_string_initializer(AST *);
   void emit_interface(AST *);
+  struct _str * temp_desc = NULL;
+  int isArray = 0;
 
   /* 
    * In fortran, functions return a value implicitly
@@ -4231,9 +4273,11 @@ constructor (AST * root)
       desc = wrapped_field_descriptor[returns][0];
     }
 
+    ret_desc = field_descriptor[returns][0];
+
     printf("this is a Function, needs implicit variable\n");
     printf("method name = %s\n", name);
-    printf("desc = %s\n", desc);
+    printf("implicit var desc = %s\n", desc);
 
     /* Test code.... */
     if ((returns == String) || (returns == Character))
@@ -4309,13 +4353,18 @@ constructor (AST * root)
     fprintf (curfp, "\npublic static void %s (",
       root->astnode.source.name->astnode.ident.name);
 
+    ret_desc = "V";
+
     if(genInterfaces)
       emit_interface(root);
   }
   else  /* Else we have a program, create a main() function */
   {
+    ret_desc = "V";
     fprintf (curfp, "\npublic static void main (String [] args");
   }
+
+  temp_desc = strAppend(temp_desc, "(");
 
   /*
    *  Now traverse the list of constructor arguments for either
@@ -4335,6 +4384,8 @@ constructor (AST * root)
       fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
       exit (-1);
     }
+
+    isArray = hashtemp->variable->astnode.ident.arraylist != NULL;
 
     /* If this variable is declared external and it is an argument to
      * this program unit, it must be declared as Object in Java.
@@ -4356,17 +4407,35 @@ constructor (AST * root)
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
         isPassByRef(tempnode->astnode.ident.name))
-          tempstring = wrapper_returns[returns];
-      else
+      {
+        tempstring = wrapper_returns[returns];
+        temp_desc = strAppend(temp_desc, 
+                      wrapped_field_descriptor[returns][isArray]);
+      }
+      else {
         tempstring = returnstring[returns];
+        temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
+      }
     }
     else
     {
-      if (hashtemp->variable->astnode.ident.arraylist == NULL)
+      if (hashtemp->variable->astnode.ident.arraylist == NULL) {
         tempstring = wrapper_returns[returns];
-      else
+        temp_desc = strAppend(temp_desc, 
+                      wrapped_field_descriptor[returns][isArray]);
+      }
+      else {
         tempstring = returnstring[returns];
+        temp_desc = strAppend(temp_desc, field_descriptor[returns][isArray]);
+      }
     }
+
+    /* if this is an array, then append an I to the descriptor to
+     * represent the integer offset arg.
+     */
+
+    if(isArray)
+      temp_desc = strAppend(temp_desc, "I");
 
     /* 
      * I haven't yet decided how the pass-by-reference
@@ -4390,7 +4459,7 @@ constructor (AST * root)
       fprintf (curfp, "%s", tempnode->astnode.ident.name);
     else {
       /* Declare as array variables.  */
-      char temp2[100];
+      char *temp2;
       fprintf (curfp, "[]");
       fprintf (curfp, " %s", tempnode->astnode.ident.name);
 
@@ -4399,10 +4468,12 @@ constructor (AST * root)
        * index.   -- Keith 
        */
 
+      temp2 = (char *)f2jalloc(strlen(tempnode->astnode.ident.name) + 9);
       strcpy( temp2, "_");
       strcat( temp2, tempnode->astnode.ident.name);
       strcat( temp2, "_offset");
       fprintf(curfp, ", int %s",temp2);
+      free(temp2);
     }
 
     /* Don't emit a comma on the last iteration. */
@@ -4412,6 +4483,25 @@ constructor (AST * root)
 
   fprintf (curfp, ")  {\n\n");
     
+  /* finish off the method descriptor.
+   * for Functions, use the return descriptor calculated above.
+   * for Programs, the descriptor must be ([Ljava/lang/String;)V.
+   * for Subroutines, use void as the return type.
+   */
+
+  if(root->nodetype == Function) {
+    temp_desc = strAppend(temp_desc, ")");
+    temp_desc = strAppend(temp_desc, ret_desc);
+  }
+  else if(root->nodetype == Program) {
+    temp_desc = strAppend(temp_desc, "[Ljava/lang/String;)V");
+  }
+  else {
+    temp_desc = strAppend(temp_desc, ")V");
+  }
+
+  method_desc = temp_desc->val;
+
   /* if one of the arguments is a function, we must use the
    * reflection mechanism to perform the method call.
    */

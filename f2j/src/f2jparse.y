@@ -148,7 +148,7 @@ SYMTABLE
 %type <ptnode> Function Functionargs F2java
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
-%type <ptnode> Implicit Integer Intlist Intrinsic
+%type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
 %type <ptnode> Label Lhs Logicalif
 %type <ptnode> Name Namelist LhsList
 %type <ptnode> Parameter  Pdec Pdecs Program 
@@ -1296,6 +1296,8 @@ Arraydeclaration: Name OP Arraynamelist CP
                     AST *temp;
                     int count, i;
 
+                    void store_array_var(AST *);
+
 		    /*
                      *  $$ = addnode();
                      *  $$->nodetype = Identifier;
@@ -1908,11 +1910,12 @@ EndSpec: END EQ Integer
  *  tree.  Might be able to use do loop for example to fix this. 
  */
 
-Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
+Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else  ENDIF NL
            {
              $$ = addnode();
              $3->parent = $$;
-             $7->parent = $$; /* 9-4-97 - Keith */
+             if($7 != NULL)
+               $7->parent = $$; /* 9-4-97 - Keith */
              if($8 != NULL) 
                $8->parent = $$; /* 9-4-97 - Keith */
              if($9 != NULL)
@@ -1932,6 +1935,11 @@ Blockif:   IF OP Exp CP THEN NL Statements Elseifs Else  ENDIF NL
            }
 ;
 
+IfBlock:  /* Empty. */ {$$=0;} /* if block may be null */
+        | Statements
+          {
+             $$ = $1;
+          }
 
 Elseifs:  /* Empty. */ {$$=0;} /* No `else if' statements, NULL pointer. */
         |  Elseif 

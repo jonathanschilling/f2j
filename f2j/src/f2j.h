@@ -613,23 +613,11 @@ typedef struct {
 void 
   jasminheader (FILE *, char *),
   javaheader (FILE *, char *),
-  return_emit (),
-  logicalop_assign(AST *),
-  relationalop_assign(AST *),
-  logicalop_emit(AST *),
-  elseif_emit(AST *),
-  elseif_assign(AST *),
-  else_emit(AST *),
-  else_assign(AST *),
-  store_array_var(AST *),
   initialize(),
   uppercase(char *),
-  while_emit(AST *),
   alloc_error(size_t),
   * f2jalloc(size_t),
   * f2jcalloc(size_t, size_t),
   * f2jrealloc(void *, size_t);
-
-AST *format_item_emit(AST *, AST**);
 
 #endif

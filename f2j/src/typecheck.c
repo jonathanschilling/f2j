@@ -1328,17 +1328,19 @@ void
 blockif_check (AST * root)
 {
   void expr_check (AST *);
+  AST *temp;
 
   if (root->astnode.blockif.conds != NULL)
     expr_check (root->astnode.blockif.conds);
 
-  typecheck (root->astnode.blockif.stmts);
+  if (root->astnode.blockif.stmts != NULL)
+    typecheck (root->astnode.blockif.stmts);
 
-  if (root->astnode.blockif.elseifstmts != NULL)
-    typecheck (root->astnode.blockif.elseifstmts);
+  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
+    elseif_check (root->astnode.blockif.elseifstmts);
 
   if (root->astnode.blockif.elsestmts != NULL)
-    typecheck (root->astnode.blockif.elsestmts);
+    else_check (root->astnode.blockif.elsestmts);
 }
 
 /*****************************************************************************

@@ -39,6 +39,8 @@ FILE *temp_javafp;            /* this was FILE *javafp, but I'm moving       *
  *****************************************************************************/
 
 char * strdup(const char *);
+void elseif_assign (AST *),
+     else_assign (AST *);
 
 /*****************************************************************************
  *                                                                           *
@@ -343,8 +345,10 @@ expr_assign (AST * root)
 {
   extern int stacksize;
   int stack;
-  void name_assign (AST *);
-  void constant_assign (AST *);
+
+  void name_assign (AST *),
+       constant_assign (AST *),
+       relationalop_assign (AST *);
 
   switch (root->nodetype)
   {
@@ -474,7 +478,8 @@ blockif_assign (AST * root)
   if (root->astnode.blockif.conds != NULL)
     expr_assign (root->astnode.blockif.conds);
 
-  assign (root->astnode.blockif.stmts);
+  if (root->astnode.blockif.stmts != NULL)
+    assign (root->astnode.blockif.stmts);
 
   root->astnode.blockif.skip_label = labelnumber++;
 

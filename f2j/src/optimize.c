@@ -786,7 +786,9 @@ blockif_optimize (AST * root, AST *rptr)
   AST *prev = root->prevstmt;
   AST *temp;
   int *tmp_int;
-  void while_optimize(AST *, AST *);
+  void elseif_optimize (AST *, AST *),
+       else_optimize (AST *, AST *),
+       while_optimize(AST *, AST *);
 
   /* This function could probably be simplified by getting rid of all the
    * while detection code.  It isn't really necessary here.
@@ -832,13 +834,14 @@ blockif_optimize (AST * root, AST *rptr)
   if (root->astnode.blockif.conds != NULL)
     expr_optimize (root->astnode.blockif.conds, rptr);
 
-  optimize (root->astnode.blockif.stmts, rptr);
+  if (root->astnode.blockif.stmts != NULL)
+    optimize (root->astnode.blockif.stmts, rptr);
 
-  if (root->astnode.blockif.elseifstmts != NULL)
-    optimize (root->astnode.blockif.elseifstmts, rptr);
+  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
+    elseif_optimize (root->astnode.blockif.elseifstmts, rptr);
 
   if (root->astnode.blockif.elsestmts != NULL)
-    optimize (root->astnode.blockif.elsestmts, rptr);
+    else_optimize (root->astnode.blockif.elsestmts, rptr);
 }
 
 /*****************************************************************************

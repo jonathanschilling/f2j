@@ -54,7 +54,8 @@ void
   releaseLocal(),
   assign_emit (AST *),
   expr_emit(AST *),
-  forloop_bytecode_emit(AST *);
+  forloop_bytecode_emit(AST *),
+  else_emit (AST *);
 
 int
   isPassByRef(char *),
@@ -74,7 +75,8 @@ CodeGraphNode
   * bytecode1(enum _opcode, u4),
   * nodeAtPC(int),
   * gen_store_op(int, enum returntype),
-  * gen_load_op(int, enum returntype);
+  * gen_load_op(int, enum returntype),
+  * elseif_emit (AST *);
 
 AST
   * label_search(Dlist, int),
@@ -7211,6 +7213,8 @@ format_list_emit(AST *node, AST **nptr)
 {
   AST *temp = node;
 
+  AST * format_item_emit(AST *, AST **);
+
   while(temp != NULL)
     temp = format_item_emit(temp,nptr);
 }
@@ -7437,66 +7441,110 @@ format_name_emit(AST *node)
 void
 blockif_emit (AST * root)
 {
+  CodeGraphNode *if_node, *next_node, *goto_node;
   AST *prev = root->prevstmt;
-  AST *temp;
   int *tmp_int;
+  Dlist gotos, lptr;
+  AST *temp;
 
-  tmp_int = (int*)f2jalloc(sizeof(int));
+  void while_emit(AST *);
 
-  /* if the previous node was a label, this could be a simulated
-   * while loop.
+  /* in bytecode, each if-block and elseif-block must have a goto at
+   * the end to branch to the statement following the end if.  since we
+   * cannot know the PC of that statement until we've generated all
+   * the if-blocks, elseif-blocks, and else-block, we maintain a list
+   * of the gotos so that we may go back and fill in the branch targets.
    */
-  if(prev != NULL)
-    if(prev->nodetype == Label)
-    {
-      *tmp_int = root->prevstmt->astnode.label.number;
+  gotos = make_dl();
 
-      /* push this while loop's number on the stack */
+  /* first check if the if-block is NULL.  if so, this cannot be a
+   * simulated while loop because the existence of a goto would cause
+   * the if-block to be non-null.
+   */
+  if(root->astnode.blockif.stmts != NULL) {
+    /* if the previous node was a label, this could be a simulated
+     * while loop.
+     */
+    if(prev != NULL) {
+      if(prev->nodetype == Label) {
+        tmp_int = (int*)f2jalloc(sizeof(int));
+
+        *tmp_int = root->prevstmt->astnode.label.number;
   
-      dl_insert_b(while_list, tmp_int);
-
-      if(prev->astnode.label.stmt == NULL)
-        if((root->astnode.blockif.elseifstmts == NULL) &&
-           (root->astnode.blockif.elsestmts == NULL))
-        {
-           /* it appears that we are looking at a simulated while loop.
-            * bypass all the statements in the body of this if block 
-            * and look at the last one.  if it is a goto and the
-            * target is the label of the current if statement, then
-            * we generate a Java while loop.  otherwise, we generate
-            * an if statement.
-            */
-          for
-           (
-            temp=root->astnode.blockif.stmts;
-            temp->nextstmt!=NULL;
-            temp = temp->nextstmt
-           )
-              ; /* do nothing */
-          if(temp->nodetype == Goto)
-            if(temp->astnode.go_to.label == prev->astnode.label.number) {
-              while_emit(root);
-              return;
-            }
-        }
-
-      /* pop this while loop's label number off the stack */
-      dl_pop(while_list);
+        /* push this while loop's number on the stack */
+    
+        dl_insert_b(while_list, tmp_int);
+  
+        if(prev->astnode.label.stmt == NULL)
+          if((root->astnode.blockif.elseifstmts == NULL) &&
+             (root->astnode.blockif.elsestmts == NULL))
+          {
+             /* it appears that we are looking at a simulated while loop.
+              * bypass all the statements in the body of this if block 
+              * and look at the last one.  if it is a goto and the
+              * target is the label of the current if statement, then
+              * we generate a Java while loop.  otherwise, we generate
+              * an if statement.
+              */
+  
+            for
+             (
+              temp=root->astnode.blockif.stmts;
+              temp->nextstmt!=NULL;
+              temp = temp->nextstmt
+             )
+                ; /* do nothing */
+  
+            if(temp->nodetype == Goto)
+              if(temp->astnode.go_to.label == prev->astnode.label.number) {
+                while_emit(root);
+                return;
+              }
+          }
+  
+        /* pop this while loop's label number off the stack */
+        dl_pop(while_list);
+      }
     }
+  }
 
   fprintf (curfp, "if (");
-  if (root->astnode.blockif.conds != NULL)
+  if(root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
 
+  if_node = bytecode0(jvm_ifeq);
+
   fprintf (curfp, ")  {\n    ");
-  emit (root->astnode.blockif.stmts);
+  if(root->astnode.blockif.stmts != NULL)
+    emit (root->astnode.blockif.stmts);
+  goto_node = bytecode0(jvm_goto);
+
+  dl_insert_b(gotos, goto_node);
+
   fprintf (curfp, "}              // Close if()\n");
 
-  if (root->astnode.blockif.elseifstmts != NULL)
-    emit (root->astnode.blockif.elseifstmts);
+  /* create a dummy instruction node so that
+   * we have a branch target for the goto statement.
+   * it will be removed later.
+   */
+  next_node = bytecode0(jvm_impdep1);
+  if_node->branch_target = next_node;
 
-  if (root->astnode.blockif.elsestmts != NULL)
-    emit (root->astnode.blockif.elsestmts);
+  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
+  {
+    goto_node = elseif_emit (temp);
+    dl_insert_b(gotos, goto_node);
+  }
+
+  if(root->astnode.blockif.elsestmts != NULL)
+    else_emit (root->astnode.blockif.elsestmts);
+
+  next_node = bytecode0(jvm_impdep1);
+
+  dl_traverse(lptr, gotos) {
+    goto_node = (CodeGraphNode *) lptr->val;
+    goto_node->branch_target = next_node;
+  }
 }
 
 /*****************************************************************************
@@ -7526,13 +7574,23 @@ blockif_emit (AST * root)
 void 
 while_emit(AST *root)
 {
+  CodeGraphNode *if_node, *next_node;
 
   fprintf(curfp, "while (");
   if (root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
   fprintf (curfp, ")  {\n    ");
+  if_node = bytecode0(jvm_ifeq);
   emit (root->astnode.blockif.stmts);
-  fprintf (curfp, "}              // Close if()\n");
+
+  /* create a dummy instruction node so that
+   * we have a branch target for the goto statement.
+   * it will be removed later.
+   */
+  next_node = bytecode0(jvm_impdep1);
+  if_node->branch_target = next_node;
+
+  fprintf (curfp, "}              // end while()\n");
 
 }
 
@@ -7545,15 +7603,28 @@ while_emit(AST *root)
  *                                                                           *
  *****************************************************************************/
 
-void
+CodeGraphNode *
 elseif_emit (AST * root)
 {
+  CodeGraphNode *if_node, *next_node, *goto_node;
+
   fprintf (curfp, "else if (");
   if (root->astnode.blockif.conds != NULL)
     expr_emit (root->astnode.blockif.conds);
+  if_node = bytecode0(jvm_ifeq);
   fprintf (curfp, ")  {\n    ");
   emit (root->astnode.blockif.stmts);
   fprintf (curfp, "}              // Close else if()\n");
+
+  goto_node = bytecode0(jvm_goto);
+
+  /* create a dummy instruction node so that we have a branch target 
+   * for the conditional statement. it will be removed later.
+   */
+  next_node = bytecode0(jvm_impdep1);
+  if_node->branch_target = next_node;
+
+  return goto_node;
 }
 
 /*****************************************************************************

@@ -799,17 +799,19 @@ void
 vcg_blockif_emit (AST * root, int parent)
 {
   void vcg_expr_emit (AST *, int);
+  AST *temp;
 
   if (root->astnode.blockif.conds != NULL)
     vcg_expr_emit (root->astnode.blockif.conds, parent);
 
-  emit_vcg (root->astnode.blockif.stmts,parent);
+  if (root->astnode.blockif.stmts != NULL)
+    emit_vcg (root->astnode.blockif.stmts,parent);
 
-  if (root->astnode.blockif.elseifstmts != NULL)
-    emit_vcg (root->astnode.blockif.elseifstmts,parent);
+  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
+    vcg_elseif_emit (root->astnode.blockif.elseifstmts,parent);
 
   if (root->astnode.blockif.elsestmts != NULL)
-    emit_vcg (root->astnode.blockif.elsestmts,parent);
+    vcg_else_emit (root->astnode.blockif.elsestmts,parent);
 }
 
 /*****************************************************************************

@@ -158,6 +158,7 @@ typecheck (AST * root)
       break;
     case Typedec:
     case Specification:
+    case Dimension:
     case Statement:
     case Return:
     case Goto:

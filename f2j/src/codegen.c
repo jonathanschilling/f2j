@@ -210,6 +210,7 @@ emit (AST * root)
           fprintf (stderr,"Bad node\n");
 
         emit (root->nextstmt);
+        break;
       case Progunit:
         {
           char *tmpname;
@@ -600,6 +601,9 @@ emit (AST * root)
         break;
       case Common:
         fprintf(stderr,"Warning: hit case Common in emit()\n");
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case CommonList:
         if (gendebug)
           printf ("Common.\n");
@@ -625,6 +629,15 @@ emit (AST * root)
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
+      case Dimension:
+        if(gendebug)
+          printf("Dimension\n");
+     
+        /* ignore */
+
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Unimplemented:
         fprintf (curfp, 
            " ; // WARNING: Unimplemented statement in Fortran source.\n");
@@ -635,6 +648,9 @@ emit (AST * root)
       default:
         fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
           print_nodetype(root));
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
     }				/* switch on nodetype.  */
 }
 
@@ -7148,15 +7164,11 @@ call_emit (AST * root)
        {
          expr_emit(temp);
        }
-       else if(temp->nodetype == EmptyArgList)
+       else if(temp->nodetype != EmptyArgList)
        {
-          ;  /* do nothing */
-       }
          /* 
           * Otherwise, use wrappers.
           */
-       else 
-       {
          if(omitWrappers) {
            if(t2->astnode.ident.passByRef)
              fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
@@ -9241,6 +9253,8 @@ print_nodetype (AST *root)
       return("Comment");
     case MainComment:
       return("MainComment");
+    case Dimension:
+      return("Dimension");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

@@ -285,6 +285,7 @@ optimize (AST * root, AST * rptr)
     case Save:
     case CommonList:
     case ComputedGoto:
+    case Dimension:
     case Goto:
     case Return:
     case Statement:

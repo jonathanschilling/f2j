@@ -143,6 +143,7 @@ enum _nodetype
   CommonList,
   DataStmt,
   DataList,
+  Dimension,
   Elseif,
   Else,
   Forloop,

@@ -87,7 +87,8 @@ AST
   * addnode(),
   * switchem(),
   * gen_incr_expr(AST *, AST *),
-  * gen_iter_expr(AST *, AST *, AST *);
+  * gen_iter_expr(AST *, AST *, AST *),
+  * initialize_name(char *);
 
 SYMTABLE 
   * new_symtable (int );
@@ -135,11 +136,11 @@ SYMTABLE
  */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
-%type <ptnode> Arrayindexlist Arithmeticif
+%type <ptnode> Arrayindexlist Arithmeticif ArraydecList
 %type <ptnode> Blockif Boolean Close Comment
 %type <ptnode> Call Constant Continue
 %type <ptnode> Data DataList DataConstant DataItem /* DataElement */ Do_incr Doloop 
-%type <ptnode> DataLhs DataConstantList LoopBounds
+%type <ptnode> DataLhs DataConstantList Dimension LoopBounds
 %type <ptnode> Do_vals Double
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
@@ -580,11 +581,9 @@ SpecStmtList: Specstmt
            }
 ;
 
-Specstmt:  DIMENSION
+Specstmt:  Dimension
            {
-	     $$ = 0;
-	     fprintf(stderr,"DIMENSION is not implemented.\n");
-	     exit(-1);
+	     $$ = $1;
 	   }
          | EquivalenceStmt
 	   {
@@ -626,6 +625,25 @@ Specstmt:  DIMENSION
 	   {
              $$ = $1;
 	   }
+;
+
+Dimension: DIMENSION ArraydecList NL
+           {
+             $$ = $2;
+           }
+;
+
+ArraydecList: Arraydeclaration CM ArraydecList
+              {
+                $3->prevstmt = $1;
+                $$ = $3;
+                $$->nodetype = Dimension;
+              }
+            | Arraydeclaration
+              {
+                $$ = $1;
+                $$->nodetype = Dimension;
+              }
 ;
 
 /*  the EQUIVALENCE productions are taken from Robert Moniot's 
@@ -1234,41 +1252,19 @@ Name:    NAME
 
            lowercase(yylval.lexeme);
 
-           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL) {
-             /* the name we're looking at is defined as a parameter.
-              * instead of inserting an Identifier node here, we're just
-              * going to insert the Constant node that corresponds to
-              * the parameter.  normally the only time we'd worry about
-              * such a substitution would be when the ident was the lhs
-              * of some expression, but that should not happen with parameters.
-              */
+           /* check if the name we're looking at is defined as a parameter.
+            * if so, instead of inserting an Identifier node here, we're just
+            * going to insert the Constant node that corresponds to
+            * the parameter.  normally the only time we'd worry about
+            * such a substitution would be when the ident was the lhs
+            * of some expression, but that should not happen with parameters.
+            * otherwise, get a new AST node initialized with this name.
+            */
 
+           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL)
              $$ = hashtemp->variable; 
-
-           } else {
-             $$=addnode();
-             $$->token = NAME;
-             $$->nodetype = Identifier;
-
-             $$->astnode.ident.needs_declaration = FALSE;
-             $$->astnode.ident.lead_expr = NULL;
-
-             if(omitWrappers)
-               $$->astnode.ident.passByRef = FALSE;
-
-             if(type_lookup(java_keyword_table,yylval.lexeme) ||
-                type_lookup(jasmin_keyword_table,yylval.lexeme))
-                   yylval.lexeme[0] = toupper(yylval.lexeme[0]);
-
-             strcpy($$->astnode.ident.name, yylval.lexeme);
-
-             hashtemp = type_lookup(type_table, $$->astnode.ident.name);
-             if(hashtemp)
-             {
-               $$->vartype = hashtemp->variable->vartype;
-               $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
-             }
-           }
+           else
+             $$ = initialize_name(yylval.lexeme);
          }
 ;
 
@@ -2740,6 +2736,8 @@ type_hash(AST * types)
          the next for() loop.  */
     return_type = temptypes->astnode.typeunit.returns;
 
+printf("looking at node type %s\n",print_nodetype(temptypes));
+
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
       /* Stuff names and return types into the symbol table. */
@@ -2749,6 +2747,8 @@ type_hash(AST * types)
 
       if(hash_entry == NULL) {
         tempnames->vartype = return_type;
+
+        type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
       }
       else {
         if(debug)
@@ -2757,16 +2757,58 @@ type_hash(AST * types)
         tempnames->vartype = hash_entry->variable->vartype;
       }
 
-      /* 
-       * All names go into the name table.  
-       */
+      if(temptypes->nodetype == Dimension) {
+        /* looking at a Dimension spec.  check whether the ident is already
+         * in the hash table.  if so, we want to assign the array dimensions
+         * to that node.  if not, we will create a new node and assign the
+         * dimensions to it.
+         */
+        extern enum returntype default_implicit_table[];
+        AST *node;
 
-      type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
+        hash_entry = type_lookup(type_table, tempnames->astnode.ident.name);
+        if(hash_entry)
+          node = hash_entry->variable;
+        else {
+          node = initialize_name(tempnames->astnode.ident.name );
+          type_insert(type_table, node, 
+             default_implicit_table[tempnames->astnode.ident.name[0] - 'a'],
+             tempnames->astnode.ident.name);
+        }
+
+        node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
+        node->astnode.ident.dim = tempnames->astnode.ident.dim;
+        node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
+        node->astnode.ident.lead_expr = tempnames->astnode.ident.lead_expr;
+        node->astnode.ident.D[0] = tempnames->astnode.ident.D[0];
+        node->astnode.ident.D[1] = tempnames->astnode.ident.D[1];
+        node->astnode.ident.D[2] = tempnames->astnode.ident.D[2];
+      }
+      else {
+        /* check whether there is already an array declaration for this ident.
+         * this would be true in case of a normal type declaration with array
+         * declarator, in which case we'll do a little extra work here.  but
+         * for idents that were previously dimensioned, we need to get this
+         * info out of the table.
+         */
+        hash_entry = type_lookup(array_table,tempnames->astnode.ident.name);
+        if(hash_entry) {
+          AST *var = hash_entry->variable;
+  
+          tempnames->astnode.ident.arraylist = var->astnode.ident.arraylist;
+          tempnames->astnode.ident.dim = var->astnode.ident.dim;
+          tempnames->astnode.ident.leaddim = var->astnode.ident.leaddim;
+          tempnames->astnode.ident.lead_expr = var->astnode.ident.lead_expr;
+          tempnames->astnode.ident.D[0] = var->astnode.ident.D[0];
+          tempnames->astnode.ident.D[1] = var->astnode.ident.D[1];
+          tempnames->astnode.ident.D[2] = var->astnode.ident.D[2];
+        }
+      }
 
       /* Now separate out the EXTERNAL from the INTRINSIC on the
          fortran side.  */
 
-      if(temptypes->token != 0)
+      if(temptypes != NULL)
         switch (temptypes->token)
         {
           case INTRINSIC:
@@ -2893,7 +2935,11 @@ store_array_var(AST * var)
 {
   extern SYMTABLE * array_table;
 
-  type_insert(array_table, var, 0, var->astnode.ident.name);
+  if(type_lookup(array_table, var->astnode.ident.name) != NULL)
+    fprintf(stderr,"Error: more than one array declarator for array '%s'\n",
+       var->astnode.ident.name);
+  else
+    type_insert(array_table, var, 0, var->astnode.ident.name);
 
   if(debug)
     printf("Array name: %s\n", var->astnode.ident.name);
@@ -3392,4 +3438,67 @@ gen_iter_expr(AST *start, AST *stop, AST *incr)
   div_node->astnode.expression.optype = '/';
 
   return div_node;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * initialize_name                                                           *
+ *                                                                           *
+ * this function initializes an Identifier node with the given name.         *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+initialize_name(char *id)
+{
+/*
+  extern enum returntype default_implicit_table[];
+  extern char * returnstring[];
+*/
+  HASHNODE *hashtemp;
+  AST *tmp;
+
+  tmp=addnode();
+  tmp->token = NAME;
+  tmp->nodetype = Identifier;
+
+  tmp->astnode.ident.needs_declaration = FALSE;
+  tmp->astnode.ident.lead_expr = NULL;
+
+  if(omitWrappers)
+    tmp->astnode.ident.passByRef = FALSE;
+
+  if(type_lookup(java_keyword_table,id) ||
+     type_lookup(jasmin_keyword_table,id))
+        id[0] = toupper(id[0]);
+
+  strcpy(tmp->astnode.ident.name, id);
+
+  hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
+  if(hashtemp)
+  {
+    tmp->vartype = hashtemp->variable->vartype;
+    tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+  }
+  else
+  {
+  /*
+    unfinished code to implement implicit typing.  when finishing
+    this up, remember to remove any calls to type_insert() which
+    are found after calls to this function.
+
+    enum returntype ret;
+
+    printf("cannot find name %s in hash table..",id);
+    
+    ret = default_implicit_table[tolower(id[0]) - 'a'];
+
+    printf("going to insert with default implicit type %s\n",
+      returnstring[ret]);
+
+    type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
+   */
+  }
+
+  return tmp;
 }

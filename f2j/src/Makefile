@@ -36,7 +36,7 @@ $(JAVAB):
 f2jlex: f2jlex.o initialize.h
 	$(CC) $(CFLAGS) -o f2jlex f2jlex.o
 
-f2jlex.o: f2jlex.c
+f2jlex.o: f2jlex.c initialize.h
 
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y

@@ -1,0 +1,759 @@
+dbdsdc.f
+*  INFO    (output) INTEGER
+dbdsqr.f
+*  INFO    (output) INTEGER
+ddisna.f
+*  INFO    (output) INTEGER
+dgbbrd.f
+*  INFO    (output) INTEGER
+dgbcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgbequ.f
+*  ROWCND  (output) DOUBLE PRECISION
+*  COLCND  (output) DOUBLE PRECISION
+*  AMAX    (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgbrfs.f
+*  INFO    (output) INTEGER
+dgbsv.f
+*  INFO    (output) INTEGER
+dgbsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgbtf2.f
+*  INFO    (output) INTEGER
+dgbtrf.f
+*  INFO    (output) INTEGER
+dgbtrs.f
+*  INFO    (output) INTEGER
+dgebak.f
+*  INFO    (output) INTEGER
+dgebal.f
+*  ILO     (output) INTEGER
+*  IHI     (output) INTEGER
+*  INFO    (output) INTEGER
+dgebd2.f
+*  INFO    (output) INTEGER
+dgebrd.f
+*  INFO    (output) INTEGER
+dgecon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgeequ.f
+*  ROWCND  (output) DOUBLE PRECISION
+*  COLCND  (output) DOUBLE PRECISION
+*  AMAX    (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgees.f
+*  SDIM    (output) INTEGER
+*  INFO    (output) INTEGER
+dgeesx.f
+*  SDIM    (output) INTEGER
+*  RCONDE  (output) DOUBLE PRECISION
+*  RCONDV  (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgeev.f
+*  INFO    (output) INTEGER
+dgeevx.f
+*  ILO,IHI (output) INTEGER
+*  ABNRM   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgegs.f
+*  INFO    (output) INTEGER
+dgegv.f
+*  INFO    (output) INTEGER
+dgehd2.f
+*  INFO    (output) INTEGER
+dgehrd.f
+*  INFO    (output) INTEGER
+dgelq2.f
+*  INFO    (output) INTEGER
+dgelqf.f
+*  INFO    (output) INTEGER
+dgels.f
+*  INFO    (output) INTEGER
+dgelss.f
+*  RANK    (output) INTEGER
+*  INFO    (output) INTEGER
+dgelsx.f
+*  RANK    (output) INTEGER
+*  INFO    (output) INTEGER
+dgelsy.f
+*  RANK    (output) INTEGER
+*  INFO    (output) INTEGER
+dgeql2.f
+*  INFO    (output) INTEGER
+dgeqlf.f
+*  INFO    (output) INTEGER
+dgeqp3.f
+*  INFO    (output) INTEGER
+dgeqpf.f
+*  INFO    (output) INTEGER
+dgeqr2.f
+*  INFO    (output) INTEGER
+dgeqrf.f
+*  INFO    (output) INTEGER
+dgerfs.f
+*  INFO    (output) INTEGER
+dgerq2.f
+*  INFO    (output) INTEGER
+dgerqf.f
+*  INFO    (output) INTEGER
+dgesc2.f
+*  SCALE    (output) DOUBLE PRECISION
+dgesdd.f
+*  INFO    (output) INTEGER
+dgesv.f
+*  INFO    (output) INTEGER
+dgesvd.f
+*  INFO    (output) INTEGER
+dgesvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgetc2.f
+*  INFO    (output) INTEGER
+dgetf2.f
+*  INFO    (output) INTEGER
+dgetrf.f
+*  INFO    (output) INTEGER
+dgetri.f
+*  INFO    (output) INTEGER
+dgetrs.f
+*  INFO    (output) INTEGER
+dggbak.f
+*  INFO    (output) INTEGER
+dggbal.f
+*  ILO     (output) INTEGER
+*  IHI     (output) INTEGER
+*  INFO    (output) INTEGER
+dgges.f
+*  SDIM    (output) INTEGER
+*  INFO    (output) INTEGER
+dggesx.f
+*  SDIM    (output) INTEGER
+*  INFO    (output) INTEGER
+dggev.f
+*  INFO    (output) INTEGER
+dggevx.f
+*  ILO,IHI (output) INTEGER
+*  ABNRM   (output) DOUBLE PRECISION
+*  BBNRM   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dggglm.f
+*  INFO    (output) INTEGER
+dgghrd.f
+*  INFO    (output) INTEGER
+dgglse.f
+*  INFO    (output) INTEGER
+dggqrf.f
+*  INFO    (output) INTEGER
+dggrqf.f
+*  INFO    (output) INTEGER
+dggsvd.f
+*  K       (output) INTEGER
+*  L       (output) INTEGER
+*  INFO    (output)INTEGER
+dggsvp.f
+*  K       (output) INTEGER
+*  L       (output) INTEGER
+*  INFO    (output) INTEGER
+dgtcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgtrfs.f
+*  INFO    (output) INTEGER
+dgtsv.f
+*  INFO    (output) INTEGER
+dgtsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dgttrf.f
+*  INFO    (output) INTEGER
+dgttrs.f
+*  INFO    (output) INTEGER
+dhgeqz.f
+*  INFO    (output) INTEGER
+dhsein.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dhseqr.f
+*  INFO    (output) INTEGER
+dlabad.f
+*  SMALL   (input/output) DOUBLE PRECISION
+*  LARGE   (input/output) DOUBLE PRECISION
+dlabrd.f
+*  LDY     (output) INTEGER
+dlacon.f
+*  EST    (output) DOUBLE PRECISION
+*  KASE   (input/output) INTEGER
+dlacpy.f
+dladiv.f
+*  P       (output) DOUBLE PRECISION
+*  Q       (output) DOUBLE PRECISION
+dlae2.f
+*  RT1     (output) DOUBLE PRECISION
+*  RT2     (output) DOUBLE PRECISION
+dlaebz.f
+*  MOUT    (output) INTEGER
+*  INFO    (output) INTEGER
+dlaed0.f
+*  INFO   (output) INTEGER
+dlaed1.f
+*  INFO   (output) INTEGER
+dlaed2.f
+*  K      (output) INTEGER
+*  RHO    (input/output) DOUBLE PRECISION
+*  INFO   (output) INTEGER
+dlaed3.f
+*  INFO    (output) INTEGER
+dlaed4.f
+*  DLAM   (output) DOUBLE PRECISION
+*  INFO   (output) INTEGER
+dlaed5.f
+*  DLAM   (output) DOUBLE PRECISION
+dlaed6.f
+*  TAU          (output) DOUBLE PRECISION
+*  INFO         (output) INTEGER
+dlaed7.f
+*  INFO   (output) INTEGER
+dlaed8.f
+*  K      (output) INTEGER
+*  RHO    (input/output) DOUBLE PRECISION
+*  GIVPTR (output) INTEGER
+*  INFO   (output) INTEGER
+dlaed9.f
+*  INFO    (output) INTEGER
+dlaeda.f
+*  INFO   (output) INTEGER
+dlaein.f
+*  INFO    (output) INTEGER
+dlaev2.f
+*  RT1     (output) DOUBLE PRECISION
+*  RT2     (output) DOUBLE PRECISION
+*  CS1     (output) DOUBLE PRECISION
+*  SN1     (output) DOUBLE PRECISION
+dlaexc.f
+*  INFO    (output) INTEGER
+dlag2.f
+*  SCALE1  (output) DOUBLE PRECISION
+*  SCALE2  (output) DOUBLE PRECISION
+*  WR1     (output) DOUBLE PRECISION
+*  WR2     (output) DOUBLE PRECISION
+*  WI      (output) DOUBLE PRECISION
+dlags2.f
+*  CSU     (output) DOUBLE PRECISION
+*  SNU     (output) DOUBLE PRECISION
+*  CSV     (output) DOUBLE PRECISION
+*  SNV     (output) DOUBLE PRECISION
+*  CSQ     (output) DOUBLE PRECISION
+*  SNQ     (output) DOUBLE PRECISION
+dlagtf.f
+*  INFO    (output) INTEGER
+dlagtm.f
+dlagts.f
+*  TOL     (input/output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlagv2.f
+*  CSL     (output) DOUBLE PRECISION
+*  SNL     (output) DOUBLE PRECISION
+*  CSR     (output) DOUBLE PRECISION
+*  SNR     (output) DOUBLE PRECISION
+dlahqr.f
+*  INFO    (output) INTEGER
+dlahrd.f
+dlaic1.f
+*  SESTPR  (output) DOUBLE PRECISION
+*  S       (output) DOUBLE PRECISION
+*  C       (output) DOUBLE PRECISION
+dlaln2.f
+*  SCALE   (output) DOUBLE PRECISION
+*  XNORM   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlamch.f
+*  BETA    (output) INTEGER
+*  T       (output) INTEGER
+*  RND     (output) LOGICAL
+*  IEEE1   (output) LOGICAL
+*  BETA    (output) INTEGER
+*  T       (output) INTEGER
+*  RND     (output) LOGICAL
+*  EPS     (output) DOUBLE PRECISION
+*  EMIN    (output) INTEGER
+*  RMIN    (output) DOUBLE PRECISION
+*  EMAX    (output) INTEGER
+*  RMAX    (output) DOUBLE PRECISION
+*  EMIN    (output) EMIN
+*  EMAX    (output) INTEGER
+*  RMAX    (output) DOUBLE PRECISION
+dlamrg.f
+dlangb.f
+dlange.f
+dlangt.f
+dlanhs.f
+dlansb.f
+dlansp.f
+dlanst.f
+dlansy.f
+dlantb.f
+dlantp.f
+dlantr.f
+dlanv2.f
+*  A       (input/output) DOUBLE PRECISION
+*  B       (input/output) DOUBLE PRECISION
+*  C       (input/output) DOUBLE PRECISION
+*  D       (input/output) DOUBLE PRECISION
+*  RT1R    (output) DOUBLE PRECISION
+*  RT1I    (output) DOUBLE PRECISION
+*  RT2R    (output) DOUBLE PRECISION
+*  RT2I    (output) DOUBLE PRECISION
+*  CS      (output) DOUBLE PRECISION
+*  SN      (output) DOUBLE PRECISION
+dlapll.f
+*  SSMIN   (output) DOUBLE PRECISION
+dlapmt.f
+dlapy2.f
+dlapy3.f
+dlaqgb.f
+*  ROWCND  (output) DOUBLE PRECISION
+*  COLCND  (output) DOUBLE PRECISION
+*  EQUED   (output) CHARACTER*1
+dlaqge.f
+*  EQUED   (output) CHARACTER*1
+dlaqp2.f
+dlaqps.f
+*  KB      (output) INTEGER
+dlaqsb.f
+*  EQUED   (output) CHARACTER*1
+dlaqsp.f
+*  EQUED   (output) CHARACTER*1
+dlaqsy.f
+*  EQUED   (output) CHARACTER*1
+dlaqtr.f
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlar2v.f
+dlarf.f
+dlarfb.f
+dlarfg.f
+*  ALPHA   (input/output) DOUBLE PRECISION
+*  TAU     (output) DOUBLE PRECISION
+dlarft.f
+dlarfx.f
+dlargv.f
+dlarnv.f
+dlartg.f
+*  CS      (output) DOUBLE PRECISION
+*  SN      (output) DOUBLE PRECISION
+*  R       (output) DOUBLE PRECISION
+dlartv.f
+dlaruv.f
+dlarz.f
+dlarzb.f
+dlarzt.f
+dlas2.f
+*  SSMIN   (output) DOUBLE PRECISION
+*  SSMAX   (output) DOUBLE PRECISION
+dlascl.f
+*  INFO    (output) INTEGER
+dlasd0.f
+*  INFO   (output) INTEGER
+dlasd1.f
+*  INFO   (output) INTEGER
+dlasd2.f
+*  K      (output) INTEGER
+*  INFO   (output) INTEGER
+dlasd3.f
+*  INFO   (output) INTEGER
+dlasd4.f
+*  SIGMA  (output) DOUBLE PRECISION
+*  INFO   (output) INTEGER
+dlasd5.f
+*  DSIGMA (output) DOUBLE PRECISION
+dlasd7.f
+*  GIVPTR (output) INTEGER
+*  K      (output) INTEGER
+*  C      (output) DOUBLE PRECISION
+*  S      (output) DOUBLE PRECISION
+*  INFO   (output) INTEGER
+dlasd8.f
+*  K      (output) INTEGER
+*  GIVPTR (output) INTEGER
+*  C      (output) DOUBLE PRECISION
+*  S      (output) DOUBLE PRECISION
+*  INFO   (output) INTEGER
+dlasd9.f
+*  INFO    (output) INTEGER
+dlasda.f
+*  INFO   (output) INTEGER
+dlasdq.f
+*  INFO    (output) INTEGER
+dlasdt.f
+*   LVL    (output) INTEGER
+*   ND     (output) INTEGER
+dlaset.f
+dlasq1.f
+*  INFO    (output) INTEGER
+dlasq2.f
+*  SUP     (input/output) DOUBLE PRECISION
+*  KEND    (input/output) INTEGER
+*  INFO    (output) INTEGER
+dlasq3.f
+*  N       (input/output) INTEGER
+*  SUP     (input/output) DOUBLE PRECISION
+*  SIGMA   (input/output) DOUBLE PRECISION
+*  KEND    (input/output) INTEGER
+*  OFF     (input/output) INTEGER
+*  IPHASE  (input/output) INTEGER
+*  ICONV   (input/output) INTEGER
+dlasq4.f
+*  TAU     (output) DOUBLE PRECISION
+*  SUP     (input/output) DOUBLE PRECISION
+dlasr.f
+dlasrt.f
+*  INFO    (output) INTEGER
+dlassq.f
+*  SCALE   (input/output) DOUBLE PRECISION
+*  SUMSQ   (input/output) DOUBLE PRECISION
+dlasv2.f
+*  SSMIN   (output) DOUBLE PRECISION
+*  SSMAX   (output) DOUBLE PRECISION
+*  SNL     (output) DOUBLE PRECISION
+*  CSL     (output) DOUBLE PRECISION
+*  SNR     (output) DOUBLE PRECISION
+*  CSR     (output) DOUBLE PRECISION
+dlaswp.f
+dlasy2.f
+*  SCALE   (output) DOUBLE PRECISION
+*  XNORM   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlasyf.f
+*  KB      (output) INTEGER
+*  INFO    (output) INTEGER
+dlatbs.f
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlatdf.f
+*  RDSUM   (input/output) DOUBLE PRECISION
+*  RDSCAL  (input/output) DOUBLE PRECISION
+dlatps.f
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlatrd.f
+dlatrs.f
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dlatrz.f
+dlatzm.f
+dlauu2.f
+*  INFO    (output) INTEGER
+dlauum.f
+*  INFO    (output) INTEGER
+dopgtr.f
+*  INFO    (output) INTEGER
+dopmtr.f
+*  INFO    (output) INTEGER
+dorg2l.f
+*  INFO    (output) INTEGER
+dorg2r.f
+*  INFO    (output) INTEGER
+dorgbr.f
+*  INFO    (output) INTEGER
+dorghr.f
+*  INFO    (output) INTEGER
+dorgl2.f
+*  INFO    (output) INTEGER
+dorglq.f
+*  INFO    (output) INTEGER
+dorgql.f
+*  INFO    (output) INTEGER
+dorgqr.f
+*  INFO    (output) INTEGER
+dorgr2.f
+*  INFO    (output) INTEGER
+dorgrq.f
+*  INFO    (output) INTEGER
+dorgtr.f
+*  INFO    (output) INTEGER
+dorm2l.f
+*  INFO    (output) INTEGER
+dorm2r.f
+*  INFO    (output) INTEGER
+dormbr.f
+*  INFO    (output) INTEGER
+dormhr.f
+*  INFO    (output) INTEGER
+dorml2.f
+*  INFO    (output) INTEGER
+dormlq.f
+*  INFO    (output) INTEGER
+dormql.f
+*  INFO    (output) INTEGER
+dormqr.f
+*  INFO    (output) INTEGER
+dormr2.f
+*  INFO    (output) INTEGER
+dormr3.f
+*  INFO    (output) INTEGER
+dormrq.f
+*  INFO    (output) INTEGER
+dormrz.f
+*  INFO    (output) INTEGER
+dormtr.f
+*  INFO    (output) INTEGER
+dpbcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpbequ.f
+*  SCOND   (output) DOUBLE PRECISION
+*  AMAX    (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpbrfs.f
+*  INFO    (output) INTEGER
+dpbstf.f
+*  INFO    (output) INTEGER
+dpbsv.f
+*  INFO    (output) INTEGER
+dpbsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpbtf2.f
+*  INFO    (output) INTEGER
+dpbtrf.f
+*  INFO    (output) INTEGER
+dpbtrs.f
+*  INFO    (output) INTEGER
+dpocon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpoequ.f
+*  SCOND   (output) DOUBLE PRECISION
+*  AMAX    (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dporfs.f
+*  INFO    (output) INTEGER
+dposv.f
+*  INFO    (output) INTEGER
+dposvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpotf2.f
+*  INFO    (output) INTEGER
+dpotrf.f
+*  INFO    (output) INTEGER
+dpotri.f
+*  INFO    (output) INTEGER
+dpotrs.f
+*  INFO    (output) INTEGER
+dppcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dppequ.f
+*  SCOND   (output) DOUBLE PRECISION
+*  AMAX    (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpprfs.f
+*  INFO    (output) INTEGER
+dppsv.f
+*  INFO    (output) INTEGER
+dppsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpptrf.f
+*  INFO    (output) INTEGER
+dpptri.f
+*  INFO    (output) INTEGER
+dpptrs.f
+*  INFO    (output) INTEGER
+dptcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpteqr.f
+*  INFO    (output) INTEGER
+dptrfs.f
+*  INFO    (output) INTEGER
+dptsv.f
+*  INFO    (output) INTEGER
+dptsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dpttrf.f
+*  INFO    (output) INTEGER
+dpttrs.f
+*  INFO    (output) INTEGER
+drscl.f
+dsbev.f
+*  INFO    (output) INTEGER
+dsbevd.f
+*  INFO    (output) INTEGER
+dsbevx.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dsbgst.f
+*  INFO    (output) INTEGER
+dsbgv.f
+*  INFO    (output) INTEGER
+dsbtrd.f
+*  INFO    (output) INTEGER
+dsecnd.f
+dspcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dspev.f
+*  INFO    (output) INTEGER
+dspevd.f
+*  INFO    (output) INTEGER
+dspevx.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dspgst.f
+*  INFO    (output) INTEGER
+dspgv.f
+*  INFO    (output) INTEGER
+dsprfs.f
+*  INFO    (output) INTEGER
+dspsv.f
+*  INFO    (output) INTEGER
+dspsvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dsptrd.f
+*  INFO    (output) INTEGER
+dsptrf.f
+*  INFO    (output) INTEGER
+dsptri.f
+*  INFO    (output) INTEGER
+dsptrs.f
+*  INFO    (output) INTEGER
+dstebz.f
+*  M       (output) INTEGER
+*  NSPLIT  (output) INTEGER
+*  INFO    (output) INTEGER
+dstedc.f
+*  INFO    (output) INTEGER
+dstein.f
+*  INFO    (output) INTEGER
+dsteqr.f
+*  INFO    (output) INTEGER
+dsterf.f
+*  INFO    (output) INTEGER
+dstev.f
+*  INFO    (output) INTEGER
+dstevd.f
+*  INFO    (output) INTEGER
+dstevx.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dsycon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dsyev.f
+*  INFO    (output) INTEGER
+dsyevd.f
+*  INFO    (output) INTEGER
+dsyevx.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dsygs2.f
+*  INFO    (output) INTEGER
+dsygst.f
+*  INFO    (output) INTEGER
+dsygv.f
+*  INFO    (output) INTEGER
+dsyrfs.f
+*  INFO    (output) INTEGER
+dsysv.f
+*  INFO    (output) INTEGER
+dsysvx.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dsytd2.f
+*  INFO    (output) INTEGER
+dsytf2.f
+*  INFO    (output) INTEGER
+dsytrd.f
+*  INFO    (output) INTEGER
+dsytrf.f
+*  INFO    (output) INTEGER
+dsytri.f
+*  INFO    (output) INTEGER
+dsytrs.f
+*  INFO    (output) INTEGER
+dtbcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtbrfs.f
+*  INFO    (output) INTEGER
+dtbtrs.f
+*  INFO    (output) INTEGER
+dtgevc.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dtgex2.f
+*  INFO    (output) INTEGER
+dtgexc.f
+*  IFST    (input/output) INTEGER
+*  ILST    (input/output) INTEGER
+*  INFO    (output) INTEGER
+dtgsen.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dtgsja.f
+*  NCYCLE  (output) INTEGER
+*  INFO    (output) INTEGER
+dtgsna.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dtgsy2.f
+*  SCALE   (output) DOUBLE PRECISION
+*  RDSUM   (input/output) DOUBLE PRECISION
+*  RDSCAL  (input/output) DOUBLE PRECISION
+*  PQ      (output) INTEGER
+*  INFO    (output) INTEGER
+dtgsyl.f
+*  DIF     (output) DOUBLE PRECISION
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtpcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtprfs.f
+*  INFO    (output) INTEGER
+dtptri.f
+*  INFO    (output) INTEGER
+dtptrs.f
+*  INFO    (output) INTEGER
+dtrcon.f
+*  RCOND   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtrevc.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dtrexc.f
+*  IFST    (input/output) INTEGER
+*  ILST    (input/output) INTEGER
+*  INFO    (output) INTEGER
+dtrrfs.f
+*  INFO    (output) INTEGER
+dtrsen.f
+*  M       (output) INTEGER
+*  S       (output) DOUBLE PRECISION
+*  SEP     (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtrsna.f
+*  M       (output) INTEGER
+*  INFO    (output) INTEGER
+dtrsyl.f
+*  SCALE   (output) DOUBLE PRECISION
+*  INFO    (output) INTEGER
+dtrti2.f
+*  INFO    (output) INTEGER
+dtrtri.f
+*  INFO    (output) INTEGER
+dtrtrs.f
+*  INFO    (output) INTEGER
+dtzrqf.f
+*  INFO    (output) INTEGER
+dtzrzf.f
+*  INFO    (output) INTEGER
+dzsum1.f

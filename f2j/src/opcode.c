@@ -27,9 +27,11 @@
 #define Mindent1 "   "		/* Indentation space macro.                  */
 
 AST *returnname;                /* return type of function                   */
-int jas_gendebug = 0;           /* Set to 1 for debugging output.            */
-int labelno = 1;		/* Matches output from D-Java.               */
-int breaklabel;			/* Global to deal with if-then-else-endif.   */
+
+int 
+  jas_gendebug = 0,             /* Set to 1 for debugging output.            */
+  labelno = 1,		        /* Matches output from D-Java.               */
+  breaklabel;			/* Global to deal with if-then-else-endif.   */
 
 /* Strings representing the different return types in Jasmin.                */
 
@@ -64,91 +66,91 @@ jas_emit (AST * root)
   void jas_else_emit (AST *);
   void jas_return_emit (AST *);
 
-    switch (root->nodetype)
-      {
-      case 0:
-	  fprintf (stderr,"jas_emit(): Bad node\n");
-	  jas_emit (root->nextstmt);
-      case Source:
-	  jas_emit (root->astnode.source.progtype);
-	  jas_emit (root->astnode.source.statements);
-	  break;
-      case Subroutine:
-	  returnname = NULL;
-	  method (root);
-	  break;
-      case Function:
-	  returnname = root->astnode.source.name;
-	  method (root);
-	  break;
-      case Logicalif:
-	  jas_logicalif_emit (root);
-	  /*  I think the way this works is that there are two cases
-	   * "true" and "false", therefore need to increment the
-	   * label number by two. Could be interesting when I try
-	   * to handle if-then-else...  
-           */
+  switch (root->nodetype)
+  {
+    case 0:
+fprintf (stderr,"jas_emit(): Bad node\n");
+jas_emit (root->nextstmt);
+    case Source:
+jas_emit (root->astnode.source.progtype);
+jas_emit (root->astnode.source.statements);
+break;
+    case Subroutine:
+returnname = NULL;
+method (root);
+break;
+    case Function:
+returnname = root->astnode.source.name;
+method (root);
+break;
+    case Logicalif:
+jas_logicalif_emit (root);
+/*  I think the way this works is that there are two cases
+* "true" and "false", therefore need to increment the
+* label number by two. Could be interesting when I try
+* to handle if-then-else...  
+*/
 
-	  labelno += 2;
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
-      case Blockif:
-	  jas_blockif_emit (root);
-	  labelno += 2;
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
-      case Elseif:
-	  jas_elseif_emit (root);
-	  labelno += 2;
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
+labelno += 2;
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
+    case Blockif:
+jas_blockif_emit (root);
+labelno += 2;
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
+    case Elseif:
+jas_elseif_emit (root);
+labelno += 2;
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
 
-      case Else:
-	  jas_else_emit (root);
-	  labelno += 2;
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
+    case Else:
+jas_else_emit (root);
+labelno += 2;
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
 
-      case Assignment:
-	  jas_assign_emit (root);
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
-      case Forloop:
-	  jas_forloop_emit (root);
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
-      case End:
-	  fprintf (jasminfp, ".end method\n");
-	  break;
-      case Goto:
-	  jas_goto_emit (root);
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
+    case Assignment:
+jas_assign_emit (root);
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
+    case Forloop:
+jas_forloop_emit (root);
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
+    case End:
+fprintf (jasminfp, ".end method\n");
+break;
+    case Goto:
+jas_goto_emit (root);
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
 
-      case Return:
-	  jas_return_emit (root);
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
+    case Return:
+jas_return_emit (root);
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
 
-      case Label:
-	  jas_label_emit (root);
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
+    case Label:
+jas_label_emit (root);
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
 
-      default:
-	  if (root->nextstmt != NULL)
-	      jas_emit (root->nextstmt);
-	  break;
-      }				/* Close switch().  */
+    default:
+if (root->nextstmt != NULL)
+jas_emit (root->nextstmt);
+break;
+    }				/* Close switch().  */
 }
 
 
@@ -383,11 +385,11 @@ jas_expr_emit (AST * root)
       /*  Might be easier to inline this procedure.  */
       jas_logicalop_emit (root);
       break;
+    case Relationalop:
       /* May have to change the way these work because of
        * problems with getting logical operations such as
        * AND and OR to work properly.   
        */
-    case Relationalop:
 
       jas_expr_emit (root->astnode.expression.rhs);
       jas_expr_emit (root->astnode.expression.lhs);
@@ -423,7 +425,6 @@ jas_expr_emit (AST * root)
  * it is or why it is occurring.                                             *
  *                                                                           *
  *****************************************************************************/
-
 
 void
 jas_name_emit (AST * root)

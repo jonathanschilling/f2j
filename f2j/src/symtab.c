@@ -1,167 +1,204 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
+
+/*****************************************************************************
+ * symtab.c                                                                  *
+ *                                                                           *
+ * Contains routines for creating and manipulating symbol tables.            *
+ *                                                                           *
+ *****************************************************************************/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include "f2j.h"
 
-#define symdebug 0
+/*****************************************************************************
+ * Globals and Function prototypes:                                          *
+ *****************************************************************************/
+
+#define symdebug FALSE          /* set TRUE for debugging output             */
 
 char *strdup(char *);
+
+/*****************************************************************************
+ *                                                                           *
+ * new_symtable                                                              *
+ *                                                                           *
+ * Create a new symbol table with the given number of entries.  Return a     *
+ * pointer to the table.                                                     *
+ *                                                                           *
+ *****************************************************************************/
 
 SYMTABLE *
 new_symtable (int numentries)
 {
-    SYMTABLE *newtable;
-    newtable = (SYMTABLE *) malloc (sizeof (SYMTABLE));
+  SYMTABLE *newtable;
+  newtable = (SYMTABLE *) malloc (sizeof (SYMTABLE));
 
-    /* Handle out-of-mem. */
-    if (newtable == NULL)
-      {
-	  perror ("malloc error creating new symboltable");
-	  exit (-1);
-      }
+  /* Handle out-of-mem. */
+  if (newtable == NULL)
+  {
+    perror ("malloc error creating new symboltable");
+    exit (-1);
+  }
 
-    newtable->num_entries = numentries;
-    newtable->entry = (HASHNODE **) calloc (numentries, sizeof (HASHNODE *));
+  newtable->num_entries = numentries;
+  newtable->entry = (HASHNODE **) calloc (numentries, sizeof (HASHNODE *));
 
-    /* Handle out-of-mem. */
-    if (newtable->entry == NULL)
-      {
-	  perror ("calloc error creating new symbol table");
-	  exit (-1);
-      }
+  /* Handle out-of-mem. */
+  if (newtable->entry == NULL)
+  {
+    perror ("calloc error creating new symbol table");
+    exit (-1);
+  }
 
-    return (newtable);
+  return (newtable);
 }				/*  Close new_symtable().  */
 
-/*  hash_insert is a general wrapper for inserting stuff
-   into the appropriate hash table.  It should probably
-   have a switch/case structure to decide the appropriate
-   hash entry insertion procedure to use.  */
+/*****************************************************************************
+ *                                                                           *
+ * hash_insert                                                               *
+ *                                                                           *
+ *                                                                           *
+ * hash_insert is a general wrapper for inserting stuff                      *
+ * into the appropriate hash table.  It should probably                      *
+ * have a switch/case structure to decide the appropriate                    *
+ * hash entry insertion procedure to use.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
 int
 hash_insert (SYMTABLE * table, AST * node)
 {
-    int index;
-    char tmp[100];
-    char *hashid;
-    int hash(char *);
-    void type_insert (HASHNODE **, AST *, int, char *);
+  int index;
+  char tmp[100];
+  char *hashid;
+  int hash(char *);
+  void type_insert (HASHNODE **, AST *, int, char *);
 
-    if(node->nodetype == Format) {
-      sprintf(tmp,"%d",node->astnode.label.number);
-      hashid = tmp;
-    }
-    else {
-      hashid = node->astnode.ident.name;
-    }
+  if(node->nodetype == Format) {
+    sprintf(tmp,"%d",node->astnode.label.number);
+    hashid = tmp;
+  }
+  else {
+    hashid = node->astnode.ident.name;
+  }
 
-    if(table == NULL) 
-    {
-       fprintf(stderr,
-          "Error: Trying to insert into null symbol table\n");
-       return(-1);
-    }
+  if(table == NULL) 
+  {
+     fprintf(stderr,
+        "Error: Trying to insert into null symbol table\n");
+     return(-1);
+  }
 
-    index = hash (hashid) % table->num_entries;
+  index = hash (hashid) % table->num_entries;
 
 
-    /* Search the list associated with the hash index to
-       see whether that variable is already in the 
-       symbol table.  */
-    if (search_hashlist (table->entry[index], hashid) != NULL)
+  /* Search the list associated with the hash index to
+   * see whether that variable is already in the 
+   * symbol table.  
+   */
+
+  if (search_hashlist (table->entry[index], hashid) != NULL)
+  {
+    /* printf("Duplicate entry.\n"); */
+    /* return (-1);  */
+  }
+
+  /* Else, decide how to insert the information based on the
+   * type of node of the ast that is passed in.  
+   */
+
+  switch (node->nodetype)
+  {
+    case Typedec:
       {
-	/* 	printf("Duplicate entry.\n"); */
-	/*	return (-1);  */
+        AST *temp;
+        int returntype = node->astnode.typeunit.returns;
+        temp = node->astnode.typeunit.declist;
+
+        while (temp->nextstmt != NULL)
+        {
+          /* Call appropriate insertion routine
+           * to insert the ast and returntype.  
+           */
+
+          type_insert (&(table->entry[index]), temp, returntype, 
+          temp->astnode.ident.name);
+          temp = temp->nextstmt;
+        }
+
+        /* Then insert the last stmt.  */
+        type_insert (&(table->entry[index]), temp, returntype,
+        temp->astnode.ident.name);
       }
-
-    /* Else, decide how to insert the information based on the
-       type of node of the ast that is passed in.  */
-    switch (node->nodetype)
+      break;
+    case Format:
       {
-      case Typedec:
-	  {
-	      AST *temp;
-	      int returntype = node->astnode.typeunit.returns;
-	      temp = node->astnode.typeunit.declist;
-
-	      while (temp->nextstmt != NULL)
-		{
-		    /* Call appropriate insertion routine
-		       to insert the ast and returntype.  */
-		    type_insert (&(table->entry[index]), temp, returntype, 
-                       temp->astnode.ident.name);
-		    temp = temp->nextstmt;
-		}
-	      /* Then insert the last stmt.  */
-	      type_insert (&(table->entry[index]), temp, returntype,
-                       temp->astnode.ident.name);
-	  }
-	  break;
-      case Format:
-	  {
-             HASHNODE *newnode = (HASHNODE *) malloc(sizeof(HASHNODE));
+        HASHNODE *newnode = (HASHNODE *) malloc(sizeof(HASHNODE));
              
      
-             newnode->ident = strdup(tmp);
-             newnode->type = 0;             
-             newnode->variable = node;             
-             newnode->localvarnum = -1;
+        newnode->ident = strdup(tmp);
+        newnode->type = 0;             
+        newnode->variable = node;             
+        newnode->localvarnum = -1;
  
-             newnode->next = table->entry[index];
-             table->entry[index] = newnode;
-          }
-          break;
-       default:
-          fprintf(stderr,"symtab:  Bad node in hash_insert.\n");
-          break;
-      }				/* Close switch().  */
-    return (1);
+        newnode->next = table->entry[index];
+        table->entry[index] = newnode;
+      }
+      break;
+    default:
+      fprintf(stderr,"symtab:  Bad node in hash_insert.\n");
+      break;
+  }				/* Close switch().  */
+  return (1);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * type_insert                                                               *
+ *                                                                           *
+ * Insert a node into the given table.                                       *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 type_insert (HASHNODE ** list, AST * node_val, int returntype, char *tag)
 {
+  HASHNODE *newnode;
 
-    HASHNODE *newnode;
-
-    newnode = (HASHNODE *) malloc (sizeof (HASHNODE));
+  newnode = (HASHNODE *) malloc (sizeof (HASHNODE));
 /*     newnode->ident = node_val->astnode.ident.name; */
-    newnode->ident = tag;
-    newnode->type = returntype;
-    newnode->variable = node_val;
-    /*  Initialize to zero; assign number after all types
-	are declared.  */
-    newnode->localvarnum = -1;
+  newnode->ident = tag;
+  newnode->type = returntype;
+  newnode->variable = node_val;
 
-    /*  Note carefully the dereferencing operators. */
-    newnode->next = *list;
-    *list = newnode;
+  /* Initialize to zero; assign number after all types
+   * are declared.  
+   */
+  newnode->localvarnum = -1;
+
+  /*  Note carefully the dereferencing operators. */
+  newnode->next = *list;
+  *list = newnode;
 }
 
 
-#ifdef GETRIDOFTHISLATER
-int
-local_insert (HASHNODE ** list, AST * node_val, int returntype)
-{
+/*****************************************************************************
+ *                                                                           *
+ * type_lookup                                                               *
+ *                                                                           *
+ *  This is a specific lookup routine to match an id with                    *
+ * its associated type.  I will need others for matching                     *
+ * externals, intrinsics, etc.                                               *
+ *                                                                           *
+ *****************************************************************************/
 
-static int localvarnum = 0;
-
-    HASHNODE *newnode;
-
-    newnode = (HASHNODE *) malloc (sizeof (HASHNODE));
-    newnode->ident = node_val->astnode.ident.name;
-    newnode->type = returntype;
-    newnode->variable = node_val;
-    newnode->localvarnum = localvarnum;
-
-    newnode->next = *list;
-    *list = newnode;
-localvarnum++;
-}
-#endif
-
-
-/*  This is a specific lookup routine to match an id with 
-   its associated type.  I will need others for matching 
-   externals, intrinsics, etc.  */
 HASHNODE *
 type_lookup (SYMTABLE * table, char *id)
 {
@@ -188,10 +225,27 @@ type_lookup (SYMTABLE * table, char *id)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * format_lookup                                                             *
+ *                                                                           *
+ * Look for a FORMAT statement in the given table.                           *
+ *                                                                           *
+ *****************************************************************************/
+
 HASHNODE * format_lookup(SYMTABLE *table, char *label)
 {
   return type_lookup(table,label);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * search_hashlist                                                           *
+ *                                                                           *
+ * If there is an entry corresponding to the given id in this list, return   *
+ * a pointer to it.  otherwise return NULL.                                  *
+ *                                                                           *
+ *****************************************************************************/
 
 HASHNODE *
 search_hashlist (HASHNODE * list, char *id)
@@ -212,12 +266,17 @@ search_hashlist (HASHNODE * list, char *id)
 }
 
 
-/*  Simple hash function: just add the ascii integer
-    values of each character in the string. 
-
-    Added error check for null string and made some
-    other minor changes.  12/5/97  --Keith
- */ 
+/*****************************************************************************
+ *                                                                           *
+ * hash                                                                      *
+ *                                                                           *
+ *  Simple hash function: just add the ascii integer                         *
+ *  values of each character in the string.                                  *
+ *                                                                           *
+ *  Added error check for null string and made some                          *
+ *  other minor changes.  12/5/97  --Keith                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 hash (char *str)

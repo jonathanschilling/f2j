@@ -1,8 +1,21 @@
-/*  vcg_emiiter.c
-   Emits a graph representing the syntax tree for the
-   fortran program.  The file is compatible with the
-   VCG tool (Visualization of Compiler Graphs).
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
  */
+
+
+/*****************************************************************************
+ * vcg_emitter.c                                                             *
+ *                                                                           *
+ * Emits a graph representing the syntax tree for the                        *
+ * fortran program.  The file is compatible with the                         *
+ * VCG tool (Visualization of Compiler Graphs).                              *
+ * I'm afraid this routine is horribly out of date.                          *
+ *                                                                           *
+ *****************************************************************************/
+
 
 #include<stdio.h>
 #include<string.h>
@@ -10,23 +23,42 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
+
 char *strdup(const char *);
 
-char *progname;
-char *returnname;
-char temp_buf[200];
+void 
+  emit_vcg(AST *,int),
+  vcg_elseif_emit(AST *,int),
+  vcg_else_emit(AST *,int);
 
-void emit_vcg(AST *,int);
-void vcg_elseif_emit(AST *,int);
-void vcg_else_emit(AST *,int);
+/*****************************************************************************
+ * Global variables.                                                         *
+ *****************************************************************************/
 
-extern char *returnstring[];
+int 
+  vcg_debug = FALSE,            /* set to TRUE to get debugging output       */
+  node_num = 1;                 /* initialize node counter                   */
 
-int node_num = 1;
+char 
+  temp_buf[200],                /* temporary buffer for node titles          */
+  * returnname;                 /* return type of the current program unit   */
 
-int vcg_debug = 0;
+extern char *returnstring[];    /* data types (from codegen.c)               */
 
-void start_vcg(AST *root)
+/*****************************************************************************
+ *                                                                           *
+ * start_vcg                                                                 *
+ *                                                                           *
+ * Print graph header (width, height, etc.) and call emit_vcg() to generate  *
+ * the rest of the graph.                                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void 
+start_vcg(AST *root)
 {
   /* print header information */
 
@@ -54,7 +86,16 @@ void start_vcg(AST *root)
   fprintf(vcgfp,"}\n");
 }
   
-void print_vcg_node(int num, char *label)
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_node                                                            *
+ *                                                                           *
+ * Given a number and a label, this function prints a node specification.    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+print_vcg_node(int num, char *label)
 {
   if(vcg_debug)
     printf("creating node \"%s\"\n",label);
@@ -71,7 +112,17 @@ void print_vcg_node(int num, char *label)
   node_num++;
 }
 
-void print_vcg_typenode(int num, char *label)
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_typenode                                                        *
+ *                                                                           *
+ * Similar to print_vcg_node except that this function prints a special      *
+ * "typenode", which acts as as annotation to the graph (showing type info). *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+print_vcg_typenode(int num, char *label)
 {
   if(vcg_debug)
     printf("creating typenode \"%s\"\n",label);
@@ -83,19 +134,50 @@ void print_vcg_typenode(int num, char *label)
   node_num++;
 }
 
-void print_vcg_edge(int source, int dest)
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_edge                                                            *
+ *                                                                           *
+ * Given the source and destination node numbers, this function emits an     *
+ * edge to connect them.                                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+print_vcg_edge(int source, int dest)
 {
   fprintf(vcgfp,
     "edge: { thickness: 6 color: red sourcename: \"%d\" targetname: \"%d\"}\n\n",
     source, dest);
 }
 
-void print_vcg_nearedge(int source, int dest)
+/*****************************************************************************
+ *                                                                           *
+ * print_vcg_nearedge                                                        *
+ *                                                                           *
+ * Similar to print_vcg_edge except that this function emits a "nearedge",   *
+ * which tells VCG to try to keep the nodes close together.                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void 
+print_vcg_nearedge(int source, int dest)
 {
   fprintf(vcgfp,"nearedge: { sourcename: \"%d\" targetname: \"%d\"\n",
       source, dest);
   fprintf(vcgfp,"color: blue thickness: 6\n}\n\n");
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_vcg                                                                  *
+ *                                                                           *
+ * This is the main VCG generation function.  We traverse the                *
+ * AST and recursively call emit_vcg() on each node.  This                   *
+ * function figures out what kind of node it's looking at and                *
+ * calls the appropriate function to handle the graph generation.            *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 emit_vcg (AST * root, int parent)
@@ -110,174 +192,193 @@ emit_vcg (AST * root, int parent)
   void vcg_logicalif_emit (AST *, int);
   void vcg_label_emit (AST *, int);
 
-    switch (root->nodetype)
-      {
-      case 0:
-	  fprintf(stderr,"Bad node in emit_vcg()\n");
-	  emit_vcg (root->nextstmt,node_num);
-      case Progunit:
-          if(vcg_debug)
-            printf("case Source\n");
-          print_vcg_node(node_num,"Progunit");
+  switch (root->nodetype)
+  {
+    case 0:
+      fprintf(stderr,"Bad node in emit_vcg()\n");
+      emit_vcg (root->nextstmt,node_num);
+    case Progunit:
+      if(vcg_debug)
+        printf("case Source\n");
 
-          if(vcg_debug)
-            printf("case Source: Going to emit PROGTYPE\n");
-	  emit_vcg (root->astnode.source.progtype, my_node);
+      print_vcg_node(node_num,"Progunit");
 
-          if(vcg_debug)
-            printf("case Source: Going to emit TYPEDECS\n");
-	  emit_vcg (root->astnode.source.typedecs, my_node);
+      if(vcg_debug)
+        printf("case Source: Going to emit PROGTYPE\n");
 
-          if(vcg_debug)
-            printf("case Source: Going to emit STATEMENTS\n");
-	  emit_vcg (root->astnode.source.statements, my_node);
+      emit_vcg (root->astnode.source.progtype, my_node);
 
-	  break;
-      case Subroutine:
-          if(vcg_debug)
-            printf("case Subroutine\n");
+      if(vcg_debug)
+        printf("case Source: Going to emit TYPEDECS\n");
 
-          print_vcg_node(node_num,"Subroutine");
-          print_vcg_edge(parent, my_node);
+      emit_vcg (root->astnode.source.typedecs, my_node);
 
-	  returnname = NULL;	/* Subroutines return void. */
-	  break;
-      case Function:
-          if(vcg_debug)
-            printf("case Function\n");
+      if(vcg_debug)
+        printf("case Source: Going to emit STATEMENTS\n");
 
-	  sprintf (temp_buf,"Function: %s\n", 
-             root->astnode.source.name->astnode.ident.name);
-          print_vcg_node(node_num,temp_buf);
-          print_vcg_edge(parent, my_node);
-	  returnname = root->astnode.source.name->astnode.ident.name;
-	  break;
-      case Typedec:
-          if(vcg_debug)
-            printf("case Typedec\n");
+      emit_vcg (root->astnode.source.statements, my_node);
 
-	  vcg_typedec_emit (root, parent);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Specification:
-          if(vcg_debug)
-            printf("case Specification\n");
+      break;
+    case Subroutine:
+      if(vcg_debug)
+        printf("case Subroutine\n");
 
-	  vcg_spec_emit (root, parent);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Statement:
-          if(vcg_debug)
-            printf("case Statement\n");
+      print_vcg_node(node_num,"Subroutine");
+      print_vcg_edge(parent, my_node);
 
-          print_vcg_node(node_num,"Statement");
-          print_vcg_edge(parent, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
+      returnname = NULL;	/* Subroutines return void. */
+      break;
+    case Function:
+      if(vcg_debug)
+        printf("case Function\n");
 
-      case Assignment:
-          print_vcg_node(node_num,"Assignment");
-          print_vcg_edge(parent, my_node);
-	  vcg_assign_emit (root, my_node);
-	  if (root->nextstmt != NULL)
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Call:
-	  vcg_call_emit (root, parent);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Forloop:
-          print_vcg_node(node_num,"For loop");
-          print_vcg_edge(parent, my_node);
-	  vcg_forloop_emit (root, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
+      sprintf (temp_buf,"Function: %s\n", 
+        root->astnode.source.name->astnode.ident.name);
+      print_vcg_node(node_num,temp_buf);
+      print_vcg_edge(parent, my_node);
+      returnname = root->astnode.source.name->astnode.ident.name;
+      break;
+    case Typedec:
+      if(vcg_debug)
+        printf("case Typedec\n");
 
-      case Blockif:
-          print_vcg_node(node_num,"Block if");
-          print_vcg_edge(parent, my_node);
-	  vcg_blockif_emit (root, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Elseif:
-          print_vcg_node(node_num,"Else if");
-          print_vcg_edge(parent, my_node);
-	  vcg_elseif_emit (root, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Else:
-          print_vcg_node(node_num,"Else");
-          print_vcg_edge(parent, my_node);
-	  vcg_else_emit (root, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Logicalif:
-          print_vcg_node(node_num,"Logical If");
-          print_vcg_edge(parent, my_node);
-	  vcg_logicalif_emit (root, my_node);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Return:
-	  if (returnname != NULL)
-	      sprintf (temp_buf, "Return (%s)", returnname);
-	  else
-	      sprintf (temp_buf, "Return");
+      vcg_typedec_emit (root, parent);
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Specification:
+      if(vcg_debug)
+        printf("case Specification\n");
 
-          print_vcg_node(node_num,temp_buf);
-          print_vcg_edge(parent, my_node);
+      vcg_spec_emit (root, parent);
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Statement:
+      if(vcg_debug)
+        printf("case Statement\n");
 
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Goto:
-          sprintf (temp_buf,"Goto (%d)", root->astnode.go_to.label);
-          print_vcg_node(node_num,temp_buf);
-          print_vcg_edge(parent, my_node);
+      print_vcg_node(node_num,"Statement");
+      print_vcg_edge(parent, my_node);
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
 
-	  if (root->nextstmt != NULL)
-	    emit_vcg (root->nextstmt, my_node);
-	  break;
+    case Assignment:
+      print_vcg_node(node_num,"Assignment");
+      print_vcg_edge(parent, my_node);
+      vcg_assign_emit (root, my_node);
+      if (root->nextstmt != NULL)
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Call:
+      vcg_call_emit (root, parent);
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Forloop:
+      print_vcg_node(node_num,"For loop");
+      print_vcg_edge(parent, my_node);
 
-      case Label:
-	  vcg_label_emit (root, parent);
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case End:
-          print_vcg_node(node_num,"End");
-          print_vcg_edge(parent, my_node);
-          /* end of the program */
-	  break;
-      case Unimplemented:
-          print_vcg_node(node_num,"UNIMPLEMENTED");
-          print_vcg_edge(parent, my_node);
+      vcg_forloop_emit (root, my_node);
 
-	  if (root->nextstmt != NULL)
-	      emit_vcg (root->nextstmt, my_node);
-	  break;
-      case Constant:
-          sprintf(temp_buf,"Constant(%s)",
-             root->astnode.constant.number);
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Blockif:
+      print_vcg_node(node_num,"Block if");
+      print_vcg_edge(parent, my_node);
 
-          print_vcg_node(node_num,temp_buf);
-          print_vcg_edge(parent, my_node);
-      default:
-	  fprintf (stderr,"vcg_emitter: Default case reached!\n");
-      }				/* switch on nodetype.  */
+      vcg_blockif_emit (root, my_node);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Elseif:
+      print_vcg_node(node_num,"Else if");
+      print_vcg_edge(parent, my_node);
+
+      vcg_elseif_emit (root, my_node);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Else:
+      print_vcg_node(node_num,"Else");
+      print_vcg_edge(parent, my_node);
+
+      vcg_else_emit (root, my_node);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Logicalif:
+      print_vcg_node(node_num,"Logical If");
+      print_vcg_edge(parent, my_node);
+
+      vcg_logicalif_emit (root, my_node);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Return:
+      if (returnname != NULL)
+        sprintf (temp_buf, "Return (%s)", returnname);
+      else
+        sprintf (temp_buf, "Return");
+
+      print_vcg_node(node_num,temp_buf);
+      print_vcg_edge(parent, my_node);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Goto:
+      sprintf (temp_buf,"Goto (%d)", root->astnode.go_to.label);
+      print_vcg_node(node_num,temp_buf);
+      print_vcg_edge(parent, my_node);
+
+      if (root->nextstmt != NULL)
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Label:
+      vcg_label_emit (root, parent);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case End:
+      print_vcg_node(node_num,"End");
+      print_vcg_edge(parent, my_node);
+
+      /* end of the program */
+      break;
+    case Unimplemented:
+      print_vcg_node(node_num,"UNIMPLEMENTED");
+      print_vcg_edge(parent, my_node);
+
+      if (root->nextstmt != NULL)
+        emit_vcg (root->nextstmt, my_node);
+      break;
+    case Constant:
+      sprintf(temp_buf,"Constant(%s)",
+      root->astnode.constant.number);
+      
+      print_vcg_node(node_num,temp_buf);
+      print_vcg_edge(parent, my_node);
+    default:
+      fprintf (stderr,"vcg_emitter: Default case reached!\n");
+  }				/* switch on nodetype.  */
 }
 
-/* Emit all the type declarations.  This procedure checks
-   whether variables are typed in the argument list, and
-   does not redeclare thoose arguments. */
+/*****************************************************************************
+ *                                                                           *
+ * vcg_typedec_emit                                                          *
+ *                                                                           *
+ * Emit all the type declaration nodes.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_typedec_emit (AST * root, int parent)
 {
@@ -295,7 +396,8 @@ vcg_typedec_emit (AST * root, int parent)
   temp = root->astnode.typeunit.declist;
 
   /* This may have to be moved into the looop also.  Could be
-     why I have had problems with this stuff.  */
+   * why I have had problems with this stuff.  
+   */
 
   hashtemp = type_lookup (external_table, temp->astnode.ident.name);
 
@@ -328,6 +430,14 @@ vcg_typedec_emit (AST * root, int parent)
     printf("leaving vcg_typdec_emit\n");
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * vcg_name_emit                                                             *
+ *                                                                           *
+ * Generate an identifier node.                                              *
+ *                                                                           *
+ *****************************************************************************/
+
 int
 vcg_name_emit (AST * root, int parent)
 {
@@ -348,21 +458,24 @@ vcg_name_emit (AST * root, int parent)
   sprintf(temp_buf,"Name (%s)",root->astnode.ident.name);
   print_vcg_node(my_node,temp_buf);
 
-  /*  Check to see whether name is in external table.  Names are
-     loaded into the external table from the parser.   */
+  /* Check to see whether name is in external table.  Names are
+   * loaded into the external table from the parser.   
+   */
 
   hashtemp = type_lookup (external_table, root->astnode.ident.name);
 
   /* If the name is in the external table, then check to see if
-     is an intrinsic function instead.  */
+   * is an intrinsic function instead.  
+   */
 
   if (hashtemp != NULL) {
     javaname = (char *) methodscan (intrinsic_toks, root->astnode.ident.name);
 
     /*  This block of code is only called if the identifier
-        absolutely does not have an entry in any table,
-        and corresponds to a method invocation of
-        something in the blas or lapack packages.  */
+     *  absolutely does not have an entry in any table,
+     *  and corresponds to a method invocation of
+     *  something in the blas or lapack packages.  
+     */
 
     if (javaname == NULL) {
       if (root->astnode.ident.arraylist != NULL) {
@@ -456,11 +569,12 @@ vcg_name_emit (AST * root, int parent)
         temp = root->astnode.ident.arraylist;
 
         /* Now, what needs to happen here is the context of the
-           array needs to be determined.  If the array is being
-           passed as a parameter to a method, then the array index
-           needs to be passed separately and the array passed as
-           itself.  If not, then an array value is being set,
-           so dereference with index arithmetic.  */
+         * array needs to be determined.  If the array is being
+         * passed as a parameter to a method, then the array index
+         * needs to be passed separately and the array passed as
+         * itself.  If not, then an array value is being set,
+         * so dereference with index arithmetic.  
+         */
 
         /*fprintf (javafp, "["); */
 
@@ -499,103 +613,123 @@ vcg_name_emit (AST * root, int parent)
   return my_node;
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * vcg_expr_emit                                                             *
+ *                                                                           *
+ * Recursive function to generate an expression graph.                       *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_expr_emit (AST * root, int parent)
 {
-   int my_node = node_num;
-   int temp_num;
+  int my_node = node_num;
+  int temp_num;
 
-    switch (root->nodetype)
-      {
-      case Identifier:
-          print_vcg_node(my_node,"Ident");
-          print_vcg_edge(parent,my_node);
-	  temp_num = vcg_name_emit (root, my_node);
-          print_vcg_edge(my_node,temp_num);
-	  break;
-      case Expression:
-	  if (root->astnode.expression.lhs != NULL)
-	      vcg_expr_emit (root->astnode.expression.lhs, parent);
-	  vcg_expr_emit (root->astnode.expression.rhs, parent);
-	  break;
-      case Power:
-          print_vcg_node(my_node,"pow()");
-          print_vcg_edge(parent,my_node);
+  switch (root->nodetype)
+  {
+    case Identifier:
+      print_vcg_node(my_node,"Ident");
+      print_vcg_edge(parent,my_node);
 
-	  vcg_expr_emit (root->astnode.expression.lhs, my_node);
-	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
-	  break;
-      case Binaryop:
-          sprintf(temp_buf,"%c", root->astnode.expression.optype);
-          print_vcg_node(my_node,temp_buf);
-          print_vcg_edge(parent,my_node);
+      temp_num = vcg_name_emit (root, my_node);
 
-	  vcg_expr_emit (root->astnode.expression.lhs, my_node);
-	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
-	  break;
-      case Unaryop:
-          sprintf(temp_buf,"%c", root->astnode.expression.minus);
-          print_vcg_node(my_node,temp_buf);
-          print_vcg_edge(parent,my_node);
+      print_vcg_edge(my_node,temp_num);
+      break;
+    case Expression:
+      if (root->astnode.expression.lhs != NULL)
+        vcg_expr_emit (root->astnode.expression.lhs, parent);
 
-	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
-	  break;
-      case Constant:
-          sprintf(temp_buf,"Constant(%s)",
-             root->astnode.constant.number);
+      vcg_expr_emit (root->astnode.expression.rhs, parent);
+      break;
+    case Power:
+      print_vcg_node(my_node,"pow()");
+      print_vcg_edge(parent,my_node);
 
-          print_vcg_node(node_num,temp_buf);
-          print_vcg_edge(parent, my_node);
-	  break;
-      case Logicalop:
-          if(root->token == AND)
-            print_vcg_node(my_node,"AND");
-          else if(root->token == OR)
-            print_vcg_node(my_node,"OR");
+      vcg_expr_emit (root->astnode.expression.lhs, my_node);
+      vcg_expr_emit (root->astnode.expression.rhs, my_node);
+      break;
+    case Binaryop:
+      sprintf(temp_buf,"%c", root->astnode.expression.optype);
+
+      print_vcg_node(my_node,temp_buf);
+      print_vcg_edge(parent,my_node);
+
+      vcg_expr_emit (root->astnode.expression.lhs, my_node);
+      vcg_expr_emit (root->astnode.expression.rhs, my_node);
+      break;
+    case Unaryop:
+      sprintf(temp_buf,"%c", root->astnode.expression.minus);
+
+      print_vcg_node(my_node,temp_buf);
+      print_vcg_edge(parent,my_node);
+
+      vcg_expr_emit (root->astnode.expression.rhs, my_node);
+      break;
+    case Constant:
+      sprintf(temp_buf,"Constant(%s)", root->astnode.constant.number);
+
+      print_vcg_node(node_num,temp_buf);
+      print_vcg_edge(parent, my_node);
+      break;
+    case Logicalop:
+      if(root->token == AND)
+        print_vcg_node(my_node,"AND");
+      else if(root->token == OR)
+        print_vcg_node(my_node,"OR");
            
-	  if (root->astnode.expression.lhs == NULL)
-            print_vcg_node(my_node,"NOT");
+      if (root->astnode.expression.lhs == NULL)
+        print_vcg_node(my_node,"NOT");
 
-          print_vcg_edge(parent,my_node);
+      print_vcg_edge(parent,my_node);
 
-	  if (root->astnode.expression.lhs != NULL)
-	    vcg_expr_emit (root->astnode.expression.lhs, my_node);
+      if (root->astnode.expression.lhs != NULL)
+        vcg_expr_emit (root->astnode.expression.lhs, my_node);
 
-	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
-	  break;
-      case Relationalop:
-	  switch (root->token)
-	    {
-	    case rel_eq:
-                print_vcg_node(my_node,"==");
-		break;
-	    case rel_ne:
-                print_vcg_node(my_node,"!=");
-		break;
-	    case rel_lt:
-                print_vcg_node(my_node,"<");
-		break;
-	    case rel_le:
-                print_vcg_node(my_node,"<=");
-		break;
-	    case rel_gt:
-                print_vcg_node(my_node,">");
-		break;
-	    case rel_ge:
-                print_vcg_node(my_node,">=");
-		break;
-	    default:
-                print_vcg_node(my_node,"Unknown RelationalOp");
-             }
-          print_vcg_edge(parent,my_node);
-
-	  vcg_expr_emit (root->astnode.expression.lhs, my_node);
-	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
-	  break;
-      default:
-          fprintf(stderr,"vcg_emitter: Bad node in vcg_expr_emit\n");
+      vcg_expr_emit (root->astnode.expression.rhs, my_node);
+      break;
+    case Relationalop:
+      switch (root->token)
+      {
+        case rel_eq:
+          print_vcg_node(my_node,"==");
+          break;
+        case rel_ne:
+          print_vcg_node(my_node,"!=");
+          break;
+        case rel_lt:
+          print_vcg_node(my_node,"<");
+          break;
+        case rel_le:
+          print_vcg_node(my_node,"<=");
+          break;
+        case rel_gt:
+          print_vcg_node(my_node,">");
+          break;
+        case rel_ge:
+          print_vcg_node(my_node,">=");
+          break;
+        default:
+          print_vcg_node(my_node,"Unknown RelationalOp");
       }
+      print_vcg_edge(parent,my_node);
+
+      vcg_expr_emit (root->astnode.expression.lhs, my_node);
+      vcg_expr_emit (root->astnode.expression.rhs, my_node);
+      break;
+    default:
+          fprintf(stderr,"vcg_emitter: Bad node in vcg_expr_emit\n");
+  }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * vcg_forloop_emit                                                          *
+ *                                                                           *
+ * Generate the graph for a DO loop.                                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vcg_forloop_emit (AST * root, int parent)
@@ -613,6 +747,14 @@ vcg_forloop_emit (AST * root, int parent)
 /*  emit_vcg (root->astnode.forloop.stmts, parent); */
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * vcg_logicalif_emit                                                        *
+ *                                                                           *
+ * Generates the graph nodes for a logical IF statement.                     *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_logicalif_emit (AST * root, int parent)
 {
@@ -623,6 +765,14 @@ vcg_logicalif_emit (AST * root, int parent)
 
   emit_vcg (root->astnode.logicalif.stmts,parent);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * vcg_label_emit                                                            *
+ *                                                                           *
+ * Generate the node for a label.                                            *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vcg_label_emit (AST * root, int parent)
@@ -637,6 +787,14 @@ vcg_label_emit (AST * root, int parent)
   if (root->astnode.label.stmt != NULL)
     emit_vcg (root->astnode.label.stmt,my_node);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * vcg_blockif_emit                                                          *
+ *                                                                           *
+ * Generates the nodes for a Block IF statement.                             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vcg_blockif_emit (AST * root, int parent)
@@ -655,6 +813,14 @@ vcg_blockif_emit (AST * root, int parent)
     emit_vcg (root->astnode.blockif.elsestmts,parent);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * vcg_elseif_emit                                                           *
+ *                                                                           *
+ * Generates the nodes for an else if block.                                 *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_elseif_emit (AST * root, int parent)
 {
@@ -666,101 +832,116 @@ vcg_elseif_emit (AST * root, int parent)
   emit_vcg (root->astnode.blockif.stmts,parent);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * vcg_else_emit                                                             *
+ *                                                                           *
+ * Generates the nodes for an else if block.                                 *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_else_emit (AST * root, int parent)
 {
   emit_vcg (root->astnode.blockif.stmts,parent);
 }
 
-/* This procedure implements Lapack and Blas type methods.
-   They are translated to static method invocations.
-   This is not a portable solution, it is specific to
-   the Blas and Lapack. */
+/*****************************************************************************
+ *                                                                           *
+ * vcg_call_emit                                                             *
+ *                                                                           *
+ * Generate the nodes for a function/subroutine call.                        *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 vcg_call_emit (AST * root, int parent)
 {
-    AST *temp;
-    char *tempname;
-    int my_node = node_num;
-    void vcg_expr_emit (AST *, int);
-    char * lowercase ( char * );
+  AST *temp;
+  char *tempname;
+  int my_node = node_num;
+  void vcg_expr_emit (AST *, int);
+  char * lowercase ( char * );
 
-    assert (root != NULL);
+  assert (root != NULL);
 
-    lowercase (root->astnode.ident.name);
-    tempname = strdup (root->astnode.ident.name);
-    *tempname = toupper (*tempname);
+  lowercase (root->astnode.ident.name);
+  tempname = strdup (root->astnode.ident.name);
+  *tempname = toupper (*tempname);
 
-    sprintf(temp_buf,"Call (%s)",root->astnode.ident.name);
-    print_vcg_node(node_num,temp_buf);
-    print_vcg_edge(parent, my_node);
+  sprintf(temp_buf,"Call (%s)",root->astnode.ident.name);
+  print_vcg_node(node_num,temp_buf);
+  print_vcg_edge(parent, my_node);
 
-    /* Assume all methods that are invoked are static.  */
-    /* fprintf (javafp, "%s.%s", tempname, root->astnode.ident.name); */
+  assert (root->astnode.ident.arraylist != NULL);
 
-    assert (root->astnode.ident.arraylist != NULL);
+  temp = root->astnode.ident.arraylist;
 
-    temp = root->astnode.ident.arraylist;
-
-    /* fprintf (javafp, "("); */
-
-    while (temp->nextstmt != NULL) {
-      vcg_expr_emit (temp, parent);
-      /* fprintf (javafp, ","); */
-      temp = temp->nextstmt;
-    }
-
+  while (temp->nextstmt != NULL) {
     vcg_expr_emit (temp, parent);
+    temp = temp->nextstmt;
+  }
+
+  vcg_expr_emit (temp, parent);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * vcg_spec_emit                                                             *
+ *                                                                           *
+ * Generate the nodes for a specification statement.                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vcg_spec_emit (AST * root, int parent)
 {
-    AST *assigntemp;
-    int my_node = node_num;
-    int temp_num;
-    void vcg_assign_emit (AST *, int);
+  AST *assigntemp;
+  int my_node = node_num;
+  int temp_num;
+  void vcg_assign_emit (AST *, int);
 
-    if(vcg_debug)
-      printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
-        my_node,parent);
+  if(vcg_debug)
+    printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
+      my_node,parent);
 
-    print_vcg_node(node_num,"Specification");
-    print_vcg_edge(parent, my_node);
+  print_vcg_node(node_num,"Specification");
+  print_vcg_edge(parent, my_node);
 
-    /* I am reaching every case in this switch.  */
-    switch (root->astnode.typeunit.specification)
-      {
-	  /* PARAMETER in fortran corresponds to a class
-	     constant in java, that has to be declared
-	     class wide outside of any method.  This is
-	     currently not implemented, but the assignment
-	     is made.  */
-      case Parameter:
-/*	  fprintf (javafp, "// Assignment from Fortran PARAMETER specification.\n"); */
-	  assigntemp = root->astnode.typeunit.declist;
-	  for (; assigntemp; assigntemp = assigntemp->nextstmt)
-	    {
-		/*  fprintf (javafp, "public static final "); */
-		vcg_assign_emit (assigntemp, parent);
-/*		fprintf (javafp, ";\n"); */
-	    }
-	  break;
+  /* I am reaching every case in this switch.  */
+  switch (root->astnode.typeunit.specification)
+  {
+    /* PARAMETER in fortran corresponds to a class
+     * constant in java, that has to be declared
+     * class wide outside of any method.  This is
+     * currently not implemented, but the assignment
+     * is made.  
+     */
 
-	  /*  I am reaching these next two cases. Intrinsic, for
-	     example handles stuff like Math.max, etc. */
-      case Intrinsic:
-	  temp_num = vcg_name_emit (root, parent);
-          print_vcg_edge(my_node, temp_num);
-	  break;
-      case External:
-	  /*        printf ("External stmt.\n");   */
-	  break;
-      case Implicit:
-          /* do nothing */
-          break;
-      }
+    case Parameter:
+      assigntemp = root->astnode.typeunit.declist;
+      for (; assigntemp; assigntemp = assigntemp->nextstmt)
+        vcg_assign_emit (assigntemp, parent);
+      break;
+
+    case Intrinsic:
+      temp_num = vcg_name_emit (root, parent);
+      print_vcg_edge(my_node, temp_num);
+      break;
+    case External:
+    case Implicit:
+      /* do nothing */
+      break;
+  }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * vcg_assign_emit                                                           *
+ *                                                                           *
+ * Generate the nodes for an assignment statement.                           *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vcg_assign_emit (AST * root, int parent)

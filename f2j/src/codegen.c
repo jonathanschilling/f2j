@@ -176,7 +176,7 @@ char *input_func_eof[] = /* input functions that detect EOF                  */
  * emit                                                                      *
  *                                                                           *
  * This is the main code generation function.  We traverse the               *
- * AST and call recursively call emit() on each node.  This                  *
+ * AST and recursively call emit() on each node.  This                       *
  * function figures out what kind of node it's looking at and                *
  * calls the appropriate function to handle the code generation.             *
  *                                                                           *

@@ -5,11 +5,29 @@
  * $Author$
  */
 
-/*  
- * optimize.c
- *   Determines which scalars really need to be wrapped
- * in objects for emulation of pass-by-reference.
- */
+/*****************************************************************************
+ * optimize.c                                                                *
+ *                                                                           *
+ * Determines which scalars really need to be wrapped in objects             *
+ * for emulation of pass-by-reference.  For the most part, this file         *
+ * mimics codegen.c since we must traverse the AST in the same way           *
+ * for both operations.                                                      *
+ *                                                                           *
+ * Basically, all we're doing here is trying to determine which variables    *
+ * are modified within this function (and functions called from this one).   *
+ * So, we are looking for three cases:                                       *
+ *                                                                           *
+ *   1.  the variable is an argument to this function and it is on the LHS   *
+ *         of an assignment                                                  *
+ *   2.  the variable is an argument to this function and it is an argument  *
+ *         to a READ statement                                               *
+ *   3.  the variable is passed to a function/subroutine that modifies it    *
+ *                                                                           *
+ * If any of the three cases are met, we classify the variable as a          *
+ * 'pass by reference' variable, meaning that it must be wrapped in an       *
+ * object.                                                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -18,16 +36,32 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+/*****************************************************************************
+ * Set optdebug to TRUE to get debugging output from the optimization        *
+ * routines.                                                                 *
+ *****************************************************************************/
+
 int optdebug = FALSE;
 
-char * strdup ( const char * );
-char * print_nodetype ( AST * ); 
-char * lowercase ( char * );
-char * methodscan (METHODTAB * , char * );
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
 
-/*
- * optimiziation
- */
+char 
+  * strdup ( const char * ),
+  * print_nodetype ( AST * ),
+  * lowercase ( char * ),
+  * methodscan (METHODTAB * , char * );
+
+/*****************************************************************************
+ *                                                                           *
+ * optScalar                                                                 *
+ *                                                                           *
+ * This is the main entry point for the optimization routines.  Here we look *
+ * up the current function name to determine whether it has been optimized   *
+ * yet.  If so, skip it - otherwise, optimize.                               *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 optScalar(AST *root)
@@ -36,6 +70,8 @@ optScalar(AST *root)
   HASHNODE *ht;
   void optimize (AST *, AST *);
   SYMTABLE *opt_type_table = root->astnode.source.type_table;
+
+  /* look up this function name */
 
   ht = type_lookup(global_func_table, 
    root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
@@ -46,35 +82,60 @@ optScalar(AST *root)
     return;
   }
 
-  printf("attempting to optimize %s\n",
-   root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  if(optdebug) {
+    printf("attempting to optimize %s\n",
+     root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
-  if(ht->variable->astnode.source.scalarOptStatus == NOT_VISITED)
-    printf("%s has not been visited yet\n",
-      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-  else if(ht->variable->astnode.source.scalarOptStatus == VISITED)
-    printf("%s has been visited but not finished\n",
-      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-  else if(ht->variable->astnode.source.scalarOptStatus == FINISHED)
-    printf("%s has been finished\n",
-      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-  else
-    printf("%s has an invalid status field\n",
-      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+    if(ht->variable->astnode.source.scalarOptStatus == NOT_VISITED)
+      printf("%s has not been visited yet\n",
+        root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+    else if(ht->variable->astnode.source.scalarOptStatus == VISITED)
+      printf("%s has been visited but not finished\n",
+        root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+    else if(ht->variable->astnode.source.scalarOptStatus == FINISHED)
+      printf("%s has been finished\n",
+        root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+    else
+      printf("%s has an invalid status field\n",
+        root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  }
+
+  /* if this function hasn't been visited yet, set the status to 'VISITED'
+   * and start optimizing it.
+   */
 
   if(ht->variable->astnode.source.scalarOptStatus == NOT_VISITED) {
     ht->variable->astnode.source.scalarOptStatus = VISITED;
     optimize(root, root);
   }
   
+  /* afterwards, make sure the status is set to 'FINISHED' */
+
   ht->variable->astnode.source.scalarOptStatus = FINISHED;
 
+  /* for each argument in the function, set its passByRef field from
+   * the values in the symbol table.  This saves some time later on
+   * when we want to know which arguments are pass by reference and
+   * which aren't.  we wont have to do symbol table lookups - just
+   * loop through each arg in the function.
+   */
+
   temp = root->astnode.source.progtype->astnode.source.args;
+
   for(;temp != NULL;temp = temp->nextstmt)
     if((ht = type_lookup(opt_type_table,temp->astnode.ident.name)) != NULL)
       if(ht->variable->astnode.ident.passByRef)
         temp->astnode.ident.passByRef = TRUE;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * optimize                                                                  *
+ *                                                                           *
+ * This is the main optimization routine.  It just determines what kind of   *
+ * node we're looking at and calls the appropriate function to handle it.    *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 optimize (AST * root, AST * rptr)
@@ -235,13 +296,25 @@ optimize (AST * root, AST * rptr)
     }				/* switch on nodetype.  */
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * spec_optimize                                                             *
+ *                                                                           *
+ * The only Specification we really care about here is the EXTERNAL          *
+ * declaration.  For each function declared external, we attempt to          *
+ * optimize that function.  This way we can be assured that when we're       *
+ * optimizing the executable code for this function, we already know         *
+ * which args to each function must be passed by reference.                  *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 spec_optimize(AST *root, AST *rptr)
 {
   SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
   AST *temp;
   HASHNODE *ht, *ht2;
-  void name_emit(AST *);
+  void name_optimize(AST *, AST *);
 
   switch (root->astnode.typeunit.specification)
   {
@@ -249,7 +322,8 @@ spec_optimize(AST *root, AST *rptr)
     case Implicit:
       break;
     case Intrinsic:
-      name_emit (root);
+      /* name_optimize will ignore Intrinsics */
+      name_optimize (root,rptr);
       break;
     case External:
       temp = root->astnode.typeunit.declist;
@@ -275,6 +349,15 @@ spec_optimize(AST *root, AST *rptr)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * external_optimize                                                         *
+ *                                                                           *
+ * This function is called when we're looking at a name that is declared     *
+ * EXTERNAL.  Normally, this corresponds to a function/subroutine call.      *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 external_optimize(AST *root, AST *rptr)
 {
@@ -290,6 +373,8 @@ external_optimize(AST *root, AST *rptr)
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
+
+  /* First, make sure this isn't some intrinsic function. */
 
   javaname = (char *) methodscan (intrinsic_toks, tempname);
 
@@ -307,8 +392,18 @@ external_optimize(AST *root, AST *rptr)
 
     return;
   }
-
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * name_optimize                                                             *
+ *                                                                           *
+ * Surprisingly, we dont do much here in name_optimze.  If the name looks    *
+ * like an EXTERNAL, call external_optimize.  If it looks like a call of     *
+ * some sort, but we didn't find it in the external or intrinsic tables,     *
+ * call subcall_optimize.                                                    *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 name_optimize (AST * root, AST *rptr)
@@ -323,9 +418,11 @@ name_optimize (AST * root, AST *rptr)
 
   void subcall_optimize(AST *, AST *);
 
-printf("here in name_optimize... %s\n",print_nodetype(root));
-if(root->nodetype == Identifier)
-  printf("name is %s\n",root->astnode.ident.name);
+  if(optdebug) {
+    printf("here in name_optimize... %s\n",print_nodetype(root));
+    if(root->nodetype == Identifier)
+      printf("name is %s\n",root->astnode.ident.name);
+  }
 
   /*  
    *  Check to see whether name is in external table.  Names are
@@ -342,57 +439,60 @@ if(root->nodetype == Identifier)
 
   if (type_lookup (opt_external_table, root->astnode.ident.name) != NULL)
   {
-printf("going to external_optimize\n");
+    if(optdebug)
+      printf("going to external_optimize\n");
     external_optimize(root, rptr);
   }
   else if(( methodscan (intrinsic_toks, tempname) != NULL) 
      && ( (type_lookup(opt_intrinsic_table, root->astnode.ident.name) != NULL)
        || (type_lookup(opt_type_table, root->astnode.ident.name) == NULL)))
   {
-printf("looks like an intrinsic\n");
+    if(optdebug)
+      printf("looks like an intrinsic\n");
   }
   else
     switch (root->token)
     {
-      /* 
-       * I think the first case (STRING/CHAR) is obsolete now since string 
-       * and char constants were moved to the Constant production.  
-       * 9/23/97, Keith 
-       */
-
       case STRING:
       case CHAR:
-        if(optdebug)
-          printf("** I am going to optimize a String/char literal!\n");
-        break;
       case INTRINSIC: 
         /* do nothing */
         break;
       case NAME:
       default:
+        /* we only care if this looks like a subcall */
 
         hashtemp = type_lookup (opt_array_table, root->astnode.ident.name);
 
         if (root->astnode.ident.arraylist == NULL)
         {
+          /* dont care */
         }
         else if (hashtemp != NULL)
         {
+          /* dont care */
         }
         else
         {
-printf("going to subcall_optimize\n");
+          if(optdebug)
+            printf("going to subcall_optimize\n");
+
           subcall_optimize(root, rptr);
         }
         break;
     }
 }
 
-/*  This function optimize a function call.  I think this function
- * is only called in cases where the function or subroutine is
- * not declared external or intrinsic and we dont know what
- * else to do with it.
- */
+/*****************************************************************************
+ *                                                                           *
+ * subcall_optimize                                                          *
+ *                                                                           *
+ *  This function optimize a function call.  I think this function           *
+ * is only called in cases where the function or subroutine is               *
+ * not declared external or intrinsic and we dont know what                  *
+ * else to do with it.                                                       *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 subcall_optimize(AST *root, AST *rptr)
@@ -409,17 +509,20 @@ subcall_optimize(AST *root, AST *rptr)
   if(temp->nodetype != EmptyArgList)
     for (; temp != NULL; temp = temp->nextstmt)
     {
-                        
       if (*temp->astnode.ident.name != '*')
         expr_optimize (temp, rptr);
     }
 }
 
-/* 
- * All this will do is optimize a number if there is one.
- * Needs to be extended for arrays, etc.  Consider using
- * a switch/case structure for this.
- */
+/*****************************************************************************
+ *                                                                           *
+ * expr_optimize                                                             *
+ *                                                                           *
+ * All this will do is optimize an expression.                               *
+ * Needs to be extended for arrays, etc.  Consider using                     *
+ * a switch/case structure for this.                                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 expr_optimize (AST * root, AST *rptr)
@@ -438,102 +541,36 @@ expr_optimize (AST * root, AST *rptr)
     case Identifier:
       name_optimize (root, rptr);
       break;
-    case Expression:
-
-      if (root->astnode.expression.lhs != NULL)
-        expr_optimize (root->astnode.expression.lhs, rptr);
-
-      expr_optimize (root->astnode.expression.rhs, rptr);
-
-      break;
-    case Power:
-      /* hack alert: */
-      expr_optimize (root->astnode.expression.lhs, rptr);
-      expr_optimize (root->astnode.expression.rhs, rptr);
-      break;
-    case Binaryop:
-      expr_optimize (root->astnode.expression.lhs, rptr);
-      expr_optimize (root->astnode.expression.rhs, rptr);
-      break;
     case Unaryop:
       expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Constant:
 
-     /* 
-      * here we need to determine if this is a parameter to a function
-      * or subroutine.  if so, and we are using wrappers, then we need
-      * to create a temporary wrapper and pass that in instead of the
-      * constant.   10/9/97  -- Keith 
-      */
-
-     if(root->parent != NULL)
-     {
-       tempname = strdup(root->parent->astnode.ident.name);
-       uppercase(tempname);
-     }
-       break;
-    case Logicalop:
       /* 
-       * Change all of this code to switch on the tokens.
-       * The parser code will have to store the NOT token.
+       * here we need to determine if this is a parameter to a function
+       * or subroutine.  if so, and we are using wrappers, then we need
+       * to create a temporary wrapper and pass that in instead of the
+       * constant.   10/9/97  -- Keith 
        */
+
+      if(root->parent != NULL)
+      {
+        tempname = strdup(root->parent->astnode.ident.name);
+        uppercase(tempname);
+      }
+      break;
+    case Expression:
+    case Logicalop:
       if (root->astnode.expression.lhs != NULL)
         expr_optimize (root->astnode.expression.lhs, rptr);
       expr_optimize (root->astnode.expression.rhs, rptr);
       break;
+    case Power:
+    case Binaryop:
     case Relationalop:
 
-      switch (root->token)
-      {
-        case rel_eq:
-
-          if(((root->astnode.expression.lhs->vartype == String) ||
-              (root->astnode.expression.lhs->vartype == Character)) &&
-             ((root->astnode.expression.rhs->vartype == String) ||
-              (root->astnode.expression.rhs->vartype == Character)))
-          {
-            expr_optimize (root->astnode.expression.lhs, rptr);
-            expr_optimize (root->astnode.expression.rhs, rptr);
-          }
-          else
-          {
-            expr_optimize (root->astnode.expression.lhs, rptr);
-            expr_optimize (root->astnode.expression.rhs, rptr);
-          }
-          break;
-        case rel_ne:
-          if(((root->astnode.expression.lhs->vartype == String) ||
-              (root->astnode.expression.lhs->vartype == Character)) &&
-             ((root->astnode.expression.rhs->vartype == String) ||
-              (root->astnode.expression.rhs->vartype == Character)))
-          {
-            expr_optimize (root->astnode.expression.lhs, rptr);
-            expr_optimize (root->astnode.expression.rhs, rptr);
-          }
-          else
-          {
-            expr_optimize (root->astnode.expression.lhs, rptr);
-            expr_optimize (root->astnode.expression.rhs, rptr);
-          }
-          break;
-        case rel_lt:
-          expr_optimize (root->astnode.expression.lhs, rptr);
-          expr_optimize (root->astnode.expression.rhs, rptr);
-          break;
-        case rel_le:
-          expr_optimize (root->astnode.expression.lhs, rptr);
-          expr_optimize (root->astnode.expression.rhs, rptr);
-          break;
-        case rel_gt:
-          expr_optimize (root->astnode.expression.lhs, rptr);
-          expr_optimize (root->astnode.expression.rhs, rptr);
-          break;
-        case rel_ge:
-          expr_optimize (root->astnode.expression.lhs, rptr);
-          expr_optimize (root->astnode.expression.rhs, rptr);
-          break;
-      }
+      expr_optimize (root->astnode.expression.lhs, rptr);
+      expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Substring:
       expr_optimize(root->astnode.ident.arraylist, rptr);
@@ -546,14 +583,13 @@ expr_optimize (AST * root, AST *rptr)
 }
 
 
-/*
- * This function generates code to implement the fortran DO loop.
- * naturally, we use Java's 'for' loop for this purpose.
- *
- * We also keep track of the nesting of for loops so that if we
- * encounter a goto statement within a loop, we can generate a
- * java 'break' or 'continue' statement.
- */
+/*****************************************************************************
+ *                                                                           *
+ * forloop_optimize                                                          *
+ *                                                                           *
+ * This function traverses forloops.  Nothing much happens here.             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 forloop_optimize (AST * root, AST *rptr)
@@ -573,13 +609,12 @@ forloop_optimize (AST * root, AST *rptr)
     *  Some point I will need to test whether this is really a name
     *  because it will crash if not.  
     */
+
   indexname = 
       root->astnode.forloop.start->astnode.assignment.lhs->astnode.ident.name;
 
   if(root->astnode.forloop.incr != NULL)
-  {
     expr_optimize (root->astnode.forloop.incr, rptr);
-  }
 
   assign_optimize (root->astnode.forloop.start, rptr);
 
@@ -602,10 +637,15 @@ forloop_optimize (AST * root, AST *rptr)
     
     name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
   }
-
-   /*  Done with loop parameters.  */
-
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * logicalif_optimize                                                        *
+ *                                                                           *
+ * Optimize a logical if statement.                                          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 logicalif_optimize (AST * root, AST *rptr)
@@ -614,6 +654,14 @@ logicalif_optimize (AST * root, AST *rptr)
     expr_optimize (root->astnode.logicalif.conds, rptr);
   optimize (root->astnode.logicalif.stmts, rptr);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * write_optimize                                                            *
+ *                                                                           *
+ * Optimize a WRITE statement.                                               *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 write_optimize (AST * root, AST *rptr)
@@ -625,6 +673,16 @@ write_optimize (AST * root, AST *rptr)
     if(temp->nodetype != ImpliedLoop)
       expr_optimize(temp, rptr);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * read_optimize                                                             *
+ *                                                                           *
+ * Optimize a READ statement.  Here we examine each argument of the READ     *
+ * statement to determine whether it's an argument to the current function.  *
+ * If so, we must mark it as pass by reference.
+ *                                                                           *
+ *****************************************************************************/
 
 void
 read_optimize (AST * root, AST *rptr)
@@ -639,6 +697,7 @@ read_optimize (AST * root, AST *rptr)
     return;
   }
 
+  /* for each arg... */
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == ImpliedLoop)
@@ -662,9 +721,22 @@ read_optimize (AST * root, AST *rptr)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * read_implied_loop_optimize                                                *
+ *                                                                           *
+ * We're looking at an implied loop in a READ statement.  The only time we   *
+ * care about arrays being 'pass by reference' is when we're generating      *
+ * the front-end inteerface.  In that case, we use the passByRef field       *
+ * to determine which arrays must be copied back after the call.             *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 read_implied_loop_optimize(AST *node, AST *rptr)
 {
+
+  /* NOTE: we need to set the passByRef field of the array somewhere in here */
 
   expr_optimize(node->astnode.forloop.start, rptr);
   expr_optimize(node->astnode.forloop.stop, rptr);
@@ -681,13 +753,14 @@ read_implied_loop_optimize(AST *node, AST *rptr)
   }
 }
 
-/*
- * This function generates the code which implements fortran's
- * block if.  This could also be a simulated while loop, which
- * is why we push this loop's number on the while_list.  This
- * way we can generate a java 'while' loop instead of the
- * simulated while loop using gotos.
- */
+/*****************************************************************************
+ *                                                                           *
+ * blockif_optimize                                                          *
+ *                                                                           *
+ * Here we have a block IF statement.  We should optimize the expression     *
+ * and the statements.
+ *                                                                           *
+ *****************************************************************************/
 
 void
 blockif_optimize (AST * root, AST *rptr)
@@ -696,6 +769,10 @@ blockif_optimize (AST * root, AST *rptr)
   AST *temp;
   int *tmp_int;
   void while_optimize(AST *, AST *);
+
+  /* This function could probably be simplified by getting rid of all the
+   * while detection code.  It isn't really necessary here.
+   */
 
   tmp_int = (int*)malloc(sizeof(int));
 
@@ -748,25 +825,15 @@ blockif_optimize (AST * root, AST *rptr)
     optimize (root->astnode.blockif.elsestmts, rptr);
 }
 
-/* 
- *   while_optimize() is called when an if statement has been identified
- *   as a simulated while loop, e.g.:
- *
- *     10 continue
- *        if(x < 10) then
- *           do something
- *           x = x+1
- *        goto 10
- *
- *   this can be translated into java as:
- *
- *     while(x<10) {
- *       do something
- *       x = x+1
- *     }
- *
- *   that just gives us one less goto statement to worry about.  --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * while_optimize                                                            *
+ *                                                                           *
+ * while_optimize() is called when an if statement has been identified       *
+ * as a simulated while loop.   This could probably be inlined into the      *
+ * block if routine.                                                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 while_optimize(AST *root, AST *rptr)
@@ -778,23 +845,29 @@ while_optimize(AST *root, AST *rptr)
 
 }
 
-/* 
- * This function generates the code for the fortran 'else if'
- * construct.
- */
+/*****************************************************************************
+ *                                                                           *
+ * elseif_optimize                                                           *
+ *                                                                           *
+ * Nothing special here.  we examine the elseif portion of a block if.       *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 elseif_optimize (AST * root, AST *rptr)
 {
-    if (root->astnode.blockif.conds != NULL)
-	expr_optimize (root->astnode.blockif.conds, rptr);
-    optimize (root->astnode.blockif.stmts, rptr);
+  if (root->astnode.blockif.conds != NULL)
+    expr_optimize (root->astnode.blockif.conds, rptr);
+  optimize (root->astnode.blockif.stmts, rptr);
 }
 
-/* 
- * This function generates the code for the fortran 'else'
- * construct.
- */
+/*****************************************************************************
+ *                                                                           *
+ * else_optimize                                                             *
+ *                                                                           *
+ * Here we examine the else portion of a block if.                           *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 else_optimize (AST * root, AST *rptr)
@@ -802,12 +875,15 @@ else_optimize (AST * root, AST *rptr)
     optimize (root->astnode.blockif.stmts, rptr);
 }
 
-/* 
- *  This procedure implements Lapack and Blas type methods.
- *  They are translated to static method invocations.
- *  This is not a portable solution, it is specific to
- *  the Blas and Lapack. 
- */
+/*****************************************************************************
+ *                                                                           *
+ * call_optimize                                                             *
+ *                                                                           *
+ * Handles external calls.  What we really want to know is whether any of    *
+ * the arguments to the function we're calling are passed by reference.      *
+ * If so, we must wrap the corresponding variable in this function.          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 call_optimize (AST * root, AST *rptr)
@@ -822,7 +898,8 @@ call_optimize (AST * root, AST *rptr)
   void expr_optimize(AST *, AST *);
   int cnt;
 
-printf("enter call_optimize\n");
+  if(optdebug)
+    printf("enter call_optimize\n");
 
   assert (root != NULL);
 
@@ -863,7 +940,9 @@ printf("enter call_optimize\n");
 
   /* look up the function name so that we may compare the parameters */
 
-printf("looking up %s in the global function table\n",root->astnode.ident.name);
+  if(optdebug)
+    printf("looking up %s in the global func table\n",root->astnode.ident.name);
+
   if((hashtemp=type_lookup(global_func_table, root->astnode.ident.name)) != NULL)
   {
     AST *t2;
@@ -893,6 +972,8 @@ printf("looking up %s in the global function table\n",root->astnode.ident.name);
    
                if(ht3) {
  
+                 /* special handling for COMMON variables */
+
                  temp2 = ht3->variable->astnode.common.nlist;
                  cnt = 0;
 
@@ -936,12 +1017,15 @@ printf("looking up %s in the global function table\n",root->astnode.ident.name);
   }
 }
 
-/* 
- * This function generates the code for assignment statements.
- * If it looks like the lhs and rhs have different types, we
- * try to provide the appropriate cast, but in some cases the
- * resulting code may need to be modified slightly.
- */
+/*****************************************************************************
+ *                                                                           *
+ * assign_optimize                                                           *
+ *                                                                           *
+ * We're looking at an assignment statement.  If the LHS of this assignment  *
+ * is an argument to the current function, then it must be classified as     *
+ * pass by reference.                                                        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 assign_optimize (AST * root, AST *rptr)
@@ -963,7 +1047,8 @@ assign_optimize (AST * root, AST *rptr)
 
   name_optimize (root->astnode.assignment.lhs, rptr);
   
-  ht = type_lookup(opt_type_table,root->astnode.assignment.lhs->astnode.ident.name);
+  ht=type_lookup(opt_type_table,root->astnode.assignment.lhs->astnode.ident.name);
+
   if(ht) {
     if(type_lookup(opt_args_table, 
           root->astnode.assignment.lhs->astnode.ident.name) != NULL)

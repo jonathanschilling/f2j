@@ -1,4 +1,18 @@
-/* typecheck.c */
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
+
+/*****************************************************************************
+ * typecheck.c                                                               *
+ *                                                                           *
+ * Traverses the AST to determine the data type for all expressions.         *
+ *                                                                           *
+ *****************************************************************************/
+
 
 #include<stdio.h>
 #include<string.h>
@@ -6,25 +20,47 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
-char * strdup ( const char * );
-char * print_nodetype ( AST * ); 
-void elseif_check(AST *);
-void else_check (AST *);
+#define MIN(x,y) ((x)<(y)?(x):(y))       /* the minimum of two numbers       */
 
-int checkdebug = FALSE;
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
 
-#define MIN(x,y) ((x)<(y)?(x):(y))
+char 
+  * strdup ( const char * ),
+  * print_nodetype ( AST * ),
+  * methodscan (METHODTAB *, char *);
 
-SYMTABLE *chk_type_table;
-SYMTABLE *chk_external_table;
-SYMTABLE *chk_intrinsic_table;
-SYMTABLE *chk_array_table;
+void 
+  elseif_check(AST *),
+  else_check (AST *);
 
-char *methodscan (METHODTAB *, char *);
+/*****************************************************************************
+ * Global variables.                                                         *
+ *****************************************************************************/
 
-extern char *returnstring[]; 
+int checkdebug = FALSE;              /* set to TRUE for debugging output     */
 
-AST *cur_unit;
+extern char *returnstring[];         /* return types (from codegen.c)        */
+
+AST *cur_unit;                       /* program unit currently being checked */
+
+SYMTABLE 
+  * chk_type_table,                  /* ptr to this unit's symbol table      */
+  * chk_external_table,              /* ptr to table of external functions   */
+  * chk_intrinsic_table,             /* ptr to table of intrinsics           */
+  * chk_array_table;                 /* ptr to array table                   */
+
+/*****************************************************************************
+ *                                                                           *
+ * typecheck                                                                 *
+ *                                                                           *
+ * This is the main typechecking function.  We traverse the                  *
+ * AST and recursively call typecheck() on each node.  This                  *
+ * function figures out what kind of node it's looking at and                *
+ * calls the appropriate function to handle the typechecking.                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 typecheck (AST * root)
@@ -64,6 +100,7 @@ typecheck (AST * root)
       /* now that the equivalences have been merged and duplicates
        * removed, we insert the variable names into a symbol table.
        */
+
       root->astnode.source.equivalence_table = new_symtable(211);
       insertEquivalences(root);
 
@@ -221,16 +258,19 @@ typecheck (AST * root)
   }				/* switch on nodetype.  */
 }
 
-/* merge_equivalences
- *
- *  ok, this is a very poorly written subroutine.  I admit it.
- * but I dont think that most programs will have a ton of equivalences
- * to merge, so it should not impose too much of a performance
- * penalty.  basically what we're doing here is looking at all
- * the equivalences in the unit and determining if some variable
- * is contained within more than one equivalence.   If so, we
- * merge those two equivalence statements.
- */
+/*****************************************************************************
+ *                                                                           *
+ * merge_equivalences                                                        *
+ *                                                                           *
+ * ok, this is a very poorly written subroutine.  I admit it.                *
+ * but I dont think that most programs will have a ton of equivalences       *
+ * to merge, so it should not impose too much of a performance               *
+ * penalty.  basically what we're doing here is looking at all               *
+ * the equivalences in the unit and determining if some variable             *
+ * is contained within more than one equivalence.   If so, we                *
+ * merge those two equivalence statements.                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 merge_equivalences(AST *root)
@@ -243,18 +283,31 @@ merge_equivalences(AST *root)
   if(checkdebug)
     printf("M_EQV  Equivalences:\n");
 
+  /* foreach equivalence statement... */
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
+
     if(checkdebug)
       printf("M_EQV (%d)", temp->token);
 
+    /* foreach variable in the equivalence statement... */
     for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
       if(checkdebug)
         printf(" %s, ", ctemp->astnode.ident.name);
 
+      /* foreach equivalence statement (again)... */
       for(temp2=root;temp2!=NULL;temp2=temp2->nextstmt) {
+
+        /* foreach variable in the second equivalence statement... */
         for(ctemp2=temp2->astnode.equiv.clist;ctemp2!=NULL;ctemp2=ctemp2->nextstmt) {
+
           if(!strcmp(ctemp->astnode.ident.name,ctemp2->astnode.ident.name) &&
-            temp->token != temp2->token) {
+            temp->token != temp2->token) 
+          {
+            /* the two names are the same, but arent in the same node.
+             * the two equivalences pointed to by temp and temp2 should
+             * be merged.
+             */
+
             temp2->token = temp->token;
             needsMerge = TRUE;
           }
@@ -268,17 +321,38 @@ merge_equivalences(AST *root)
   /* if we dont need to merge anything, go ahead and return, skipping
    * this last chunk of code.
    */
+
   if(!needsMerge)
     return;
 
+  /* 
+   * Now we do the actual merging. 
+   */
+
+  /* foreach equivalence statement... */
+
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
+
+    /* foreach equivalence statement (again)... */
     for(temp2=root;temp2!=NULL;temp2=temp2->nextstmt) {
+
       if((temp->token == temp2->token) && (temp != temp2)) {
+
+        /* the token pointers are equal and the nodes are distinct */
+
+        /* loop until the end of the first equivalence list */
+
         ctemp=temp->astnode.equiv.clist;
         while(ctemp->nextstmt != NULL)
           ctemp = ctemp->nextstmt;
 
+        /* add the second equivalence list to the end of the first */
+
         ctemp->nextstmt = temp2->astnode.equiv.clist;
+
+        /* now remove the second equivalence list from the list of 
+         * equivalences.
+         */
 
         ctemp = root;
         while(ctemp->nextstmt != temp2)
@@ -288,9 +362,22 @@ merge_equivalences(AST *root)
 
       }
     }
+
+    /* the merging process may produce duplicate entries.  remove
+     * them now.
+     */
+
     remove_duplicates(temp->astnode.equiv.clist);
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * remove_duplicates                                                         *
+ *                                                                           *
+ * This function removes duplicate names from a list of idents.              *
+ *                                                                           *
+ *****************************************************************************/
 
 void remove_duplicates(AST *root)
 {
@@ -308,6 +395,15 @@ void remove_duplicates(AST *root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * insertEquivalences                                                        *
+ *                                                                           *
+ * This function inserts the equivalenced variable names into the symbol     *
+ * table.                                                                    *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 insertEquivalences(AST *root)
 {
@@ -320,15 +416,34 @@ insertEquivalences(AST *root)
   void type_insert (HASHNODE **, AST *, int, char *);
   char *merge_names(AST *);
 
+  /* foreach equivalence statement... */
   for(temp = eqvList; temp != NULL; temp = temp->nextstmt) {
+
+    /* merge the names in this list into one name */
     merged_name = merge_names(temp->astnode.equiv.clist);
+
     for(ctemp = temp->astnode.equiv.clist;ctemp!=NULL;ctemp = ctemp->nextstmt) {
+
+      /* store the merged name into the node before sticking the node into
+       * the symbol table.
+       */
+
       ctemp->astnode.ident.merged_name = merged_name;
+
       idx = hash(ctemp->astnode.ident.name) % eqvSymTab->num_entries;
       type_insert( &(eqvSymTab->entry[idx]), ctemp, Float, ctemp->astnode.ident.name);
     }
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * merge_names                                                               *
+ *                                                                           *
+ * This function merges a list of variable names into one name.  Basically   *
+ * it just concatenates the names together, separated by an underscore.      *
+ *                                                                           *
+ *****************************************************************************/
 
 char *
 merge_names(AST *root)
@@ -338,9 +453,18 @@ merge_names(AST *root)
   int len = 0, num = 0;
   char * malloc(int);
 
+  /* determine how long the merged name will be */
+
   for(temp = root;temp != NULL;temp=temp->nextstmt, num++)
     len += strlen(temp->astnode.ident.name);
   
+  /* the length of the merged name is the sum of:
+   *
+   *  - the sum of the lengths of the variable names
+   *  - the number of variables
+   *  - one
+   */
+
   newName = (char *)malloc(len + num + 1);
 
   if(!newName) {
@@ -350,6 +474,7 @@ merge_names(AST *root)
 
   newName[0] = 0;
 
+  /* foreach name in the list... */
   for(temp = root;temp != NULL;temp=temp->nextstmt, num++) {
     strcat(newName,temp->astnode.ident.name);
     if(temp->nextstmt != NULL)
@@ -358,6 +483,15 @@ merge_names(AST *root)
 
   return newName;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * check_equivalences                                                        *
+ *                                                                           *
+ * Perform typechecking on equivalences.  Loop through the equivalences and  *
+ * look up the type in the symbol table.                                     *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 check_equivalences(AST *root)
@@ -401,6 +535,15 @@ check_equivalences(AST *root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * data_check                                                                *
+ *                                                                           *
+ * Perform typechecking of DATA statements.  Set the needs_declaration flag  *
+ * of the node depending on whether it is an array or not.                   *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 data_check(AST * root)
 {
@@ -424,6 +567,14 @@ data_check(AST * root)
     }
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * common_check                                                              *
+ *                                                                           *
+ * Perform typechecking of COMMON statements.                                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 common_check(AST *root)
@@ -483,6 +634,14 @@ common_check(AST *root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * name_check                                                                *
+ *                                                                           *
+ * Perform typechecking of identifiers.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 name_check (AST * root)
 {
@@ -531,7 +690,7 @@ name_check (AST * root)
       case STRING:
       case CHAR:
         if(checkdebug)
-          printf("typecheck(): ** I am going to emit a String/char literal!\n");
+          printf("typecheck(): ** I am going to check a String/char literal!\n");
         break;
       case INTRINSIC: 
         /* do nothing */
@@ -577,7 +736,13 @@ name_check (AST * root)
   }
 }
 
-/*  This function emits a subroutine call */
+/*****************************************************************************
+ *                                                                           *
+ * subcall_check                                                             *
+ *                                                                           *
+ *  This function checks a subroutine call.                                  *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 subcall_check(AST *root)
@@ -612,13 +777,22 @@ subcall_check(AST *root)
   root->vartype = Integer;
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * func_array_check                                                          *
+ *                                                                           *
+ * Typecheck an array access.  This could be merged with array_check()...    *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 func_array_check(AST *root, HASHNODE *hashtemp)
 {
   void expr_check (AST *);
 
-      if(root == NULL)
-        fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
+  if(root == NULL)
+    fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
+
   expr_check (root);
 
   if(   (hashtemp->variable->astnode.ident.leaddim != NULL)
@@ -626,11 +800,21 @@ func_array_check(AST *root, HASHNODE *hashtemp)
      && (root->nextstmt != NULL))
   {
     root = root->nextstmt;
-      if(root == NULL)
-        fprintf(stderr,"func_array_check2: calling expr_check with null pointer!\n");
+
+    if(root == NULL)
+      fprintf(stderr,"func_array_check2: calling expr_check with null pointer!\n");
+
     expr_check (root);
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * array_check                                                               *
+ *                                                                           *
+ * Typecheck an array access.                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 array_check(AST *root, HASHNODE *hashtemp)
@@ -648,6 +832,14 @@ array_check(AST *root, HASHNODE *hashtemp)
   func_array_check(temp, hashtemp);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * external_check                                                            *
+ *                                                                           *
+ * Check an external variable.  If it is LSAME or LSAMEN, go ahead and       *
+ * set the type to Logical.  else, go to call_check().
+ *                                                                           *
+ *****************************************************************************/
 void
 external_check(AST *root)
 {
@@ -661,6 +853,8 @@ external_check(AST *root)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
+  /* first, make sure this isn't in the list of intrinsic functions... */
+
   javaname = (char *) methodscan (intrinsic_toks, tempname);
 
   if (javaname == NULL)
@@ -672,6 +866,12 @@ external_check(AST *root)
 
   if (root->astnode.ident.arraylist != NULL)
   {
+    /* this is some sort of intrinsic.  maybe it's LSAME or LSAMEN, which
+     * are declared EXTERNAL since they really aren't intrinsics, but we
+     * treat them as such since there is a corresponding Java function to
+     * handle them.
+     */
+
     if (!strcmp (tempname, "LSAME"))
     {
       temp = root->astnode.ident.arraylist;
@@ -683,14 +883,28 @@ external_check(AST *root)
       temp = root->astnode.ident.arraylist;
 
       name_check (temp->nextstmt->nextstmt);
+
       if(temp == NULL)
         fprintf(stderr,"external_check: calling expr_check with null pointer!\n");
+
       expr_check (temp);
       root->vartype = Logical;
       return;
     }
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic_check                                                           *
+ *                                                                           *
+ * Here we have an intrinsic to check.  We have to explicitly handle all     *
+ * the intrinsics that we know about.  First determine which one we're       *
+ * looking at and then assign a type depending on the return type of the     *
+ * actual Java function (e.g. SQRT will return double because Math.sqrt()    *
+ * returns double).                                                          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 intrinsic_check(AST *root)
@@ -707,29 +921,9 @@ intrinsic_check(AST *root)
 
   if (!strcmp (tempname, "MAX"))
   {
+    for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt)
+      expr_check (temp);
 
-    if(checkdebug)
-      printf("here we are in MAX.  arraylist is %s\n", 
-        (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
-
-    temp = root->astnode.ident.arraylist;
-
-    if(checkdebug) {
-      printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
-
-      printf("temp->next is %s\n",
-         (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
-    }
-
-    if(temp == NULL)
-      fprintf(stderr,"MAX1: calling expr_check with null pointer!\n");
-
-    expr_check (temp);
-
-    if(temp->nextstmt == NULL)
-      fprintf(stderr,"MAX2: calling expr_check with null pointer!\n");
-
-    expr_check (temp->nextstmt);
     root->vartype = Double;
 
     return;
@@ -737,22 +931,21 @@ intrinsic_check(AST *root)
 
   if (!strcmp (tempname, "MIN"))
   {
-    temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"MIN: calling expr_check with null pointer!\n");
-    expr_check (temp);
-      if(temp->nextstmt == NULL)
-        fprintf(stderr,"MIN2: calling expr_check with null pointer!\n");
-    expr_check (temp->nextstmt);
+    for(temp = root->astnode.ident.arraylist;temp != NULL;temp=temp->nextstmt)
+      expr_check (temp);
+
     root->vartype = Double;
+
     return;
   }
 
   if (!strcmp (tempname, "ABS"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"ABS: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"ABS: calling expr_check with null pointer!\n");
+
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -761,8 +954,10 @@ intrinsic_check(AST *root)
   if (!strcmp (tempname, "DABS"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"DABS: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"DABS: calling expr_check with null pointer!\n");
+
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -774,8 +969,10 @@ intrinsic_check(AST *root)
    || !strcmp (tempname, "COS"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"DSQRT,etc: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"DSQRT,etc: calling expr_check with null pointer!\n");
+
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -786,8 +983,10 @@ intrinsic_check(AST *root)
    || !strcmp (tempname, "LOG10"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"SQRT,etc: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"SQRT,etc: calling expr_check with null pointer!\n");
+
     expr_check (temp);
     root->vartype = Double;
     return;
@@ -796,11 +995,15 @@ intrinsic_check(AST *root)
   if(!strcmp (tempname, "MOD"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"MOD: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"MOD: calling expr_check with null pointer!\n");
+
     expr_check(temp);
-      if(temp->nextstmt == NULL)
-        fprintf(stderr,"MOD2: calling expr_check with null pointer!\n");
+
+    if(temp->nextstmt == NULL)
+      fprintf(stderr,"MOD2: calling expr_check with null pointer!\n");
+
     expr_check(temp->nextstmt);
 
     root->vartype = Integer;
@@ -810,11 +1013,15 @@ intrinsic_check(AST *root)
   if(!strcmp (tempname, "SIGN"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"SIGN: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"SIGN: calling expr_check with null pointer!\n");
+
     expr_check(temp);
-      if(temp->nextstmt == NULL)
-        fprintf(stderr,"SIGN2: calling expr_check with null pointer!\n");
+
+    if(temp->nextstmt == NULL)
+      fprintf(stderr,"SIGN2: calling expr_check with null pointer!\n");
+
     expr_check(temp->nextstmt);
 
     root->vartype = Double;
@@ -824,8 +1031,10 @@ intrinsic_check(AST *root)
   if (!strcmp (tempname, "CHAR"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"CHAR: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"CHAR: calling expr_check with null pointer!\n");
+
     expr_check(temp);
     root->vartype = Character;
     return;
@@ -837,8 +1046,10 @@ intrinsic_check(AST *root)
    || !strcmp (tempname, "NINT"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"%s: calling expr_check with null pointer!\n",tempname);
+
+    if(temp == NULL)
+      fprintf(stderr,"%s: calling expr_check with null pointer!\n",tempname);
+
     expr_check(temp);
     root->vartype = Integer;
     return;
@@ -848,13 +1059,23 @@ intrinsic_check(AST *root)
      !strcmp (tempname, "DBLE"))
   {
     temp = root->astnode.ident.arraylist;
-      if(temp == NULL)
-        fprintf(stderr,"REAL: calling expr_check with null pointer!\n");
+
+    if(temp == NULL)
+      fprintf(stderr,"REAL: calling expr_check with null pointer!\n");
+
     expr_check(temp);
     root->vartype = Double;
     return;
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * expr_check                                                                *
+ *                                                                           *
+ * Recursive procedure to check expressions.                                 *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 expr_check (AST * root)
@@ -870,6 +1091,7 @@ expr_check (AST * root)
   {
     case Identifier:
       name_check (root);
+
       if (checkdebug)
         printf("hit case identifier (%s), now type is %s\n",
            root->astnode.ident.name,returnstring[root->vartype]);
@@ -877,17 +1099,23 @@ expr_check (AST * root)
     case Expression:
       if (root->astnode.expression.lhs != NULL)
         expr_check (root->astnode.expression.lhs);
+
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
+
       root->vartype = root->astnode.expression.rhs->vartype;
       break;
     case Power:
       if(root->astnode.expression.lhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.lhs);
+
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
 
       /*  vartype should always be double for pow since it is 
@@ -899,10 +1127,14 @@ expr_check (AST * root)
     case Binaryop:
       if(root->astnode.expression.lhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.lhs);
+
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
+
       if (checkdebug) {
          printf("here checking binaryOp...\n");
          printf("lhs type: %s\n", returnstring[root->astnode.expression.lhs->vartype]);
@@ -915,7 +1147,9 @@ expr_check (AST * root)
     case Unaryop:
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
+
       root->vartype = root->astnode.expression.rhs->vartype;
       break;
     case Constant:
@@ -924,27 +1158,38 @@ expr_check (AST * root)
     case Logicalop:
       if (root->astnode.expression.lhs != NULL)
         expr_check (root->astnode.expression.lhs);
+
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
+
       root->vartype = Logical;
       break;
     case Relationalop:
       if(root->astnode.expression.lhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.lhs);
+
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check (root->astnode.expression.rhs);
+
       root->vartype = Logical;
       break;
     case Substring:
       if(root->astnode.ident.arraylist == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check(root->astnode.ident.arraylist);
+
       if(root->astnode.ident.arraylist->nextstmt == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+
       expr_check(root->astnode.ident.arraylist->nextstmt);
+
       root->vartype = String;
       break;
     case EmptyArgList:
@@ -956,6 +1201,14 @@ expr_check (AST * root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * forloop_check                                                             *
+ *                                                                           *
+ * Check a DO loop.                                                          *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 forloop_check (AST * root)
 {
@@ -964,15 +1217,23 @@ forloop_check (AST * root)
 
   assign_check (root->astnode.forloop.start);
 
-      if(root->astnode.forloop.stop == NULL)
-        fprintf(stderr,"forloop_check: calling expr_check with null pointer!\n");
+  if(root->astnode.forloop.stop == NULL)
+    fprintf(stderr,"forloop_check: calling expr_check with null pointer!\n");
+
   expr_check (root->astnode.forloop.stop);
 
   if (root->astnode.forloop.incr != NULL)
     expr_check (root->astnode.forloop.incr);
-
 }
 
+
+/*****************************************************************************
+ *                                                                           *
+ * logicalif_check                                                           *
+ *                                                                           *
+ * Check a Logical IF statement.                                             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 logicalif_check (AST * root)
@@ -984,6 +1245,14 @@ logicalif_check (AST * root)
 
   typecheck (root->astnode.logicalif.stmts);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * read_check                                                                *
+ *                                                                           *
+ * Performs typechecking on a READ statement.                                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 read_check (AST * root)
@@ -1001,6 +1270,14 @@ read_check (AST * root)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * check_implied_loop                                                        *
+ *                                                                           *
+ * Performs typechecking on an implied DO loop.                              *
+ *                                                                           *
+ *****************************************************************************/
+
 void 
 check_implied_loop(AST *node)
 {
@@ -1012,6 +1289,14 @@ check_implied_loop(AST *node)
   expr_check(node->astnode.forloop.Label);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * write_check                                                               *
+ *                                                                           *
+ * Check a WRITE statement.                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 write_check (AST * root)
 {
@@ -1020,12 +1305,21 @@ write_check (AST * root)
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
-      if(temp == NULL)
-        fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
+    if(temp == NULL)
+      fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
+
     if(temp->nodetype != ImpliedLoop)
       expr_check (temp);
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * blockif_check                                                             *
+ *                                                                           *
+ * Check a block IF statement, including elseif and else blocks.             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 blockif_check (AST * root)
@@ -1044,6 +1338,15 @@ blockif_check (AST * root)
     typecheck (root->astnode.blockif.elsestmts);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * elseif_check                                                              *
+ *                                                                           *
+ * Check the "else if" of a block IF statement.  This is short enough to     *
+ * be inlined with blockif_check at some point.                              *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 elseif_check (AST * root)
 {
@@ -1054,11 +1357,29 @@ elseif_check (AST * root)
   typecheck (root->astnode.blockif.stmts);
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * elseif_check                                                              *
+ *                                                                           *
+ * Check the "else if" of a block IF statement.  This is definitely short    *
+ * enough to be inlined with blockif_check at some point.                    *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 else_check (AST * root)
 {
   typecheck (root->astnode.blockif.stmts);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * call_check                                                                *
+ *                                                                           *
+ * Check a function/subroutine call.  This node's type is based on the       *
+ * declaration in the original Fortran code.                                 *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 call_check (AST * root)
@@ -1074,6 +1395,10 @@ call_check (AST * root)
   if(checkdebug)
     printf("the name of this function/subroutine is %s\n",
          root->astnode.ident.name);
+
+  /* now is a convenient time to determine whether we should import the
+   * BLAS library.
+   */
 
   if(type_lookup(blas_routine_table,root->astnode.ident.name))
     cur_unit->astnode.source.needs_blas = TRUE;
@@ -1091,6 +1416,7 @@ call_check (AST * root)
   {
     if(temp == NULL)
       fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
+
     expr_check (temp);
     temp = temp->nextstmt;
   }
@@ -1102,6 +1428,15 @@ call_check (AST * root)
 
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * assign_check                                                              *
+ *                                                                           *
+ * Check an assignment statement.  This info is very important to the code   *
+ * generator.                                                                *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 assign_check (AST * root)
 {
@@ -1109,8 +1444,9 @@ assign_check (AST * root)
   void expr_check (AST *);
 
   name_check (root->astnode.assignment.lhs);
-      if(root->astnode.assignment.rhs == NULL)
-        fprintf(stderr,"assign_check: calling expr_check with null pointer!\n");
+
+  if(root->astnode.assignment.rhs == NULL)
+    fprintf(stderr,"assign_check: calling expr_check with null pointer!\n");
 
   expr_check (root->astnode.assignment.rhs);
 

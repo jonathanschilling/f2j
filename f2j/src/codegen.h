@@ -328,7 +328,8 @@ METHODREF
   * find_method(char *, Dlist);
 
 BOOLEAN
-  adapter_insert_from_descriptor(AST *, AST *, char *);
+  adapter_insert_from_descriptor(AST *, AST *, char *),
+  isArrayNoIdx(AST *);
 
 struct var_info
  * get_var_info(AST *),

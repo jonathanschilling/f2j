@@ -7018,8 +7018,12 @@ one_arg_write_emit(AST *root)
   fprintf(curfp, "System.out.println(");
   if(root->astnode.io_stmt.arg_list) {
     expr_emit(root->astnode.io_stmt.arg_list);
-    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
-          println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
+    if(isArrayNoIdx(root->astnode.io_stmt.arg_list)) 
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+            println_descriptor[Object]);
+    else
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+            println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
   }
   else {
     inline_format_emit(root, FALSE);
@@ -7030,6 +7034,23 @@ one_arg_write_emit(AST *root)
   bytecode1(jvm_invokevirtual, c->index);
 
   return;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * isArrayNoIdx                                                              *
+ *                                                                           *
+ * returns TRUE if this is an array reference which is not indexed.          *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOLEAN
+isArrayNoIdx(AST *var)
+{
+  return( (var->token == NAME) && 
+        (type_lookup(cur_array_table, var->astnode.ident.name) != NULL) &&
+        (var->astnode.ident.arraylist == NULL) );
+
 }
 
 /*****************************************************************************
@@ -7199,9 +7220,16 @@ write_emit(AST * root)
 
           if((temp->vartype != String) && (temp->vartype != Character)) {
             /* call String.valueOf() to convert this numeric type to string */
-            c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
-                   string_valueOf_descriptor[temp->vartype]);
-            bytecode1(jvm_invokestatic, c->index);
+            if(isArrayNoIdx(temp)) {
+              c = newMethodref(cur_const_table, JL_OBJECT, "toString",
+                     TOSTRING_DESC);
+              bytecode1(jvm_invokevirtual, c->index);
+            }
+            else {
+              c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+                     string_valueOf_descriptor[temp->vartype]);
+              bytecode1(jvm_invokestatic, c->index);
+            }
           }
 
           c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
@@ -7209,8 +7237,13 @@ write_emit(AST * root)
         }
         else {
           expr_emit (temp);
-          c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
-                  append_descriptor[temp->vartype]);
+
+          if(isArrayNoIdx(temp))
+            c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+                    append_descriptor[Object]);
+          else
+            c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+                    append_descriptor[temp->vartype]);
 
           bytecode1(jvm_invokevirtual, c->index);
         }

@@ -75,6 +75,9 @@ static int trdebug = TRANS_DEBUG;
 
 static int numChanges;
 
+u4_int u4BigEndian(u4_int);
+char isBigEndian();
+
 /* reaching definitions and uses
    ***************************** */
 
@@ -1069,6 +1072,7 @@ back:
              if((ht=type_lookup(att->label_table,lbuf)) != NULL)
              {
                int temp = ht->val - i;
+               u4_int utemp;
 
                if(trdebug)
                  printf("Found the label! offset = %d\n", ht->val);
@@ -1088,7 +1092,8 @@ back:
                if(trdebug)
                  printf("copying %d (%x) into byt\n",temp,temp);
 
-               bcopy(&temp,byt+i-1, 4);
+               utemp = u4BigEndian((u4_int)temp);
+               bcopy(&utemp,byt+i-1, 4);
              }
              else
              {
@@ -1361,4 +1366,27 @@ int byte_proc(void) {
 		  headers appears for switch `-d' */
   }
   return numChanges;
+}
+
+u4_int
+u4BigEndian(u4_int num)
+{
+  if(isBigEndian())
+    return num;
+  else
+    return ((num & 0xFF)<<24) +
+           ((num >> 8 & 0xFF)<<16) +
+           ((num >> 16 & 0xFF)<<8) +
+            (num >> 24);
+}
+
+char
+isBigEndian()
+{
+  int x = 1;
+ 
+  if (*((char *)&x)== 1)
+    return 0;
+  else
+    return 1;
 }

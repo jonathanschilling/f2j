@@ -378,7 +378,7 @@ yylex ()
       char *stmt_copy = strdup(buffer.stmt);
       char *text_copy = strdup(buffer.text);
 
-                                                    /*Changed on 2/27/01 added if statement to catch if variable*/     
+      /*Changed on 2/27/01 added if statement to catch if variable*/     
       token = keyscan (tab_stmt, &buffer);
       if(  ((token == DO) || (token == IF)) 
          && 

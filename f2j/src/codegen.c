@@ -552,7 +552,7 @@ emit (AST * root)
         if (gendebug)
           printf ("Stop.\n");
 
-        fprintf (curfp, "System.exit(1);\n");
+        fprintf (curfp, "System.exit(0);\n");
 
         if (root->nextstmt != NULL)
           emit (root->nextstmt);

@@ -68,7 +68,7 @@ static u2_int        cur_sp;
 static char          *thisClassName;
 
 #ifndef TRANS_DEBUG
-#define TRANS_DEBUG 1
+#define TRANS_DEBUG 0
 #endif
 
 static int trdebug = TRANS_DEBUG;

@@ -1202,31 +1202,42 @@ assign_optimize (AST * root, AST *rptr)
 {
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
   enum returntype ltype, rtype;
   HASHNODE *ht;
+  AST *lhs;
 
   ltype = root->astnode.assignment.lhs->vartype;
   rtype = root->astnode.assignment.rhs->vartype;
 
+  lhs = root->astnode.assignment.lhs;
+
   /* handle lhs substring operations elsewhere */
-  if(root->astnode.assignment.lhs->nodetype == Substring)
+  if(lhs->nodetype == Substring)
     return;
 
-  name_optimize (root->astnode.assignment.lhs, rptr);
+  name_optimize (lhs, rptr);
   
-  ht=type_lookup(opt_type_table,root->astnode.assignment.lhs->astnode.ident.name);
+  ht=type_lookup(opt_type_table,lhs->astnode.ident.name);
 
   if(ht) {
     /* check if the LHS is an array access.  if so, then we really
      * should not set passByRef to TRUE here because setting an array
      * element does not require wrapping the array (not that we support
      * wrapping array references anyway).
+     *
+     * also check if the LHS is in a common block.  shouldn't need to
+     * wrap common variables.
      */
 
-    if(root->astnode.assignment.lhs->astnode.ident.arraylist == NULL)
-      if(type_lookup(opt_args_table, 
-          root->astnode.assignment.lhs->astnode.ident.name) != NULL)
-        ht->variable->astnode.ident.passByRef = TRUE;
+    if(lhs->astnode.ident.arraylist == NULL)
+      if(type_lookup(opt_args_table, lhs->astnode.ident.name) != NULL)
+        if(type_lookup(opt_common_table, lhs->astnode.ident.name) == NULL)
+          ht->variable->astnode.ident.passByRef = TRUE;
+
+    if( optdebug )
+      if( ht->variable->astnode.ident.passByRef == TRUE )
+        printf("set passByRef for '%s'\n", lhs->astnode.ident.name);
   }
   else
     fprintf(stderr,"Can't find lhs of assignment: %s\n", 

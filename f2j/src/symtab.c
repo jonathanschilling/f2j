@@ -22,7 +22,7 @@
  * Globals and Function prototypes:                                          *
  *****************************************************************************/
 
-#define symdebug TRUE          /* set TRUE for debugging output             */
+#define symdebug FALSE          /* set TRUE for debugging output             */
 
 /*  define which of three possible hashing functions to use.                 */
 

@@ -121,7 +121,7 @@ SYMTABLE
 %token <type> TYPE  
 %token DIMENSION
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
-%token SAVE DATA COMMENT READ WRITE FMT EDIT_DESC REPEAT
+%token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
 
 /* these are here to silence conflicts related to parsing comments */
 
@@ -151,7 +151,7 @@ SYMTABLE
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
 %type <ptnode> Label Lhs Logicalif
 %type <ptnode> Name Namelist LhsList
-%type <ptnode> Parameter  Pdec Pdecs Program 
+%type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
 %type <ptnode> Read IoExp IoExplist Return  Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement Subroutinecall
@@ -498,10 +498,7 @@ Subroutine: SUBROUTINE Name Functionargs NL
                  $$->astnode.source.name = $2; 
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
-                 if($3 == NULL)
-                   $$->astnode.source.args = NULL;
-                 else
-                   $$->astnode.source.args = switchem($3);
+                 $$->astnode.source.args = switchem($3);
 
                  fprintf(stderr,"\t%s:\n",$2->astnode.ident.name);
               }
@@ -538,10 +535,7 @@ Function:  Type FUNCTION Name Functionargs NL
              $$->token = FUNCTION;
              $$->astnode.source.returns = $1;
              $$->vartype = $1;
-             if($4 == NULL)
-               $$->astnode.source.args = NULL;
-             else 
-               $$->astnode.source.args = switchem($4);
+             $$->astnode.source.args = switchem($4);
 
              /* since the function name is the implicit return value
               * and it can be treated as a variable, we insert it into
@@ -838,7 +832,7 @@ Implicit:   IMPLICIT
 	      $$=addnode();
 	      $$->nodetype = Specification;
 	      $$->token = IMPLICIT;
-	      $$ = 0;
+	      /* $$ = 0; */
 	    }
 ;
 
@@ -1749,18 +1743,68 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
          }
          else
          {
+           /* is this case ever reached??  i don't think so.  --kgs */
            $$->astnode.io_stmt.format_num = -1;
            $$->astnode.io_stmt.fmt_list = $5;
          }
  
-         if($7 == NULL)
-           $$->astnode.io_stmt.arg_list = NULL;
-         else 
-           $$->astnode.io_stmt.arg_list = switchem($7);
+         $$->astnode.io_stmt.arg_list = switchem($7);
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent->nodetype = Write;
        }
+     | PRINT Integer PrintIoList NL
+       {
+         AST *temp;
+
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Write;
+         $$->astnode.io_stmt.fmt_list = NULL;
+
+         $$->astnode.io_stmt.format_num = atoi($2->astnode.constant.number);
+         $$->astnode.io_stmt.arg_list = switchem($3);
+
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+           temp->parent->nodetype = Write;
+       }
+     | PRINT STAR PrintIoList NL
+       {
+         AST *temp;
+
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Write;
+         $$->astnode.io_stmt.fmt_list = NULL;
+
+         $$->astnode.io_stmt.format_num = -1;
+         $$->astnode.io_stmt.arg_list = switchem($3);
+           
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+           temp->parent->nodetype = Write;
+       }
+     | PRINT String PrintIoList NL
+       {
+         AST *temp;
+
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Write;
+         $$->astnode.io_stmt.fmt_list = $2;
+
+         $$->astnode.io_stmt.format_num = -1;
+         $$->astnode.io_stmt.arg_list = switchem($3);
+           
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+           temp->parent->nodetype = Write;
+       }
+;
+
+PrintIoList: CM IoExplist
+             {
+               $$ = $2;
+             }
+           | /* empty */
+             {
+               $$ = NULL;
+             }
 ;
 
 /* Maybe I'll implement this stuff someday. */
@@ -1816,10 +1860,7 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = -1;
 
-         if($7 == NULL)
-           $$->astnode.io_stmt.arg_list = NULL;
-         else 
-           $$->astnode.io_stmt.arg_list = switchem($7);
+         $$->astnode.io_stmt.arg_list = switchem($7);
       }
     | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
       {
@@ -1828,10 +1869,7 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = atoi($7->astnode.constant.number);
 
-         if($9 == NULL)
-           $$->astnode.io_stmt.arg_list = NULL;
-         else 
-           $$->astnode.io_stmt.arg_list = switchem($9);
+         $$->astnode.io_stmt.arg_list = switchem($9);
       }
 ;
 
@@ -1922,14 +1960,14 @@ Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else  ENDIF NL
                $9->parent = $$; /* 9-4-97 - Keith */
              $$->nodetype = Blockif;
              $$->astnode.blockif.conds = $3;
-             if($7 != 0) $7 = switchem($7);
+             $7 = switchem($7);
              $$->astnode.blockif.stmts = $7;
 
              /*  If there are any `else if' statements,
               *  switchem. Otherwise, NULL pointer checked
               *  in code generating functions. 
               */
-             if($8 != 0) $8 = switchem($8); 
+             $8 = switchem($8); 
              $$->astnode.blockif.elseifstmts = $8; /* Might be NULL. */
              $$->astnode.blockif.elsestmts = $9;   /* Might be NULL. */
            }
@@ -2698,6 +2736,8 @@ addnode()
 AST * 
 switchem(AST * root) 
 {
+  if(root == NULL)
+    return NULL;
 
   if (root->prevstmt == NULL) 
     return root;

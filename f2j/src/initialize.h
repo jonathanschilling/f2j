@@ -66,6 +66,7 @@ KWDTAB tab_stmt[] =
     {"SUBROUTINE", SUBROUTINE, 0},
     {"THEN", THEN, 0},
     {"WRITE", WRITE, 0},
+    {"PRINT", PRINT, 0},
     { NULL, 0, 0}  /* Ends a scanning loop.  See comment above. */
 };
 

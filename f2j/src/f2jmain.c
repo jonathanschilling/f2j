@@ -42,11 +42,8 @@ main (int argc, char **argv)
   extern FILE *ifp;
   extern FILE *jasminfp;
 
-/* 3/23/00 kgs -- removed the following unreferenced variables.
- * extern FILE *vcgfp;
- * extern int lineno;
- * extern int statementno;
- */
+  extern BOOLEAN bigEndian;
+  BOOLEAN isBigEndian();
 
   char classname[130];
   char *truncfilename;
@@ -103,6 +100,7 @@ will most likely not work for other code.\n";
   noOffset      = FALSE;
   package_name  = NULL;
   JAS = FALSE;   /* default to Java output */
+  bigEndian = isBigEndian();
 
   ignored_formatting = 0;
   bad_format_count = 0;

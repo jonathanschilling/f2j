@@ -3217,7 +3217,33 @@ expr_emit (AST * root)
       printf("looking up %s constant '%s'...", returnstring[root->vartype],
            root->astnode.constant.number);
 
-      ct=cp_lookup(cur_const_table,root->astnode.constant.number);
+      switch(root->token) {
+        case INTEGER:
+          {
+            int ival = atoi(root->astnode.constant.number);
+
+            ct=cp_lookup(cur_const_table,CONSTANT_Integer,(void*)&ival);
+          }
+          break;
+        case EXPONENTIAL:
+        case DOUBLE:
+          {
+            double dval = atof(root->astnode.constant.number);
+
+            ct=cp_lookup(cur_const_table,CONSTANT_Double,(void*)&dval);
+          }
+          break;
+        case TrUE:
+        case FaLSE:
+          /* dont expect to find booleans anyway, so dont try */
+          ct = NULL;
+          break;
+        case STRING:
+          ct=cp_lookup(cur_const_table,CONSTANT_Utf8, 
+             (void*)root->astnode.constant.number);
+          break;
+      }
+
       if(ct) {
         cp_index = ct->index;
         printf("found!  constant pool index: %d\n", cp_index);

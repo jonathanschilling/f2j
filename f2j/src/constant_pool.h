@@ -17,13 +17,12 @@
  * Each entry in the list has the following structure:
  */
 typedef struct _constListNode {
-  char * id;
   int index;
   int next_idx;
   struct cp_info * val;
 } CPNODE;
 
-CPNODE * cp_lookup(Dlist, char *);
+CPNODE * cp_lookup(Dlist, enum _constant_tags, void *);
 int      cp_insert(Dlist, struct cp_info *, char *, char);
 void     cp_dump(Dlist);
 void     cp_initialize(AST *, Dlist);

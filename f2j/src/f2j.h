@@ -77,7 +77,8 @@ BOOLEAN
   genInterfaces,           /* should we generate simplified interfaces       */
   genJavadoc,              /* should we generate javadoc-compatible comments */
   noOffset,                /* should we generate offset args in interfaces   */
-  JAS;                     /* should we generate Jasmin code                 */
+  JAS,                     /* should we generate Jasmin code                 */
+  bigEndian;               /* byte order (1 = big, 0 = little)               */
 
 SYMTABLE 
   *type_table,             /* General symbol table                           */

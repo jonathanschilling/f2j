@@ -995,6 +995,10 @@ external_check(AST *root)
       root->vartype = Logical;
       return;
     }
+    else if( !strcmp(tempname, "ETIME") ) {
+      expr_check (root->astnode.ident.arraylist);
+      root->vartype = Double;
+    }
   }
 }
 

@@ -3951,7 +3951,7 @@ external_emit(AST *root)
   AST *temp;
 
   if(gendebug) {
-    printf("here we are in external_emit\n");
+    printf("here we are in external_emit (%s)\n", root->astnode.ident.name);
     printf("nodetype = %s, parent nodetype = %s\n",
       print_nodetype(root),print_nodetype(root->parent));
   }
@@ -4150,6 +4150,24 @@ external_emit(AST *root)
       bytecode1(jvm_invokevirtual, c->index);
 
       return;
+    }
+    else if(!strcmp(tempname, "ETIME")) {
+      /* first, make sure there are enough args to work with */
+      if(temp == NULL) {
+        fprintf(stderr,"No args to ETIME\n");
+        return;
+      } 
+
+      printf("emitting ETIME...\n");
+
+      fprintf (curfp, "Etime.etime(");
+      expr_emit(temp);
+      fprintf (curfp, ")");
+
+      c = newMethodref(cur_const_table,entry->class_name, 
+                        entry->method_name, entry->descriptor);
+
+      bytecode1(jvm_invokestatic, c->index);
     }
   }
 }
@@ -9378,21 +9396,27 @@ substring_assign_emit(AST *root)
      * here may be superfluous and is definitely untested.
      */
 
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-              "java/lang/Character");
+    /*
+     *    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+     *              "java/lang/Character");
+     *
+     *    bytecode1(jvm_new,c->index);
+     *    bytecode0(jvm_dup);
+     *
+     *    c = newMethodref(cur_const_table,"java/lang/Character", "<init>", "(C)V");
+     *
+     *    fprintf(curfp,"new Character(");
+     *    expr_emit(rhs);
+     *    bytecode1(jvm_invokespecial, c->index);
+     *    fprintf(curfp,").toString(),");
+     *    c = newMethodref(cur_const_table,"java/lang/Character", "toString",
+     *                     "()Ljava/lang/String;");
+     *    bytecode1(jvm_invokestatic, c->index);
+     */
 
-    bytecode1(jvm_new,c->index);
-    bytecode0(jvm_dup);
-
-    c = newMethodref(cur_const_table,"java/lang/Character", "<init>", "(C)V");
-
-    fprintf(curfp,"new Character(");
+    /* code above is broken, use code for STring */
     expr_emit(rhs);
-    bytecode1(jvm_invokespecial, c->index);
-    fprintf(curfp,").toString(),");
-    c = newMethodref(cur_const_table,"java/lang/Character", "toString",
-                     "()Ljava/lang/String;");
-    bytecode1(jvm_invokestatic, c->index);
+    fprintf(curfp,",");
   }
   else if(rhs->vartype == String)
   {

@@ -309,6 +309,9 @@ METHODTAB intrinsic_toks[]=
   {ifunc_LSAME, "LSAME",  ".equalsIgnoreCase", "java/lang/String", "equalsIgnoreCase", "(Ljava/lang/String;)Z", CS_ARGS, Logical}, 
   {ifunc_LSAMEN, "LSAMEN", ".regionMatches",    "java/lang/String", "regionMatches",    "(ZILjava/lang/String;II)Z", CS_ARGS, Logical}, 
 
+  /* fortran pseudo intrinsic */
+  {ifunc_ETIME, "ETIME", ".etime",    "org/netlib/util/Etime", "etime",    "([DI)D", IRDC_ARGS, Double}, 
+
   /*  Ends a scanning loop.  See comment above. */
   {0, NULL , NULL, NULL, NULL, NULL, 0, 0}    
 };

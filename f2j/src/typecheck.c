@@ -598,7 +598,7 @@ data_check(AST * root)
   {
     for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt)
     {
-      if(Ntemp->nodetype == ImpliedLoop)
+      if(Ntemp->nodetype == DataImpliedLoop)
         var = Ntemp->astnode.forloop.Label;
       else
         var = Ntemp;
@@ -1318,7 +1318,7 @@ read_check (AST * root)
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
-    if(temp->nodetype == ImpliedLoop)
+    if(temp->nodetype == IoImpliedLoop)
       check_implied_loop(temp);
     else
       expr_check (temp);
@@ -1364,9 +1364,10 @@ write_check (AST * root)
     if(temp == NULL)
       fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
 
-    if(temp->nodetype != ImpliedLoop)
+    if(temp->nodetype != IoImpliedLoop)
       expr_check (temp);
     else {
+      expr_check (temp->astnode.forloop.Label);
       expr_check (temp->astnode.forloop.iter_expr);
       assign_check (temp->astnode.forloop.incr_expr);
     }

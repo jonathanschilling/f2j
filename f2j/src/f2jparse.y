@@ -867,7 +867,7 @@ DataItem:   LhsList DIV DataConstantList DIV
                 
                 temp->parent = $$;
 
-                if(temp->nodetype == ImpliedLoop)
+                if(temp->nodetype == DataImpliedLoop)
                   type_insert(data_table, temp, Float,
                      temp->astnode.forloop.Label->astnode.ident.name);
                 else
@@ -942,7 +942,7 @@ LoopBounds:  Integer CM Integer
                $$ = addnode();
                $1->parent = $$;
                $3->parent = $$;
-               $$->nodetype = ImpliedLoop;
+               $$->nodetype = DataImpliedLoop;
                $$->astnode.forloop.start = $1;
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = NULL;
@@ -953,7 +953,7 @@ LoopBounds:  Integer CM Integer
                $1->parent = $$;
                $3->parent = $$;
                $5->parent = $$;
-               $$->nodetype = ImpliedLoop;
+               $$->nodetype = DataImpliedLoop;
                $$->astnode.forloop.start = $1;
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = $5;
@@ -1867,7 +1867,7 @@ IoExp: Exp
      | OP Exp CM Name EQ Exp CM Exp CP /* implied do loop */
        {
          $$ = addnode();
-         $$->nodetype = ImpliedLoop;
+         $$->nodetype = IoImpliedLoop;
          $$->astnode.forloop.start = $6;
          $$->astnode.forloop.stop = $8;
          $$->astnode.forloop.incr = NULL;
@@ -1884,7 +1884,7 @@ IoExp: Exp
      | OP Exp CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
        {
          $$ = addnode();
-         $$->nodetype = ImpliedLoop;
+         $$->nodetype = IoImpliedLoop;
          $$->astnode.forloop.start = $6;
          $$->astnode.forloop.stop = $8;
          $$->astnode.forloop.incr = $10;
@@ -3349,7 +3349,7 @@ gen_incr_expr(AST *counter, AST *incr)
 AST *
 gen_iter_expr(AST *start, AST *stop, AST *incr)
 {
-  AST *minus_node, *plus_node, *div_node, *expr_node;
+  AST *minus_node, *plus_node, *div_node, *expr_node, *incr_node;
   
   minus_node = addnode();
   minus_node->token = MINUS;
@@ -3358,29 +3358,38 @@ gen_iter_expr(AST *start, AST *stop, AST *incr)
   minus_node->nodetype = Binaryop;
   minus_node->astnode.expression.optype = '-';
   
-  if(incr != NULL) {
-    plus_node = addnode();
-    plus_node->token = PLUS;
-    plus_node->astnode.expression.lhs = minus_node;
-    plus_node->astnode.expression.rhs = incr;
-    plus_node->nodetype = Binaryop;
-    plus_node->astnode.expression.optype = '+';
-
-    expr_node = addnode();
-    expr_node->nodetype = Expression;
-    expr_node->astnode.expression.parens = TRUE;
-    expr_node->astnode.expression.rhs = plus_node;
-    expr_node->astnode.expression.lhs = 0;
-
-    div_node = addnode();
-    div_node->token = DIV;
-    div_node->astnode.expression.lhs = expr_node;
-    div_node->astnode.expression.rhs = incr;
-    div_node->nodetype = Binaryop;
-    div_node->astnode.expression.optype = '/';
-
-    return div_node;
+  if(incr == NULL) {
+    incr_node = addnode();
+    incr_node->token = INTEGER;
+    incr_node->nodetype = Constant;
+    strcpy(incr_node->astnode.constant.number, "1");
+    incr_node->vartype = Integer;
   }
-  else
-    return minus_node;
+  else 
+    incr_node = incr;
+  
+  plus_node = addnode();
+  plus_node->token = PLUS;
+  plus_node->astnode.expression.lhs = minus_node;
+  plus_node->astnode.expression.rhs = incr_node;
+  plus_node->nodetype = Binaryop;
+  plus_node->astnode.expression.optype = '+';
+
+  if(incr == NULL)
+    return plus_node;
+    
+  expr_node = addnode();
+  expr_node->nodetype = Expression;
+  expr_node->astnode.expression.parens = TRUE;
+  expr_node->astnode.expression.rhs = plus_node;
+  expr_node->astnode.expression.lhs = 0;
+
+  div_node = addnode();
+  div_node->token = DIV;
+  div_node->astnode.expression.lhs = expr_node;
+  div_node->astnode.expression.rhs = incr_node;
+  div_node->nodetype = Binaryop;
+  div_node->astnode.expression.optype = '/';
+
+  return div_node;
 }

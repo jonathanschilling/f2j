@@ -672,7 +672,7 @@ write_optimize (AST * root, AST *rptr)
   void expr_optimize(AST *, AST *);
 
   for(temp = root->astnode.io_stmt.arg_list; temp!=NULL;temp=temp->nextstmt)
-    if(temp->nodetype != ImpliedLoop)
+    if(temp->nodetype != IoImpliedLoop)
       expr_optimize(temp, rptr);
 }
 
@@ -702,7 +702,7 @@ read_optimize (AST * root, AST *rptr)
   /* for each arg... */
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
-    if(temp->nodetype == ImpliedLoop)
+    if(temp->nodetype == IoImpliedLoop)
       read_implied_loop_optimize(temp, rptr);
     else if(temp->nodetype == Identifier)
     {

@@ -284,7 +284,7 @@ write_code(Dlist g, FILE *out)
     node = (CodeGraphNode *) dl_val(tmp);
 
     op = (u1) node->op;
-    fwrite( &(op), sizeof(op), 1, out);
+    write_u1(op,out);
 
     switch(opWidth(node->op)) {
       case 1:
@@ -292,11 +292,11 @@ write_code(Dlist g, FILE *out)
         break;
       case 2:
         op1 = (u1) node->operand;
-        fwrite( &(op1), sizeof(op1), 1, out);
+        write_u1(op1,out);
         break;
       case 3:
         op2 = (u2) node->operand;
-        fwrite( &(op2), sizeof(op2), 1, out);
+        write_u2(op2,out);
         break;
       case 4:
         fprintf(stderr,
@@ -304,7 +304,7 @@ write_code(Dlist g, FILE *out)
         break;
       case 5:
         op4 = (u4) node->operand;
-        fwrite( &(op4), sizeof(op4), 1, out);
+        write_u4(op4,out);
         break;
       case 10:
         fprintf(stderr,

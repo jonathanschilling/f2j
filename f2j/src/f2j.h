@@ -177,7 +177,8 @@ enum _nodetype
   ArrayIdxRange,
   EmptyArgList,
   IoExplist,
-  ImpliedLoop,
+  DataImpliedLoop,
+  IoImpliedLoop,
   Unimplemented
 };
 

@@ -47,6 +47,8 @@ void
   iinc_emit(int, int),
   invoke_constructor(char *, AST *, char *),
   set_bytecode_status(int),
+  inline_format_emit(AST *, BOOLEAN),
+  endNewMethod(struct method_info *, char *, char *, u2),
   releaseLocal();
 
 int
@@ -62,9 +64,6 @@ struct ClassFile
 struct method_info 
   * beginNewMethod(u2);
 
-void
-  endNewMethod(struct method_info *, char *, char *, u2);
-
 CodeGraphNode
   * bytecode0(enum _opcode),
   * bytecode1(enum _opcode, u4);
@@ -74,7 +73,7 @@ CodeGraphNode
  *****************************************************************************/
 
 int
-  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
+  gendebug = TRUE;     /* set to TRUE to generate debugging output          */
 
 extern int 
   ignored_formatting,   /* number of FORMAT statements ignored               */
@@ -1583,16 +1582,6 @@ vardec_emit(AST *root, enum returntype returns)
 
       if ((returns == String) || (returns == Character))
       {
-        if(omitWrappers && !isPassByRef(root->astnode.ident.name))
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                  JL_STRING);
-        else
-          c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                  full_wrappername[returns]);
-
-        bytecode1(jvm_new,c->index);
-        bytecode0(jvm_dup);
-
         print_string_initializer(root);
         fprintf(curfp,";\n");
 
@@ -1655,6 +1644,9 @@ print_string_initializer(AST *root)
   char *src_initializer, *bytecode_initializer;
   AST *tempnode, *addnode();
   HASHNODE *ht;
+
+  if(gendebug)
+    printf("in print_string_initializer()\n");
 
   ht = type_lookup(cur_type_table,root->astnode.ident.name);
   if(ht == NULL)
@@ -1739,7 +1731,7 @@ data_emit(AST *root)
     {
       /* check to see if we're looking at an implied do loop */
 
-      if(Ntemp->nodetype == ImpliedLoop) 
+      if(Ntemp->nodetype == DataImpliedLoop) 
       {
         data_implied_loop_emit(Ntemp, Ctemp);
         continue;
@@ -2365,6 +2357,10 @@ void
 invoke_constructor(char *classname, AST *constant, char *desc)
 {
   CPNODE *c;
+
+  if(gendebug)
+    printf("invoke_constructor(): classname = %s, constant = '%s'\n", 
+           classname, constant->astnode.constant.number);
 
   c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
 
@@ -3154,7 +3150,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
     else if(((root->parent->nodetype == Assignment) &&
              (root->parent->astnode.assignment.lhs == root)) ||
             (root->parent->nodetype == DataStmt) ||
-            (root->parent->nodetype == ImpliedLoop))
+            (root->parent->nodetype == DataImpliedLoop))
     {
       func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
     }
@@ -4744,16 +4740,6 @@ constructor (AST * root)
     /* Test code.... */
     if ((returns == String) || (returns == Character))
     {
-      if(omitWrappers && !isPassByRef(name))
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                JL_STRING);
-      else
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                full_wrappername[returns]);
-
-      bytecode1(jvm_new,c->index);
-      bytecode0(jvm_dup);
-
       fprintf(curfp, "static %s %s ", 
            returnstring[returns], name);
 
@@ -5699,7 +5685,7 @@ read_emit (AST * root)
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
-    if(temp->nodetype == ImpliedLoop)
+    if(temp->nodetype == IoImpliedLoop)
       read_implied_loop_emit(temp, funcname);
     else if(temp->nodetype == Identifier)
     {
@@ -5794,6 +5780,55 @@ read_implied_loop_emit(AST *node, char **func)
 
 /*****************************************************************************
  *                                                                           *
+ * one_arg_write_emit                                                        *
+ *                                                                           *
+ * emit write statements which have only one argument.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+one_arg_write_emit(AST *root)
+{
+  CPNODE *c;
+
+  void write_implied_loop_emit(AST *);
+
+  /* if the only arg is an implied loop, emit that and return...
+   * nothing more to do here.
+   */
+  if((root->astnode.io_stmt.arg_list != NULL) &&
+     (root->astnode.io_stmt.arg_list->nodetype == IoImpliedLoop)) {
+    write_implied_loop_emit(root->astnode.io_stmt.arg_list);
+    fprintf(curfp, "System.out.println();\n");
+    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+    bytecode1(jvm_invokevirtual, c->index);
+    return;
+  }
+
+  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+  bytecode1(jvm_getstatic, c->index);
+
+  fprintf(curfp, "System.out.println(");
+  if(root->astnode.io_stmt.arg_list) {
+    expr_emit(root->astnode.io_stmt.arg_list);
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+          println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
+  }
+  else {
+    inline_format_emit(root, FALSE);
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+          println_descriptor[String]);
+  }
+  fprintf(curfp, ");\n");
+  bytecode1(jvm_invokevirtual, c->index);
+
+  return;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * write_emit                                                                *
  *                                                                           *
  * This function handles WRITE statements.  It is FAR from complete,         *
@@ -5806,23 +5841,21 @@ write_emit(AST * root)
 {
   BOOLEAN implied_loop = FALSE;
   extern int ignored_formatting;
-  AST *nodeptr, *temp;
+  AST *nodeptr, *temp, *prev;
   HASHNODE *hnode;
   char tmp[100];
   CPNODE *c;
 
   void format_list_emit(AST *, AST **),
-       write_implied_loop_emit(AST *),
-       inline_format_emit(AST *);
-
-  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-  bytecode1(jvm_getstatic, c->index);
+       write_implied_loop_emit(AST *);
 
   /* check if there are no args to this WRITE statement */
   if((root->astnode.io_stmt.arg_list == NULL) &&
      (root->astnode.io_stmt.fmt_list == NULL))
   {
     fprintf(curfp,"System.out.println();\n");
+    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
     c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
     bytecode1(jvm_invokevirtual, c->index);
     return;
@@ -5837,42 +5870,38 @@ write_emit(AST * root)
    */
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-    if(temp->nodetype == ImpliedLoop)
-    {
+    if(temp->nodetype == IoImpliedLoop) {
       implied_loop = TRUE;
       break;
     }
       
+  /* look for a format statement */
+  sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
+  if(gendebug)
+    printf("***Looking for format statement number: %s\n",tmp);
+
+  hnode = format_lookup(cur_format_table,tmp);
+
   /* check if this WRITE statement has only one arg.  treat this as
    * a special case because we do not need to generate a StringBuffer
-   * if there's only one arg.  note that implied loops are assumed
-   * to contain multiple items.
+   * if there's only one arg.
    */
 
-  if( !implied_loop 
-      &&
-       (((root->astnode.io_stmt.arg_list != NULL) &&
+  if( !hnode &&
+      (((root->astnode.io_stmt.arg_list != NULL) &&
         (root->astnode.io_stmt.arg_list->nextstmt == NULL) &&
         (root->astnode.io_stmt.fmt_list == NULL))
       ||
        ((root->astnode.io_stmt.arg_list == NULL) &&
-        (root->astnode.io_stmt.fmt_list != NULL)))
-    )
+        (root->astnode.io_stmt.fmt_list != NULL))) )
   {
-    fprintf(curfp, "System.out.println(");
-    if(root->astnode.io_stmt.arg_list) {
-      expr_emit(root->astnode.io_stmt.arg_list);
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
-            println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
-    }
-    else {
-      inline_format_emit(root);
-      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
-                  println_descriptor[String]);
-    }
-    fprintf(curfp, ");\n");
-    bytecode1(jvm_invokevirtual, c->index);
+    one_arg_write_emit(root);
     return;
+  }
+
+  if(root->astnode.io_stmt.arg_list->nodetype != IoImpliedLoop) {
+    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
   }
 
   if(implied_loop)
@@ -5880,27 +5909,13 @@ write_emit(AST * root)
   else
     fprintf (curfp, "System.out.println(");
 
-  /* if we reach this point, then we know that there are at least 2
-   * items to print.  thus, we create a StringBuffer to which we append
-   * all the items.
-   */
-  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-  bytecode1(jvm_new,c->index);
-  bytecode0(jvm_dup);
-
   if(root->astnode.io_stmt.fmt_list != NULL)
-    inline_format_emit(root);
-
-  sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
-  if(gendebug)
-    printf("***Looking for format statement number: %s\n",tmp);
+    inline_format_emit(root, TRUE);
 
   /* if there's formatting information for this write statement, use it
    * unless the write statement has an implied do loop.  in that case,
    * we dont know how to handle the formatting, so we ignore it.
    */
-
-  hnode = format_lookup(cur_format_table,tmp);
 
   if(hnode != NULL && !implied_loop) {
     if(gendebug)
@@ -5922,28 +5937,31 @@ write_emit(AST * root)
     if(hnode && implied_loop)
       ignored_formatting++;
 
-    for( temp = root->astnode.io_stmt.arg_list; 
-      temp != NULL; 
-      temp = temp->nextstmt) 
+    for( temp = root->astnode.io_stmt.arg_list, 
+         prev = root->astnode.io_stmt.arg_list; 
+         temp != NULL; 
+         temp = temp->nextstmt) 
     {
-      if(temp->nodetype == ImpliedLoop)
+      if(temp->nodetype == IoImpliedLoop)
       {
         if( temp == root->astnode.io_stmt.arg_list )
           fprintf(curfp,"\"\");\n");
 
         write_implied_loop_emit(temp);
         if(temp->nextstmt != NULL)
-          if(temp->nextstmt->nodetype != ImpliedLoop)
+          if(temp->nextstmt->nodetype != IoImpliedLoop) {
             fprintf(curfp,"System.out.print(");
+            c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+            bytecode1(jvm_getstatic, c->index);
+          }
       }
       else
       {
         fprintf(curfp,"(");
-        expr_emit (temp);
-        fprintf(curfp,")");
 
-        if((temp == root->astnode.io_stmt.arg_list) &&
-           (root->astnode.io_stmt.fmt_list == NULL))
+        if(((temp == root->astnode.io_stmt.arg_list) &&
+           (root->astnode.io_stmt.fmt_list == NULL)) 
+           || prev->nodetype == IoImpliedLoop)
         {
           /* this is the first item in the list and we do not have an inline
            * format spec, therefore we must create the new StringBuffer now.
@@ -5951,6 +5969,12 @@ write_emit(AST * root)
            * if the first item is not a string, we must convert it to String
            * before calling the constructor.
            */
+
+          c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+          bytecode1(jvm_new,c->index);
+          bytecode0(jvm_dup);
+
+          expr_emit (temp);
 
           if((temp->vartype != String) && (temp->vartype != Character)) {
             /* call String.valueOf() to convert this numeric type to string */
@@ -5963,11 +5987,13 @@ write_emit(AST * root)
           bytecode1(jvm_invokespecial, c->index);
         }
         else {
+          expr_emit (temp);
           c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
                   append_descriptor[temp->vartype]);
 
           bytecode1(jvm_invokevirtual, c->index);
         }
+        fprintf(curfp,")");
 
         if(temp->nextstmt != NULL) 
         {
@@ -5977,7 +6003,7 @@ write_emit(AST * root)
 
           bytecode1(jvm_invokevirtual, c->index);
 
-          if(temp->nextstmt->nodetype == ImpliedLoop) {
+          if(temp->nextstmt->nodetype == IoImpliedLoop) {
             /* next item is an implied loop.  finish up this print statement. */
             fprintf (curfp, " + \" \");\n");
 
@@ -5990,21 +6016,30 @@ write_emit(AST * root)
             bytecode1(jvm_invokevirtual, c->index);
           }
           else {
+            /* bytecode for this is above (pushStringConst(" "); etc.)  */
             fprintf (curfp, " + \" \" + ");
           }
         }
         else if(implied_loop) {
           fprintf (curfp, ");\n");
+
+          c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+                TOSTRING_DESC);
+          bytecode1(jvm_invokevirtual, c->index);
+
           c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
                 println_descriptor[String]);
           bytecode1(jvm_invokevirtual, c->index);
         }
       }
+      prev = temp;
     }
   }
 
   if(implied_loop) {
     fprintf (curfp, "\nSystem.out.println();\n");
+    c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
     c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
     bytecode1(jvm_invokevirtual, c->index);
   }
@@ -6034,20 +6069,26 @@ write_emit(AST * root)
  *****************************************************************************/
 
 void
-inline_format_emit(AST *root)
+inline_format_emit(AST *root, BOOLEAN use_stringbuffer)
 {
   CPNODE *c;
 
   fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
     
+  if(use_stringbuffer) {
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+    bytecode1(jvm_new,c->index);
+    bytecode0(jvm_dup);
+  }
+
   pushStringConst(root->astnode.io_stmt.fmt_list->astnode.constant.number);
 
   if(root->astnode.io_stmt.arg_list != NULL)
-  {
+    fprintf(curfp, " + ");
+
+  if (use_stringbuffer) {
     c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
     bytecode1(jvm_invokespecial, c->index);
-
-    fprintf(curfp, " + ");
   }
 }
 
@@ -6064,9 +6105,12 @@ void
 write_implied_loop_emit(AST *node)
 {
   CodeGraphNode *if_node, *goto_node, *iload_node;
-  AST *temp, *addnode();
-  void assign_emit(AST *), gen_istore_op(int);
+  CPNODE *c;
+  AST *temp;
   int icount;
+
+  void assign_emit(AST *), gen_istore_op(int);
+  AST *addnode();
 
   temp = addnode();
   temp->nodetype = Assignment;
@@ -6113,7 +6157,8 @@ write_implied_loop_emit(AST *node)
   else {
     fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
       unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (write stmt)\n");
+    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
+    exit(-1);
   }
 
   set_bytecode_status(JVM_ONLY);
@@ -6124,15 +6169,61 @@ write_implied_loop_emit(AST *node)
   assign_emit(temp);
 
   /* now emit the expression to calculate the number of 
-   * iterations that this loop should make.
+   * iterations that this loop should make and store the result
+   * into the next available local variable.
    */
   expr_emit(node->astnode.forloop.iter_expr);
   icount = getNextLocal();
   gen_istore_op(icount);
 
+  /* goto the end of the loop where we test for completion */
   goto_node = bytecode0(jvm_goto);
 
+  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+  bytecode1(jvm_getstatic, c->index);
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
+
   /* emit loop body */
+  if(node->astnode.forloop.Label->nodetype == Identifier) {
+    name_emit(node->astnode.forloop.Label);
+  }
+  else if(node->astnode.forloop.Label->nodetype == Constant) {
+    pushConst(node->astnode.forloop.Label);
+  }
+  else {
+    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+      unit_name,print_nodetype(node->astnode.forloop.Label));
+    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
+    exit(-1);
+  }
+
+  if((node->astnode.forloop.Label->vartype != String) && 
+     (node->astnode.forloop.Label->vartype != Character))
+  {
+    /* call String.valueOf() to convert this numeric type to string */
+    c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
+           string_valueOf_descriptor[node->astnode.forloop.Label->vartype]);
+    bytecode1(jvm_invokestatic, c->index);
+  }
+
+  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+  bytecode1(jvm_invokespecial, c->index);
+
+  pushStringConst(" ");
+  c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
+        append_descriptor[String]);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+        TOSTRING_DESC);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
+        println_descriptor[String]);
+  bytecode1(jvm_invokevirtual, c->index);
 
   /* increment loop variable */
   assign_emit(node->astnode.forloop.incr_expr);
@@ -8835,8 +8926,10 @@ print_nodetype (AST *root)
       return("EmptyArgList");
     case IoExplist:
       return("IoExplist");
-    case ImpliedLoop:
-      return("ImpliedLoop");
+    case IoImpliedLoop:
+      return("IoImpliedLoop");
+    case DataImpliedLoop:
+      return("DataImpliedLoop");
     case Unimplemented:
       return("Unimplemented");
     case Equivalence:
@@ -8896,6 +8989,8 @@ bytecode1(enum _opcode op, u4 operand)
   /* if we should not generate bytecode, then just return a dummy node */
   if(!bytecode_gen)
     return newGraphNode(op, operand);
+
+  printf("bytecode: %s %d\n", jvm_opcode[op].op, operand);
 
   lastOp = op;
 

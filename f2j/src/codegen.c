@@ -8133,6 +8133,64 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
 /*****************************************************************************
  *                                                                           *
+ * get_method_name                                                           *
+ *                                                                           *
+ * the method that we call depends on whether this function needs an         *
+ * adapter, reflection, etc.  this function determines the correct method    *
+ * name and returns it as a string.                                          *
+ *                                                                           *
+ *****************************************************************************/
+
+METHODREF *
+get_method_name(AST *root, BOOLEAN adapter)
+{
+  char *buf, *tempname;
+  METHODREF *newmeth;
+
+  tempname = strdup (root->astnode.ident.name);
+  *tempname = toupper (*tempname);
+
+  buf = (char *)f2jalloc(
+    MAX((strlen(tempname) + strlen(root->astnode.ident.name)), 
+        (strlen(root->astnode.ident.name) + 9)) + 5);
+  buf[0] = '\0';
+
+  newmeth = (METHODREF *)f2jalloc(sizeof(METHODREF));
+
+  if(type_lookup(cur_args_table, root->astnode.ident.name)) {
+    if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
+       (root->astnode.ident.arraylist == NULL)) {
+      /* should not hit this */
+    }
+    else if (root->nodetype == Call) {
+      /* should not hit this */
+    }
+    else {
+      sprintf(buf,"%s_methcall",root->astnode.ident.name);
+      newmeth->classname = "this";
+      newmeth->methodname = strdup(buf);
+    }
+  }
+  else if(adapter)
+  {
+    sprintf (buf, "%s_adapter", root->astnode.ident.name);
+    newmeth->classname = "this";
+    newmeth->methodname = strdup(buf);
+  }
+  else
+  {
+    sprintf (buf, "%s.%s", tempname, root->astnode.ident.name);
+    newmeth->classname = tempname;
+    newmeth->methodname = root->astnode.ident.name;
+  }
+
+  newmeth->descriptor = NULL;
+
+  return newmeth;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * call_emit                                                                 *
  *                                                                           *
  * This procedure implements Lapack and Blas type methods.                   *
@@ -8162,10 +8220,19 @@ call_emit (AST * root)
   if( method_name_emit(root, adapter) )
     return;
 
+  if(gendebug)
+    printf("@##@ call_emit, %s not already emitted\n",root->astnode.ident.name);
+
   if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
      (root->astnode.ident.arraylist == NULL))
   {
     /* the arg list is empty, just emit "()" and return */
+    METHODREF *mref;
+
+    mref = get_method_name(root, adapter);
+
+    printf("call_emit (type: %s), got class = '%s', name = '%s'\n", 
+      returnstring[root->vartype], mref->classname, mref->methodname);
 
     if(root->nodetype == Call)
       fprintf (curfp, "();\n");

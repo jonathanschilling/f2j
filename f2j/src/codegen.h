@@ -74,6 +74,8 @@
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"
 
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
 /*****************************************************************************
  * Definitions for an expandable string structure.  STR_INIT is the initial  *
  * size of the string, while STR_CHUNK is the number of bytes by which we    *

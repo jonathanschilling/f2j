@@ -8625,8 +8625,6 @@ assign_emit (AST * root)
     printf("## ## codegen: ltype = %s (%d)\n",returnstring[ltype], ltype);
     printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
   }
-  printf("## ## codegen: ltype = %s (%d)\n",returnstring[ltype], ltype);
-  printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
 
   /* handle lhs substring operations elsewhere */
   if(root->astnode.assignment.lhs->nodetype == Substring) {
@@ -9247,7 +9245,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 {
   enum returntype ret_type;
   char *ret;
-  int lv_temp;
+  int lv_temp, retval_varnum = 0;
 
   fprintf(curfp,"// adapter for %s\n", 
     node->astnode.ident.name);
@@ -9282,8 +9280,10 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 
   adapter_methcall_emit_from_descriptor(node, lv_temp, mref, ret);
 
-  if(ret[0] != 'V')
-    gen_store_op(getNextLocal(ret_type), ret_type);
+  if(ret[0] != 'V') {
+    retval_varnum = getNextLocal(ret_type);
+    gen_store_op(retval_varnum, ret_type);
+  }
 
   adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
      lv_temp, mref->descriptor);
@@ -9293,7 +9293,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     fprintf(curfp,"\nreturn %s_retval;\n",
       node->astnode.ident.name);
 
-    gen_load_op(cur_local, ret_type);
+    gen_load_op(retval_varnum, ret_type);
     bytecode0(return_opcodes[ret_type]);
   }
   else

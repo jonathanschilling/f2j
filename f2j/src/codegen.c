@@ -44,7 +44,8 @@ void
   pushDoubleConst(double),
   pushStringConst(char *),
   pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
-  dec_stack(int);
+  dec_stack(int),
+  invoke_constructor(char *, AST *, char *);
 
 int
   isPassByRef(char *);
@@ -1588,8 +1589,8 @@ void
 print_string_initializer(AST *root)
 {
   char *src_initializer, *bytecode_initializer;
+  AST *tempnode, *addnode();
   HASHNODE *ht;
-  CPNODE *c;
 
   ht = type_lookup(cur_type_table,root->astnode.ident.name);
   if(ht == NULL)
@@ -1628,28 +1629,19 @@ print_string_initializer(AST *root)
   strncpy(bytecode_initializer, src_initializer + 1, strlen(src_initializer) -2);
   bytecode_initializer[strlen(src_initializer) - 2] = '\0';
 
-  /* c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, bytecode_initializer); */
-  c = cp_find_or_insert(cur_const_table, CONSTANT_String, bytecode_initializer);
+  tempnode = addnode();
+  tempnode->token = STRING;
+  strcpy(tempnode->astnode.constant.number, bytecode_initializer);
 
-  if(c->index > CPIDX_MAX)
-    code_one_op_w(jvm_ldc_w, c->index);
-  else
-    code_one_op(jvm_ldc, c->index);
-
-  if(omitWrappers && !isPassByRef(root->astnode.ident.name))
-  {
+  if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
     fprintf(curfp,"= new String(%s)", src_initializer);
-    c = newMethodref(cur_const_table,JL_STRING,
-               "<init>", STR_CONST_DESC);
+    invoke_constructor(JL_STRING, tempnode, STR_CONST_DESC);
   }
-  else
-  {
+  else {
     fprintf(curfp,"= new StringW(%s)", src_initializer);
-    c = newMethodref(cur_const_table,full_wrappername[String],
-               "<init>", wrapper_descriptor[String]);
+    invoke_constructor(full_wrappername[String], tempnode,
+       wrapper_descriptor[String]);
   }
-
-  code_one_op_w(jvm_invokespecial, c->index);
 }
 
 /*****************************************************************************
@@ -1996,7 +1988,7 @@ determine_var_length(HASHNODE *var)
 AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
-  int i, count =1;
+  int i, count=1, size=0;
 
   if(gendebug)
     printf("VAR here we are in data_array_emit, length = %d\n",length);
@@ -2009,9 +2001,28 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
    * so we use the "_temp_" prefix and emit the initialization.
    * later we assign the temp variable to the class variable.
    * 10/3/97  --Keith
+   *
+   * i think the above comment is out of date. there is really
+   * no distinction between static/nonstatic anymore.  --kgs 5/15/00
    */
 
-  fprintf(curfp,"%s = {",Ntemp->astnode.ident.name);
+  fprintf(curfp,"%s = {\n",Ntemp->astnode.ident.name);
+
+  /* for bytecode, we have to determine the number of elements
+   * prior to emitting the elements themselves because we must
+   * push the array size on the stack first.  if the length is
+   * not known, we count the number of actual data items.
+   * otherwise, we set the array size equal to the given length.  
+   */
+  if(length == -1) {
+    AST *tmp;
+    for(tmp = Ctemp;tmp != NULL;tmp=tmp->nextstmt)
+      size++;
+  }
+  else
+    size = length;
+  
+printf("## using size = %d\n",size);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
     if(Ctemp->token == STRING)
@@ -2054,7 +2065,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
      * I have run across some lines that end up so long that
      * they screw up 'vi'.   9/30/97  --Keith 
      */
-    if( count % 5 == 0 )
+    if( (count+1) % 5 == 0 )
       fprintf(curfp,"\n");
 
     if( (Ctemp = Ctemp->nextstmt) == NULL )
@@ -2115,70 +2126,56 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
      * of the string constant, otherwise some subscript operations get screwed
      * up.  so we initialize the string to n blanks, where n is the original 
      * string length.
+     * ..i dont think this code is working as described above.  however, it
+     * doesn't seem to be hurting anything currently.  --kgs
      */
 
     if(!needs_dec)
     {
-      char *desc;
-      u2 init_idx, class_idx;
+      /* assigning to a scalar element.  call invoke_constructor() to push
+       * the new string object onto the stack and then emit a putstatic 
+       * instruction to store it into the scalar variable.  we can safely
+       * assume that it is not an argument to this program unit because
+       * you cannot use the DATA statement to initialize an argument.
+       */
 
       if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = new String(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
 
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                JL_STRING);
-        class_idx = c->index;
-
-        c = newMethodref(cur_const_table,JL_STRING, 
-               "<init>", STR_CONST_DESC);
-
-        init_idx = c->index;
-
-        desc = field_descriptor[String][0];
+        invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
+        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+              field_descriptor[String][0]);
       }
       else {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
 
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                full_wrappername[type]);
-        class_idx = c->index;
-
-        c = newMethodref(cur_const_table,full_wrappername[Ntemp->vartype], 
-               "<init>", wrapper_descriptor[Ntemp->vartype]);
-
-        init_idx = c->index;
-
-        desc = wrapped_field_descriptor[String][0];
+        invoke_constructor(full_wrappername[type], Ctemp, STR_CONST_DESC);
+        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+              wrapped_field_descriptor[String][0]);
       }
 
-      code_one_op_w(jvm_new,class_idx);
-      code_zero_op(jvm_dup);
-
-      c = cp_find_or_insert(cur_const_table,CONSTANT_String,
-              Ctemp->astnode.constant.number);
-
-      if(c->index > CPIDX_MAX)
-        code_one_op_w(jvm_ldc_w, c->index);
-      else
-        code_one_op(jvm_ldc, c->index);
-
-      code_one_op_w(jvm_invokespecial, init_idx);
-
-      c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
-                      desc); 
       code_one_op_w(jvm_putstatic, c->index);
     }
     else
     {
+      /* assigning to an array element.  first, call expr_emit() which will
+       * push a reference to the array & the array index onto the stack.
+       * then call invoke_constructor() to push a new string object onto
+       * the stack.  finally, emit an array store instruction to store the
+       * string into the array element.
+       */
+
       expr_emit(Ntemp);
       fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.constant.number);
-    }
 
-    code_zero_op(array_store_opcodes[Ntemp->vartype]);
+      invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
+
+      code_zero_op(array_store_opcodes[Ntemp->vartype]);
+    }
   }
   else 
   {
@@ -2188,19 +2185,68 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name))
+      /* as above in the string case, we are assigning to a scalar
+       * variable, which we may safely assume is not an argument.
+       * if it does not need to be wrapped, just push the constant
+       * onto the stack.  otherwise, call invoke_constructor() to
+       * create the appropriate wrapper object.
+       */
+      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = %s;\n",Ntemp->astnode.ident.name,
           Ctemp->astnode.constant.number);
-      else
+        pushConst(Ctemp);
+        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+              field_descriptor[type][0]);
+      }
+      else {
         fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
           wrapper_returns[ type], Ctemp->astnode.constant.number);
+        invoke_constructor(full_wrappername[type], Ctemp, wrapper_descriptor[type]);
+        c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+              wrapped_field_descriptor[type][0]);
+      }
+
+      code_one_op_w(jvm_putstatic, c->index);
     }
     else
     {
+      /* as above in string case, we are assigning to an array element.
+       * the individual elements of an array are never wrapped, so we
+       * just push the constant onto the stack and issue an array store
+       * instruction.
+       */
       expr_emit(Ntemp);
       fprintf(curfp," = %s;\n", Ctemp->astnode.constant.number);
+      pushConst(Ctemp);
+      code_zero_op(array_store_opcodes[type]);
     }
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * invoke_constructor                                                        *
+ *                                                                           *
+ * invokes the <init> method of the given class constructor.  used for the   *
+ * numeric & string classes (one-arg constructors).  the AST node 'constant' *
+ * should represent a constant value of course (i.e. dont pass idents).      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+invoke_constructor(char *classname, AST *constant, char *desc)
+{
+  CPNODE *c;
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
+
+  code_one_op_w(jvm_new,c->index);
+  code_zero_op(jvm_dup);
+  pushConst(constant);
+
+  c = newMethodref(cur_const_table, classname, "<init>", desc);
+
+  code_one_op_w(jvm_invokespecial, c->index);
 }
 
 /*****************************************************************************
@@ -4101,19 +4147,8 @@ expr_emit (AST * root)
           }
           else
           {
-            CPNODE * c;
-
-            c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                    full_wrappername[root->vartype]);
-
-            code_one_op_w(jvm_new,c->index);
-            code_zero_op(jvm_dup);
-            pushConst(root);
-
-            c = newMethodref(cur_const_table,full_wrappername[root->vartype], 
-                   "<init>", wrapper_descriptor[root->vartype]);
-
-            code_one_op_w(jvm_invokespecial, c->index);
+            invoke_constructor(full_wrappername[root->vartype], root, 
+              wrapper_descriptor[root->vartype]);
 
             fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
@@ -4126,20 +4161,8 @@ expr_emit (AST * root)
           }
           else
           {
-            CPNODE * c;
-
-            c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                    full_wrappername[root->vartype]);
-
-            code_one_op_w(jvm_new,c->index);
-            code_zero_op(jvm_dup);
-
-            pushConst(root);
-            
-            c = newMethodref(cur_const_table,full_wrappername[root->vartype], "<init>",
-                   wrapper_descriptor[root->vartype]);
-
-            code_one_op_w(jvm_invokespecial, c->index);
+            invoke_constructor(full_wrappername[root->vartype], root, 
+              wrapper_descriptor[root->vartype]);
 
             fprintf (curfp, "new %s(%s)", 
               wrapper_returns[get_type(root->astnode.constant.number)],

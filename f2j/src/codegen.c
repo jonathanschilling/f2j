@@ -166,12 +166,17 @@ emit (AST * root)
       case Progunit:
         {
           char *tmpname;
+          char *classname;
 
           if (gendebug)
             printf ("Source.\n");
 
           tmpname = root->astnode.source.progtype->
                        astnode.source.name->astnode.ident.name;
+
+          classname = strdup(tmpname);
+          lowercase(classname);
+          classname[0] = toupper(classname[0]);
 
           /* First set up the local hash tables. */
 
@@ -189,7 +194,7 @@ emit (AST * root)
           cur_equivList = root->astnode.source.equivalences;
           cur_const_table = root->astnode.source.constants_table;
           cur_class_file = root->astnode.source.class = 
-                newClassFile(tmpname,inputfilename);
+                newClassFile(classname,inputfilename);
        
           if(gendebug)
             print_equivalences(cur_equivList);
@@ -601,13 +606,21 @@ field_emit(AST *root)
   HASHNODE *ht;
   CPNODE * c;
 
-  /* check if this variable is EQUIVALENCEd to some other name.  if so,
+  /* check if this variable has a merged name.  if so,
    * use that name instead.
    */
-  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)) != NULL)
+  ht = type_lookup(cur_equiv_table,root->astnode.ident.name);
+
+  if(ht && ht->variable->astnode.ident.merged_name)
     name = ht->variable->astnode.ident.merged_name;
-  else
-    name = root->astnode.ident.name;
+  else {
+    ht = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    if(ht && ht->variable->astnode.ident.merged_name) 
+      name = ht->variable->astnode.ident.merged_name;
+    else
+      name = root->astnode.ident.name;
+  }
 
   /* figure out which variable descriptor we need based on the variable's
    * type and # of dimensions.
@@ -649,7 +662,6 @@ field_emit(AST *root)
   dl_insert_b(cur_class_file->fields, tmpfield);
 
   cur_class_file->fields_count++;
-
 }
 
 /*****************************************************************************
@@ -901,6 +913,7 @@ common_emit(AST *root)
   int save_stack, save_pc;
   char *get_common_prefix(char *);
 
+  /* save the current global variables pointing to the class file. */
   save_const_table = cur_const_table;
   save_class_file = cur_class_file; 
   save_code = cur_code;
@@ -929,8 +942,9 @@ common_emit(AST *root)
                                     strlen(common_classname) + 6);
       sprintf(filename,"%s.java", common_classname);
 
-      cur_class_file = newClassFile(common_classname,inputfilename);
       cur_const_table = make_dl();
+      cur_class_file = newClassFile(common_classname,inputfilename);
+      clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
 
       if((commonfp = fopen(filename,"w"))==NULL) 
       {
@@ -964,7 +978,7 @@ common_emit(AST *root)
          * declaration associated with it.
          */
 
-        if((hashtemp = type_lookup(cur_type_table,Ntemp->astnode.ident.name)) == NULL)
+        if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))==NULL)
         {
           fprintf(stderr,"Error: can't find type for common %s\n",
             Ntemp->astnode.ident.name);
@@ -977,6 +991,8 @@ common_emit(AST *root)
           printf("Found\n");
 
         temp = hashtemp->variable;
+
+        field_emit(temp);
 
         if(temp->astnode.ident.needs_declaration)
           needs_dec = TRUE;
@@ -1019,6 +1035,24 @@ common_emit(AST *root)
         fprintf(curfp,"}\n");
   
       fclose(curfp);
+
+      /* check whether any class initialization code was generated.
+       * if so, finish initializing the method and insert it into this
+       * class.
+       */
+      if(pc > 0) {
+        code_zero_op(jvm_return);
+        endNewMethod(clinit_method, "<clinit>", "()V");
+        cur_class_file->methods_count++;
+        dl_insert_b(cur_class_file->methods, clinit_method);
+      }
+cp_dump(cur_const_table);
+
+      cur_class_file->constant_pool_count = 
+         (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
+      cur_class_file->constant_pool = cur_const_table;
+
+      write_class(cur_class_file);
     }
   }
 
@@ -1230,10 +1264,12 @@ vardec_emit(AST *root, enum returntype returns)
   }
   else {
     name = root->astnode.ident.name;
-    if((ht2=type_lookup(cur_type_table,root->astnode.ident.name)))
+
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    if(ht2 && ht2->variable->astnode.ident.descriptor)
       desc = ht2->variable->astnode.ident.descriptor;
     else {
-      fprintf(stderr,"WARNING: unable to determine descriptor!\n");
       desc = field_descriptor[returns][root->astnode.ident.dim];
     }
   }
@@ -1420,6 +1456,11 @@ vardec_emit(AST *root, enum returntype returns)
 
         print_string_initializer(root);
         fprintf(curfp,";\n");
+
+printf("new fieldref:\n");
+printf("\tclass: %s\n", cur_filename);
+printf("\tname:  %s\n", name);
+printf("\tdesc:  %s\n", desc);
 
         c = newFieldref(cur_const_table,cur_filename,name,desc); 
         code_one_op_w(jvm_putstatic, c->index);
@@ -7089,7 +7130,6 @@ newClassFile(char *name, char *srcFile)
   struct ClassFile * tmp;
   u4 u4BigEndian(u4);
   u2 u2BigEndian(u2);
-  char *thisname;
   CPNODE *c;
 
   CPNODE* cp_insert(Dlist, struct cp_info *, char);
@@ -7115,15 +7155,14 @@ newClassFile(char *name, char *srcFile)
    * turn points to a CONSTANT_Utf8_info entry representing the name of
    * this class.  so, first we create the Utf8 entry, then the Class entry.
    */
-  thisname = strdup(name);
-  lowercase(thisname);
-  thisname[0] = toupper(thisname[0]);
+
+printf("creating new entry, this -> %s\n",name);
 
   newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Utf8;
-  newnode->cpnode.Utf8.length = strlen(thisname);
+  newnode->cpnode.Utf8.length = strlen(name);
   newnode->cpnode.Utf8.bytes = (u1 *)f2jalloc(newnode->cpnode.Utf8.length);
-  strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
+  strncpy((char *)newnode->cpnode.Utf8.bytes, name, newnode->cpnode.Utf8.length);
 
   c = cp_insert(cur_const_table,newnode,1);
 

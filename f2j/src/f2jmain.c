@@ -106,11 +106,19 @@ To compile a program into Java source code:\n\
  a path to be searched for\nincluded files (may be used\
  multiple times).\n\n";
 
+#ifdef _WIN32
+  char f2java_help_c_option[] = "The -c option may also be\
+ used to specify the search\n\
+path for \".f2j\" files.  It is a semicolon-separated\n\
+list of paths, like a Java CLASSPATH).  For example:\n\n\
+    f2java -c .;..\objects filename\n\n";
+#else
   char f2java_help_c_option[] = "The -c option may also be\
  used to specify the search\n\
 path for \".f2j\" files.  It is a colon-separated\n\
-list of paths, like a Java CLASSPATH.  For example:\n\n\
+list of paths, like a Java CLASSPATH).  For example:\n\n\
     f2java -c .:../objects filename\n\n";
+#endif
 
   char f2java_help_p_option[] = "The -p option may also be\
  used to specify the name\n\

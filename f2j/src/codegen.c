@@ -7999,10 +7999,25 @@ get_method_name(AST *root, BOOLEAN adapter)
       /* should not hit this */
     }
     else {
+      char *tmpdesc;
+      
       sprintf(buf,"%s_methcall",root->astnode.ident.name);
       newmeth->classname = strdup(cur_filename);
       newmeth->methodname = strdup(buf);
-      newmeth->descriptor = get_desc_from_arglist(root->astnode.ident.arraylist);
+
+      tmpdesc = get_desc_from_arglist(root->astnode.ident.arraylist);
+
+      newmeth->descriptor = (char*)f2jalloc(strlen(tmpdesc) + 
+        strlen(METHOD_CLASS) + strlen(field_descriptor[root->vartype][0]) + 10);
+      strcpy(newmeth->descriptor, "(");
+      strcat(newmeth->descriptor, "L");
+      strcat(newmeth->descriptor, METHOD_CLASS);
+      strcat(newmeth->descriptor, ";");
+      strcat(newmeth->descriptor, tmpdesc);
+      strcat(newmeth->descriptor, ")");
+      strcat(newmeth->descriptor, field_descriptor[root->vartype][0]);
+
+      printf("methcall descriptor = %s\n",newmeth->descriptor);
     }
   }
   else if(adapter)
@@ -9366,17 +9381,25 @@ get_desc_from_arglist(AST *list)
   struct _str * temp_desc = NULL;
   HASHNODE *ht;
   AST *arg;
+  int dim;
 
   for(arg = list; arg != NULL; arg = arg->nextstmt) {
+    dim = 0;
+
     if(omitWrappers) {
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-        if(ht)
-          temp_desc = strAppend(temp_desc,
-            field_descriptor[ht->variable->vartype][ht->variable->astnode.ident.dim]);
-        else
-          temp_desc = strAppend(temp_desc,
-            field_descriptor[arg->vartype][arg->astnode.ident.dim]);
+        if(ht) {
+          dim = ht->variable->astnode.ident.dim;
+
+          temp_desc = strAppend(temp_desc, field_descriptor[ht->variable->vartype][dim]);
+        }
+        else {
+          dim = arg->astnode.ident.dim;
+
+          temp_desc = strAppend(temp_desc, field_descriptor[arg->vartype][dim]);
+        }
+
       }
       else if( arg->nodetype == Constant )
         temp_desc = strAppend(temp_desc,
@@ -9389,12 +9412,16 @@ get_desc_from_arglist(AST *list)
     {
       if( arg->nodetype == Identifier ) {
         ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-        if(ht)
-          temp_desc = strAppend(temp_desc,
-            wrapped_field_descriptor[ht->variable->vartype][ht->variable->astnode.ident.dim]);
-        else
-          temp_desc = strAppend(temp_desc,
-            wrapped_field_descriptor[arg->vartype][arg->astnode.ident.dim]);
+        if(ht) {
+          dim = ht->variable->astnode.ident.dim;
+
+          temp_desc = strAppend(temp_desc, wrapped_field_descriptor[ht->variable->vartype][dim]);
+        }
+        else {
+          dim = arg->astnode.ident.dim;
+
+          temp_desc = strAppend(temp_desc, wrapped_field_descriptor[arg->vartype][dim]);
+        }
       }
       else if( arg->nodetype == Constant )
         temp_desc = strAppend(temp_desc,
@@ -9403,6 +9430,9 @@ get_desc_from_arglist(AST *list)
         temp_desc = strAppend(temp_desc,
            wrapped_field_descriptor[arg->vartype][0]);
     }
+
+    if(dim > 0)
+      temp_desc = strAppend(temp_desc, "I");
   }
 
   return temp_desc->val;

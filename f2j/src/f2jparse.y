@@ -2849,18 +2849,21 @@ printf("found.\n");
           tempnames->astnode.ident.D[2] = var->astnode.ident.D[2];
         }
 
-        hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
+        if((temptypes->token != INTRINSIC) && (temptypes->token != EXTERNAL))
+        {
+          hash_entry = type_lookup(type_table,tempnames->astnode.ident.name);
 
-        if(hash_entry == NULL) {
-          tempnames->vartype = return_type;
+          if(hash_entry == NULL) {
+            tempnames->vartype = return_type;
 
-          type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
-        }
-        else {
-          if(debug)
-            printf("Duplicate entry.\n");  
+            type_insert(type_table, tempnames, return_type, tempnames->astnode.ident.name);
+          }
+          else {
+            if(debug)
+              printf("Duplicate entry.\n");  
   
-          tempnames->vartype = hash_entry->variable->vartype;
+            tempnames->vartype = hash_entry->variable->vartype;
+          }
         }
       }
 

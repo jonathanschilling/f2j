@@ -68,7 +68,7 @@ extern METHODTAB intrinsic_toks[];
  * Global variables.                                                         *
  *****************************************************************************/
 
-int checkdebug = FALSE;              /* set to TRUE for debugging output     */
+int checkdebug = TRUE;              /* set to TRUE for debugging output     */
 
 AST *cur_unit;                       /* program unit currently being checked */
 
@@ -1395,5 +1395,4 @@ assign_check (AST * root)
     fprintf(stderr,"assign_check: calling expr_check with null pointer!\n");
 
   expr_check (root->astnode.assignment.rhs);
-
 }

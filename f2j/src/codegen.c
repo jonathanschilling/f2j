@@ -23,6 +23,8 @@
 #include"class.h"
 #include"constant_pool.h"
 #include"codegen.h"
+#include"opcodes.h"
+#include"graph.h"
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -42,6 +44,7 @@ void
   pushStringConst(char *),
   pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
   dec_stack(int),
+  iinc_emit(int, int),
   invoke_constructor(char *, AST *, char *),
   set_bytecode_status(int),
   releaseLocal();
@@ -358,9 +361,7 @@ emit (AST * root)
              (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
           cur_class_file->constant_pool = cur_const_table;
 
-          /* temporarily comment this out until all the graph stuff is working 
-           *   write_class(cur_class_file);
-           */
+          write_class(cur_class_file);
           break;
         }
       case Subroutine:
@@ -6062,7 +6063,7 @@ inline_format_emit(AST *root)
 void
 write_implied_loop_emit(AST *node)
 {
-  CodeGraphNode *if_node, *goto_node;
+  CodeGraphNode *if_node, *goto_node, *iload_node;
   AST *temp, *addnode();
   void assign_emit(AST *), gen_istore_op(int);
   int icount;
@@ -6126,24 +6127,50 @@ write_implied_loop_emit(AST *node)
    * iterations that this loop should make.
    */
   expr_emit(node->astnode.forloop.iter_expr);
-  bytecode0(jvm_dup);
   icount = getNextLocal();
   gen_istore_op(icount);
 
-  if_node = bytecode0(jvm_ifeq);
+  goto_node = bytecode0(jvm_goto);
 
   /* emit loop body */
-  /* increment loop var */
+
+  /* increment loop variable */
+  assign_emit(node->astnode.forloop.incr_expr);
+
   /* decrement iteration count */
-  /* dup count */
+  iinc_emit(icount, -1);
 
-  goto_node = bytecode0(jvm_goto);
-  goto_node->branch_target = if_node;
+  if(icount <= 3)
+    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
+  else
+    iload_node = bytecode1(jvm_iload, icount);
 
-  /* generate dummy instruction for if target */
+  goto_node->branch_target = iload_node;
+
+  if_node = bytecode0(jvm_ifne);
+  if_node->branch_target = goto_node->next;
 
   releaseLocal();
   set_bytecode_status(JAVA_AND_JVM);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * iinc_emit                                                                 *
+ *                                                                           *
+ * generates an iinc instruction.  iinc takes two one-byte operands, which   *
+ * we join into a single operand here.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+iinc_emit(int idx, int inc_const)
+{
+  int operand;
+
+  operand = ((idx & 0xFF) << 8) | (inc_const & 0xFF);
+ 
+  bytecode1(jvm_iinc, operand);
 }
 
 /*****************************************************************************
@@ -8908,4 +8935,18 @@ CodeGraphNode *
 bytecode0(enum _opcode op)
 {
   return bytecode1(op,0);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * opWidth                                                                   *
+ *                                                                           *
+ * returns the width in bytes of this op, including operands.                *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+opWidth(enum _opcode op)
+{
+  return jvm_opcode[op].width;
 }

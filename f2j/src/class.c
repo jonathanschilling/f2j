@@ -11,9 +11,10 @@
 #include<string.h>
 #include<ctype.h>
 #include"class.h"
+#include"codegen.h"
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
-
+#include"graph.h"
 
 /*****************************************************************************
  * write_class                                                               *
@@ -219,6 +220,8 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
   Dlist tmpPtr;
   CPNODE *c;
 
+  void write_code(Dlist, FILE *);
+
   if((attr_list == NULL) || (const_pool == NULL))
     return;
 
@@ -244,7 +247,8 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       write_u2(tmpattr->attr.Code->max_stack,out);
       write_u2(tmpattr->attr.Code->max_locals,out); 
       write_u4(tmpattr->attr.Code->code_length,out);
-      fwrite(tmpattr->attr.Code->code, tmpattr->attr.Code->code_length, 1, out);
+      /* fwrite(tmpattr->attr.Code->code, tmpattr->attr.Code->code_length, 1, out); */
+      write_code(tmpattr->attr.Code->code, out);
       write_u2(tmpattr->attr.Code->exception_table_length,out);
       if(tmpattr->attr.Code->exception_table_length > 0)
         fprintf(stderr,"WARNING: dont know how to write exception table yet.\n");
@@ -254,6 +258,61 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     } 
     else {
       fprintf(stderr,"WARNING: write_attributes() unsupported attribute!\n");
+    }
+  }
+}
+
+/*****************************************************************************
+ * write_code                                                                *
+ *                                                                           *
+ * traverse the code graph and write each opcode to disk.                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_code(Dlist g, FILE *out)
+{
+  Dlist tmp;
+  CodeGraphNode *node;
+  int opWidth(enum _opcode);
+  u1 op;
+  u1 op1;
+  u2 op2;
+  u4 op4;
+
+  dl_traverse(tmp, g) {
+    node = (CodeGraphNode *) dl_val(tmp);
+
+    op = (u1) node->op;
+    fwrite( &(op), sizeof(op), 1, out);
+
+    switch(opWidth(node->op)) {
+      case 1:
+        /* if the width is 1, then there is no operand */
+        break;
+      case 2:
+        op1 = (u1) node->operand;
+        fwrite( &(op1), sizeof(op1), 1, out);
+        break;
+      case 3:
+        op2 = (u2) node->operand;
+        fwrite( &(op2), sizeof(op2), 1, out);
+        break;
+      case 4:
+        fprintf(stderr,
+          "write_code(): width 4, multianewarray unimplemented\n");
+        break;
+      case 5:
+        op4 = (u4) node->operand;
+        fwrite( &(op4), sizeof(op4), 1, out);
+        break;
+      case 10:
+        fprintf(stderr,
+          "write_code(): width 10, switches unimplemented\n");
+        break;
+      default:
+        fprintf(stderr, "write_code(): hit default unexpectedly\n");
+        break;
     }
   }
 }

@@ -1268,6 +1268,7 @@ forloop_check (AST * root)
   void expr_check (AST *);
 
   expr_check (root->astnode.forloop.iter_expr);
+  assign_check (root->astnode.forloop.incr_expr);
 
   assign_check (root->astnode.forloop.start);
 
@@ -1356,6 +1357,7 @@ write_check (AST * root)
 {
   AST *temp;
   void expr_check (AST *);
+  void assign_check (AST *);
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
@@ -1364,8 +1366,10 @@ write_check (AST * root)
 
     if(temp->nodetype != ImpliedLoop)
       expr_check (temp);
-    else
+    else {
       expr_check (temp->astnode.forloop.iter_expr);
+      assign_check (temp->astnode.forloop.incr_expr);
+    }
   }
 }
 

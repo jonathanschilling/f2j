@@ -275,7 +275,8 @@ struct _forloop
     *start,                         /* initial loop assignment (e.g. i = 0)  */
     *stop,                          /* stop when counter equals stop         */
     *incr,                          /* amount to increment each iteration    */
-    *iter_expr;                     /* expression to calc # of iterations    */
+    *iter_expr,                     /* expression to calc # of iterations    */
+    *incr_expr;                     /* expression to calc increment          */
 };
 
 /*****************************************************************************

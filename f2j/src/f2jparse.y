@@ -86,6 +86,7 @@ AST
   * dl_astnode_examine(Dlist l),
   * addnode(),
   * switchem(),
+  * gen_incr_expr(AST *, AST *),
   * gen_iter_expr(AST *, AST *, AST *);
 
 SYMTABLE 
@@ -1518,28 +1519,33 @@ Do_incr:  DO Integer
 
 Do_vals:  Assignment CM Exp   NL
           {
+            AST *counter;
+
             $$ = addnode();
 	    $1->parent = $$; /* 9-4-97 - Keith */
 	    $3->parent = $$; /* 9-4-97 - Keith */
-            $$->astnode.forloop.counter = $1->astnode.assignment.lhs;
+            counter = $$->astnode.forloop.counter = $1->astnode.assignment.lhs;
             $$->astnode.forloop.start = $1;
             $$->astnode.forloop.stop = $3;
             $$->astnode.forloop.incr = 0;
             $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,NULL);
+            $$->astnode.forloop.incr_expr = gen_incr_expr(counter,NULL);
           }
-
-      
        | Assignment CM Exp CM Exp   NL
          {
+           AST *counter;
+
            $$ = addnode();
 	   $1->parent = $$; /* 9-4-97 - Keith */
 	   $3->parent = $$; /* 9-4-97 - Keith */
 	   $5->parent = $$; /* 9-4-97 - Keith */
+           counter = $$->astnode.forloop.counter = $1->astnode.assignment.lhs;
            $$->nodetype = Forloop;
            $$->astnode.forloop.start = $1;
            $$->astnode.forloop.stop = $3;
            $$->astnode.forloop.incr = $5;
            $$->astnode.forloop.iter_expr = gen_iter_expr($1,$3,$5);
+           $$->astnode.forloop.incr_expr = gen_incr_expr(counter,$5);
          }
 ;
 
@@ -1868,6 +1874,7 @@ IoExp: Exp
          $$->astnode.forloop.counter = $4;
          $$->astnode.forloop.Label = $2;
          $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,NULL);
+         $$->astnode.forloop.incr_expr = gen_incr_expr($4,NULL);
 
          $2->parent = $$;
          $4->parent = $$;
@@ -1884,6 +1891,7 @@ IoExp: Exp
          $$->astnode.forloop.counter = $4;
          $$->astnode.forloop.Label = $2;
          $$->astnode.forloop.iter_expr = gen_iter_expr($6,$8,$10);
+         $$->astnode.forloop.incr_expr = gen_incr_expr($4,$10);
 
          $2->parent = $$;
          $4->parent = $$;
@@ -3264,6 +3272,66 @@ prepend_minus(char *num) {
   strcpy(num,tempstr);
 
   free(tempstr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * gen_incr_expr                                                             *
+ *                                                                           *
+ * this function creates an AST sub-tree representing a calculation of the   *
+ * increment for this loop.  for null increments, add one.  for non-null     *
+ * increments, add the appropriate value.
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+gen_incr_expr(AST *counter, AST *incr)
+{
+  AST *plus_node, *const_node, *assign_node, *lhs_copy, *rhs_copy, *incr_copy;
+
+  lhs_copy = addnode();
+  memcpy(lhs_copy, counter, sizeof(AST));
+  rhs_copy = addnode();
+  memcpy(rhs_copy, counter, sizeof(AST));
+
+  if(incr == NULL) {
+    const_node = addnode();
+    const_node->token = INTEGER;
+    const_node->nodetype = Constant;
+    strcpy(const_node->astnode.constant.number, "1");
+    const_node->vartype = Integer;
+
+    plus_node = addnode();
+    plus_node->token = PLUS;
+    rhs_copy->parent = plus_node;
+    const_node->parent = plus_node;
+    plus_node->astnode.expression.lhs = rhs_copy;
+    plus_node->astnode.expression.rhs = const_node;
+    plus_node->nodetype = Binaryop;
+    plus_node->astnode.expression.optype = '+';
+  }
+  else {
+    incr_copy = addnode();
+    memcpy(incr_copy, incr, sizeof(AST));
+
+    plus_node = addnode();
+    plus_node->token = PLUS;
+    rhs_copy->parent = plus_node;
+    incr_copy->parent = plus_node;
+    plus_node->astnode.expression.lhs = rhs_copy;
+    plus_node->astnode.expression.rhs = incr_copy;
+    plus_node->nodetype = Binaryop;
+    plus_node->astnode.expression.optype = '+';
+  }
+
+  assign_node = addnode();
+  assign_node->nodetype = Assignment;
+  lhs_copy->parent = assign_node;
+  plus_node->parent = assign_node;
+  assign_node->astnode.assignment.lhs = lhs_copy;
+  assign_node->astnode.assignment.rhs = plus_node;
+
+  return assign_node;
 }
 
 /*****************************************************************************

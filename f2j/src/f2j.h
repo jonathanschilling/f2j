@@ -14,9 +14,6 @@ typedef int BOOLEAN;
 #define BLAS 0
 #define LAPACK 1
 #define DEFAULT_TARGET_LANG 0 /* 0 for JAVA, 1 for JAS */
-#define TYPECHECK
-
-/* #define OPT_SCALAR  */
 
 /* defines for optimization of the use of object wrappers */
 
@@ -34,11 +31,11 @@ int statementno;
 int func_stmt_num;
 FILE *ifp;
 FILE *jasminfp;
-/* FILE *javafp; */
 FILE *vcgfp;
 int JAS;
 char *inputfilename;
 char *package_name;
+BOOLEAN omitWrappers;
 
 /* Dlist tokenstack; */
 SYMTABLE *type_table;
@@ -181,9 +178,7 @@ typedef struct ast_node
                   struct ast_node *prologComments;
                   int needs_input;
                   int needs_reflection;
-#ifdef OPT_SCALAR
                   int scalarOptStatus;
-#endif
 	      }
 	    source;
 
@@ -258,12 +253,10 @@ typedef struct ast_node
                   char *merged_name;
                   int needs_declaration;
                   int len;
-#ifdef OPT_SCALAR
                   int passByRef;
                   int isLhs;
                   int isReadArg;
                   int position;
-#endif
 	      }
 	    ident;
 

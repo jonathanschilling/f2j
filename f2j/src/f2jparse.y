@@ -166,12 +166,11 @@ F2java:   Sourcecodes
                      * for that in codegen.
                      */
                     temp->astnode.source.prologComments = commentList;
-#ifdef TYPECHECK
                     typecheck(temp);
-#endif
-#ifdef OPT_SCALAR
-                    optScalar(temp);
-#endif
+
+                    if(omitWrappers)
+                      optScalar(temp);
+
                     emit(temp);
 
                     commentList = NULL;
@@ -185,18 +184,15 @@ F2java:   Sourcecodes
 
 Sourcecodes:   Sourcecode 
                {
-#ifdef OPT_SCALAR
                  AST *temp;
                  char *hashid;
                  int index;
-#endif
 
                  if(debug)
                    printf("Sourcecodes -> Sourcecode\n"); 
                  $$=$1;
 
-#ifdef OPT_SCALAR
-                 if($1->nodetype != Comment) {
+                 if(omitWrappers && ($1->nodetype != Comment)) {
                    temp = $1->astnode.source.progtype->astnode.source.name;
 
                    hashid =temp->astnode.ident.name;
@@ -204,22 +200,19 @@ Sourcecodes:   Sourcecode
                    type_insert(&(global_func_table->entry[index]), $1, 0,
                      temp->astnode.ident.name);
                  }
-#endif
                }
              | Sourcecodes Sourcecode 
                {
-#ifdef OPT_SCALAR
                  AST *temp;
                  char *hashid;
                  int index;
-#endif
+
                  if(debug)
                    printf("Sourcecodes -> Sourcecodes Sourcecode\n");
                  $2->prevstmt = $1; 
                  $$=$2;
 
-#ifdef OPT_SCALAR
-                 if($2->nodetype != Comment) {
+                 if(omitWrappers && ($2->nodetype != Comment)) {
                    temp = $2->astnode.source.progtype->astnode.source.name;
 
                    hashid =temp->astnode.ident.name;
@@ -227,7 +220,6 @@ Sourcecodes:   Sourcecode
                    type_insert(&(global_func_table->entry[index]), $2, 0,
                      temp->astnode.ident.name);
                  }
-#endif
                }
 ;
 
@@ -279,9 +271,9 @@ Fprogram:   Program Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-#ifdef OPT_SCALAR
-                $$->astnode.source.scalarOptStatus = NOT_VISITED;
-#endif
+
+                if(omitWrappers)
+                  $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -332,9 +324,9 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-#ifdef OPT_SCALAR
-                $$->astnode.source.scalarOptStatus = NOT_VISITED;
-#endif
+
+                if(omitWrappers)
+                  $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -383,9 +375,8 @@ Ffunction:   Function Specstmts Statements  End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-#ifdef OPT_SCALAR
-                $$->astnode.source.scalarOptStatus = NOT_VISITED;
-#endif
+                if(omitWrappers)
+                  $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -472,11 +463,10 @@ Subroutine: SUBROUTINE Name Functionargs NL
 
 Function:  Type FUNCTION Name Functionargs NL 
            {
-#ifdef OPT_SCALAR
              HASHNODE *hash_entry;
              char *hashid;
              int index;
-#endif
+
              if(debug)
                printf("Function ->  Type FUNCTION Name Functionargs NL\n");
              $$ = addnode();
@@ -488,33 +478,29 @@ Function:  Type FUNCTION Name Functionargs NL
              $$->nodetype = Function;
              $$->token = FUNCTION;
              $$->astnode.source.returns = $1;
-#ifdef TYPECHECK
              $$->vartype = $1;
-#endif
              if($4 == NULL)
                $$->astnode.source.args = NULL;
              else 
                $$->astnode.source.args = switchem($4);
 
-#ifdef OPT_SCALAR
-             hashid = $3->astnode.ident.name;
+             if(omitWrappers) {
+               hashid = $3->astnode.ident.name;
 
-             /*  Hash...  */
-             index = hash(hashid) % type_table->num_entries;
-             hash_entry = search_hashlist (type_table->entry[index], hashid);
-             if(hash_entry != NULL)
-                if(debug) printf("Duplicate symbol table entry: %s\n", hashid);  
+               /*  Hash...  */
+               index = hash(hashid) % type_table->num_entries;
+               hash_entry = search_hashlist (type_table->entry[index], hashid);
+               if(hash_entry != NULL)
+                  if(debug) printf("Duplicate symbol table entry: %s\n", hashid);  
 
-#ifdef TYPECHECK
-             if(hash_entry == NULL)
-               $3->vartype = $1;
-             else
-               $3->vartype = hash_entry->variable->vartype;
-#endif
+               if(hash_entry == NULL)
+                 $3->vartype = $1;
+               else
+                 $3->vartype = hash_entry->variable->vartype;
 
-             type_insert(&(type_table->entry[index]), $3, $3->vartype,
-                  $3->astnode.ident.name);
-#endif
+               type_insert(&(type_table->entry[index]), $3, $3->vartype,
+                    $3->astnode.ident.name);
+             }
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
 ; 
@@ -676,9 +662,10 @@ CommonSpec: DIV Name DIV Namelist
               {
                 temp->astnode.ident.commonBlockName = 
                   strdup($2->astnode.ident.name);
-#ifdef OPT_SCALAR
-                temp->astnode.ident.position = pos++;
-#endif
+
+                if(omitWrappers)
+                  temp->astnode.ident.position = pos++;
+
                 idx = hash(temp->astnode.ident.name)%common_table->num_entries;
                 if(debug)
                   printf("@insert %s (block = %s) into common table (idx=%d)\n",
@@ -1054,24 +1041,21 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               }
             | Read
               {
-#ifdef OPT_SCALAR
                 HASHNODE *ht;
                 AST *temp;
-#endif
 
                 $$ = $1;
                 $$->nodetype = Read;
 
-#ifdef OPT_SCALAR
-                for(temp = $1->astnode.io_stmt.arg_list;
-                 temp != NULL; temp = temp->nextstmt)
-                  if(temp->nodetype == Identifier) {
-                    ht = type_lookup(type_table,temp->astnode.ident.name);
-                    if(ht)
-                      ht->variable->astnode.ident.isReadArg = TRUE;
-                  }
-#endif
-
+                if(omitWrappers) {
+                  for(temp = $1->astnode.io_stmt.arg_list;
+                       temp != NULL; temp = temp->nextstmt)
+                    if(temp->nodetype == Identifier) {
+                      ht = type_lookup(type_table,temp->astnode.ident.name);
+                      if(ht)
+                        ht->variable->astnode.ident.isReadArg = TRUE;
+                    }
+                }
               }
             | Stop
               {
@@ -1260,11 +1244,11 @@ Name:    NAME
            $$->astnode.ident.needs_declaration = FALSE;
            $$->astnode.ident.lead_expr = NULL;
 
-#ifdef OPT_SCALAR
-           $$->astnode.ident.passByRef = FALSE;
-           $$->astnode.ident.isLhs     = FALSE;
-           $$->astnode.ident.isReadArg = FALSE;
-#endif
+           if(omitWrappers) {
+             $$->astnode.ident.passByRef = FALSE;
+             $$->astnode.ident.isLhs     = FALSE;
+             $$->astnode.ident.isReadArg = FALSE;
+           }
 
            lowercase(yylval.lexeme);
 
@@ -1274,14 +1258,12 @@ Name:    NAME
 
            strcpy($$->astnode.ident.name, yylval.lexeme);
 
-#ifdef TYPECHECK
            hashtemp = type_lookup(type_table, $$->astnode.ident.name);
            if(hashtemp)
            {
              $$->vartype = hashtemp->variable->vartype;
              $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
            }
-#endif
          }
 
 /*
@@ -1310,9 +1292,7 @@ String:  STRING
            $$->nodetype = Identifier;
            $$->astnode.ident.lead_expr = NULL;
            strcpy($$->astnode.ident.name, yylval.lexeme);
-#ifdef TYPECHECK
            $$->vartype = String;
-#endif
            if(debug)
              printf("**The string value is %s\n",$$->astnode.ident.name);
          }
@@ -1323,9 +1303,7 @@ String:  STRING
            $$->nodetype = Identifier;
            $$->astnode.ident.lead_expr = NULL;
            strcpy($$->astnode.ident.name, yylval.lexeme);
-#ifdef TYPECHECK
            $$->vartype = String;
-#endif
            if(debug)
              printf("**The char value is %s\n",$$->astnode.ident.name);
          }
@@ -1443,9 +1421,7 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
                           *  declaration, where it is not followed by a NL.
                           */
              { 
-#ifdef OPT_SCALAR
                 HASHNODE *ht;
-#endif
 
                 $$ = addnode();
                 $1->parent = $$; /* 9-4-97 - Keith */
@@ -1454,11 +1430,11 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
                 $$->astnode.assignment.lhs = $1;
                 $$->astnode.assignment.rhs = $3;
 
-#ifdef OPT_SCALAR
-                ht = type_lookup(type_table, $1->astnode.ident.name);
-                if(ht)
-                  ht->variable->astnode.ident.isLhs = TRUE;                    
-#endif
+                if(omitWrappers) {
+                  ht = type_lookup(type_table, $1->astnode.ident.name);
+                  if(ht)
+                    ht->variable->astnode.ident.isLhs = TRUE;                    
+                }
              }
 ;
 
@@ -2421,9 +2397,7 @@ Boolean:  TrUE
                strcpy($$->astnode.constant.number, "true");
                $$->astnode.constant.type = INTEGER;
                $$->astnode.constant.sign = 0;
-#ifdef TYPECHECK 
                $$->vartype = Logical;
-#endif
              }
          | FaLSE
              {
@@ -2433,9 +2407,7 @@ Boolean:  TrUE
                strcpy($$->astnode.constant.number, "false");
                $$->astnode.constant.type = INTEGER;
                $$->astnode.constant.sign = 0;
-#ifdef TYPECHECK 
                $$->vartype = Logical;
-#endif
              }
 
 ;
@@ -2471,9 +2443,7 @@ Integer :     INTEGER
                strcpy($$->astnode.constant.number, yylval.lexeme);
                $$->astnode.constant.type = Integer;
                $$->astnode.constant.sign = 0;
-#ifdef TYPECHECK 
                $$->vartype = Integer;
-#endif
              }
 ;
 
@@ -2486,9 +2456,7 @@ Double:       DOUBLE
 	       /*               $$->astnode.constant.type = DOUBLE; */
 	       $$->astnode.constant.type = Double;
                $$->astnode.constant.sign = 0;
-#ifdef TYPECHECK 
                $$->vartype = Double;
-#endif
              }
 ;
                
@@ -2517,9 +2485,7 @@ Exponential:   EXPONENTIAL
                strcpy($$->astnode.constant.number, tempname);
                $$->astnode.constant.type = EXPONENTIAL;
                $$->astnode.constant.sign = 0;
-#ifdef TYPECHECK 
                $$->vartype = Double;
-#endif
              }
 ;
 
@@ -2751,12 +2717,10 @@ type_hash(AST * types)
         /*  exit(-1);  */
       }
 
-#ifdef TYPECHECK
       if(hash_entry == NULL)
         tempnames->vartype = return_type;
       else
         tempnames->vartype = hash_entry->variable->vartype;
-#endif
 
       /* 
        * All names go into the name table.  

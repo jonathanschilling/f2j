@@ -43,7 +43,7 @@ main (int argc, char **argv)
     extern int getopt(int, char *const *, const char *);
 
     extern char *optarg;
-    extern int optind;
+    /* extern int optind; */
     int errflg = 0;
     int c;
 
@@ -68,15 +68,21 @@ main (int argc, char **argv)
      * The -p option may also be used to specify the name
      * of the package.  For example:
      *     f2java -java -p org.netlib.blas filename
+     *
+     * The -w option forces all scalars to be generated as
+     * wrapped objects.  The default behavior is to only
+     * wrap those scalars that must be passed by reference.
+     *
      */
 
+    omitWrappers = TRUE;
     package_name = NULL;
     JAS = 0;   /* default to Java output */
 
     ignored_formatting = 0;
     bad_format_count = 0;
 
-    while((c = getopt(argc,argv,"j:p:")) != EOF)
+    while((c = getopt(argc,argv,"j:p:w:")) != EOF)
       switch(c) {
         case 'j':
           if(!strcmp(optarg,"ava"))
@@ -92,6 +98,9 @@ main (int argc, char **argv)
         case 'p':
           package_name = optarg;
           break;
+        case 'w':
+          omitWrappers = FALSE;
+          break;
         case '?':
           errflg++;
           break;
@@ -100,21 +109,14 @@ main (int argc, char **argv)
           break;
       }
 
-    if(errflg)
+    if(errflg || (argc < 2))
     {
       fprintf(stderr,
-        "Usage: f2java [-java/-jas] [-p package name] <filename>\n");
+        "Usage: f2java [-java/-jas] [-p package name] [-w] <filename>\n");
       exit(2);
     }
 
-    if(argc - optind != 1)
-    {
-      fprintf(stderr,
-        "Usage: f2java [-java/-jas] [-p package name] <filename>\n");
-      exit(2);
-    }
-
-    inputfilename = argv[optind];
+    inputfilename = argv[argc - 1];
 
     printf("Ok... compiling '%s' to %s\n", inputfilename, 
        JAS == 1 ? "JAS" : "JAVA");

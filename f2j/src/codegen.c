@@ -413,14 +413,16 @@ printf("here in emit nodetype is %s\n",print_nodetype(root));
           fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
 
           if (returnname != NULL) {
-#ifdef OPT_SCALAR
-            if(isPassByRef(returnname))
-              fprintf (curfp, "return %s.val;\n", returnname);
+            if(omitWrappers) {
+              if(isPassByRef(returnname))
+                fprintf (curfp, "return %s.val;\n", returnname);
+              else
+                fprintf (curfp, "return %s;\n", returnname);
+            }
             else
-              fprintf (curfp, "return %s;\n", returnname);
-#else
-            fprintf (curfp, "return %s.val;\n", returnname);
-#endif
+            {
+              fprintf (curfp, "return %s.val;\n", returnname);
+            }
           }
           else
             fprintf (curfp, "return;\n");
@@ -684,16 +686,16 @@ typedec_emit (AST * root)
   for (; temp != NULL; temp = temp->nextstmt)
   {
 
-#ifdef OPT_SCALAR
-    printf("vardec %s\n", temp->astnode.ident.name);
-    if((ht= type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
-    {
-      printf("%s should be %s\n", temp->astnode.ident.name,
-        ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
+    if(omitWrappers) {
+      printf("vardec %s\n", temp->astnode.ident.name);
+      if((ht= type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
+      {
+        printf("%s should be %s\n", temp->astnode.ident.name,
+          ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
+      }
+      else
+        printf("could not find %s\n", temp->astnode.ident.name);
     }
-    else
-      printf("could not find %s\n", temp->astnode.ident.name);
-#endif
 
     /* 
      * If there is a corresponding data statement for this
@@ -878,14 +880,16 @@ vardec_emit(AST *root, enum returntype returns)
 
     HASHNODE *p;
 
-#ifdef OPT_SCALAR
-    if(isPassByRef(root->astnode.ident.name))
-      fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+    if(omitWrappers) {
+      if(isPassByRef(root->astnode.ident.name))
+        fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+      else
+        fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
+    }
     else
-      fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
-#else
-    fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-#endif
+    {
+      fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+    }
 
     if (gendebug)
       printf ("%s\n", returnstring[returns]);
@@ -910,22 +914,24 @@ vardec_emit(AST *root, enum returntype returns)
        * statement.
        */
 
-#ifdef OPT_SCALAR
-      if(isPassByRef(root->astnode.ident.name)) {
+      if(omitWrappers) {
+        if(isPassByRef(root->astnode.ident.name)) {
+          fprintf(curfp,"= new %s(",wrapper_returns[returns]);
+          expr_emit(p->variable);
+          fprintf(curfp,");\n");
+        }
+        else {
+          fprintf(curfp,"= ");
+          expr_emit(p->variable);
+          fprintf(curfp,";\n");
+        }
+      }
+      else
+      {
         fprintf(curfp,"= new %s(",wrapper_returns[returns]);
         expr_emit(p->variable);
         fprintf(curfp,");\n");
       }
-      else {
-        fprintf(curfp,"= ");
-        expr_emit(p->variable);
-        fprintf(curfp,";\n");
-      }
-#else
-      fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-      expr_emit(p->variable);
-      fprintf(curfp,");\n");
-#endif
     }
     else
     {
@@ -940,16 +946,18 @@ vardec_emit(AST *root, enum returntype returns)
         fprintf(curfp,";\n");
       }
       else {
-#ifdef OPT_SCALAR
-        if(isPassByRef(root->astnode.ident.name))
+        if(omitWrappers) {
+          if(isPassByRef(root->astnode.ident.name))
+            fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
+              init_vals[returns]);
+          else
+            fprintf(curfp,"= %s;\n", init_vals[returns]);
+        }
+        else
+        {
           fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
             init_vals[returns]);
-        else
-          fprintf(curfp,"= %s;\n", init_vals[returns]);
-#else
-        fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
-          init_vals[returns]);
-#endif
+        }
       }
     }
   }
@@ -971,28 +979,34 @@ print_string_initializer(AST *root)
   {
     fprintf(stderr,"Weird...can't find %s in type_table\n",
       root->astnode.ident.name);
-#ifdef OPT_SCALAR
-    if(isPassByRef(root->astnode.ident.name))
-      fprintf (curfp, "= new StringW(%s)", init_vals[String]);
+
+    if(omitWrappers) {
+      if(isPassByRef(root->astnode.ident.name))
+        fprintf (curfp, "= new StringW(%s)", init_vals[String]);
+      else
+        fprintf (curfp, "= new String(%s)", init_vals[String]);
+    }
     else
-      fprintf (curfp, "= new String(%s)", init_vals[String]);
-#else
-    fprintf (curfp, "= new StringW(%s)", init_vals[String]);
-#endif
+    {
+      fprintf (curfp, "= new StringW(%s)", init_vals[String]);
+    }
   }
   else
   {
     char buf[ ht->variable->astnode.ident.len ];
 
     sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
-#ifdef OPT_SCALAR
-    if(isPassByRef(root->astnode.ident.name))
-      fprintf(curfp,"= new StringW(%s)", buf);
+
+    if(omitWrappers) {
+      if(isPassByRef(root->astnode.ident.name))
+        fprintf(curfp,"= new StringW(%s)", buf);
+      else
+        fprintf(curfp,"= new String(%s)", buf);
+    }
     else
-      fprintf(curfp,"= new String(%s)", buf);
-#else
-    fprintf(curfp,"= new StringW(%s)", buf);
-#endif
+    {
+      fprintf(curfp,"= new StringW(%s)", buf);
+    }
   }
 }
 
@@ -1245,14 +1259,17 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
           *   fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
           * else
           */
-#ifdef OPT_SCALAR
-      if(isPassByRef(Ntemp->astnode.ident.name))
-        fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
+      if(omitWrappers) {
+        if(isPassByRef(Ntemp->astnode.ident.name))
+          fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
+        else
+          fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
+      }
       else
-        fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
-#else
-      fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
-#endif
+      {
+        fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
+      }
+
       data_scalar_emit(hashtemp->type, Ctemp, Ntemp, needs_dec);
     }
     else 
@@ -1465,20 +1482,22 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-#ifdef OPT_SCALAR
-      if(isPassByRef(Ntemp->astnode.ident.name))
+      if(omitWrappers) {
+        if(isPassByRef(Ntemp->astnode.ident.name))
+          fprintf(curfp,"%s = new StringW(\"%*s\");\n",
+            Ntemp->astnode.ident.name, len,
+            Ctemp->astnode.ident.name);
+        else
+          fprintf(curfp,"%s = new String(\"%*s\");\n",
+            Ntemp->astnode.ident.name, len,
+            Ctemp->astnode.ident.name);
+      }
+      else
+      {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.ident.name);
-      else
-        fprintf(curfp,"%s = new String(\"%*s\");\n",
-          Ntemp->astnode.ident.name, len,
-          Ctemp->astnode.ident.name);
-#else
-      fprintf(curfp,"%s = new StringW(\"%*s\");\n",
-        Ntemp->astnode.ident.name, len,
-        Ctemp->astnode.ident.name);
-#endif
+      }
     }
     else
     {
@@ -1491,22 +1510,24 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
     if(!needs_dec)
     {
-#ifdef OPT_SCALAR
-      if(isPassByRef(Ntemp->astnode.ident.name))
+      if(omitWrappers) {
+        if(isPassByRef(Ntemp->astnode.ident.name))
+          fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
+            wrapper_returns[ type],
+            Ctemp->astnode.constant.sign == 1 ? "-" : "",
+            Ctemp->astnode.constant.number);
+        else
+          fprintf(curfp,"%s = %s%s;\n",Ntemp->astnode.ident.name,
+            Ctemp->astnode.constant.sign == 1 ? "-" : "",
+            Ctemp->astnode.constant.number);
+      }
+      else
+      {
         fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
           wrapper_returns[ type],
           Ctemp->astnode.constant.sign == 1 ? "-" : "",
           Ctemp->astnode.constant.number);
-      else
-        fprintf(curfp,"%s = %s%s;\n",Ntemp->astnode.ident.name,
-          Ctemp->astnode.constant.sign == 1 ? "-" : "",
-          Ctemp->astnode.constant.number);
-#else
-      fprintf(curfp,"%s = new %s(%s%s);\n",Ntemp->astnode.ident.name,
-        wrapper_returns[ type],
-        Ctemp->astnode.constant.sign == 1 ? "-" : "",
-        Ctemp->astnode.constant.number);
-#endif
+      }
     }
     else
     {
@@ -1847,14 +1868,16 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
 
       if(isalpha(hashtemp->variable->astnode.ident.leaddim[0])) {
-#ifdef OPT_SCALAR
-        if(isPassByRef(hashtemp->variable->astnode.ident.leaddim))
-          fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+        if(omitWrappers) {
+          if(isPassByRef(hashtemp->variable->astnode.ident.leaddim))
+            fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+          else
+            fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+        }
         else
-          fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-#else
-        fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
-#endif
+        {
+          fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+        }
       }
       else
         fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
@@ -1876,7 +1899,6 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 #endif
 }
 
-#ifdef OPT_SCALAR
 int
 isPassByRef(char *name)
 {
@@ -1934,7 +1956,6 @@ isPassByRef(char *name)
 
   return TRUE;
 }
-#endif
 
 /* 
  * Here we emit array variables.  actually we first determine 
@@ -2171,14 +2192,17 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           if(gendebug)
             printf("found %s in intrinsics or array table\n",
                root->parent->astnode.ident.name);
-#ifdef OPT_SCALAR
-          if(isPassByRef(root->astnode.ident.name))
-            fprintf (curfp, "%s%s.val", com_prefix,name);
+
+          if(omitWrappers) {
+            if(isPassByRef(root->astnode.ident.name))
+              fprintf (curfp, "%s%s.val", com_prefix,name);
+            else
+              fprintf (curfp, "%s%s", com_prefix,name);
+          }
           else
-            fprintf (curfp, "%s%s", com_prefix,name);
-#else
-          fprintf (curfp, "%s%s.val", com_prefix,name);
-#endif
+          {
+            fprintf (curfp, "%s%s.val", com_prefix,name);
+          }
         }
       }
       else if(root->parent->nodetype == Typedec) {
@@ -2193,28 +2217,32 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         fprintf (curfp, "%s", root->astnode.ident.merged_name);
       }
       else if(root->parent->nodetype == ArrayDec) {
-#ifdef OPT_SCALAR
-        if(isPassByRef(root->astnode.ident.name))
-          fprintf (curfp, "%s%s.val", com_prefix, name);
+        if(omitWrappers) {
+          if(isPassByRef(root->astnode.ident.name))
+            fprintf (curfp, "%s%s.val", com_prefix, name);
+          else
+            fprintf (curfp, "%s%s", com_prefix, name);
+        }
         else
-          fprintf (curfp, "%s%s", com_prefix, name);
-#else
-        fprintf (curfp, "%s%s.val", com_prefix, name);
-#endif
+        {
+          fprintf (curfp, "%s%s.val", com_prefix, name);
+        }
       }
       else {
         if( (global_sub.name != NULL) && 
             !strcmp(global_sub.name, name))
           fprintf (curfp, " %d ", global_sub.val);
         else {
-#ifdef OPT_SCALAR
-          if(isPassByRef(root->astnode.ident.name))
-            fprintf (curfp, "%s%s.val", com_prefix, name);
+          if(omitWrappers) {
+            if(isPassByRef(root->astnode.ident.name))
+              fprintf (curfp, "%s%s.val", com_prefix, name);
+            else
+              fprintf (curfp, "%s%s", com_prefix, name);
+          }
           else
-            fprintf (curfp, "%s%s", com_prefix, name);
-#else
-          fprintf (curfp, "%s%s.val", com_prefix, name);
-#endif
+          {
+            fprintf (curfp, "%s%s.val", com_prefix, name);
+          }
         }
       }
     }
@@ -2729,42 +2757,46 @@ expr_emit (AST * root)
       * constant.   10/9/97  -- Keith 
       */
 
-     if(root->parent != NULL)
-     {
-       tempname = strdup(root->parent->astnode.ident.name);
-       uppercase(tempname);
-     }
+      if(root->parent != NULL)
+      {
+        tempname = strdup(root->parent->astnode.ident.name);
+        uppercase(tempname);
+      }
 
-     if( (root->parent != NULL) &&
-         (root->parent->nodetype == Call) &&
-         (type_lookup(cur_array_table,root->parent->astnode.ident.name) == NULL) &&
-         (methodscan(intrinsic_toks, tempname) == NULL))
-     {
-       if(root->token == STRING) {
-#ifdef OPT_SCALAR
-         fprintf (curfp, "\"%s\"", root->astnode.ident.name);
-#else
-         fprintf (curfp, "new StringW(\"%s\")", root->astnode.ident.name);
-#endif
-       }
-       else {
-#ifdef OPT_SCALAR
-         fprintf (curfp, "%s", root->astnode.constant.number);
-#else
-         fprintf (curfp, "new %s(%s)", 
-           wrapper_returns[get_type(root->astnode.constant.number)],
-           root->astnode.constant.number);
-#endif
-         }
-       }
-       else 
-       {
-         if(root->token == STRING)
-           fprintf (curfp, "\"%s\"", root->astnode.ident.name);
-         else
-           fprintf (curfp, "%s", root->astnode.constant.number);
-       }
-       break;
+      if( (root->parent != NULL) &&
+          (root->parent->nodetype == Call) &&
+          (type_lookup(cur_array_table,root->parent->astnode.ident.name) == NULL) &&
+          (methodscan(intrinsic_toks, tempname) == NULL))
+      {
+        if(root->token == STRING) {
+          if(omitWrappers) {
+            fprintf (curfp, "\"%s\"", root->astnode.ident.name);
+          }
+          else
+          {
+            fprintf (curfp, "new StringW(\"%s\")", root->astnode.ident.name);
+          }
+        }
+        else {
+          if(omitWrappers) {
+            fprintf (curfp, "%s", root->astnode.constant.number);
+          }
+          else
+          {
+            fprintf (curfp, "new %s(%s)", 
+              wrapper_returns[get_type(root->astnode.constant.number)],
+              root->astnode.constant.number);
+          }
+        }
+      }
+      else 
+      {
+        if(root->token == STRING)
+          fprintf (curfp, "\"%s\"", root->astnode.ident.name);
+        else
+          fprintf (curfp, "%s", root->astnode.constant.number);
+      }
+      break;
     case Logicalop:
       /* 
        * Change all of this code to switch on the tokens.
@@ -2857,14 +2889,17 @@ expr_emit (AST * root)
       }
       break;
     case Substring:
-#ifdef OPT_SCALAR
-      if(isPassByRef(root->astnode.ident.name))
-        fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
+      if(omitWrappers) {
+        if(isPassByRef(root->astnode.ident.name))
+          fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
+        else
+          fprintf(curfp,"%s.substring((",root->astnode.ident.name);
+      }
       else
-        fprintf(curfp,"%s.substring((",root->astnode.ident.name);
-#else
-      fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
-#endif
+      {
+        fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
+      }
+
       expr_emit(root->astnode.ident.arraylist);
       fprintf(curfp,")-1,");
       expr_emit(root->astnode.ident.arraylist->nextstmt);
@@ -2953,25 +2988,27 @@ constructor (AST * root)
       }
       else
       {
-#ifdef OPT_SCALAR
-         if(isPassByRef(root->astnode.source.name->astnode.ident.name))
-           fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-             wrapper_returns[returns],
-             root->astnode.source.name->astnode.ident.name,
-             wrapper_returns[returns],
-             init_vals[returns]);
-         else
-           fprintf (curfp, "static %s %s = %s;\n\n", 
-             returnstring[returns],
-             root->astnode.source.name->astnode.ident.name,
-             init_vals[returns]);
-#else
-         fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-           wrapper_returns[returns],
-           root->astnode.source.name->astnode.ident.name,
-           wrapper_returns[returns],
-           init_vals[returns]);
-#endif
+        if(omitWrappers) {
+          if(isPassByRef(root->astnode.source.name->astnode.ident.name))
+            fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
+              wrapper_returns[returns],
+              root->astnode.source.name->astnode.ident.name,
+              wrapper_returns[returns],
+              init_vals[returns]);
+          else
+            fprintf (curfp, "static %s %s = %s;\n\n", 
+              returnstring[returns],
+              root->astnode.source.name->astnode.ident.name,
+              init_vals[returns]);
+        }
+        else
+        {
+          fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
+            wrapper_returns[returns],
+            root->astnode.source.name->astnode.ident.name,
+            wrapper_returns[returns],
+            init_vals[returns]);
+        }
       }
 
       /* Define the constructor for the class. */
@@ -3023,18 +3060,20 @@ constructor (AST * root)
       if (returns > MAX_RETURNS)
         fprintf (stderr,"Bad return value, check types.\n");
 
-#ifdef OPT_SCALAR
-      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        isPassByRef(tempnode->astnode.ident.name))
+      if(omitWrappers) {
+        if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
+          isPassByRef(tempnode->astnode.ident.name))
+            tempstring = wrapper_returns[returns];
+        else
+          tempstring = returnstring[returns];
+      }
+      else
+      {
+        if (hashtemp->variable->astnode.ident.arraylist == NULL)
           tempstring = wrapper_returns[returns];
-      else
-        tempstring = returnstring[returns];
-#else
-      if (hashtemp->variable->astnode.ident.arraylist == NULL)
-        tempstring = wrapper_returns[returns];
-      else
-        tempstring = returnstring[returns];
-#endif
+        else
+          tempstring = returnstring[returns];
+      }
 
         /* 
          * I haven't yet decided how the pass-by-reference
@@ -3416,39 +3455,40 @@ void
 read_implied_loop_emit(AST *node, char **func)
 {
   char *loopvar = node->astnode.forloop.counter->astnode.ident.name;
-
-#ifdef OPT_SCALAR
   char *valSuffix = ".val";
 
-  if( !isPassByRef(loopvar) )
-    valSuffix = "";
+  if(omitWrappers) {
+    if( !isPassByRef(loopvar) )
+      valSuffix = "";
 
-  fprintf(curfp,"for(%s%s = ",loopvar, valSuffix); 
-  expr_emit(node->astnode.forloop.start);
-  fprintf(curfp,"; %s%s <= ",loopvar, valSuffix); 
-  expr_emit(node->astnode.forloop.stop);
-  if(node->astnode.forloop.incr == NULL)
-    fprintf(curfp,"; %s%s++)\n",loopvar, valSuffix); 
+    fprintf(curfp,"for(%s%s = ",loopvar, valSuffix); 
+    expr_emit(node->astnode.forloop.start);
+    fprintf(curfp,"; %s%s <= ",loopvar, valSuffix); 
+    expr_emit(node->astnode.forloop.stop);
+    if(node->astnode.forloop.incr == NULL)
+      fprintf(curfp,"; %s%s++)\n",loopvar, valSuffix); 
+    else
+    {
+      fprintf(curfp,"; %s%s += ",loopvar, valSuffix); 
+      expr_emit(node->astnode.forloop.incr);
+      fprintf(curfp,")\n"); 
+    }
+  }
   else
   {
-    fprintf(curfp,"; %s%s += ",loopvar, valSuffix); 
-    expr_emit(node->astnode.forloop.incr);
-    fprintf(curfp,")\n"); 
+    fprintf(curfp,"for(%s.val = ",loopvar); 
+    expr_emit(node->astnode.forloop.start);
+    fprintf(curfp,"; %s.val <= ",loopvar); 
+    expr_emit(node->astnode.forloop.stop);
+    if(node->astnode.forloop.incr == NULL)
+      fprintf(curfp,"; %s.val++)\n",loopvar); 
+    else
+    {
+      fprintf(curfp,"; %s.val += ",loopvar); 
+      expr_emit(node->astnode.forloop.incr);
+      fprintf(curfp,")\n"); 
+    }
   }
-#else
-  fprintf(curfp,"for(%s.val = ",loopvar); 
-  expr_emit(node->astnode.forloop.start);
-  fprintf(curfp,"; %s.val <= ",loopvar); 
-  expr_emit(node->astnode.forloop.stop);
-  if(node->astnode.forloop.incr == NULL)
-    fprintf(curfp,"; %s.val++)\n",loopvar); 
-  else
-  {
-    fprintf(curfp,"; %s.val += ",loopvar); 
-    expr_emit(node->astnode.forloop.incr);
-    fprintf(curfp,")\n"); 
-  }
-#endif
 
   if(node->astnode.forloop.Label->nodetype != Identifier) {
     fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
@@ -3586,39 +3626,40 @@ void
 write_implied_loop_emit(AST *node)
 {
   char *loopvar = node->astnode.forloop.counter->astnode.ident.name;
-
-#ifdef OPT_SCALAR
   char *valSuffix = ".val";
- 
-  if( !isPassByRef(loopvar) )
-    valSuffix = "";
 
-  fprintf(curfp,"for(%s%s = ",loopvar,valSuffix); 
-  expr_emit(node->astnode.forloop.start);
-  fprintf(curfp,"; %s%s <= ",loopvar,valSuffix); 
-  expr_emit(node->astnode.forloop.stop);
-  if(node->astnode.forloop.incr == NULL)
-    fprintf(curfp,"; %s%s++)\n",loopvar,valSuffix); 
+  if(omitWrappers) {
+    if( !isPassByRef(loopvar) )
+      valSuffix = "";
+
+    fprintf(curfp,"for(%s%s = ",loopvar,valSuffix); 
+    expr_emit(node->astnode.forloop.start);
+    fprintf(curfp,"; %s%s <= ",loopvar,valSuffix); 
+    expr_emit(node->astnode.forloop.stop);
+    if(node->astnode.forloop.incr == NULL)
+      fprintf(curfp,"; %s%s++)\n",loopvar,valSuffix); 
+    else
+    {
+      fprintf(curfp,"; %s%s += ",loopvar,valSuffix); 
+      expr_emit(node->astnode.forloop.incr);
+      fprintf(curfp,")\n"); 
+    }
+  }
   else
   {
-    fprintf(curfp,"; %s%s += ",loopvar,valSuffix); 
-    expr_emit(node->astnode.forloop.incr);
-    fprintf(curfp,")\n"); 
+    fprintf(curfp,"for(%s.val = ",loopvar); 
+    expr_emit(node->astnode.forloop.start);
+    fprintf(curfp,"; %s.val <= ",loopvar); 
+    expr_emit(node->astnode.forloop.stop);
+    if(node->astnode.forloop.incr == NULL)
+      fprintf(curfp,"; %s.val++)\n",loopvar); 
+    else
+    {
+      fprintf(curfp,"; %s.val += ",loopvar); 
+      expr_emit(node->astnode.forloop.incr);
+      fprintf(curfp,")\n"); 
+    }
   }
-#else
-  fprintf(curfp,"for(%s.val = ",loopvar); 
-  expr_emit(node->astnode.forloop.start);
-  fprintf(curfp,"; %s.val <= ",loopvar); 
-  expr_emit(node->astnode.forloop.stop);
-  if(node->astnode.forloop.incr == NULL)
-    fprintf(curfp,"; %s.val++)\n",loopvar); 
-  else
-  {
-    fprintf(curfp,"; %s.val += ",loopvar); 
-    expr_emit(node->astnode.forloop.incr);
-    fprintf(curfp,")\n"); 
-  }
-#endif
 
   if(node->astnode.forloop.Label->nodetype == Identifier) {
     fprintf(curfp,"  System.out.print(");
@@ -4133,21 +4174,23 @@ call_emit (AST * root)
 
            fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
 
-#ifdef OPT_SCALAR
-           if(adapter && t2->astnode.ident.passByRef)
-             func_array_emit(temp->astnode.ident.arraylist,ht,
-               temp->astnode.ident.name, ht2!=NULL, TRUE);
+           if(omitWrappers) {
+             if(adapter && t2->astnode.ident.passByRef)
+               func_array_emit(temp->astnode.ident.arraylist,ht,
+                 temp->astnode.ident.name, ht2!=NULL, TRUE);
+             else
+               func_array_emit(temp->astnode.ident.arraylist,ht,
+                 temp->astnode.ident.name, ht2!=NULL, FALSE);
+           }
            else
-             func_array_emit(temp->astnode.ident.arraylist,ht,
-               temp->astnode.ident.name, ht2!=NULL, FALSE);
-#else
-           if(adapter)
-             func_array_emit(temp->astnode.ident.arraylist,ht,
-               temp->astnode.ident.name, ht2!=NULL, TRUE);
-           else
-             func_array_emit(temp->astnode.ident.arraylist,ht,
-               temp->astnode.ident.name, ht2!=NULL, FALSE);
-#endif
+           {
+             if(adapter)
+               func_array_emit(temp->astnode.ident.arraylist,ht,
+                 temp->astnode.ident.name, ht2!=NULL, TRUE);
+             else
+               func_array_emit(temp->astnode.ident.arraylist,ht,
+                 temp->astnode.ident.name, ht2!=NULL, FALSE);
+           }
          }
        }
          /* 
@@ -4171,31 +4214,32 @@ call_emit (AST * root)
            if(gendebug)
              printf("NOT expecting array\n");
 
-#ifdef OPT_SCALAR
-           if(t2->astnode.ident.passByRef) {
+           if(omitWrappers) {
+             if(t2->astnode.ident.passByRef) {
+               fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+               fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
+               fprintf(curfp,")");
+             }
+             else {
+               fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
+             }
+           }
+           else
+           {
              fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-             fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
+             fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
              fprintf(curfp,")");
            }
-           else {
-             fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name);
-           }
-#else
-           fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-           fprintf(curfp,"%s%s[0]", com_prefix,temp->astnode.ident.name);
-           fprintf(curfp,")");
-#endif
          }
        }
-#ifdef OPT_SCALAR
          /* 
           * else if the arg is an identifier AND
           *      it does not look like an array access AND
           *      it is not in the array table
           */
-       else if((temp->nodetype == Identifier) &&
+       else if(omitWrappers && ((temp->nodetype == Identifier) &&
                (temp->astnode.ident.arraylist == NULL) && 
-               !type_lookup(cur_array_table, temp->astnode.ident.name) )
+               !type_lookup(cur_array_table, temp->astnode.ident.name) ))
        {
          if(t2->astnode.ident.passByRef != 
             isPassByRef(temp->astnode.ident.name))
@@ -4217,7 +4261,7 @@ call_emit (AST * root)
              fprintf(curfp,")");
          }
        }
-       else if(temp->nodetype == Constant)
+       else if(omitWrappers && (temp->nodetype == Constant))
        {
          if(t2->astnode.ident.passByRef) {
            fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
@@ -4228,7 +4272,6 @@ call_emit (AST * root)
            expr_emit(temp);
 
        }
-#endif
        else if(
          ((temp->nodetype == Identifier) &&
           (temp->astnode.ident.arraylist == NULL) )
@@ -4245,13 +4288,14 @@ call_emit (AST * root)
           */
        else 
        {
-#ifdef OPT_SCALAR
-
-         if(t2->astnode.ident.passByRef)
+         if(omitWrappers) {
+           if(t2->astnode.ident.passByRef)
+             fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
+         }
+         else
+         {
            fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-#else
-         fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
-#endif
+         }
 
          if(gendebug) {
            printf("emitting wrapped expr...\n");
@@ -4267,12 +4311,14 @@ call_emit (AST * root)
          if( temp->vartype != t2->vartype )
            fprintf(curfp,")");
 
-#ifdef OPT_SCALAR
-         if(t2->astnode.ident.passByRef)
+         if(omitWrappers) {
+           if(t2->astnode.ident.passByRef)
+             fprintf(curfp,")");
+         }
+         else
+         {
            fprintf(curfp,")");
-#else
-         fprintf(curfp,")");
-#endif
+         }
        }
        if(t2 != NULL)
          t2 = t2->nextstmt;
@@ -4293,13 +4339,15 @@ call_emit (AST * root)
       }
       else
       {
-#ifdef OPT_SCALAR
-        expr_emit (temp);
-#else
-        fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
-        expr_emit (temp);
-        fprintf(curfp,")");
-#endif
+        if(omitWrappers) {
+          expr_emit (temp);
+        }
+        else
+        {
+          fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
+          expr_emit (temp);
+          fprintf(curfp,")");
+        }
       }
 
       if(temp->nextstmt != NULL)
@@ -4447,18 +4495,20 @@ needs_adapter(AST *root)
           *    it is in the array table  AND
           *    the function is not expecting an array
           */
-#ifdef OPT_SCALAR
-       if((temp->nodetype == Identifier) && 
-           type_lookup(cur_array_table, temp->astnode.ident.name) &&
-           !t2->astnode.ident.arraylist &&
-           t2->astnode.ident.passByRef)
-              return 1;
-#else
-       if((temp->nodetype == Identifier) && 
+       if(omitWrappers) {
+         if((temp->nodetype == Identifier) && 
+             type_lookup(cur_array_table, temp->astnode.ident.name) &&
+             !t2->astnode.ident.arraylist &&
+             t2->astnode.ident.passByRef)
+                return 1;
+       }
+       else
+       {
+         if((temp->nodetype == Identifier) && 
            type_lookup(cur_array_table, temp->astnode.ident.name) &&
            !t2->astnode.ident.arraylist)
               return 1;
-#endif
+       }
 
        if(t2 != NULL)
          t2 = t2->nextstmt;
@@ -4635,16 +4685,18 @@ substring_assign_emit(AST *root)
   expr_emit(lhs->astnode.ident.arraylist->nextstmt);
   fprintf(curfp,";\n");
 
-#ifdef OPT_SCALAR
-  fprintf(curfp,"%s = new String(",lname);
-  if(isPassByRef(lname))
-    fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
+  if(omitWrappers) {
+    fprintf(curfp,"%s = new String(",lname);
+    if(isPassByRef(lname))
+      fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
+    else
+      fprintf(curfp,"%s.substring(0,E1-1) + ", lname);
+  }
   else
-    fprintf(curfp,"%s.substring(0,E1-1) + ", lname);
-#else
-  fprintf(curfp,"%s = new StringW(",lname);
-  fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
-#endif
+  {
+    fprintf(curfp,"%s = new StringW(",lname);
+    fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
+  }
 
   if(rhs->vartype == Character)
   {
@@ -4673,14 +4725,16 @@ substring_assign_emit(AST *root)
     fprintf(curfp,").substring(0,E2-E1+1) + ");
   }
 
-#ifdef OPT_SCALAR
-  if(isPassByRef(lname))
-    fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
+  if(omitWrappers) {
+    if(isPassByRef(lname))
+      fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
+    else
+      fprintf(curfp,"%s.substring(E2,%s.length())",lname,lname);
+  }
   else
-    fprintf(curfp,"%s.substring(E2,%s.length())",lname,lname);
-#else
-  fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
-#endif
+  {
+    fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
+  }
 
   fprintf(curfp,");\n");
 
@@ -4914,16 +4968,18 @@ emit_adapters()
                 (arg->astnode.ident.arraylist != NULL) &&
                 type_lookup(cur_array_table,arg->astnode.ident.name) )
       {
-#ifdef OPT_SCALAR
-        if(temp->astnode.ident.passByRef)
+        if(omitWrappers) {
+          if(temp->astnode.ident.passByRef)
+            fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
+              returnstring[temp->vartype], i, i);
+          else
+            fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
+        }
+        else
+        {
           fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
             returnstring[temp->vartype], i, i);
-        else
-          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-#else
-        fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
-          returnstring[temp->vartype], i, i);
-#endif
+        }
       }
       else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
       {
@@ -4931,14 +4987,16 @@ emit_adapters()
       }
       else
       {
-#ifdef OPT_SCALAR
-        if(temp->astnode.ident.passByRef)
-          fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
+        if(omitWrappers) {
+          if(temp->astnode.ident.passByRef)
+            fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
+          else
+            fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
+        }
         else
-          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-#else
-        fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
-#endif
+        {
+          fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
+        }
       }
 
       if(temp != NULL)
@@ -4961,14 +5019,16 @@ emit_adapters()
             type_lookup(cur_array_table,arg->astnode.ident.name) &&
             !temp->astnode.ident.arraylist)
       {
-#ifdef OPT_SCALAR
-         if(temp->astnode.ident.passByRef)
-           fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-             wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
-#else
-         fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-           wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
-#endif
+        if(omitWrappers) {
+          if(temp->astnode.ident.passByRef)
+            fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+              wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
+        }
+        else
+        {
+          fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+            wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
+        }
       }
 
       if(temp != NULL)
@@ -5004,14 +5064,16 @@ emit_adapters()
             type_lookup(cur_array_table,arg->astnode.ident.name) &&
             !temp->astnode.ident.arraylist)
       {
-#ifdef OPT_SCALAR
-         if(temp->astnode.ident.passByRef)
-           fprintf(curfp,"_f2j_tmp%d",i);
-         else
-           fprintf(curfp,"arg%d",i);
-#else
-         fprintf(curfp,"_f2j_tmp%d",i);
-#endif
+        if(omitWrappers) {
+          if(temp->astnode.ident.passByRef)
+            fprintf(curfp,"_f2j_tmp%d",i);
+          else
+            fprintf(curfp,"arg%d",i);
+        }
+        else
+        {
+          fprintf(curfp,"_f2j_tmp%d",i);
+        }
       }
       else if((arg->nodetype == Identifier) &&
             type_lookup(cur_array_table,arg->astnode.ident.name) &&
@@ -5042,12 +5104,14 @@ emit_adapters()
             type_lookup(cur_array_table,arg->astnode.ident.name) &&
             !temp->astnode.ident.arraylist)
       {
-#ifdef OPT_SCALAR
-         if(temp->astnode.ident.passByRef)
-           fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
-#else
-         fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
-#endif
+        if(omitWrappers) {
+          if(temp->astnode.ident.passByRef)
+            fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+        }
+        else
+        {
+          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+        }
       }
 
       if(temp != NULL)
@@ -5086,33 +5150,35 @@ emit_invocations(AST *root)
     for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
       fprintf(curfp,",");
 
-#ifdef OPT_SCALAR
-      if( arg->nodetype == Identifier ) {
-        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-        if(ht)
-          fprintf(curfp," %s _arg%d ", returnstring[ht->variable->vartype], count);
+      if(omitWrappers) {
+        if( arg->nodetype == Identifier ) {
+          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+          if(ht)
+            fprintf(curfp," %s _arg%d ", returnstring[ht->variable->vartype], count);
+          else
+            fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
+        }
+        else if( arg->nodetype == Constant )
+          fprintf(curfp," %s _arg%d ", 
+            returnstring[get_type(arg->astnode.constant.number)], count);
         else
           fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
       }
-      else if( arg->nodetype == Constant )
-        fprintf(curfp," %s _arg%d ", 
-          returnstring[get_type(arg->astnode.constant.number)], count);
       else
-        fprintf(curfp," %s _arg%d ", returnstring[arg->vartype], count);
-#else
-      if( arg->nodetype == Identifier ) {
-        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-        if(ht)
-          fprintf(curfp," %s _arg%d ", wrapper_returns[ht->variable->vartype], count);
+      {
+        if( arg->nodetype == Identifier ) {
+          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+          if(ht)
+            fprintf(curfp," %s _arg%d ", wrapper_returns[ht->variable->vartype], count);
+          else
+            fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
+        }
+        else if( arg->nodetype == Constant )
+          fprintf(curfp," %s _arg%d ", 
+            wrapper_returns[get_type(arg->astnode.constant.number)], count);
         else
           fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
       }
-      else if( arg->nodetype == Constant )
-        fprintf(curfp," %s _arg%d ", 
-          wrapper_returns[get_type(arg->astnode.constant.number)], count);
-      else
-        fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
-#endif
 
       count++;
     }
@@ -5125,25 +5191,27 @@ emit_invocations(AST *root)
 
     i = 0;
     for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt, i++) {
-#ifdef OPT_SCALAR
-      if( arg->nodetype == Identifier ) {
-        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
-        if(ht)
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[ht->variable->vartype], i);
+      if(omitWrappers) {
+        if( arg->nodetype == Identifier ) {
+          ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+          if(ht)
+            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+              i,java_wrapper[ht->variable->vartype], i);
+          else
+            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+              i,java_wrapper[arg->vartype], i);
+        }
+        else if( arg->nodetype == Constant )
+            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+              i,java_wrapper[get_type(arg->astnode.constant.number)], i);
         else
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[arg->vartype], i);
+            fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
+              i,java_wrapper[arg->vartype], i);
       }
-      else if( arg->nodetype == Constant )
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[get_type(arg->astnode.constant.number)], i);
       else
-          fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-            i,java_wrapper[arg->vartype], i);
-#else
-      fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
-#endif
+      {
+        fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
+      }
     }
 
     fprintf(curfp,"_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",

@@ -214,6 +214,7 @@ yylex ()
              yylval.lexeme);
           strcpy(yylval.lexeme,"Include error\n");
 
+          return COMMENT;
         }
       }
 

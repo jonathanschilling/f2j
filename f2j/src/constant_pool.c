@@ -216,16 +216,16 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
               && !strcmp(tmpM, mref->methodname)
               && !strcmp(tmpD, mref->descriptor) )
             {
-              f2jfree(tmpC);
-              f2jfree(tmpM);
-              f2jfree(tmpD);
+              f2jfree(tmpC, strlen(tmpC)+1);
+              f2jfree(tmpM, strlen(tmpM)+1);
+              f2jfree(tmpD, strlen(tmpD)+1);
 
               return temp->val;
             }
             else {
-              f2jfree(tmpC);
-              f2jfree(tmpM);
-              f2jfree(tmpD);
+              f2jfree(tmpC, strlen(tmpC)+1);
+              f2jfree(tmpM, strlen(tmpM)+1);
+              f2jfree(tmpD, strlen(tmpD)+1);
             }
           }
         }
@@ -259,13 +259,13 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
             if( !strcmp(tmpM, mref->methodname)
               && !strcmp(tmpD, mref->descriptor))
             {
-              f2jfree(tmpM);
-              f2jfree(tmpD);
+              f2jfree(tmpM, strlen(tmpM)+1);
+              f2jfree(tmpD, strlen(tmpD)+1);
               return temp->val;
             }
             else {
-              f2jfree(tmpM);
-              f2jfree(tmpD);
+              f2jfree(tmpM, strlen(tmpM)+1);
+              f2jfree(tmpD, strlen(tmpD)+1);
             }
           }
 
@@ -284,11 +284,11 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
             sref = cp_entry_by_index(list,ctemp->cpnode.String.string_index);
             tmpS = null_term(sref->val->cpnode.Utf8.bytes,sref->val->cpnode.Utf8.length);
             if(!strcmp(tmpS,(char *)value)) {
-              f2jfree(tmpS);
+              f2jfree(tmpS, strlen(tmpS)+1);
               return temp->val;
             }
             else
-              f2jfree(tmpS);
+              f2jfree(tmpS, strlen(tmpS)+1);
           }
         }
       }

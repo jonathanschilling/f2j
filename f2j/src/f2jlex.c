@@ -527,13 +527,13 @@ yylex ()
               
           bufptr[len+1] = '\0';
           strcat(yylval.lexeme,bufptr);
-          f2jfree(bufptr);
+          f2jfree(bufptr, strlen(bufptr)+1);
           bufptr = strdup(buffer.stmt + len + 1);
 
           strcpy(buffer.stmt,bufptr);
           strcpy(buffer.text,bufptr);
 
-          f2jfree(bufptr);
+          f2jfree(bufptr, strlen(bufptr)+1);
         }
 
         if(lexdebug)

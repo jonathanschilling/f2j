@@ -3,8 +3,8 @@
 # $Source$
 # Revision:$
 
-CFLAGS= -g -ansi -Wall -pedantic
-#CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
+#CFLAGS= -g -ansi -Wall -pedantic
+CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
 
 # overkill CFLAGS:
 #CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs
@@ -14,7 +14,7 @@ PFLAGS=-cache-dir=/tmp
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
      codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o \
-     optimize.o constant_pool.o class.o globals.o
+     optimize.o constant_pool.o class.o globals.o f2jmem.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -47,6 +47,8 @@ f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y
 
 f2jmain.o:  f2jmain.c f2j.h f2jparse.tab.h
+
+f2jmem.o:  f2jmem.c f2j.h
 
 dlist.o: dlist.c
  

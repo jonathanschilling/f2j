@@ -3484,7 +3484,7 @@ get_common_prefix(char *varname)
       ht->variable->astnode.ident.commonBlockName);
   }
 
-  f2jfree(inf);
+  f2jfree(inf, strlen(inf)+1);
   return(cprefix);
 }
 
@@ -5935,7 +5935,7 @@ constructor (AST * root)
       strcat( temp2, tempnode->astnode.ident.name);
       strcat( temp2, "_offset");
       fprintf(curfp, ", int %s",temp2);
-      f2jfree(temp2);
+      f2jfree(temp2, strlen(temp2)+1);
     }
 
     /* Don't emit a comma on the last iteration. */
@@ -7757,8 +7757,8 @@ format_item_emit(AST *temp, AST **nodeptr)
                   append_descriptor[String]);
             bytecode1(jvm_invokevirtual, c->index);
 
-            f2jfree(tmpbuf);
-            f2jfree(bi);
+            f2jfree(tmpbuf, strlen(tmpbuf)+1);
+            f2jfree(bi, strlen(bi)+1);
 
             if(temp->nextstmt->nextstmt != NULL)
               fprintf(curfp," + ");
@@ -11551,7 +11551,7 @@ getStackIncrement(enum _opcode op, u4 index)
      */
 
     stack_increment = stackinf->ret_len;
-    f2jfree(this_desc);
+    f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
           (op == jvm_putfield)  || (op == jvm_getfield))
@@ -11587,7 +11587,7 @@ getStackIncrement(enum _opcode op, u4 index)
         fprintf(stderr,"getSTackIncrement(): unexpected op type\n");
         break; /* ansi compliance */
     }
-    f2jfree(this_desc);
+    f2jfree(this_desc, strlen(this_desc)+1);
   }
   else {
     /* else we can determine the stack increment from a table.  */
@@ -11636,7 +11636,7 @@ getStackDecrement(enum _opcode op, u4 index)
       stack_decrement = stackinf->arg_len;
     else
       stack_decrement = stackinf->arg_len + 1;
-    f2jfree(this_desc);
+    f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
           (op == jvm_putfield)  || (op == jvm_getfield))
@@ -11672,7 +11672,7 @@ getStackDecrement(enum _opcode op, u4 index)
         fprintf(stderr,"getSTackDecrement(): unexpected op type\n");
         break; /* ansi compliance */
     }
-    f2jfree(this_desc);
+    f2jfree(this_desc, strlen(this_desc)+1);
   }
   else {
     /* else we can determine the stack decrement from a table.  */
@@ -11744,7 +11744,7 @@ calcStack(char *d)
   else
     tmp->ret_len = 1;
 
-  f2jfree(tstr);
+  f2jfree(tstr, strlen(tstr)+1);
   return tmp;
 }
 

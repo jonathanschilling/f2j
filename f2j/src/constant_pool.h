@@ -64,6 +64,7 @@ CPNODE    * insert_constant(Dlist, int, void *);
 CPNODE    * newMethodref(Dlist, char *, char *, char *);
 CPNODE    * newFieldref(Dlist, char *, char *, char *);
 char      * null_term(u1 *, unsigned int);
+void        freeFieldref();
 void        cp_dump(Dlist);
 void        cp_quickdump(Dlist);
 void        fields_dump(Dlist, Dlist);

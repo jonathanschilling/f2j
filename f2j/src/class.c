@@ -573,27 +573,27 @@ printf("full_file = '%s'\n", full_file);
       if(errno == ENOENT) {
         if(mkdir(prev, 0755) == -1) {
           chdir(pwd);
-          f2jfree(pwd);
+          f2jfree(pwd, strlen(pwd)+1);
           return NULL;
         }
       }
       else {
         chdir(pwd);
-        f2jfree(pwd);
+        f2jfree(pwd, strlen(pwd)+1);
         return NULL;
       }
     }
     else {
       if(! S_ISDIR(buf->st_mode)) {
         chdir(pwd);
-        f2jfree(pwd);
+        f2jfree(pwd, strlen(pwd)+1);
         return NULL;
       }
     }
 
     if(chdir(prev) == -1) {
       chdir(pwd);
-      f2jfree(pwd);
+      f2jfree(pwd, strlen(pwd)+1);
       return NULL;
     }
 
@@ -602,12 +602,12 @@ printf("full_file = '%s'\n", full_file);
 
   if( (f = fopen(prev, mode)) ) {
     chdir(pwd);
-    f2jfree(pwd);
+    f2jfree(pwd, strlen(pwd)+1);
     return f;
   }
 
   chdir(pwd);
-  f2jfree(pwd);
+  f2jfree(pwd, strlen(pwd)+1);
   return NULL;
 }
 

@@ -1,3 +1,9 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
 
 /*****************************************************************************
  * f2j_externs.h                                                             *
@@ -32,7 +38,8 @@ extern BOOL
   genInterfaces,           /* should we generate simplified interfaces       */
   genJavadoc,              /* should we generate javadoc-compatible comments */
   noOffset,                /* should we generate offset args in interfaces   */
-  bigEndian;               /* byte order (1 = big, 0 = little)               */
+  bigEndian,               /* byte order (1 = big, 0 = little)               */
+  save_all_override;       /* force all variables to be declared static      */
 
 extern SYMTABLE 
   *type_table,             /* General symbol table                           */

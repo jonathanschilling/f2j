@@ -154,18 +154,23 @@ specfic hack...the longest comment in the program unit\n\
 is placed in the javadoc comment.  It works fine for\n\
 BLAS/LAPACK code (or any other code where the longest\n\
 comment is the one that describes the function), but\n\
-will most likely not work for other code.\n";
+will most likely not work for other code.\n\n";
+
+  char f2java_help_vs_option[] = "The -vs option causes f2j\
+ to generate all variables\nas static class variables.\
+  By default f2j generates\nvariables as locals.\n\n";
 
   signal(SIGSEGV,handle_segfault);
 
-  omitWrappers  = TRUE;
-  genInterfaces = FALSE;
-  genJavadoc    = FALSE;
-  noOffset      = FALSE;
-  package_name  = NULL;
-  bigEndian     = isBigEndian();
-  output_dir    = NULL; 
-  search_path   = NULL; 
+  omitWrappers      = TRUE;
+  genInterfaces     = FALSE;
+  genJavadoc        = FALSE;
+  noOffset          = FALSE;
+  package_name      = NULL;
+  bigEndian         = isBigEndian();
+  output_dir        = NULL; 
+  search_path       = NULL; 
+  save_all_override = FALSE;
 
   file_stack = make_dl();
   include_paths = make_dl();
@@ -174,7 +179,7 @@ will most likely not work for other code.\n";
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"I:c:p:wisdho:")) != EOF)
+  while((c = getopt(argc,argv,"I:c:p:wisdho:v:")) != EOF)
     switch(c) {
       case 'I':
         dl_insert_b(include_paths, optarg);
@@ -199,7 +204,8 @@ will most likely not work for other code.\n";
         printf("%s",f2java_help_h_option);
         printf("%s",f2java_help_s_option);
         printf("%s",f2java_help_d_option);
-        exit(1);
+        printf("%s",f2java_help_vs_option);
+        exit(EXIT_SUCCESS);
         break;
       case 'i':
         genInterfaces = TRUE;
@@ -209,6 +215,15 @@ will most likely not work for other code.\n";
         break;
       case 's':
         noOffset = TRUE;
+        break;
+      case 'v':
+        if(strcmp("s", optarg)) {
+          fprintf(stderr,"-v%s: bad argument\n",optarg);
+          errflg++;
+        }
+        else
+          save_all_override = TRUE;
+
         break;
       case 'o':
         output_dir = optarg;
@@ -225,10 +240,10 @@ will most likely not work for other code.\n";
   {
     fprintf(stderr, "Usage: f2java [-I include path] [-c search path]");
     fprintf(stderr, "  [-p package name] [-o output dir]");
-    fprintf(stderr, " [-w] [-i] [-s] [-d] <filename>\n");
+    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] <filename>\n");
     fprintf(stderr,
      "For help: f2java -h\n");
-    exit(2);
+    exit(EXIT_FAILURE);
   }
 
   if(noOffset)
@@ -238,7 +253,7 @@ will most likely not work for other code.\n";
 
   if((ifp = fopen (inputfilename, "rb"))==NULL) {
     fprintf(stderr,"Input file not found: '%s'\n",inputfilename);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   current_file_info = (INCLUDED_FILE *)f2jalloc(sizeof(INCLUDED_FILE));
@@ -266,7 +281,7 @@ will most likely not work for other code.\n";
   if((vcgfp = fopen(vcgname, "w"))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",sourcename);
     perror("Reason");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 #endif
 
@@ -277,7 +292,7 @@ will most likely not work for other code.\n";
 
   if((indexfp = fopen_fullpath(indexname,"w")) == NULL) {
     fprintf(stderr,"Error opening index file: '%s'\n", indexname);
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   /* the Java keywords are stored in a list of strings.  Store them 
@@ -327,7 +342,7 @@ will most likely not work for other code.\n";
 
   if(devnull == NULL) {
     fprintf(stderr,"Cannot open %s for writing\n", null_file);
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   fprintf(stderr,"%s:\n",inputfilename);
@@ -500,7 +515,7 @@ void handle_segfault(int x)
   if(unit_name != NULL)
     fprintf(stderr,"unit name is %s\n",unit_name);
   fflush(stderr);
-  exit(1);
+  exit(EXIT_FAILURE);
 }
 
 /*****************************************************************************

@@ -1,3 +1,10 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
 #ifndef F2JMEM_H
 #define F2JMEM_H
 

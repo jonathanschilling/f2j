@@ -267,7 +267,9 @@ struct _source
     needs_reflection,               /* does this unit call a passed-in func  */
     needs_blas;                     /* does this unit call any BLAS routines */
  
-  int scalarOptStatus;              /* status of optimization on this unit   */
+  int
+    scalarOptStatus,                /* status of optimization on this unit   */
+    save_all;                       /* is there a SAVE stmt without var list */
 
   struct ClassFile
     *class;                         /* class file for this program unit      */

@@ -22,7 +22,7 @@
  *****************************************************************************/
 
 int
-  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
+  gendebug = TRUE;     /* set to TRUE to generate debugging output          */
 
 char 
   *unit_name,           /* name of this function/subroutine                  */
@@ -72,13 +72,15 @@ struct attribute_info
 
 AST 
   *cur_equivList,       /* list of equivalences                              */
-  *cur_unit;            /* program unit currently being translated.          */
+  *cur_unit,            /* program unit currently being translated.          */
+  *local_list;          /* saved pointer to list of local vars.              */
 
 BOOL 
   import_reflection,    /* does this class need to import reflection         */
   import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE,    /* is bytecode generation currently enabled          */
-  reCalcAddr;           /* do instruction PCs need to be recalculated?       */
+  reCalcAddr,           /* do instruction PCs need to be recalculated?       */
+  save_all_locals;      /* should all locals be declared static?             */
 
 unsigned int 
   pc,                   /* current program counter                           */
@@ -135,6 +137,8 @@ emit (AST * root)
           if (gendebug)
             printf ("Source.\n");
 
+          save_all_locals = root->astnode.source.save_all;
+
           tmpname = root->astnode.source.progtype->
                        astnode.source.name->astnode.ident.name;
 
@@ -186,7 +190,7 @@ emit (AST * root)
 
           initialize_lists();
 
-          assign_local_vars(
+          assign_varnums_to_arguments(
              root->astnode.source.progtype->astnode.source.args); 
 
           num_locals = cur_local = locals;
@@ -214,6 +218,7 @@ emit (AST * root)
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
 
+          assign_varnums_to_locals(root->astnode.source.typedecs);
           insert_fields(root);
 
           /* as part of creating a new classfile structure, we have 
@@ -230,9 +235,14 @@ emit (AST * root)
            */
 
           clinit_method = beginNewMethod(F2J_NORMAL_ACC);
+
+          /* save pointer for local vars in local_emit */
+          local_list = root->astnode.source.typedecs;
           
+printf("============TYPEDECS!!!\n");
           emit (root->astnode.source.typedecs);
  
+printf("============PROGTYPE!!!\n");
           emit (root->astnode.source.progtype);
 
           /* check whether any class initialization code was generated.
@@ -250,6 +260,9 @@ emit (AST * root)
           }
 
           main_method = beginNewMethod(F2J_NORMAL_ACC);
+
+          implicit_function_var_emit(root->astnode.source.progtype);
+          local_emit(root->astnode.source.typedecs);
 
           /* If this program unit does any reading, we declare an instance of
            * the EasyIn class.   grab a local var for this, but dont worry
@@ -366,6 +379,15 @@ emit (AST * root)
         returnname = root->astnode.source.name->astnode.ident.name;
         cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
+
+        /* assign a local var num to the implicit return variable */
+        {
+          HASHNODE *hash_temp;
+          hash_temp=type_lookup(cur_type_table, unit_name);
+          if(hash_temp)
+            hash_temp->variable->astnode.ident.localvnum =
+               getNextLocal(root->astnode.source.returns);
+        }
 
         if(gendebug)
           printf ("Function name: %s\n",  unit_name);
@@ -636,6 +658,99 @@ emit (AST * root)
           emit (root->nextstmt);
         break;
     }				/* switch on nodetype.  */
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * implicit_function_var_emit                                                *
+ *                                                                           *
+ * initializes the implicit Fortran variable for the return value.           * 
+ *                                                                           *
+ *****************************************************************************/
+
+void
+implicit_function_var_emit(AST *root)
+{
+  enum returntype returns;
+
+  /* 
+   * In fortran, functions return a value implicitly
+   * associated with their own name. In java, we declare a
+   * variable in the constructor that shadows the class
+   * (function) name and returns the same type. 
+   */
+
+  if (root->nodetype == Function)
+  {
+    char *name;
+    CPNODE *c;
+    struct var_info *ainf;
+
+    returns = root->astnode.source.returns;
+    name = root->astnode.source.name->astnode.ident.name;
+
+    if(gendebug) {
+      printf("this is a Function, needs implicit variable\n");
+      printf("method name = %s\n", name);
+      /* printf("implicit var desc = %s\n", desc); */
+    }
+
+    ainf = get_var_info(root->astnode.source.name);
+
+    /* Test code.... */
+    if ((returns == String) || (returns == Character))
+    {
+
+      fprintf(curfp, "%s %s ", 
+           returnstring[returns], name);
+
+      print_string_initializer(root->astnode.source.name);
+
+      fprintf(curfp, ";\n\n");
+
+      storeVar(returns, ainf->is_arg, ainf->class, ainf->name,
+        ainf->desc, ainf->localvar, FALSE);
+    }
+    else
+    {
+      if(omitWrappers && 
+        !cgPassByRef(root->astnode.source.name->astnode.ident.name))
+      {
+          fprintf (curfp, "%s %s = %s;\n\n", 
+            returnstring[returns],
+            root->astnode.source.name->astnode.ident.name,
+            init_vals[returns]);
+
+          bytecode0(init_opcodes[returns]);
+          storeVar(returns, ainf->is_arg, ainf->class, ainf->name,
+            ainf->desc, ainf->localvar, FALSE);
+      }
+      else
+      {
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                  full_wrappername[returns]);
+
+        bytecode1(jvm_new,c->index);
+        bytecode0(jvm_dup);
+
+        bytecode0(init_opcodes[returns]);
+
+        c = newMethodref(cur_const_table,full_wrappername[returns],
+               "<init>", wrapper_descriptor[returns]);
+
+        bytecode1(jvm_invokespecial, c->index);
+
+        storeVar(returns, ainf->is_arg, ainf->class, ainf->name,
+          ainf->desc, ainf->localvar, FALSE);
+
+        fprintf (curfp, "%s %s = new %s(%s);\n\n", 
+          wrapper_returns[returns],
+          root->astnode.source.name->astnode.ident.name,
+          wrapper_returns[returns],
+          init_vals[returns]);
+      }
+    }
+  }
 }
 
 /*****************************************************************************
@@ -1085,14 +1200,26 @@ return_emit()
    */
 
   if(returnname) {
+    HASHNODE *ht;
+    int rlv=0;
+
+    ht = type_lookup(cur_type_table, returnname);
+    if(!ht) {
+      fprintf(stderr,"Bad news: can't find return name '%s' in symtab.\n",
+         returnname);
+      rlv = 0;
+    }
+    else
+      rlv = ht->variable->astnode.ident.localvnum;
+
     if(omitWrappers && !cgPassByRef(returnname))
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, field_descriptor[cur_unit->vartype][0],
-              0, FALSE);
+              rlv, FALSE);
     else
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, wrapped_field_descriptor[cur_unit->vartype][0],
-              0, TRUE);
+              rlv, TRUE);
     bytecode0(return_opcodes[cur_unit->vartype]);
   }
   else
@@ -1113,6 +1240,12 @@ field_emit(AST *root)
 {
   char * desc, * name;
   HASHNODE *ht;
+
+  /* check whether this is a local var.  if so, then it does not need to
+   * be emitted as a static field of this class, so just return now.
+   */
+  if(root->astnode.ident.localvnum != -1)
+    return;
 
   /* check if this variable has a merged name.  if so,
    * use that name instead.
@@ -1403,7 +1536,7 @@ equiv_emit (AST *root)
       /* now emit the declaration as with any other variable.  */
 
       if(temp->astnode.equiv.clist->astnode.ident.merged_name != NULL)
-        vardec_emit(ht->variable, curType);
+        vardec_emit(ht->variable, curType, "public static ");
     }
   }
 }
@@ -1725,7 +1858,7 @@ common_emit(AST *root)
          * other variable.
          */
 
-        vardec_emit(temp, temp->vartype);
+        vardec_emit(temp, temp->vartype, "public static ");
       }
       fprintf(indexfp,"\n");
 
@@ -1892,6 +2025,314 @@ getCommonVarName(AST *root)
  *                                                                           *
  * typedec_emit                                                              *
  *                                                                           *
+ * this procedure only emits static variables, data and save. (drew)         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+typedec_emit (AST * root)
+{
+  AST *temp;
+  HASHNODE *ht;
+  enum returntype returns;
+
+  returns = root->astnode.typeunit.returns;
+
+  for(temp=root->astnode.typeunit.declist; temp != NULL; temp = temp->nextstmt)
+  {
+
+    if(omitWrappers) {
+      if(gendebug)
+        printf("vardec %s\n", temp->astnode.ident.name);
+      if((ht= type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
+      {
+        if(gendebug)
+          printf("%s should be %s\n", temp->astnode.ident.name,
+            ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
+      }
+      else
+        fprintf(stderr,"could not find %s\n", temp->astnode.ident.name);
+    }
+
+    if(is_static(temp))
+      vardec_emit(temp, returns, "public static ");
+  }
+}                               /* Close typedec_emit(). */
+
+/*****************************************************************************
+ *                                                                           *
+ * is_static                                                                 *
+ *                                                                           *
+ * this functions returns true if the stmt is a data or save and has not     *
+ * been declared.(drew)                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOL
+is_static(AST *root)
+{
+  AST *temp;
+  HASHNODE *ht;
+
+  temp = root;
+
+  if(type_lookup(cur_args_table,temp->astnode.ident.name)) {
+    if(gendebug)
+      printf("@@ is_static(): %s: not static (is arg)\n",
+        temp->astnode.ident.name);
+    return FALSE;
+  }
+  else if(type_lookup(cur_data_table,temp->astnode.ident.name)) {
+    if(gendebug)
+      printf("@@ Variable %s: Found corresponding data stmt\n",
+        temp->astnode.ident.name);
+
+    ht = type_lookup(cur_type_table,temp->astnode.ident.name);
+
+    if(ht == NULL)
+      return FALSE;
+
+    if(!ht->variable->astnode.ident.needs_declaration){
+      if(gendebug)
+        printf("is_static: declared data statement\n");
+      return FALSE;
+    }
+
+    if(gendebug)
+      printf("is_static: undeclared data statement\n");
+
+    return TRUE;
+  }
+  else if(type_lookup(cur_save_table,temp->astnode.ident.name)) {
+    if(gendebug)
+      printf("@@ Variable %s: Found corresponding SAVE stmt\n",
+        temp->astnode.ident.name);
+    return TRUE;
+  }
+  else if(type_lookup (cur_external_table, temp->astnode.ident.name)
+          || type_lookup (cur_intrinsic_table, temp->astnode.ident.name)
+          || type_lookup (cur_args_table, temp->astnode.ident.name)
+          || type_lookup (cur_param_table, temp->astnode.ident.name)
+          || type_lookup (cur_equiv_table, temp->astnode.ident.name)
+          || type_lookup (cur_common_table, temp->astnode.ident.name)) {
+    if(gendebug)
+      printf("@@ is_static %s: no, it's a spec stmt\n",
+        temp->astnode.ident.name);
+    return FALSE;
+  }
+  else if(save_all_locals) {
+    if(gendebug)
+      printf("@@ Save Variable %s: SAVE all\n",
+        temp->astnode.ident.name);
+    return TRUE;
+  }
+  else{
+    if(gendebug)
+      printf("@@ Variable %s: Corresponding data stmt not found\n",
+        temp->astnode.ident.name);
+
+    return FALSE;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * is_local                                                                  *
+ *                                                                           *
+ * this function checks to see if the varibles are local and emits them      *
+ * if they are. (drew)                                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOL
+is_local(AST *root){
+
+  AST *temp;
+  HASHNODE *hashtemp;
+  char *tempname;
+  BOOL isarg;
+
+  temp = root;
+  hashtemp = type_lookup (cur_args_table, temp->astnode.ident.name);
+  isarg = hashtemp != NULL;
+
+  if(type_lookup(cur_data_table,temp->astnode.ident.name)) {
+    if(gendebug)
+      printf("@@ Variable %s: Found corresponding data stmt\n",
+        temp->astnode.ident.name);
+
+    return FALSE;
+  }
+
+  hashtemp = type_lookup(cur_equiv_table,temp->astnode.ident.name);
+  if(hashtemp) {
+    if(type_lookup(cur_common_table,temp->astnode.ident.name)) {
+      fprintf(stderr,"Please dont mix COMMON and EQUIVALENCE.  ");
+      fprintf(stderr,"I dont like it.  It scares me.\n");
+    }else {
+      fprintf(curfp,"  // %s equivalenced to %s\n",
+        temp->astnode.ident.name,
+        hashtemp->variable->astnode.ident.merged_name);
+    }
+    return FALSE;
+  }
+
+  if(type_lookup(cur_save_table,temp->astnode.ident.name))
+    return FALSE;
+
+  if(type_lookup(cur_common_table,temp->astnode.ident.name))
+    return FALSE;
+
+  /*
+   * Dont emit anything for intrinsic functions.
+   */
+
+  tempname = strdup(temp->astnode.ident.name);
+  uppercase(tempname);
+
+  if(( methodscan (intrinsic_toks, tempname) != NULL)
+   && (type_lookup(cur_intrinsic_table,temp->astnode.ident.name) != NULL))
+  {
+    f2jfree(tempname,strlen(tempname)+1);
+    return FALSE;
+  }
+
+  f2jfree(tempname,strlen(tempname)+1);
+
+   /*
+    * Let's do the argument lookup first. No need to retype variables
+    * that are already declared in the argument list, or declared
+    * as externals.  So if it is already declared, loop again.
+    */
+
+  if (isarg)
+  {
+    if(gendebug)
+      printf("### %s is in the args_table, so I'm skipping it.\n",
+         temp->astnode.ident.name);
+    return FALSE;
+  }
+
+  if(type_lookup(cur_external_table, temp->astnode.ident.name) != NULL)
+  {
+    /* skip externals */
+    return FALSE;
+  }
+
+  if(save_all_locals && !isarg)
+    return FALSE;
+
+  if(gendebug)
+     printf("Returning TRUE from is_local\n");
+  return TRUE;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * local_emit                                                                *
+ *                                                                           *
+ * This function calls vardec_emit on local variables (drew)                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+local_emit(AST *root)
+{
+  AST *temp, *temp2;
+  HASHNODE *ht;
+  enum returntype returns;
+
+  if(gendebug)printf("in local_emit\n");
+
+  temp2 = root;
+
+  while(temp2 != NULL) {
+    if(temp2->nodetype != Typedec) {
+      temp2 = temp2->nextstmt;
+      continue;
+    }
+
+    returns = temp2->astnode.typeunit.returns;
+
+    for(temp=temp2->astnode.typeunit.declist;temp!=NULL;temp=temp->nextstmt)
+    {
+      if(is_local(temp)==TRUE) {
+        /* emit if it is local variable */
+        if(gendebug)
+          printf("local variable found\n");
+
+        ht = type_lookup(cur_type_table,temp->astnode.ident.name);
+        if(!ht) {
+          fprintf(stderr,"Warning: local_emit() could not find '%s'\n",
+                 temp->astnode.ident.name);
+          fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+          continue;
+        }
+
+        if(gendebug)
+          printf("Emitting local variable %s\n", temp->astnode.ident.name);
+        vardec_emit(temp, returns, "");
+      }
+    }
+
+    temp2=temp2->nextstmt;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * assign_varnums_to_locals                                                  *
+ *                                                                           *
+ * This routine assigns a local variable (aka register) number to every      *
+ * variable that should not be static.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_varnums_to_locals(AST *root)
+{
+  AST *temp, *temp2;
+  HASHNODE *ht;
+
+  temp2 = root;
+
+  while(temp2 != NULL) {
+    if(temp2->nodetype != Typedec) {
+      temp2 = temp2->nextstmt;
+      continue;
+    }
+
+    for(temp=temp2->astnode.typeunit.declist;temp!=NULL;temp=temp->nextstmt)
+    {
+      if(is_local(temp)==TRUE) {
+        ht = type_lookup(cur_type_table,temp->astnode.ident.name);
+        if(!ht) {
+          fprintf(stderr,"assign_varnums_to_locals() could not find '%s'\n",
+                 temp->astnode.ident.name);
+          fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+          continue;
+        }
+
+        /* might want to check whether it's a double precision array & only 
+         * grab one register in that case... kgs
+         */
+        ht->variable->astnode.ident.localvnum = getNextLocal(temp->vartype);
+
+        if(gendebug)
+          printf("assign_varnums_to_locals: %s -> slot %d\n", 
+            temp->astnode.ident.name, ht->variable->astnode.ident.localvnum);
+      }
+    }
+
+    temp2=temp2->nextstmt;
+  }
+
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * typedec_emit                                                              *
+ *                                                                           *
  * Emit all the type declarations.  This procedure checks                    *
  * whether variables are typed in the argument list, and                     *
  * does not redeclare those arguments.                                       *
@@ -1899,7 +2340,7 @@ getCommonVarName(AST *root)
  *****************************************************************************/
 
 void
-typedec_emit (AST * root)
+typedec_emit_all_static (AST * root)
 {
   AST *temp;
   HASHNODE *hashtemp, *ht;
@@ -2043,7 +2484,7 @@ typedec_emit (AST * root)
     if(gendebug)
       printf("### calling vardec_emit on %s\n",temp->astnode.ident.name);
 
-    vardec_emit(temp, returns);
+    vardec_emit(temp, returns, "public static ");
   }
 }				/* Close typedec_emit(). */
 
@@ -2157,21 +2598,22 @@ getMergedDescriptor(AST *root, enum returntype returns)
  *****************************************************************************/
 
 void
-vardec_emit(AST *root, enum returntype returns)
+vardec_emit(AST *root, enum returntype returns, char *prefix)
 {
-  char *prefix, *name, *desc;
+  char *name, *desc;
   HASHNODE *hashtemp;
   int count;
   AST *temp2;
   CPNODE *c;
+  struct var_info *ainf;
 
-  prefix = "public static ";
+  ainf = get_var_info(root);
 
   if(gendebug)
     printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
 
   /* the top of the stack now contains the array we just created.
-   * now issue the putstatic instruction to store the array reference
+   * now issue the store instruction to store the array reference
    * into the static variable.  if this ident is equivalenced, we
    * need to get the name/descriptor from the merged variable.
    */
@@ -2264,9 +2706,8 @@ vardec_emit(AST *root, enum returntype returns)
 
     newarray_emit(root->vartype);
 
-    c = newFieldref(cur_const_table,cur_filename, name, desc); 
-    bytecode1(jvm_putstatic, c->index);
-
+    storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+      ainf->desc, ainf->localvar, FALSE);
   } else {    /* this is not an array declaration */
 
     if(!type_lookup(cur_param_table, root->astnode.ident.name))
@@ -2298,12 +2739,15 @@ vardec_emit(AST *root, enum returntype returns)
           printf("\tdesc:  %s\n", desc);
         }
 
-        c = newFieldref(cur_const_table,cur_filename,name,desc); 
-        bytecode1(jvm_putstatic, c->index);
+        storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+          ainf->desc, ainf->localvar, FALSE);
       }
       else {
         if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
-            fprintf(curfp,"= %s;\n", init_vals[returns]);
+          fprintf(curfp,"= %s;\n", init_vals[returns]);
+          bytecode0(init_opcodes[returns]);
+          storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+             ainf->desc, ainf->localvar, FALSE);
         }
         else
         {
@@ -2320,8 +2764,8 @@ vardec_emit(AST *root, enum returntype returns)
 
           bytecode1(jvm_invokespecial, c->index);
 
-          c = newFieldref(cur_const_table,cur_filename,name,desc); 
-          bytecode1(jvm_putstatic, c->index);
+          storeVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
+             ainf->desc, ainf->localvar, FALSE);
 
           fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
             init_vals[returns]);
@@ -2665,7 +3109,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
     if(gendebug)
       printf("VAR length = %d\n",length);
 
-    fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
+    fprintf(curfp,"public static %s ", returnstring[ hashtemp->type]);
 
     if(gendebug)
       printf("VAR going to data_array_emit\n");
@@ -2677,9 +3121,9 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
     if(!needs_dec)
     {
       if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name))
-        fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
+        fprintf(curfp,"public static %s ", returnstring[ hashtemp->type]);
       else
-        fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
+        fprintf(curfp,"public static %s ", wrapper_returns[ hashtemp->type]);
 
       data_scalar_emit(hashtemp->type, Ctemp, Ntemp, needs_dec);
     }
@@ -2762,8 +3206,10 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp)
 {
   unsigned int count, size = 0;
   HASHNODE *ht;
-  CPNODE *c;
   int i;
+  struct var_info *ainf;
+
+  ainf = get_var_info(Ntemp);
 
   if(gendebug)
     printf("VAR here we are in data_array_emit, length = %d\n",length);
@@ -2851,11 +3297,8 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp)
    
   fprintf(curfp,"};\n");
 
-  c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
-        field_descriptor[ht->variable->vartype]
-                        [(ht->variable->astnode.ident.dim > 0)]);
-
-  bytecode1(jvm_putstatic, c->index);
+  storeVar(Ntemp->vartype, ainf->is_arg, ainf->class, ainf->name,
+    ainf->desc, ainf->localvar, FALSE);
 
   return Ctemp;
 }
@@ -4085,7 +4528,7 @@ pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
     printf("       local varnum is %d\n", lv);
   }
 
-  if(isArg) {
+  if(isArg || (lv != -1)) {
     /* for reference types, always use aload */
     if((desc[0] == 'L') || (desc[0] == '['))
       gen_load_op(lv, Object);
@@ -4101,6 +4544,45 @@ pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
     c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
            val_descriptor[vt]);
     bytecode1(jvm_getfield, c->index);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * storeVar                                                                  *
+ *                                                                           *
+ * stores a value from the stack to a local variable.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+storeVar(enum returntype vt, BOOL isArg, char *class, char *name,
+   char *desc, unsigned int lv, BOOL deref)
+{
+  CPNODE *c;
+
+  if(gendebug) {
+    printf("in store, vartype is %s\n", returnstring[vt]);
+    printf("             desc is %s\n", desc);
+    printf("     local varnum is %d\n", lv);
+  }
+
+  if(isArg || (lv != -1)) {
+    /* for reference types, always use aload */
+    if((desc[0] == 'L') || (desc[0] == '['))
+      gen_store_op(lv, Object);
+    else
+      gen_store_op(lv, vt);
+  }
+  else {
+    c = newFieldref(cur_const_table, class, name, desc);
+    bytecode1(jvm_putstatic, c->index);
+  }
+
+  if(deref) {
+    c = newFieldref(cur_const_table, full_wrappername[vt], "val",
+           val_descriptor[vt]);
+    bytecode1(jvm_putfield, c->index);
   }
 }
 
@@ -6348,84 +6830,12 @@ constructor (AST * root)
   else
     method_desc = MAIN_DESCRIPTOR;
 
-  /* 
-   * In fortran, functions return a value implicitly
-   * associated with their own name. In java, we declare a
-   * variable in the constructor that shadows the class
-   * (function) name and returns the same type. 
-   */
-
   if (root->nodetype == Function)
   {
-    char *name, *desc;
-    CPNODE *c;
+    char *name;
 
     returns = root->astnode.source.returns;
     name = root->astnode.source.name->astnode.ident.name;
-
-    if(omitWrappers && !cgPassByRef(name)) {
-      addField( name, field_descriptor[returns][0]);
-      desc = field_descriptor[returns][0];
-    }
-    else {
-      addField(name, wrapped_field_descriptor[returns][0]);
-      desc = wrapped_field_descriptor[returns][0];
-    }
-
-    if(gendebug) {
-      printf("this is a Function, needs implicit variable\n");
-      printf("method name = %s\n", name);
-      printf("implicit var desc = %s\n", desc);
-    }
-
-    /* Test code.... */
-    if ((returns == String) || (returns == Character))
-    {
-      fprintf(curfp, "static %s %s ", 
-           returnstring[returns], name);
-
-      print_string_initializer(root->astnode.source.name);
-
-      fprintf(curfp, ";\n\n");
-
-      c = newFieldref(cur_const_table,cur_filename, name, desc);
-      bytecode1(jvm_putstatic, c->index);
-    }
-    else
-    {
-      if(omitWrappers && 
-        !cgPassByRef(root->astnode.source.name->astnode.ident.name))
-      {
-          fprintf (curfp, "static %s %s = %s;\n\n", 
-            returnstring[returns],
-            root->astnode.source.name->astnode.ident.name,
-            init_vals[returns]);
-      }
-      else
-      {
-        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
-                  full_wrappername[returns]);
-
-        bytecode1(jvm_new,c->index);
-        bytecode0(jvm_dup);
-
-        bytecode0(init_opcodes[returns]);
-
-        c = newMethodref(cur_const_table,full_wrappername[returns],
-               "<init>", wrapper_descriptor[returns]);
-
-        bytecode1(jvm_invokespecial, c->index);
-
-        c = newFieldref(cur_const_table,cur_filename,name,desc); 
-        bytecode1(jvm_putstatic, c->index);
-
-        fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-          wrapper_returns[returns],
-          root->astnode.source.name->astnode.ident.name,
-          wrapper_returns[returns],
-          init_vals[returns]);
-      }
-    }
 
     /* Define the constructor for the class. */
 
@@ -10239,8 +10649,8 @@ LHS_bytecode_emit(AST *root)
           root->astnode.assignment.lhs->astnode.ident.localvnum);
       }
 
-      c = newFieldref(cur_const_table, class, name, desc);
-      bytecode1(jvm_putstatic, c->index);
+      storeVar(root->astnode.assignment.lhs->vartype, (BOOL)isArg, class, name,
+        desc, typenode->variable->astnode.ident.localvnum, FALSE);
     }
     else {
       int vt = root->astnode.assignment.lhs->vartype;
@@ -12906,7 +13316,7 @@ num_locals_in_descriptor(char *d)
 
 /*****************************************************************************
  *                                                                           *
- * assign_local_vars                                                         *
+ * assign_varnums_to_arguments                                               *
  *                                                                           *
  * This routine numbers the local variables for generating Jasmin            *
  * assembly code.                                                            *
@@ -12919,7 +13329,7 @@ num_locals_in_descriptor(char *d)
  *****************************************************************************/
 
 void
-assign_local_vars(AST * root)
+assign_varnums_to_arguments(AST * root)
 {
   AST * locallist;
   HASHNODE * hashtemp, * ht2;
@@ -12935,7 +13345,7 @@ assign_local_vars(AST * root)
   for (locallist = root ; locallist; locallist = locallist->nextstmt)
   {
     if(gendebug)
-      printf("assign_local_vars(%s): arg list name: %s, local varnum: %d\n",
+      printf("assign_varnums_to_arguments(%s): arg list name: %s, local varnum: %d\n",
          cur_filename, locallist->astnode.ident.name, localnum);
 
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
@@ -12944,7 +13354,7 @@ assign_local_vars(AST * root)
       ht2=type_lookup(cur_args_table, locallist->astnode.ident.name);
       if(ht2) {
         if(gendebug)
-          printf("assign_local_vars(%s):%s in args table, set lvnum: %d\n",
+          printf("assign_varnums_to_arguments(%s):%s in args table, set lvnum: %d\n",
             cur_filename, locallist->astnode.ident.name, localnum);
 
         ht2->variable->astnode.ident.localvnum = localnum;
@@ -12970,7 +13380,7 @@ assign_local_vars(AST * root)
      */
 
     if(gendebug)
-      printf("assign_local_vars(%s): name: %s, pass by ref: %s\n",
+      printf("assign_varnums_to_arguments(%s): name: %s, pass by ref: %s\n",
         cur_filename, locallist->astnode.ident.name,
         hashtemp->variable->astnode.ident.passByRef ? "yes" : "no");
 
@@ -12987,7 +13397,7 @@ assign_local_vars(AST * root)
   }
 
   locals = localnum;
-} /* Close assign_local_vars().  */
+} /* Close assign_varnums_to_arguments().  */
 
 /*****************************************************************************
  *                                                                           *

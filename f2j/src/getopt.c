@@ -1,4 +1,11 @@
 /*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
+/*
 **  GETOPT PROGRAM AND LIBRARY ROUTINE
 **
 **  I wrote main() and AT&T wrote getopt() and we both put our efforts into

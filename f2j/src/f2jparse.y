@@ -39,7 +39,8 @@ int
   debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
-  temptok;                        /* temporary token for an inline expr      */
+  temptok,                        /* temporary token for an inline expr      */
+  save_all;                       /* is there a SAVE stmt without a var list */
 
 char
   tempname[60];                   /* temporary string                        */
@@ -315,6 +316,7 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
+                $$->astnode.source.save_all = save_all; 
 
                 /* initialize some values in this node */
 
@@ -377,6 +379,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
+                $$->astnode.source.save_all = save_all; 
 
                 /* initialize some values in this node */
 
@@ -438,6 +441,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.javadocComments = NULL; 
+                $$->astnode.source.save_all = save_all; 
 
                 /* initialize some values in this node */
 
@@ -555,6 +559,7 @@ Function:  Type FUNCTION Name Functionargs NL
               * the hash table for lookup later.
               */
 
+             $3->astnode.ident.localvnum = -1;
              insert_name(type_table, $3, $1);
 
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
@@ -789,7 +794,9 @@ CommonSpec: DIV Name DIV Namelist
            }
 ;
 
-/* SAVE is ignored by the code generator. */
+/* SAVE is ignored by the code generator.
+ * ..not anymore 12/10/01 kgs 
+ */
 
 Save: SAVE NL
        {
@@ -801,6 +808,7 @@ Save: SAVE NL
 
          $$ = addnode();
          $$->nodetype = Save;
+         save_all = TRUE;
        }
     | SAVE DIV Namelist DIV NL
            {
@@ -3027,7 +3035,11 @@ yyerror(char *s)
   INCLUDED_FILE *pfile;
   Dlist tmp;
 
-  printf("%s:%d: %s\n", current_file_info->name, lineno, s);
+  if(current_file_info)
+    printf("%s:%d: %s\n", current_file_info->name, lineno, s);
+  else
+    printf("line %d: %s\n", lineno, s);
+
   dl_traverse_b(tmp, file_stack) {
     pfile = (INCLUDED_FILE *)dl_val(tmp);
 
@@ -3195,6 +3207,7 @@ type_hash(AST * types)
             printf("Type hash (DIM): %s\n", tempnames->astnode.ident.name);
         }
 
+        node->astnode.ident.localvnum = -1;
         node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
         node->astnode.ident.dim = tempnames->astnode.ident.dim;
         node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
@@ -3215,6 +3228,7 @@ type_hash(AST * types)
         if(hash_entry) {
           AST *var = hash_entry->variable;
   
+          tempnames->astnode.ident.localvnum = -1;
           tempnames->astnode.ident.arraylist = var->astnode.ident.arraylist;
           tempnames->astnode.ident.dim = var->astnode.ident.dim;
           tempnames->astnode.ident.leaddim = var->astnode.ident.leaddim;
@@ -3230,6 +3244,7 @@ type_hash(AST * types)
 
           if(hash_entry == NULL) {
             tempnames->vartype = return_type;
+            tempnames->astnode.ident.localvnum = -1;
 
             type_insert(type_table, tempnames, return_type,
                tempnames->astnode.ident.name);
@@ -3475,6 +3490,7 @@ init_tables()
   args_table      = (SYMTABLE *) new_symtable(211);
   constants_table = make_dl();
   equivList       = NULL;
+  save_all        = FALSE;
 }
 
 /*****************************************************************************

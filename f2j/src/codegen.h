@@ -166,6 +166,7 @@ void
   arg_assignment_emit(int, int, int, BOOL, enum returntype),
   arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
          enum returntype argtype),
+  implicit_function_var_emit(AST *),
   calcOffsets(Dlist, CodeGraphNode *),
   traverse_code(Dlist),
   while_emit(AST *),
@@ -202,7 +203,11 @@ void
   addField(char *, char *),
   open_output_file(AST *, char *),
   print_string_initializer(AST *),
-  vardec_emit(AST *, enum returntype),
+  typedec_emit_all_static(AST *),
+  vardec_emit(AST *, enum returntype, char *),
+  assign_varnums_to_arguments(AST *),
+  assign_varnums_to_locals(AST *),
+  local_emit(AST *),
   emit_adapters(void),
   newarray_emit(enum returntype),
   constructor (AST *),
@@ -227,7 +232,6 @@ void
   emit_prolog_comments(AST *),
   emit_javadoc_comments(AST *),
   insert_fields(AST *),
-  assign_local_vars(AST *),
   return_emit(void),
   end_emit(void),
   emit (AST *),
@@ -237,6 +241,7 @@ void
   pushDoubleConst(double),
   pushStringConst(char *),
   pushVar(enum returntype, BOOL, char *, char *, char *, unsigned int, BOOL),
+  storeVar(enum returntype, BOOL, char *, char *, char *, unsigned int, BOOL),
   dec_stack(int),
   iinc_emit(unsigned int, int),
   invoke_constructor(char *, AST *, char *),
@@ -351,6 +356,8 @@ METHODREF
 BOOL
   adapter_insert_from_descriptor(AST *, AST *, char *),
   checkDistance(enum _opcode, int, int),
+  is_static(AST *),
+  is_local(AST *),
   isArrayNoIdx(AST *);
 
 struct var_info

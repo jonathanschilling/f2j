@@ -22,7 +22,7 @@
  *****************************************************************************/
 
 int
-  gendebug = FALSE;    /* set to TRUE to generate debugging output          */
+  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
 
 char 
   *unit_name,           /* name of this function/subroutine                  */
@@ -8576,6 +8576,21 @@ format_item_emit(JVM_METHOD *meth, AST *temp, AST **nodeptr)
           }
           else if(temp->nextstmt->astnode.ident.name[0] == 'P') {
             temp=temp->nextstmt;  /* consume edit desc */
+          }
+          else {
+            int rcnt, max = atoi(temp->astnode.constant.number);
+
+            /* this is something else (other than X or P) repeated
+             * max times.  first set temp to the next specifier and
+             * then call this function max times to emit each
+             * item.  don't set temp at each iteration since we
+             * want it to sit at the same specifier for each item
+             * in the i/o statement.
+             */
+            temp=temp->nextstmt;
+            for(rcnt = 0; rcnt < max; rcnt++) {
+              format_item_emit(meth, temp, nodeptr);
+            }
           }
         }
       }

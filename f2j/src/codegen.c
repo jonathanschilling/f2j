@@ -11478,8 +11478,8 @@ printf("access flags = %d\n", flags);
  *****************************************************************************/
 
 void
-endNewMethod(struct ClassFile *cclass, struct method_info * meth, char * name, char * desc,
-  unsigned int mloc, Dlist exceptions)
+endNewMethod(struct ClassFile *cclass, struct method_info * meth,
+  char * name, char * desc, unsigned int mloc, Dlist exceptions)
 {
   ExceptionTableEntry *et_entry;
   CPNODE *c;

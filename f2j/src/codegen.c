@@ -229,19 +229,15 @@ emit (AST * root)
 
           clinit_method = beginNewMethod((u2)(ACC_PUBLIC | ACC_STATIC)); 
           
-fprintf(stderr,"1: exc_table = %s\n", exc_table ? "non-null" : "null");
           emit (root->astnode.source.typedecs);
-fprintf(stderr,"2: exc_table = %s\n", exc_table ? "non-null" : "null");
  
           emit (root->astnode.source.progtype);
 
-fprintf(stderr,"3: exc_table = %s\n", exc_table ? "non-null" : "null");
           /* check whether any class initialization code was generated.
            * if so, finish initializing the method and insert it into this
            * class.
            */
           if(pc > 0) {
-fprintf(stderr,"4: exc_table = %s\n", exc_table ? "non-null" : "null");
             bytecode0(jvm_return);
             endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
           }
@@ -1472,17 +1468,27 @@ printf("common_emit.1: set curfp = %p\n", curfp);
         bytecode0(jvm_return);
         endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
       }
+      else {
+        free_method_info(clinit_method);
+        free_code_attribute(cur_code, NULL);
+        dl_delete_list(exc_table);
+      }
 
       cur_class_file->constant_pool_count = 
          (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
       cur_class_file->constant_pool = cur_const_table;
 
       write_class(cur_class_file);
+      free_class(cur_class_file);
     }
   }
 
   curfp = javafp;
-printf("common_emit.2: set curfp = %p\n", curfp);
+
+  f2jfree(prefix,strlen(prefix)+1);
+  f2jfree(common_classname,strlen(common_classname)+1);
+  f2jfree(filename,strlen(filename)+1);
+  f2jfree(cur_filename,strlen(cur_filename)+1);
 
   /* restore previously saved globals */
 
@@ -1926,10 +1932,12 @@ print_string_initializer(AST *root)
 
     /* We can't find this variable in the hash table, 
      * so just initialize the string to the standard initial
-     * value found in init_vals.
+     * value found in init_vals.   dup this constant string
+     * so that we can always free() later regardless of
+     * whether we hit this case or the latter case.
      */
 
-    src_initializer = init_vals[String];
+    src_initializer = strdup(init_vals[String]);
   }
   else
   {
@@ -1968,6 +1976,10 @@ print_string_initializer(AST *root)
     invoke_constructor(full_wrappername[String], tempnode,
        wrapper_descriptor[String]);
   }
+
+  f2jfree(bytecode_initializer, strlen(bytecode_initializer)+1);
+  f2jfree(src_initializer, strlen(src_initializer)+1);
+  f2jfree(tempnode, sizeof(AST));
 }
 
 /*****************************************************************************
@@ -3442,6 +3454,8 @@ push_array_var(AST *root)
     fprintf (curfp, "%s%s", com_prefix, ainf->name);
     pushVar(root->vartype, ainf->is_arg, ainf->class, ainf->name,
         ainf->desc, ainf->localvar, FALSE);
+
+    f2jfree(com_prefix, strlen(com_prefix)+1);
   }
 
   if(gendebug)
@@ -3544,6 +3558,7 @@ get_var_info(AST *root)
   new_array_inf->is_arg = is_arg;
   new_array_inf->class = strdup(tmpclass);
 
+  f2jfree(com_prefix, strlen(com_prefix)+1);
   return new_array_inf;
 }
 
@@ -7015,6 +7030,8 @@ read_emit (AST * root)
     }
   }
 
+  free_ast_node(assign_temp);
+
   fprintf(curfp,"_f2j_stdin.skipRemaining();\n");
   gen_load_op(stdin_lvar, Object);
   c = newMethodref(cur_const_table, EASYIN_CLASS, "skipRemaining", "()V");
@@ -8532,6 +8549,8 @@ get_method_name(AST *root, BOOLEAN adapter)
       strcat(newmeth->descriptor, ")");
       strcat(newmeth->descriptor, field_descriptor[root->vartype][0]);
 
+      f2jfree(tmpdesc, strlen(tmpdesc)+1);
+
       printf("methcall descriptor = %s\n",newmeth->descriptor);
     }
   }
@@ -8559,7 +8578,7 @@ get_method_name(AST *root, BOOLEAN adapter)
            root->astnode.ident.arraylist);
       else {
         fprintf(stderr, "WARNING: could not find method descriptor\n");
-        tmpdesc = "IIIIIII";  /* just some junk */
+        tmpdesc = strdup("IIIIIII");  /* just some junk */
       }
     }
 
@@ -8573,6 +8592,7 @@ get_method_name(AST *root, BOOLEAN adapter)
     else
       strcat(newmeth->descriptor, field_descriptor[root->vartype][0]);
 
+    f2jfree(tmpdesc, strlen(tmpdesc)+1);
     printf("get_method_name:  descriptor = '%s'\n",newmeth->descriptor);
   }
   else
@@ -8915,6 +8935,8 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
 
     if(temp->nextstmt != NULL)
       fprintf(curfp, ",");
+
+    f2jfree(com_prefix, strlen(com_prefix)+1);
   }
 }
 
@@ -9627,8 +9649,6 @@ LHS_bytecode_emit(AST *root)
 
   com_prefix = get_common_prefix(name);
 
-  class = cur_filename;
-
   isArg = type_lookup(cur_args_table,name);
 
   if(com_prefix[0] != '\0')
@@ -9645,10 +9665,16 @@ LHS_bytecode_emit(AST *root)
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    /* class = strdup(com_prefix); */
     class = get_full_classname(com_prefix);
     class[strlen(class)-1] = '\0';
   }
+  else {
+    /* want to be able to free() class later, so we must assign malloc'd
+     * memory to it in both cases.
+     */
+    class = strdup(cur_filename);
+  } 
+
 
   printf("in assign_emit, class = %s, name = %s, desc = %s\n",class, name, desc);
   
@@ -9693,6 +9719,9 @@ LHS_bytecode_emit(AST *root)
      */
     bytecode0(array_store_opcodes[root->astnode.assignment.lhs->vartype]);
   }
+
+  f2jfree(com_prefix, strlen(com_prefix)+1);
+  f2jfree(class, strlen(class)+1);
 }
 
 /*****************************************************************************
@@ -10088,6 +10117,9 @@ emit_adapters()
       mref->descriptor = strdup(hashtemp->variable->astnode.source.descriptor);
 
       adapter_emit_from_descriptor(mref, cval);
+
+      free_fieldref(mref);
+      f2jfree(tmpdesc, strlen(tmpdesc)+1);
     }
     else {
       printf("looking up descriptor for %s\n",cval->astnode.ident.name);
@@ -10116,6 +10148,8 @@ emit_adapters()
         strcat(cur_desc,ret_desc);
 
         adapter_emit_from_descriptor(mref, cval);
+
+        f2jfree(tmpdesc, strlen(tmpdesc)+1);
       }
       else {
         fprintf(stderr,"Could not generate adapter for '%s'\n",
@@ -10575,6 +10609,7 @@ get_desc_from_arglist(AST *list)
   struct _str * temp_desc = NULL;
   HASHNODE *ht;
   AST *arg;
+  char *p;
   int dim;
 
   for(arg = list; arg != NULL; arg = arg->nextstmt) {
@@ -10629,7 +10664,11 @@ get_desc_from_arglist(AST *list)
       temp_desc = strAppend(temp_desc, "I");
   }
 
-  return temp_desc->val;
+  p = temp_desc->val;
+
+  f2jfree(temp_desc, sizeof(struct _str));
+
+  return p;
 }
 
 
@@ -10739,6 +10778,7 @@ emit_invocations(AST *root)
 
     endNewMethod(cur_class_file, inv_method, cur_name, cur_desc,
          num_locals, exc_list );
+    f2jfree(tmpdesc, strlen(tmpdesc)+1);
   }
 
   dl_delete_list(exc_list);
@@ -12387,54 +12427,72 @@ get_return_type_from_descriptor(char *desc)
 enum returntype
 get_type_from_field_desc(char * fd)
 {
+  enum returntype rt = Integer;
   char * wrap;
 
   switch(fd[0]) {
     case 'B':
-      return Integer;
+      rt = Integer;
+      break;
     case 'C':
-      return Character;
+      rt = Character;
+      break;
     case 'D':
-      return Double;
+      rt = Double;
+      break;
     case 'F':
-      return Float;
+      rt = Float;
+      break;
     case 'I':
-      return Integer;
+      rt = Integer;
+      break;
     case 'J':
-      return Integer;
+      rt = Integer;
+      break;
     case 'S':
-      return Integer;
+      rt = Integer;
+      break;
     case 'Z':
-      return Logical;
+      rt = Logical;
+      break;
     case 'V':
-      return Object; /* no void in the array, so use object instead */ 
+      rt = Object; /* no void in the array, so use object instead */ 
+      break;
     case '[':
-      return get_type_from_field_desc(fd+1);
+      rt = get_type_from_field_desc(fd+1);
+      break;
     case 'L':
       wrap = get_wrapper_from_desc(fd);
 
       if(!strcmp(wrap, "StringW"))
-        return String;
+        rt = String;
       else if(!strcmp(wrap, "complexW"))
-        return Complex;
+        rt = Complex;
       else if(!strcmp(wrap, "intW"))
-        return Integer;
+        rt = Integer;
       else if(!strcmp(wrap, "doubleW"))
-        return Double;
+        rt = Double;
       else if(!strcmp(wrap, "floatW"))
-        return Float;
+        rt = Float;
       else if(!strcmp(wrap, "booleanW"))
-        return Logical;
+        rt = Logical;
       else if(!strcmp(wrap, "String"))
-        return String;
+        rt = String;
       else if(!strcmp(wrap, "Object"))
-        return Object;
-      /* else drop to default case.  break intentionally missing. */
+        rt = Object;
+      else
+        fprintf(stderr,"get_type_from_field_desc() hit default case '%s'!!\n",
+          fd);
+
+      f2jfree(wrap, strlen(wrap)+1);
+      break;
     default:
       fprintf(stderr,"get_type_from_field_desc() hit default case '%s'!!\n",
         fd);
-      return Integer;
+      rt = Integer;
   }
+
+  return rt;
 }
 
 /*****************************************************************************
@@ -12506,6 +12564,7 @@ char *
 get_adapter_desc(char *dptr, AST *arg)
 {
   struct _str * temp_desc = NULL;
+  char *p;
   int i;
 
   dptr = skipToken(dptr);
@@ -12556,5 +12615,9 @@ get_adapter_desc(char *dptr, AST *arg)
     dptr = skipToken(dptr);
   }
 
-  return temp_desc->val;
+  p = temp_desc->val;
+
+  f2jfree(temp_desc, sizeof(struct _str));
+
+  return p;
 }

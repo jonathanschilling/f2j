@@ -363,14 +363,16 @@ initialize ()
   statementno = 0;
   func_stmt_num = 0;
 
-  array_table          = (SYMTABLE *) new_symtable (tablesize);
-  format_table         = (SYMTABLE *) new_symtable (tablesize);
-  data_table           = (SYMTABLE *) new_symtable (tablesize);
-  save_table           = (SYMTABLE *) new_symtable (tablesize);
-  common_table         = (SYMTABLE *) new_symtable (tablesize);
+/*
+ *  array_table          = (SYMTABLE *) new_symtable (tablesize);
+ *  format_table         = (SYMTABLE *) new_symtable (tablesize);
+ *  data_table           = (SYMTABLE *) new_symtable (tablesize);
+ *  save_table           = (SYMTABLE *) new_symtable (tablesize);
+ *  common_table         = (SYMTABLE *) new_symtable (tablesize);
+ *  parameter_table      = (SYMTABLE *) new_symtable (tablesize);
+ */
   common_block_table   = (SYMTABLE *) new_symtable (tablesize);
   function_table       = (SYMTABLE *) new_symtable (tablesize);
-  parameter_table      = (SYMTABLE *) new_symtable (tablesize);
   global_func_table    = (SYMTABLE *) new_symtable (tablesize);
   global_common_table  = (SYMTABLE *) new_symtable (tablesize);
 }

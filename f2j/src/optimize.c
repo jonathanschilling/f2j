@@ -159,6 +159,10 @@ optScalar(AST *root)
     root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
   if(ht) {
+    if(ht->variable->astnode.source.descriptor)
+      f2jfree(ht->variable->astnode.source.descriptor,
+         strlen(ht->variable->astnode.source.descriptor)+1);
+
     ht->variable->astnode.source.descriptor =
         get_method_descriptor(root->astnode.source.progtype, 
            opt_type_table, opt_common_table, opt_external_table);

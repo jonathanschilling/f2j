@@ -1358,9 +1358,17 @@ Name:    NAME
             *
             * otherwise, if not a parameter, get a new AST node initialized
             * with this name.
+            *
+            * added check for null parameter table because this Name could
+            * be reduced before we initialize the tables.  that would mean
+            * that this name is the function name, so we dont want this to
+            * be a parameter anyway.  kgs 11/7/00
+            * 
             */
 
-           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL) {
+           if((parameter_table != NULL) &&
+              ((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL))
+           {
              /* had a problem here just setting $$ = hashtemp->variable
               * when there's an arraydec with two of the same PARAMETERS
               * in the arraynamelist, e.g. A(NMAX,NMAX).   so, instead we
@@ -1884,6 +1892,9 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent->nodetype = Write;
+
+         /* currently ignoring the file descriptor.. */
+         free_ast_node($3);
        }
      | PRINT Integer PrintIoList NL
        {
@@ -1924,7 +1935,7 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          $$->astnode.io_stmt.format_num = -1;
          $$->astnode.io_stmt.arg_list = switchem($3);
-           
+
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent->nodetype = Write;
        }
@@ -1951,7 +1962,11 @@ WriteFileDesc:
     | STAR
        {
          /* do nothing for now */
-         ;
+          $$ = addnode();
+          $$->token = INTEGER;
+          $$->nodetype = Constant;
+          strcpy($$->astnode.constant.number,"*");
+          $$->vartype = Integer;
        }
 ;
      
@@ -1988,15 +2003,29 @@ FormatSpec:
 
 Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
       {
+         AST *temp;
+
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = -1;
 
          $$->astnode.io_stmt.arg_list = switchem($7);
+
+         if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
+           free_ast_node($$->astnode.io_stmt.arg_list->parent);
+
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+           temp->parent = $$;
+
+         /* currently ignoring the file descriptor and format spec. */
+         free_ast_node($3);
+         free_ast_node($5);
       }
     | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
       {
+         AST *temp;
+
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
@@ -2004,16 +2033,23 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          free_ast_node($7);
 
          $$->astnode.io_stmt.arg_list = switchem($9);
+
+         if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
+           free_ast_node($$->astnode.io_stmt.arg_list->parent);
+
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+           temp->parent = $$;
+
+         /* currently ignoring the file descriptor.. */
+         free_ast_node($3);
+         free_ast_node($5);
       }
 ;
 
 IoExplist: IoExp
            {
-             AST *temp;
-
-             temp = addnode();
-             temp->nodetype = IoExplist;
-             $1->parent = temp;
+             $1->parent = addnode();
+             $1->parent->nodetype = IoExplist;
 
              $$ = $1;
            }
@@ -2023,7 +2059,7 @@ IoExplist: IoExp
              $3->parent = $1->parent;
              $$ = $3;
            }
-         | /* empty */
+         | /* empty - should this be allowed for READ? */
            {
              $$ = NULL;
            }
@@ -2800,6 +2836,7 @@ Pdec:     Assignment
                 fprintf(stderr,"Pdec: bad vartype!\n");
             }
 
+            free_ast_node($$->astnode.assignment.rhs);
             $$->astnode.assignment.rhs = temp;
                                                       
             type_insert(parameter_table, temp, 0,
@@ -3297,12 +3334,6 @@ merge_common_blocks(AST *root)
 
     name_array = (char **) f2jalloc( count * sizeof(name_array) );
 
-    for(temp=Clist->astnode.common.nlist, count = 0;
-              temp!=NULL; temp=temp->nextstmt, count++)
-    {
-      name_array[count] = (char *) f2jalloc( 80 );
-    }
-
     /* foreach COMMON variable */
 
     for(temp=Clist->astnode.common.nlist, count = 0; 
@@ -3326,7 +3357,7 @@ merge_common_blocks(AST *root)
       }
 
       if(ht == NULL) {
-        /* name_array[count] = strdup(var); */
+        name_array[count] = (char *) f2jalloc( strlen(var) + 1 );
         strcpy(name_array[count], var);
       }
       else {
@@ -3336,7 +3367,7 @@ merge_common_blocks(AST *root)
              (((t=strstr(comvar,und_var)) != NULL) && 
                (t+strlen(t) == comvar+strlen(comvar))))
         {
-          /* name_array[count] = strdup(comvar); */
+          name_array[count] = (char *) f2jalloc( strlen(comvar) + 1 );
           strcpy(name_array[count], comvar);
         }
         else {
@@ -3732,30 +3763,32 @@ initialize_name(char *id)
 
   strcpy(tmp->astnode.ident.name, id);
 
-  hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
-  if(hashtemp)
-  {
-    tmp->vartype = hashtemp->variable->vartype;
-    tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
-  }
-  else
-  {
-  /*
-    unfinished code to implement implicit typing.  when finishing
-    this up, remember to remove any calls to type_insert() which
-    are found after calls to this function.
-
-    enum returntype ret;
-
-    printf("cannot find name %s in hash table..",id);
-    
-    ret = default_implicit_table[tolower(id[0]) - 'a'];
-
-    printf("going to insert with default implicit type %s\n",
-      returnstring[ret]);
-
-    type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
-   */
+  if(type_table) {
+    hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
+    if(hashtemp)
+    {
+      tmp->vartype = hashtemp->variable->vartype;
+      tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+    }
+    else
+    {
+    /*
+      unfinished code to implement implicit typing.  when finishing
+      this up, remember to remove any calls to type_insert() which
+      are found after calls to this function.
+  
+      enum returntype ret;
+  
+      printf("cannot find name %s in hash table..",id);
+      
+      ret = default_implicit_table[tolower(id[0]) - 'a'];
+  
+      printf("going to insert with default implicit type %s\n",
+        returnstring[ret]);
+  
+      type_insert(type_table, tmp, ret, tmp->astnode.ident.name);
+     */
+    }
   }
 
   return tmp;

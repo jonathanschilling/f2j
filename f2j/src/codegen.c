@@ -2660,8 +2660,27 @@ write_emit (AST * root)
   AST *nodeptr;
   char tmp[100];
   void format_list_emit(AST *, AST **);
+  int implied_loop = FALSE;
 
-  fprintf (curfp, "System.out.println(");
+  /* 
+   * Check to see if there are any implied DO loops in this WRITE
+   * statement.  If so, we'll have to generate a for loop to write
+   * the data.  Since in that case we will have separate print
+   * statements for each iteration of the for loop, we dont want
+   * to use println. 
+   */
+
+  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+    if(temp->nodetype == Forloop)
+    {
+      implied_loop = TRUE;
+      break;
+    }
+      
+  if(implied_loop)
+    fprintf (curfp, "System.out.print(");
+  else
+    fprintf (curfp, "System.out.println(");
 
   /* 
    * The following is a cheesy workaround to handle the following type of
@@ -2709,7 +2728,10 @@ write_emit (AST * root)
     }
   }
 
-  fprintf (curfp, ");\n");
+  if(implied_loop)
+    fprintf (curfp, "\\n);\n");
+  else
+    fprintf (curfp, ");\n");
 }
 
 /*
@@ -3871,8 +3893,12 @@ print_nodetype (AST *root)
       return("ArrayAccess");
     case ArrayDec:
       return("ArrayDec");
+    case Read:
+      return("Read");
     case EmptyArgList:
       return("EmptyArgList");
+    case IoExplist:
+      return("IoExplist");
     case Unimplemented:
       return("Unimplemented");
     default:

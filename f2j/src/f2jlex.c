@@ -57,7 +57,7 @@ BOOLEAN letterseen;
 BOOLEAN equalseen;
 BOOLEAN commaseen;
 
-int lexdebug = 0;
+int lexdebug = 1;
 
 char *tok2str(int);
 char *strdup(const char *);
@@ -271,9 +271,19 @@ yylex ()
       }
     
     /* Since we are tracking parentheses, we need to
-       scan for miscellaneous tokens.  We are really
-       sniffing for parens... */
+     * scan for miscellaneous tokens.  We are really
+     * sniffing for parens... 
+     */
+
     token = keyscan (tab_toks, &buffer);
+
+    /* if we found no keyword and this is a READ statement,
+     * check for an END keyword 
+     */
+
+    if(!token && (firsttoken == READ))
+      token = keyscan (read_toks, &buffer);
+
     if (token)
       {
 	if (token == OP)
@@ -315,6 +325,8 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
               return token;
             }
 
+            /* should we also look for labeled IF statement? */
+
             strcpy(buffer.stmt,stmt_copy);
             strcpy(buffer.text,text_copy);
 
@@ -345,7 +357,7 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 	      {
                 if((token == DO) || (token == IF))
                 {
-                  printf("got incorrect DO keyword, resoring buffer\n");
+                  printf("got incorrect DO or IF keyword, restoring buffer\n");
                   strcpy(buffer.stmt,stmt_copy);
                   strcpy(buffer.text,text_copy);
                 }
@@ -876,19 +888,14 @@ name_scan (BUFFER * bufstruct)
    We checked the first character in yylex to make sure 
    it was alphabetic. 
  */
-printf("here we are in name_scan,\n");
-printf("    stmt = %s\n",bufstruct->stmt);
-printf("    text = %s\n",bufstruct->text);
 
     while (isalnum (*ncp))
       {
 	  ncp++;
 	  tokenlength++;
       }
-printf("tokenlength = %d\n",tokenlength);
     strncpy (yylval.lexeme, tcp, tokenlength);
     yylval.lexeme[tokenlength] = '\0';
-printf("now lexeme = %s\n",yylval.lexeme);
     tcp += tokenlength;
     strcpy (bufstruct->text, tcp);
     strcpy (bufstruct->stmt, ncp);
@@ -1152,6 +1159,8 @@ tok2str(int tok)
       return("RELOP");
     case EQV:
       return("EQV");
+    case NEQV:
+      return("NEQV");
     case NAME:
       return("NAME");
     case DOUBLE:
@@ -1264,8 +1273,8 @@ tok2str(int tok)
       return("WRITE");
     case FMT:
       return("FMT");
-    case UMINUS:
-      return("UMINUS");
+    case READ:
+      return("READ");
     case EDIT_DESC:
       return("EDIT_DESC");
     case REPEAT:

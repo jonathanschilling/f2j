@@ -123,11 +123,13 @@ typedef struct ast_node
 	    Substring,
 	    End,
             Write,
+            Read,
             Stop,
             ComputedGoto,
             ArrayAccess,
             ArrayDec,
             EmptyArgList,
+            IoExplist,
 	    Unimplemented
 	}
       nodetype;

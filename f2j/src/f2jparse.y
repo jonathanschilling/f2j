@@ -72,7 +72,7 @@ SYMTABLE * new_symtable (int );
 /* generic tokens */
 %token PLUS MINUS OP CP STAR POW DIV CAT CM EQ COLON NL
 %token NOT AND OR
-%token  RELOP  EQV
+%token  RELOP EQV NEQV
 %token <lexeme>  NAME DOUBLE INTEGER EXPONENTIAL 
 %token CONST TrUE FaLSE ICON RCON LCON CCON
 %token FLOAT CHARACTER LOGICAL COMPLEX NONE
@@ -87,17 +87,7 @@ SYMTABLE * new_symtable (int );
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE FMT EDIT_DESC REPEAT
 
-%left EQV
-%left OR
-%left AND
-%nonassoc NOT
 %nonassoc RELOP 
-%left CAT
-%left PLUS MINUS
-%left STAR DIV
-%nonassoc UMINUS
-%right POW
-
 
 /*  All of my additions or changes to Levine's code. These 
 non-terminals are in alphabetic order because I have had to 
@@ -106,9 +96,9 @@ out the location of a non-terminal, much easier to find when
 in alphabetic order. */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
-%type <ptnode> Arrayindexlist Arrayindex Arrayindexop
-%type <ptnode> Binaryop Blockif Boolean
-%type <ptnode> Call /* Char */ Complex Constant  Constantlist Continue
+%type <ptnode> Arrayindexlist 
+%type <ptnode> Blockif Boolean
+%type <ptnode> Call /* Char Complex */ Constant  Constantlist Continue
 %type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
 %type <ptnode> DataLhs LoopBounds
 %type <ptnode> Do_vals Double
@@ -117,20 +107,21 @@ in alphabetic order. */
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> Implicit Integer Intlist Intrinsic
-%type <ptnode> Label Lhs Logicalop Logicalif  Logicalifstmts
+%type <ptnode> Label Lhs /* Logicalop */ Logicalif /* Logicalifstmts */
 %type <ptnode> Name Namelist LhsList
 %type <ptnode> Parameter  Pdec Pdecs Program 
-%type <ptnode> Relationalop Return 
+%type <ptnode> Read IoExp IoExplist Return 
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
 %type <ptnode> String  Subroutine Stop SubstringOp
 %type <ptnode> Typestmt Typevar Typevarlist
 %type <type>   Types Type 
-%type <ptnode> Write WriteFileDesc FormatSpec
+%type <ptnode> Write WriteFileDesc FormatSpec EndSpec
 %type <ptnode> Format FormatExplist FormatExp FormatSeparator
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
-
+%type <ptnode> log_disjunct log_term log_factor log_primary
+%type <ptnode> arith_expr term factor char_expr primary
 
 %%
 
@@ -852,6 +843,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Write;
               }
+            | Read
+              {
+                $$ = $1;
+                $$->nodetype = Read;
+              }
             | Stop
               {
                 $$ = $1;
@@ -1204,7 +1200,7 @@ Lhs:     Name {$$=$1;}
 	   /* We don't switch index order.  */
 	   $$->astnode.ident.arraylist = switchem($3);
 	 }
-      |  Name OP Arrayindexop COLON Arrayindexop CP
+      |  Name OP Exp COLON Exp CP
          {
            $$=addnode();
            $1->parent = $$;
@@ -1217,12 +1213,7 @@ Lhs:     Name {$$=$1;}
          }
 ;
 
-
-/*  This whole deal with these arrayindex operations is a
-    massive kludge.  The grammar shadows that of expressions,
-    but trying to combine the two resulted in terrible
-    shift reduce errors.  */
-Arrayindexlist:   Arrayindexop 
+Arrayindexlist:   Exp 
                   { 
                     AST *temp;
 
@@ -1233,71 +1224,12 @@ Arrayindexlist:   Arrayindexop
 
                     $$ = $1;
                   }
-                | Arrayindexlist CM Arrayindexop
+                | Arrayindexlist CM Exp
                   {
                     $3->prevstmt = $1;
                     $3->parent = $1->parent;
 		    $$ = $3;
 		  }
-;
-
-Arrayindex:    Name {$$=$1;}
-             | Integer {$$=$1;}
-             | Subroutinecall {$$= $1;}
-/*             | Arrayindexop {$$ = $1;}  */
-;
-
-Arrayindexop:  Arrayindex
-             | OP Arrayindexop CP 
-               { 
-                  $$ = addnode(); 
-                  $2->parent = $$;
-                  $$->nodetype = Expression;
-                  $$->astnode.expression.parens = TRUE;
-                  $$->astnode.expression.rhs = $2;
-                  $$->astnode.expression.lhs = 0;
-               }       
-             | Arrayindexop PLUS Arrayindexop
-               {
-		  $$=addnode();
-	          $1->parent = $$; /* 9-4-97 - Keith */
-	          $3->parent = $$; /* 9-4-97 - Keith */
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '+';
-	       }
-              | Arrayindexop MINUS Arrayindexop
-              {
-		  $$=addnode();
-	          $1->parent = $$; /* 9-4-97 - Keith */
-	          $3->parent = $$; /* 9-4-97 - Keith */
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '-';
-	       }
-              | Arrayindexop STAR Arrayindexop
-              {
-		  $$=addnode();
-	          $1->parent = $$; /* 9-4-97 - Keith */
-	          $3->parent = $$; /* 9-4-97 - Keith */
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '*';
-	       }
-              | Arrayindexop DIV Arrayindexop
-              {
-                  /* this production added 10-8-97 --Keith */
-		  $$=addnode();
-	          $1->parent = $$; /* 9-4-97 - Keith */
-	          $3->parent = $$; /* 9-4-97 - Keith */
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '/';
-	       }
 ;
 
 /*  New do loop productions.  Entails rewriting in codegen.c
@@ -1516,7 +1448,7 @@ Continue:  Integer CONTINUE NL
        }
 ;
 
-Write: WRITE OP WriteFileDesc CM FormatSpec CP Explist NL
+Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
        {
          AST *temp;
 
@@ -1598,6 +1530,75 @@ FormatSpec:
         }
 ;
 
+Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
+      {
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Read;
+         $$->astnode.io_stmt.fmt_list = NULL;
+      }
+    | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
+      {
+         $$ = addnode();
+         $$->astnode.io_stmt.io_type = Read;
+         $$->astnode.io_stmt.fmt_list = NULL;
+      }
+;
+
+IoExplist: IoExp
+           {
+             AST *temp;
+
+             temp = addnode();
+             temp->nodetype = IoExplist;
+             $1->parent = temp;
+
+             $$ = $1;
+           }
+         | IoExplist CM IoExp
+           {
+             $3->prevstmt = $1;
+             $3->parent = $1->parent;
+             $$ = $3;
+           }
+         | /* empty */
+           {
+             $$ = NULL;
+           }
+;
+
+IoExp: Exp
+       {
+         $$ = $1;
+       }
+     | OP IoExplist CM Name EQ Exp CM Exp CP /* implied do loop */
+       {
+         AST *temp;
+
+         temp = addnode();
+         temp->nodetype = Forloop;
+         $2->parent = temp;
+
+         $$ = addnode();
+         $6->parent = $$;
+         $8->parent = $$;
+         $$->nodetype = Forloop;
+         $$->astnode.forloop.start = $6;
+         $$->astnode.forloop.stop = $8;
+         $$->astnode.forloop.incr = NULL;
+         $$->astnode.forloop.counter = $4;
+         $$->astnode.forloop.Label = $2;
+
+         $2->parent = $$;
+         $4->parent = $$;
+       }
+;
+
+
+EndSpec: END EQ Integer
+         {
+           $$ = $3;
+         }
+;
 
 /*  Got a problem when a Blockif opens with a Blockif.  The
     first statement of the second Blockif doesn't get into the
@@ -1662,7 +1663,7 @@ Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
 ;
 
 
-Logicalif: IF OP Exp CP Logicalifstmts   
+Logicalif: IF OP Exp CP Statement
            {
              $$ = addnode();
              $3->parent = $$;
@@ -1673,14 +1674,23 @@ Logicalif: IF OP Exp CP Logicalifstmts
 ;
 
 
-Logicalifstmts:  Assignment NL {
+/******************************************************************
+
+changed Logicalif production to IF OP Exp CP Statement, so there's
+ no longer a need for this production.
+
+Logicalifstmts:  Assignment NL 
+                 {
                    $$=$1;
                    $$->nodetype = Assignment;
                  }
                 | Return
                   {
                     $$=$1;
-		    /*  if(debug)printf("Return from lif.\n");  */
+
+                    if(debug) 
+                       printf("Return from lif.\n");
+
                     $$->nodetype = Return;
                     $$->token = RETURN;
                   }
@@ -1700,6 +1710,8 @@ Logicalifstmts:  Assignment NL {
                     $$->nodetype = Write;
                   }
 ;
+
+*******************************************************************/
 
 /* This _may_ have to be extended to deal with jasmin opcode. 
    Variables of type array need to have their
@@ -1806,144 +1818,6 @@ Explist:   Exp
            }
 ;
 
-
-Logicalop:  Exp AND Exp 
-              {
-                  $$=addnode();
-		  $1->expr_side = left;
-		  $3->expr_side = right;
-		  $1->parent = $$;
-		  $3->parent = $$;
-		  $$->token = AND;
-		  $$->nodetype = Logicalop;
-             	  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-              }
-          | Exp OR Exp  
-              {
-                $$=addnode();
-		$1->expr_side = left;
-		$3->expr_side = right;
-		$1->parent = $$;
-		$3->parent = $$;
-		$$->token = OR;
-		$$->nodetype = Logicalop;
-		$$->astnode.expression.lhs = $1;
-		$$->astnode.expression.rhs = $3;
-              }
-          | NOT Exp   
-              {
-                $$=addnode();
-                $2->parent = $$;  /* 9-4-97 - Keith */
-		$$->token = NOT;
-		$$->nodetype = Logicalop;
-		$$->astnode.expression.lhs = 0;
-		$$->astnode.expression.rhs = $2;
-              }
-;
-                   
-
-Relationalop: Exp RELOP {temptok = yylval.tok;} Exp
-              {
-                $$=addnode();
-                $1->expr_side = left;
-                $4->expr_side = right;
-                $1->parent = $$;
-                $4->parent = $$;
-                $$->nodetype = Relationalop;
-                $$->token = temptok;
-                $$->astnode.expression.lhs = $1;
-                $$->astnode.expression.rhs = $4;
-              }
-;
-
-/*  I have tried factoring out the common blocks of code here,
-    but I get 11 shift/reduce errors when I try.  See
-    `Arithmeticop' below.  */
-Binaryop: Exp PLUS Exp
-              {
-		  $$=addnode();
-		  $1->expr_side = left;
-		  $3->expr_side = right;
-		  $$->token = PLUS;
-		  $1->parent = $$;
-		  $3->parent = $$;
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '+';
-	       }
-;
-
-            | Exp MINUS Exp
-              {
-		  $$=addnode();
-		  $$->token = MINUS;
-		  $1->expr_side = left;
-		  $3->expr_side = right;
-		  $1->parent = $$;
-		  $3->parent = $$;
-                  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '-';
-              }
-            | Exp STAR Exp
-              {
-		  $$=addnode();
-		  $$->token = STAR;
-		  $1->expr_side = left;
-		  $3->expr_side = right;
-		  $1->parent = $$;
-		  $3->parent = $$;
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '*';
-              }
-            | Exp DIV Exp
-              {
-		  $$=addnode();
-		  $1->expr_side = left;
-		  $3->expr_side = right;
-		  $$->token = DIV;
-		  $1->parent = $$;
-		  $3->parent = $$;
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $3;
-		  $$->nodetype = Binaryop;
-		  $$->astnode.expression.optype = '/';
-              }
-;
-
-/*  For some reason, trying to factor out aritmetic operations
-    from the above code results in 11 shift/reduce errors.
-    The conflict most likely come from the `Arrayindex'
-    productions above.  */
-/*
-Arithmeticop:   PLUS
-                {
-		  $$=addnode();
-		  $$->astnode.expression.optype = '+';
-		}
-            |   MINUS
-                {
-		  $$=addnode();
-		  $$->astnode.expression.optype = '-';
-		}
-            |   STAR
-                {
-		  $$=addnode();
-		  $$->astnode.expression.optype = '*';
-		}
-            |   DIV
-                {
-		  $$=addnode();
-		  $$->astnode.expression.optype = '/'
-                }
-;
-*/
-
 /*  This is not exactly right.  There will need to 
     be a struct to handle this.
  */
@@ -1964,19 +1838,234 @@ Call:     CALL   Subroutinecall  NL
           }
 ;
 
+/* again we borrowed from Moniot's grammar....from the Exp production down to
+ * the primary production is from his ftnchek grammar.    --keith  2/17/98.
+ */
 
-Exp:         Name {$$=$1;}
+Exp: log_disjunct
+     {
+       $$ = $1;
+     }
+   | Exp EQV log_disjunct
+     {
+       $$=addnode();
+       $1->expr_side = left;
+       $3->expr_side = right;
+       $1->parent = $$;
+       $3->parent = $$;
+       $$->token = EQV;
+       $$->nodetype = Logicalop;
+       $$->astnode.expression.lhs = $1;
+       $$->astnode.expression.rhs = $3;
+     }
+   | Exp NEQV log_disjunct
+     {
+       $$=addnode();
+       $1->expr_side = left;
+       $3->expr_side = right;
+       $1->parent = $$;
+       $3->parent = $$;
+       $$->token = NEQV;
+       $$->nodetype = Logicalop;
+       $$->astnode.expression.lhs = $1;
+       $$->astnode.expression.rhs = $3;
+     }
+;
+
+log_disjunct: log_term
+              {
+                $$ = $1;
+              }
+            | log_disjunct OR log_term
+              {
+                $$=addnode();
+		$1->expr_side = left;
+		$3->expr_side = right;
+		$1->parent = $$;
+		$3->parent = $$;
+		$$->token = OR;
+		$$->nodetype = Logicalop;
+		$$->astnode.expression.lhs = $1;
+		$$->astnode.expression.rhs = $3;
+              }
+;
+ 
+log_term: log_factor
+          {
+            $$ = $1;
+          }
+        | log_term AND log_factor
+          {
+            $$=addnode();
+            $1->expr_side = left;
+            $3->expr_side = right;
+            $1->parent = $$;
+            $3->parent = $$;
+            $$->token = AND;
+            $$->nodetype = Logicalop;
+            $$->astnode.expression.lhs = $1;
+            $$->astnode.expression.rhs = $3;
+          }
+;
+
+log_factor: log_primary
+            {
+              $$ = $1;
+            }
+          | NOT log_primary
+            {
+              $$=addnode();
+              $2->parent = $$;  /* 9-4-97 - Keith */
+              $$->token = NOT;
+              $$->nodetype = Logicalop;
+              $$->astnode.expression.lhs = 0;
+              $$->astnode.expression.rhs = $2;
+            }
+;
+ 
+log_primary: arith_expr
+             {
+               $$ = $1;
+             }
+           | log_primary RELOP {temptok = yylval.tok;} log_primary
+             {
+               $$=addnode();
+               $1->expr_side = left;
+               $4->expr_side = right;
+               $1->parent = $$;
+               $4->parent = $$;
+               $$->nodetype = Relationalop;
+               $$->token = temptok;
+               $$->astnode.expression.lhs = $1;
+               $$->astnode.expression.rhs = $4;
+             }
+;
+
+arith_expr: term
+            {
+              $$ = $1;
+            }
+          | MINUS term
+            {
+              $$ = addnode();
+              $2->parent = $$;
+              $$->astnode.expression.rhs = $2;
+              $$->astnode.expression.lhs = 0;
+              $$->astnode.expression.minus = '-';   
+              $$->nodetype = Unaryop;
+            }
+          | PLUS term
+            {
+              $$ = addnode();
+              $2->parent = $$;
+              $$->astnode.expression.rhs = $2;
+              $$->astnode.expression.lhs = 0;
+              $$->astnode.expression.minus = '+';
+              $$->nodetype = Unaryop;
+            }
+          | arith_expr PLUS term
+            {
+              $$=addnode();
+              $1->expr_side = left;
+              $3->expr_side = right;
+              $$->token = PLUS;
+              $1->parent = $$;
+              $3->parent = $$;
+              $$->astnode.expression.lhs = $1;
+              $$->astnode.expression.rhs = $3;
+              $$->nodetype = Binaryop;
+              $$->astnode.expression.optype = '+';
+            }
+          | arith_expr MINUS term
+            {
+              $$=addnode();
+              $$->token = MINUS;
+              $1->expr_side = left;
+              $3->expr_side = right;
+              $1->parent = $$;
+              $3->parent = $$;
+              $$->astnode.expression.lhs = $1;
+              $$->astnode.expression.rhs = $3;
+              $$->nodetype = Binaryop;
+              $$->astnode.expression.optype = '-';
+            }
+;
+ 
+term: factor
+      {
+        $$ = $1;
+      }
+    | term DIV factor
+      {
+        $$=addnode();
+        $1->expr_side = left;
+        $3->expr_side = right;
+        $$->token = DIV;
+        $1->parent = $$;
+        $3->parent = $$;
+        $$->astnode.expression.lhs = $1;
+        $$->astnode.expression.rhs = $3;
+        $$->nodetype = Binaryop;
+        $$->astnode.expression.optype = '/';
+      }
+    | term STAR factor
+      {
+        $$=addnode();
+        $$->token = STAR;
+        $1->expr_side = left;
+        $3->expr_side = right;
+        $1->parent = $$;
+        $3->parent = $$;
+        $$->astnode.expression.lhs = $1;
+        $$->astnode.expression.rhs = $3;
+        $$->nodetype = Binaryop;
+        $$->astnode.expression.optype = '*';
+      }
+;
+
+factor: char_expr
+        {
+          $$ = $1;
+        }
+      | char_expr POW factor
+        {
+          $$=addnode();
+          $1->parent = $$;
+          $3->parent = $$;
+	  $$->nodetype = Power;
+	  $$->astnode.expression.lhs = $1;
+	  $$->astnode.expression.rhs = $3;
+        }
+;
+
+char_expr: primary
+           {
+             $$ = $1;
+           }
+         | char_expr CAT primary
+           {
+             $$=addnode();
+             $$->token = CAT;
+             $1->expr_side = left;
+             $3->expr_side = right;
+             $1->parent = $$;
+             $3->parent = $$;
+             $$->astnode.expression.lhs = $1;
+             $$->astnode.expression.rhs = $3;
+             $$->nodetype = Binaryop;
+             $$->astnode.expression.optype = '+';
+           }
+;
+
+primary:     Name {$$=$1;}
           |  Constant
              {
 	       $$ = $1;
                $$->nodetype = Constant;
 	     }
-          |  Complex {$$=$1;}
+   /*       |  Complex {$$=$1;} */
           |  Subroutinecall {$$=$1;}    
           |  SubstringOp {$$=$1;}    
-/*          |  Boolean  {$$=$1;}       */
-          |  Relationalop {$$=$1; } 
-          |  Logicalop {$$=$1;} 
           |  OP Exp CP  
              {
                $$ = addnode();
@@ -1986,31 +2075,12 @@ Exp:         Name {$$=$1;}
                $$->astnode.expression.rhs = $2;
                $$->astnode.expression.lhs = 0;
              }
-          |  Binaryop {$$=$1;}
-          |  Exp POW Exp
-             {
-               $$=addnode();
-               $1->parent = $$;   /* 9-4-97 - Keith */
-               $3->parent = $$;   /* 9-4-97 - Keith */
-	       $$->nodetype = Power;
-	       $$->astnode.expression.lhs = $1;
-	       $$->astnode.expression.rhs = $3;
-             }  
-          |  Exp CAT Exp {$$=$1;}  /*  Look up def'n. */
-          |  Exp EQV Exp {$$=$1;}  /*  Look up def'n. */
-          |  MINUS Exp %prec UMINUS
-             {
-               $$ = addnode();
-               $2->parent = $$;   /* 9-4-97 - Keith */
-               $$->astnode.expression.rhs = $2;
-               $$->astnode.expression.lhs = 0;
-               $$->astnode.expression.minus = '-';   
-               $$->nodetype = Unaryop;
-             }
 ;
 
+/*
 Complex: OP Constant CM Constant CP {$$=addnode();}
 ;
+*/
 
 /* `TRUE' and `FALSE' have already been typedefed
    as BOOLEANs.  */

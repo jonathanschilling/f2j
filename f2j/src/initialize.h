@@ -51,6 +51,7 @@ KWDTAB tab_stmt[] =
     {"INTRINSIC", INTRINSIC, 0},
     {"PARAMETER", PARAMETER, 0},
     {"PROGRAM", PROGRAM, 0},
+    {"READ", READ, 0},
     {"RETURN", RETURN, 0},
     {"REWIND", REWIND, 0},
     {"SAVE", SAVE, 0},
@@ -110,7 +111,7 @@ KWDTAB tab_toks[] =
     {".AND.", AND, 0},
     {".OR.", OR, 0},
     {".EQV.", EQV, 0},
-    {".NEQV.", EQV, 1},
+    {".NEQV.", NEQV, 0},
     {".EQ.", RELOP, rel_eq},
     {".NE.", RELOP, rel_ne},
     {".LT.", RELOP, rel_lt},
@@ -120,6 +121,12 @@ KWDTAB tab_toks[] =
     {".TRUE.", TrUE, 1},
     {".FALSE.", FaLSE, 0},
     {"FMT", FMT, 0},
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
+};
+
+KWDTAB read_toks[] =
+{
+    {"END", END, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 

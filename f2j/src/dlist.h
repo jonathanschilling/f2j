@@ -1,4 +1,6 @@
 
+/* Jim Plank's dlist routines.  Contact plank@cs.utk.edu  */
+
 #ifndef _DLIST_H
 #define _DLIST_H
 

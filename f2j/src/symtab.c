@@ -16,6 +16,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include "f2j.h"
+#include "symtab.h"
 
 /*****************************************************************************
  * Globals and Function prototypes:                                          *

@@ -5,6 +5,9 @@
  * $Author$
  */
 
+#ifndef _SYMTAB_H
+#define _SYMTAB_H
+
 /*****************************************************************************
  * symtab.h                                                                  *
  *                                                                           *
@@ -50,3 +53,5 @@ HASHNODE
   * type_lookup(SYMTABLE *, char *);
 
 Dlist enumerate_symtable(SYMTABLE *);
+
+#endif

@@ -18,8 +18,10 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<ctype.h>
-#include "f2j.h"
 #include<string.h>
+#include"f2j.h"
+#include"class.h"
+#include"constant_pool.h"
 
 /*****************************************************************************
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
@@ -3035,7 +3037,7 @@ init_tables()
   intrinsic_table = (SYMTABLE *) new_symtable(211);
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
-  constants_table = (SYMTABLE *) new_symtable(211);
+  constants_table = make_dl();
   equivList       = NULL;
 }
 
@@ -3288,16 +3290,20 @@ eval_const_expr(AST *root, int dims)
 void
 insert_constant(AST * nodeToInsert, char * key)
 {
-  extern SYMTABLE *constants_table;
-  BOOLEAN insertLiteral = FALSE;
+  extern Dlist constants_table;
+  struct cp_info * newnode = NULL;
   char *tag;
+  int idx;
+
+  int      cp_insert(Dlist, struct cp_info *, char *, char);
+  CPNODE * cp_lookup(Dlist, char *);
 
   if(nodeToInsert == NULL)
     return;
 
   tag = nodeToInsert->astnode.constant.number;
 
-  if(!type_lookup(constants_table,tag)) {
+  if(!cp_lookup(constants_table,tag)) {
     switch(nodeToInsert->token) {
       case INTEGER:
         {
@@ -3305,10 +3311,15 @@ insert_constant(AST * nodeToInsert, char * key)
            * we can use the iconst_<i> opcode.  Thus, there's no
            * need to create a constant pool entry.
            */
-          int intVal = atoi(nodeToInsert->astnode.constant.number);
+          int intVal = atoi(tag);
 
-          if( intVal < -1 || intVal > 5 )
-            insertLiteral = TRUE;
+          if( intVal < -1 || intVal > 5 ) {
+            newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+            newnode->tag = CONSTANT_Integer; 
+            newnode->cpnode.Integer.bytes = intVal;
+ 
+            cp_insert(constants_table, newnode, tag, 1);
+          }
         }
         break;
       case EXPONENTIAL:
@@ -3318,10 +3329,15 @@ insert_constant(AST * nodeToInsert, char * key)
            * the dconst_<i> opcode.  Thus, there's no
            * need to create a constant pool entry.
            */
-          double doubleVal = atof(nodeToInsert->astnode.constant.number);
+          double doubleVal = atof(tag);
 
-          if( doubleVal != 0.0 && doubleVal != 1.0 )
-            insertLiteral = TRUE;
+          if( doubleVal != 0.0 && doubleVal != 1.0 ) {
+            newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+            newnode->tag = CONSTANT_Double; 
+            newnode->cpnode.Double.bytes.dblbytes = doubleVal;
+
+            cp_insert(constants_table, newnode, tag, 2);
+          }
         }
         break;
       case TrUE:
@@ -3332,23 +3348,40 @@ insert_constant(AST * nodeToInsert, char * key)
         break;
       case STRING:
           /* unique string literals always go into the constant pool.
+           * first, we have to create a CONSTANT_Utf8 entry for the
+           * string itself.  then we create a CONSTANT_String entry
+           * whose string_index points to the Utf8 string.
+           *
+           * Note that we only malloc enough for the string itself
+           * since the Utf8 string should not be null-terminated.
            */
-        insertLiteral = TRUE;
+        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode->tag = CONSTANT_Utf8; 
+        newnode->cpnode.Utf8.length = strlen(tag);
+        newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
+        strncpy(newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
+
+        idx = cp_insert(constants_table, newnode, NULL, 1);
+
+        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode->tag = CONSTANT_String; 
+        newnode->cpnode.String.string_index = idx + 1;
+
+        cp_insert(constants_table, newnode, tag, 1);
+
         break;
     }
   }
-  
-  if(insertLiteral) {
-    nodeToInsert->astnode.constant.cp_index = constants_table->num_items + 1;
-    type_insert(constants_table, nodeToInsert, 0, tag);
-printf("insert_constant(): Constant to insert is: '%s'\n",
-  nodeToInsert->astnode.constant.number);
-  } else {
-printf("insert_constant(): NOT inserting constant: '%s'\n",
-  nodeToInsert->astnode.constant.number);
-  }
-   
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * prepend_minus                                                             *
+ *                                                                           *
+ * This function accepts a string and prepends a '-' in front of it.         *
+ * We assume that the string pointer passed in has enough storage space.     *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 prepend_minus(char *num) {

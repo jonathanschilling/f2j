@@ -5,6 +5,9 @@
  * $Author$
  */
 
+#ifndef _INITIALIZE_H
+#define _INITIALIZE_H
+
 /*****************************************************************************
  * initialize.h                                                              *
  *                                                                           *
@@ -254,3 +257,5 @@ char *blas_routines[] =
    "dtbsv", "dtpmv", "dtpsv", "dtrmm",  "dtrmv", "dtrsm",
    "dtrsv", "idamax"
 };
+
+#endif

@@ -20,6 +20,8 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
+#include"class.h"
+#include"constant_pool.h"
 
 /*****************************************************************************
  * MAX_RETURNS represents the number of elements in the returnstring         *
@@ -83,8 +85,9 @@ SYMTABLE                /* Symbol tables containing...                       */
   *cur_save_table,      /* variables contained in SAVE stmts                 */
   *cur_common_table,    /* variables contained in COMMON stmts               */
   *cur_param_table,     /* variables which are parameters                    */
-  *cur_equiv_table,     /* variables which are equivalenced                  */
-  *cur_const_table;     /* constants designated to go into the constant pool */
+  *cur_equiv_table;     /* variables which are equivalenced                  */
+
+Dlist cur_const_table;  /* constants designated to go into the constant pool */
 
 AST 
   *cur_equivList;       /* list of equivalences                              */
@@ -202,6 +205,7 @@ emit (AST * root)
        print_equivalences(AST *),
        emit_prolog_comments(AST *),
        emit_javadoc_comments(AST *);
+
     char * tok2str(int);
 
     int isPassByRef(char *);
@@ -216,8 +220,6 @@ emit (AST * root)
       case Progunit:
         {
           char *tmpname;
-          Dlist cur_constantList, tmpPtr;
-          AST *tmpconst;
 
 	  if (gendebug)
             printf ("Source.\n");
@@ -238,18 +240,7 @@ emit (AST * root)
           cur_equivList = root->astnode.source.equivalences;
           cur_const_table = root->astnode.source.constants_table;
        
-          cur_constantList = enumerate_symtable(root->astnode.source.constants_table);
-
-            printf("List of Constants for program unit: %s\n", 
-              root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-            printf("\n");
-
-            dl_traverse(tmpPtr,cur_constantList) {
-              tmpconst = (AST *) tmpPtr->val;
-          
-              printf(" Constant (%d): '%s'\n", tmpconst->astnode.constant.cp_index,
-                          tmpconst->astnode.constant.number);
-            }
+          cp_initialize(root,cur_const_table);
           
           if(gendebug)
             print_equivalences(cur_equivList);
@@ -1889,7 +1880,7 @@ name_emit (AST * root)
       case STRING:
       case CHAR:
         if(gendebug)
-          printf("** I am going to emit a String/char literal!\n");
+          printf("** emit String/char literal!  (should this case be reached?)\n");
         fprintf (curfp, "\"%s\"", root->astnode.constant.number);
         break;
       case INTRINSIC: 
@@ -3162,7 +3153,8 @@ expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
   char *tempname;
-  HASHNODE * ht;
+  CPNODE * ct;
+  int cp_index;
 
   void name_emit (AST *);
 
@@ -3220,13 +3212,17 @@ expr_emit (AST * root)
       * constant.   10/9/97  -- Keith 
       */
 
-printf("looking up %s constant '%s'...",returnstring[root->vartype],root->astnode.constant.number);
-ht=type_lookup(cur_const_table,root->astnode.constant.number);
-if(ht) {
-  printf("found!  constant pool index: %d\n",ht->variable->astnode.constant.cp_index);
-}else {
-  printf("not found!  can probaly use literal opcode\n");
-}
+      printf("looking up %s constant '%s'...", returnstring[root->vartype],
+           root->astnode.constant.number);
+
+      ct=cp_lookup(cur_const_table,root->astnode.constant.number);
+      if(ct) {
+        cp_index = ct->index;
+        printf("found!  constant pool index: %d\n", cp_index);
+      }else {
+        cp_index = 0;  /* constant pool index 0 not valid */
+        printf("not found!  can probaly use literal opcode\n");
+      }
 
       if(root->parent != NULL)
       {
@@ -4026,6 +4022,12 @@ emit_methcall(FILE *intfp, AST *root)
  * We also keep track of the nesting of for loops so that if we              *
  * encounter a goto statement within a loop, we can generate a               *
  * java 'break' or 'continue' statement.                                     *
+ *                                                                           *
+ * We should change the generation of for loops to match the Fortran77       *
+ * spec.  For instance, the spec calls for computing the number of           *
+ * iterations before the loop with the following formula:                    *
+ *    MAX( INT( (stop - start + increment)/increment), 0)                    *
+ * that would simplify the code in this routine a lot.  kgs 4/4/00           *
  *                                                                           *
  *****************************************************************************/
 

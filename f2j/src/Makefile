@@ -9,7 +9,7 @@ PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
      codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o \
-     optimize.o
+     optimize.o constant_pool.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -33,15 +33,15 @@ puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB)
 $(JAVAB):	
 	cd $(GOTO_TRANS);make
 
-f2jlex: f2jlex.o f2j.h
+f2jlex: f2jlex.o initialize.h
 	$(CC) $(CFLAGS) -o f2jlex f2jlex.o
 
 f2jlex.o: f2jlex.c
 
-f2jparse.tab.c f2jparse.tab.h:  f2jparse.y
+f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y
 
-f2jmain.o:  f2jmain.c f2j.h f2jparse.y
+f2jmain.o:  f2jmain.c f2j.h f2jparse.tab.h
 
 dlist.o: dlist.c
  
@@ -49,21 +49,23 @@ dlist.o: dlist.c dlist.h
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 
-codegen.o:  codegen.c f2j.h
+codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h
+
+constant_pool.o:	constant_pool.c constant_pool.h
 
 #  vcg = visualization of compiler graphs.
 
-vcg_emitter.o:  vcg_emitter.c f2j.h
+vcg_emitter.o:  vcg_emitter.c f2j.h f2jparse.tab.h
 
-opcode.o: opcode.c f2j.h
+opcode.o: opcode.c f2j.h f2jparse.tab.h
 
 symtab.o: symtab.c symtab.h
 
-typeassign.o: typeassign.c f2j.h
+typeassign.o: typeassign.c f2j.h f2jparse.tab.h
 
-typecheck.o: typecheck.c f2j.h
+typecheck.o: typecheck.c f2j.h f2jparse.tab.h
 
-optimize.o: optimize.c f2j.h
+optimize.o: optimize.c f2j.h f2jparse.tab.h
 
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 

@@ -5,6 +5,9 @@
  * $Author$
  */
 
+#ifndef _F2J_H
+#define _F2J_H
+
 /*****************************************************************************
  * f2j.h                                                                     *
  *                                                                           *
@@ -93,9 +96,9 @@ SYMTABLE
   *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
-  *global_common_table,    /* Global COMMON table                            */
-  *constants_table;        /* constants (for bytecode constant pool gen.)    */
+  *global_common_table;    /* Global COMMON table                            */
 
+Dlist constants_table;     /* constants (for bytecode constant pool gen.)    */
 
 /* Enumeration of the different kinds of Specification statements */
 
@@ -203,8 +206,9 @@ struct _source
     *save_table,                    /* variables declared in a SAVE stmt     */
     *common_table,                  /* variables declared in a COMMON stmt   */
     *parameter_table,               /* variables declared as PARAMETERS      */
-    *equivalence_table,             /* variables that are equivalenced       */
-    *constants_table;               /* constant_pool info for bytecode gen.  */
+    *equivalence_table;             /* variables that are equivalenced       */
+
+  Dlist constants_table;            /* constant_pool info for bytecode gen.  */
 
   BOOLEAN 
     needs_input,                    /* does this unit read any data          */
@@ -551,3 +555,5 @@ void
   while_emit(AST *);
 
 AST *format_item_emit(AST *, AST**);
+
+#endif

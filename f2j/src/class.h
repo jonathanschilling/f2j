@@ -6,96 +6,138 @@
  *                                                                           *
  *****************************************************************************/
 
+#ifndef _CLASS_H
+#define _CLASS_H
+
+#include "dlist.h"
+
+enum _constant_tags {
+  CONSTANT_Utf8 = 1,              /*   1  */
+   /* note missing number 2 */
+  CONSTANT_Integer = 3,           /*   3  */
+  CONSTANT_Float,                 /*   4  */
+  CONSTANT_Long,                  /*   5  */
+  CONSTANT_Double,                /*   6  */
+  CONSTANT_Class,                 /*   7  */
+  CONSTANT_String,                /*   8  */
+  CONSTANT_Fieldref,              /*   9  */
+  CONSTANT_Methodref,             /*  10  */
+  CONSTANT_InterfaceMethodref,    /*  11  */
+  CONSTANT_NameAndType            /*  12  */
+};
+
+static char * constant_tags [] = {
+  "Unknown CONSTANT",
+  "CONSTANT_Utf8",
+  "Unknown CONSTANT",
+  "CONSTANT_Integer",
+  "CONSTANT_Float",
+  "CONSTANT_Long",
+  "CONSTANT_Double",
+  "CONSTANT_Class",
+  "CONSTANT_String",
+  "CONSTANT_Fieldref",
+  "CONSTANT_Methodref",
+  "CONSTANT_InterfaceMethodref",
+  "CONSTANT_NameAndType"
+};
+
 typedef unsigned char  u1;
 typedef unsigned short u2;
 typedef unsigned int   u4;
 
 struct ClassFile {
-  u4 magic;                   /* class file magic number: 0xCAFEBABE         */
-  u2 minor_version;           /* minor version of the class file             */
-  u2 major_version;           /* major version of the class file             */
-  u2 constant_pool_count;     /* num entries in constant pool + 1            */
-  cp_info * constant_pool;    /* constant pool:constant_pool_count-1 entries */
-  u2 access_flags;            /* access permissions for this class           */
-  u2 this_class;              /* cp index to entry representing this class   */
-  u2 super_class;             /* cp index to superclass or 0 for Object      */
-  u2 interfaces_count;        /* number of superinterfaces for this class    */
-  u2 * interfaces;            /* list of interfaces (each entry a cp index)  */
-  u2 fields_count;            /* num fields, both class vars & instance vars */
-  field_info * fields;        /* list of fields declared in this class       */
-  u2 methods_count;           /* number of methods in this class             */
-  method_info * methods;      /* list of methods                             */
-  u2 attributes_count;        /* number of attributes for this class         */
-  attribute_info *attributes; /* can only use SourceFile & Deprecated here   */
-};
-
-struct cp_info {
-  u1 tag;                     /* the type of structure stored at this entry  */
-  u1 *info;                   /* byte array representing the structure       */
+  u4 magic;                    /* class file magic number: 0xCAFEBABE         */
+  u2 minor_version;            /* minor version of the class file             */
+  u2 major_version;            /* major version of the class file             */
+  u2 constant_pool_count;      /* num entries in constant pool + 1            */
+  Dlist constant_pool;         /* constant pool:constant_pool_count-1 entries */
+  u2 access_flags;             /* access permissions for this class           */
+  u2 this_class;               /* cp index to entry representing this class   */
+  u2 super_class;              /* cp index to superclass or 0 for Object      */
+  u2 interfaces_count;         /* number of superinterfaces for this class    */
+  u2 * interfaces;             /* list of interfaces (each entry a cp index)  */
+  u2 fields_count;             /* num fields, both class vars & instance vars */
+  struct field_info * fields;  /* list of fields declared in this class       */
+  u2 methods_count;            /* number of methods in this class             */
+  struct method_info *methods; /* list of methods                             */
+  u2 attributes_count;         /* number of attributes for this class         */
+  struct attribute_info *attributes;  /* only SourceFile & Deprecated here    */
 };
 
 struct CONSTANT_Class_info {
-  u1 tag;                     /* tag = CONSTANT_Class                        */
   u2 name_index;              /* index into constant pool                    */
 };
 
 struct CONSTANT_Fieldref_info {
-  u1 tag;                     /* tag = CONSTANT_Fieldref                     */
   u2 class_index;             /* cp index of class which declares this field */
   u2 name_and_type_index;     /* cp index of name & descriptor of this field */
 };
 
 struct CONSTANT_Methodref_info {
-  u1 tag;                     /* tag = CONSTANT_Methodref                    */
   u2 class_index;             /* cp index of class which declares this field */
   u2 name_and_type_index;     /* cp index of name & descriptor of this field */
 };
 
 struct CONSTANT_InterfaceMethodref_info {
-  u1 tag;                     /* tag = CONSTANT_InterfaceMethodref           */
   u2 class_index;             /* cp index of class which declares this field */
   u2 name_and_type_index;     /* cp index of name & descriptor of this field */
 };
 
 struct CONSTANT_String_info {
-  u1 tag;                     /* tag = CONSTANT_String                       */
   u2 string_index;            /* cp index of Utf8 rep of this string         */
 };
 
 struct CONSTANT_Integer_info {
-  u1 tag;                     /* tag = CONSTANT_Integer                      */
   u4 bytes;                   /* the integer value                           */
 };
 
 struct CONSTANT_Float_info {
-  u1 tag;                     /* tag = CONSTANT_Float                        */
   u4 bytes;                   /* the float value                             */
 };
 
 struct CONSTANT_Long_info {
-  u1 tag;                     /* tag = CONSTANT_Long                         */
   u4 high_bytes;              /* the high bytes of the long value            */
   u4 low_bytes;               /* the low bytes of the long value             */
 };
 
 struct CONSTANT_Double_info {
-  u1 tag;                     /* tag = CONSTANT_Double                       */
-  u4 high_bytes;              /* the high bytes of the double value          */
-  u4 low_bytes;               /* the low bytes of the double value           */
+  union {
+    struct _hilo {
+      u4 high_bytes;              /* the high bytes of the double value          */
+      u4 low_bytes;               /* the low bytes of the double value           */
+    } hilo;
+    double dblbytes;
+  } bytes;
 };
 
 struct CONSTANT_NameAndType_info {
-  u1 tag;                     /* tag = CONSTANT_NameAndType                  */
   u2 name_index;              /* cp index of name or <init> stored as Utf8   */
   u2 descriptor_index;        /* cp index of valid field, method descriptor  */
 };
 
 struct CONSTANT_Utf8_info {
-  u1 tag;                     /* tag = CONSTANT_Utf8                         */
   u2 length;                  /* # bytes, not necessarily string length      */
   u1 *bytes;                  /* byte array containing the Utf8 string       */
 };
 
+struct cp_info {
+  u1 tag;
+  union {
+    struct CONSTANT_Class_info                 Class;
+    struct CONSTANT_Fieldref_info              Fieldref;
+    struct CONSTANT_Methodref_info             Methodref;
+    struct CONSTANT_InterfaceMethodref_info    InterfaceMethodref;
+    struct CONSTANT_String_info                String;
+    struct CONSTANT_Integer_info               Integer;
+    struct CONSTANT_Float_info                 Float;
+    struct CONSTANT_Long_info                  Long;
+    struct CONSTANT_Double_info                Double;
+    struct CONSTANT_NameAndType_info           NameAndType;
+    struct CONSTANT_Utf8_info                  Utf8;
+  } cpnode;
+};
+  
 struct field_info {
   u2 access_flags;            /* access flags mask, see table 4.4 in vm spec */
   u2 name_index;              /* cp index of field name, rep. as Utf8 string */
@@ -189,212 +231,212 @@ struct LocalVariableTable_attribute {
   } * local_variable_table;
 };
 
-
 enum _opcode {       /* enumeration of all the java opcodes */
-  nop = 0x0,
-  aconst_null,
-  iconst_m1,
-  iconst_0,
-  iconst_1,
-  iconst_2,
-  iconst_3,
-  iconst_4,
-  iconst_5,
-  lconst_0,
-  lconst_1,
-  fconst_0,
-  fconst_1,
-  fconst_2,
-  dconst_0,
-  dconst_1,
-  bipush,
-  sipush,
-  ldc,
-  ldc_w,
-  ldc2_w,
-  iload,
-  lload,
-  fload,
-  dload,
-  aload,
-  iload_0,
-  iload_1,
-  iload_2,
-  iload_3,
-  lload_0,
-  lload_1,
-  lload_2,
-  lload_3,
-  fload_0,
-  fload_1,
-  fload_2,
-  fload_3,
-  dload_0,
-  dload_1,
-  dload_2,
-  dload_3,
-  aload_0,
-  aload_1,
-  aload_2,
-  aload_3,
-  iaload,
-  laload,
-  faload,
-  daload,
-  aaload,
-  baload,
-  caload,
-  saload,
-  istore,
-  lstore,
-  fstore,
-  dstore,
-  astore,
-  istore_0,
-  istore_1,
-  istore_2,
-  istore_3,
-  lstore_0,
-  lstore_1,
-  lstore_2,
-  lstore_3,
-  fstore_0,
-  fstore_1,
-  fstore_2,
-  fstore_3,
-  dstore_0,
-  dstore_1,
-  dstore_2,
-  dstore_3,
-  astore_0,
-  astore_1,
-  astore_2,
-  astore_3,
-  iastore,
-  lastore,
-  fastore,
-  dastore,
-  aastore,
-  bastore,
-  castore,
-  sastore,
-  pop,
-  pop2,
-  dup,
-  dup_x1
-  dup_x2,
-  dup2,
-  dup2_x1,
-  dup2_x2,
-  swap,
-  iadd,
-  ladd,
-  fadd,
-  dadd,
-  isub,
-  lsub,
-  fsub,
-  dsub,
-  imul,
-  lmul,
-  fmul,
-  dmul,
-  idiv,
-  ldiv,
-  fdiv,
-  ddiv,
-  irem,
-  lrem,
-  frem,
-  drem,
-  ineg,
-  lneg,
-  fneg,
-  dneg,
-  ishl,
-  lshl,
-  ishr,
-  lshr,
-  iushr,
-  lushr,
-  iand,
-  land,
-  ior,
-  lor,
-  ixor,
-  lxor,
-  iinc,
-  i2l,
-  i2f,
-  i2d,
-  l2i,
-  l2f,
-  l2d,
-  f2i,
-  f2l,
-  f2d,
-  d2i,
-  d2l,
-  d2f,
-  i2b,
-  i2c,
-  i2s,
-  lcmp,
-  fcmpl,
-  fcmpg,
-  dcmpl,
-  dcmpg,
-  ifeq,
-  ifne,
-  iflt,
-  ifge,
-  ifgt,
-  ifle,
-  if_icmpeq,
-  if_icmpne,
-  if_icmplt,
-  if_icmpge,
-  if_icmpgt,
-  if_icmple,
-  if_acmpeq,
-  if_acmpne,
-  goto,
-  jsr,
-  ret,
-  tableswitch,
-  lookupswitch,
-  ireturn,
-  lreturn,
-  freturn,
-  dreturn,
-  areturn,
-  return,
-  getstatic,
-  putstatic,
-  getfield,
-  putfield,
-  invokevirtual,
-  invokespecial,
-  invokestatic,
-  invokeinterface,
-  xxxunusedxxx,      /* opcode 186 not used */
-  new,
-  newarray,
-  anewarray,
-  arraylength,
-  athrow,
-  checkcast,
-  instanceof,
-  monitorenter,
-  monitorexit,
-  wide,
-  multianewarray,
-  ifnull,
-  ifnonnull,
-  goto_w,
-  jsr_w,
-  breakpoint,
-    /* skip 203 - 253 */
-  impdep1 = 254,
-  impdep2
+  jvm_nop = 0x0,
+  jvm_aconst_null,
+  jvm_iconst_m1,
+  jvm_iconst_0,
+  jvm_iconst_1,
+  jvm_iconst_2,
+  jvm_iconst_3,
+  jvm_iconst_4,
+  jvm_iconst_5,
+  jvm_lconst_0,
+  jvm_lconst_1,
+  jvm_fconst_0,
+  jvm_fconst_1,
+  jvm_fconst_2,
+  jvm_dconst_0,
+  jvm_dconst_1,
+  jvm_bipush,
+  jvm_sipush,
+  jvm_ldc,
+  jvm_ldc_w,
+  jvm_ldc2_w,
+  jvm_iload,
+  jvm_lload,
+  jvm_fload,
+  jvm_dload,
+  jvm_aload,
+  jvm_iload_0,
+  jvm_iload_1,
+  jvm_iload_2,
+  jvm_iload_3,
+  jvm_lload_0,
+  jvm_lload_1,
+  jvm_lload_2,
+  jvm_lload_3,
+  jvm_fload_0,
+  jvm_fload_1,
+  jvm_fload_2,
+  jvm_fload_3,
+  jvm_dload_0,
+  jvm_dload_1,
+  jvm_dload_2,
+  jvm_dload_3,
+  jvm_aload_0,
+  jvm_aload_1,
+  jvm_aload_2,
+  jvm_aload_3,
+  jvm_iaload,
+  jvm_laload,
+  jvm_faload,
+  jvm_daload,
+  jvm_aaload,
+  jvm_baload,
+  jvm_caload,
+  jvm_saload,
+  jvm_istore,
+  jvm_lstore,
+  jvm_fstore,
+  jvm_dstore,
+  jvm_astore,
+  jvm_istore_0,
+  jvm_istore_1,
+  jvm_istore_2,
+  jvm_istore_3,
+  jvm_lstore_0,
+  jvm_lstore_1,
+  jvm_lstore_2,
+  jvm_lstore_3,
+  jvm_fstore_0,
+  jvm_fstore_1,
+  jvm_fstore_2,
+  jvm_fstore_3,
+  jvm_dstore_0,
+  jvm_dstore_1,
+  jvm_dstore_2,
+  jvm_dstore_3,
+  jvm_astore_0,
+  jvm_astore_1,
+  jvm_astore_2,
+  jvm_astore_3,
+  jvm_iastore,
+  jvm_lastore,
+  jvm_fastore,
+  jvm_dastore,
+  jvm_aastore,
+  jvm_bastore,
+  jvm_castore,
+  jvm_sastore,
+  jvm_pop,
+  jvm_pop2,
+  jvm_dup,
+  jvm_dup_x1,
+  jvm_dup_x2,
+  jvm_dup2,
+  jvm_dup2_x1,
+  jvm_dup2_x2,
+  jvm_swap,
+  jvm_iadd,
+  jvm_ladd,
+  jvm_fadd,
+  jvm_dadd,
+  jvm_isub,
+  jvm_lsub,
+  jvm_fsub,
+  jvm_dsub,
+  jvm_imul,
+  jvm_lmul,
+  jvm_fmul,
+  jvm_dmul,
+  jvm_idiv,
+  jvm_ldiv,
+  jvm_fdiv,
+  jvm_ddiv,
+  jvm_irem,
+  jvm_lrem,
+  jvm_frem,
+  jvm_drem,
+  jvm_ineg,
+  jvm_lneg,
+  jvm_fneg,
+  jvm_dneg,
+  jvm_ishl,
+  jvm_lshl,
+  jvm_ishr,
+  jvm_lshr,
+  jvm_iushr,
+  jvm_lushr,
+  jvm_iand,
+  jvm_land,
+  jvm_ior,
+  jvm_lor,
+  jvm_ixor,
+  jvm_lxor,
+  jvm_iinc,
+  jvm_i2l,
+  jvm_i2f,
+  jvm_i2d,
+  jvm_l2i,
+  jvm_l2f,
+  jvm_l2d,
+  jvm_f2i,
+  jvm_f2l,
+  jvm_f2d,
+  jvm_d2i,
+  jvm_d2l,
+  jvm_d2f,
+  jvm_i2b,
+  jvm_i2c,
+  jvm_i2s,
+  jvm_lcmp,
+  jvm_fcmpl,
+  jvm_fcmpg,
+  jvm_dcmpl,
+  jvm_dcmpg,
+  jvm_ifeq,
+  jvm_ifne,
+  jvm_iflt,
+  jvm_ifge,
+  jvm_ifgt,
+  jvm_ifle,
+  jvm_if_icmpeq,
+  jvm_if_icmpne,
+  jvm_if_icmplt,
+  jvm_if_icmpge,
+  jvm_if_icmpgt,
+  jvm_if_icmple,
+  jvm_if_acmpeq,
+  jvm_if_acmpne,
+  jvm_goto,
+  jvm_jsr,
+  jvm_ret,
+  jvm_tableswitch,
+  jvm_lookupswitch,
+  jvm_ireturn,
+  jvm_lreturn,
+  jvm_freturn,
+  jvm_dreturn,
+  jvm_areturn,
+  jvm_return,
+  jvm_getstatic,
+  jvm_putstatic,
+  jvm_getfield,
+  jvm_putfield,
+  jvm_invokevirtual,
+  jvm_invokespecial,
+  jvm_invokestatic,
+  jvm_invokeinterface,
+  jvm_xxxunusedxxx,      /* opcode 186 not used */
+  jvm_new,
+  jvm_newarray,
+  jvm_anewarray,
+  jvm_arraylength,
+  jvm_athrow,
+  jvm_checkcast,
+  jvm_instanceof,
+  jvm_monitorenter,
+  jvm_monitorexit,
+  jvm_wide,
+  jvm_multianewarray,
+  jvm_ifnull,
+  jvm_ifnonnull,
+  jvm_goto_w,
+  jvm_jsr_w,
+  jvm_breakpoint,
+  /* skip 203 - 253 */
+  jvm_impdep1 = 254,
+  jvm_impdep2
 };
+#endif

@@ -401,3 +401,25 @@ void handle_segfault()
   fflush(stderr);
   exit(1);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * isBigEndian                                                               *
+ *                                                                           *
+ * This function determines the endianness of the machine we're running on.  *
+ * Such information is used during bytecode generation since the numerical   *
+ * constants are always stored in big endian format.                         *
+ *                                                                           *
+ * returns TRUE if this machine is big endian, FALSE otherwise.              *
+ *                                                                           *
+ *****************************************************************************/
+
+char isBigEndian()
+{
+  int x = 1;
+
+  if (*((char *)&x)== 1)
+    return FALSE;
+  else
+    return TRUE;
+}

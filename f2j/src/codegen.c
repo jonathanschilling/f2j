@@ -2283,9 +2283,16 @@ print_string_initializer(AST *root)
      * assuming it has not been declared with a DATA statement.
      */
 
-    src_initializer = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
+    if(ht->variable->astnode.ident.len < 0) {
+      src_initializer = (char *)f2jalloc(5);
 
-    sprintf(src_initializer,"\"%*s\"",ht->variable->astnode.ident.len," ");
+      sprintf(src_initializer,"\"  \"");
+    }
+    else {
+      src_initializer = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
+
+      sprintf(src_initializer,"\"%*s\"",ht->variable->astnode.ident.len," ");
+    }
 
   }
 
@@ -2843,8 +2850,12 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
     /* determine the length of the string (as declared in the fortran source) */
     if(ht == NULL)
       len = 1;
-    else
-      len = Ntemp->astnode.ident.len;
+    else {
+      if(Ntemp->astnode.ident.len < 0)
+        len = 1;
+      else
+        len = Ntemp->astnode.ident.len;
+    }
 
     /* now initialize the string to all blanks.  but we try to keep the length
      * of the string constant, otherwise some subscript operations get screwed
@@ -5874,8 +5885,12 @@ expr_emit (AST * root)
           h = type_lookup(cur_type_table, 
                 root->astnode.expression.lhs->astnode.ident.name);
 
-          if(h)
-            len = h->variable->astnode.ident.len;
+          if(h) {
+            if(h->variable->astnode.ident.len < 0)
+              len = 1;
+            else
+              len = h->variable->astnode.ident.len;
+          }
         }
 
         if(root->astnode.expression.rhs->nodetype == Constant) {
@@ -5893,7 +5908,8 @@ expr_emit (AST * root)
                 root->astnode.expression.rhs->astnode.ident.name);
 
           if(h)
-            if( h->variable->astnode.ident.len < len)
+            if((h->variable->astnode.ident.len < len) &&
+              (h->variable->astnode.ident.len > 0))
               len = h->variable->astnode.ident.len;
         }
         
@@ -7325,9 +7341,13 @@ read_emit (AST * root)
 
       gen_load_op(stdin_lvar, Object);
       if( (temp->vartype == Character) || (temp->vartype == String) ) {
+        int len;
+
+        len = temp->astnode.ident.len < 0 ? 1 : temp->astnode.ident.len;
+
         fprintf(curfp," = _f2j_stdin.%s(%d);\n",funcname[temp->vartype],
-           temp->astnode.ident.len);
-        pushIntConst(temp->astnode.ident.len);
+           len);
+        pushIntConst(len);
       }
       else {
         fprintf(curfp," = _f2j_stdin.%s();\n",funcname[temp->vartype]);
@@ -7431,8 +7451,12 @@ read_implied_loop_bytecode_emit(AST *node)
 
     gen_load_op(stdin_lvar, Object);
 
-    if( (temp->vartype == Character) || (temp->vartype == String) )
-      pushIntConst(temp->astnode.ident.len);
+    if( (temp->vartype == Character) || (temp->vartype == String) ) {
+      if(temp->astnode.ident.len < 0)
+        pushIntConst(1);
+      else
+        pushIntConst(temp->astnode.ident.len);
+    }
 
     c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
           input_descriptors[temp->vartype]);

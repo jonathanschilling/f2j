@@ -602,7 +602,7 @@ printf("var name '%s', desc '%s'\n",dec->astnode.ident.name,
           tmpfield->name_index = c->index;
  
           c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, 
-                  field_descriptor);
+                  field_descriptor[returns][dec->astnode.ident.dim]);
           tmpfield->descriptor_index = c->index;
           
           cur_class_file->fields_count++;
@@ -1586,8 +1586,8 @@ determine_var_length(HASHNODE *var)
   int length = 1;
   int dims = var->variable->astnode.ident.dim;
 
-  int eval_const_expr(AST *, int);
-  int idxNeedsDecr(AST *, int);
+  double eval_const_expr(AST *);
+  int idxNeedsDecr(AST *);
 
   if(gendebug) {
     printf("determining length of %s\n", var->variable->astnode.ident.name);
@@ -1603,10 +1603,10 @@ determine_var_length(HASHNODE *var)
 
     if(temp2->nodetype == ArrayIdxRange) {
 
-      if(idxNeedsDecr(temp2,dims))
-        length *= eval_const_expr(temp2->astnode.expression.rhs, dims);
+      if(idxNeedsDecr(temp2))
+        length *= (int)eval_const_expr(temp2->astnode.expression.rhs);
       else
-        length *= eval_const_expr(temp2->astnode.expression.rhs, dims) + 1;
+        length *= (int)eval_const_expr(temp2->astnode.expression.rhs) + 1;
 
       if(gendebug)
         printf("VAR now length = %d\n", length);
@@ -1988,10 +1988,10 @@ subcall_emit(AST *root)
  *****************************************************************************/
 
 int
-idxNeedsDecr(AST *alist, int dims)
+idxNeedsDecr(AST *alist)
 {
   AST *startIdx = NULL;
-  int eval_const_expr(AST *, int);
+  double eval_const_expr(AST *);
   int eval;
 
   if( (alist != NULL) && (alist->nodetype == ArrayIdxRange))
@@ -2002,7 +2002,7 @@ idxNeedsDecr(AST *alist, int dims)
        * end index at this point.
        */
 
-      eval = eval_const_expr(startIdx,dims);
+      eval = (int)eval_const_expr(startIdx);
     
       if(gendebug)
         printf("VAR eval returns %d\n",eval);
@@ -2086,10 +2086,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     d0 = ht->variable->astnode.ident.D[0];
     d1 = ht->variable->astnode.ident.D[1];
 
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist, 3))
+    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist))
       d0 = ht->variable->astnode.ident.D[0] + 1;
 
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 3))
+    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt))
       d1 = ht->variable->astnode.ident.D[1] + 1;
         
     offset = 1 + ( (1 + d1) * d0);
@@ -2112,7 +2112,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     fprintf (curfp, "(");
     expr_emit(root->nextstmt->nextstmt);
-    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt,3))
+    if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt))
       fprintf (curfp, "+1");
     fprintf (curfp, ")");
     
@@ -2122,8 +2122,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   {
     /* if this isn't a 3 dimensional array, it is handled here */
 
-    int decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist, 
-                                      ht->variable->astnode.ident.dim);
+    int decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist);
 
     fprintf (curfp, "(");
     expr_emit (root);
@@ -2144,8 +2143,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
           root->astnode.ident.name);
       else
         decrementIndex = 
-           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
-                        ht->variable->astnode.ident.dim);
+           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt);
 
       fprintf (curfp, "+");
       fprintf (curfp, "(");
@@ -2182,8 +2180,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
           root->astnode.ident.name);
       else
         decrementIndex = 
-           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
-                        ht->variable->astnode.ident.dim);
+           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt);
 
       fprintf (curfp, "+");
       fprintf (curfp, "(");
@@ -3661,6 +3658,10 @@ expr_emit (AST * root)
           fprintf(stderr,"WARNING: single precision not supported!\n");
           break;
         case Double: 
+          /* the only difference between dcmpg and dcmpl is the handling of NaN
+           * value.  for .lt. and .le. we use dcmpg, otherwise use dcmpl.
+           * this mirrors the behavior of javac.
+           */
           if((root->token == rel_lt) || (root->token == rel_le))
             code_zero_op(jvm_dcmpg);
           else

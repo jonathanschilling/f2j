@@ -57,7 +57,7 @@ int
   yylex();
 
 double
-  eval_const_expr(AST *, int);
+  eval_const_expr(AST *);
 
 char 
   * strdup(const char *),
@@ -1335,7 +1335,7 @@ Arraydeclaration: Name OP Arraynamelist CP
                         temp != NULL; 
                         temp=temp->nextstmt, i++)
                     {
-                      $$->astnode.ident.D[i] = (int) eval_const_expr(temp,count);
+                      $$->astnode.ident.D[i] = (int) eval_const_expr(temp);
                       if(temp->nodetype == ArrayIdxRange)
                         printf("@#@# %s dim %d is a range\n",$$->astnode.ident.name,
                            i);
@@ -2560,8 +2560,10 @@ AST *dtmp;
 	       $$->nodetype = Specification;
 	       $$->astnode.typeunit.specification = Parameter;
                $$->astnode.typeunit.declist = switchem($3); 
+/*
 for(dtmp=$$->astnode.typeunit.declist;dtmp;dtmp=dtmp->nextstmt)
   printf("evaluation of rhs = %d\n",(int)eval_const_expr(
+*/
 
              }
 ;
@@ -2579,6 +2581,7 @@ Pdecs:    Pdec
 
 Pdec:     Assignment
           {
+            double constant_eval;
             AST *temp;
 
             if(debug)
@@ -2586,11 +2589,50 @@ Pdec:     Assignment
 
             $$ = $1;
             $$->nodetype = Assignment;
+                                                                                                      
+            constant_eval = eval_const_expr($$->astnode.assignment.rhs);
+            
+            temp = addnode();
+            temp->nodetype = Constant;
+            temp->vartype = $$->astnode.assignment.rhs->vartype;
+            
+            switch($$->astnode.assignment.rhs->vartype) {
+              case String:
+              case Character:
+                printf("creating String constant...\n");
+                temp->token = STRING;
+                strcpy(temp->astnode.constant.number, $$->astnode.assignment.rhs->astnode.constant.number);
+                break;
+              case Complex:
+                fprintf(stderr,"Pdec: Complex not yet supported.\n");
+                break;
+              case Logical:
+                printf("creating Logical constant...\n");
+                temp->token = $$->astnode.assignment.rhs->token;
+                break;
+              case Float:
+              case Double:
+                printf("creating Double constant...\n");
+                temp->token = DOUBLE;
+                sprintf(temp->astnode.constant.number,"%f",constant_eval);
+                break;
+              case Integer:
+                printf("creating Integer constant...\n");
+                temp->token = INTEGER;
+                sprintf(temp->astnode.constant.number,"%d",(int)constant_eval);
+                break;
+              default:
+                fprintf(stderr,"Pdec: bad vartype!\n");
+            }
+           
+printf("ok.. evaluation of parameter is %f\n",eval_const_expr($$->astnode.assignment.rhs));
 
-            temp = $$->astnode.assignment.rhs;
-
+            $$->astnode.assignment.rhs = temp;
+                                                      
             type_insert(parameter_table, temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
+
+            insert_constant(constants_table, temp->token, temp->astnode.constant.number);
 
             /*
              *  $$->astnode.typeunit.specification = Parameter; 
@@ -3234,7 +3276,7 @@ addEquiv(AST *node)
  *****************************************************************************/
 
 double
-eval_const_expr(AST *root, int dims)
+eval_const_expr(AST *root)
 {
   HASHNODE *p;
   double result1, result2;
@@ -3257,29 +3299,31 @@ eval_const_expr(AST *root, int dims)
       }
       else
       {
-         if(p->variable->nodetype == Constant)
+         if(p->variable->nodetype == Constant) {
+           root->vartype = p->variable->vartype;
            return ( atof(p->variable->astnode.constant.number) );
-         else 
-           if(dims == 3)
-             fprintf(stderr,"Cant determine array dimensions!\n");
+         }
       }
       return 0;
       break;
     case Expression:
       if (root->astnode.expression.lhs != NULL)
-        result1 = eval_const_expr (root->astnode.expression.lhs, dims);
+        result1 = eval_const_expr (root->astnode.expression.lhs);
 
-      result2 = eval_const_expr (root->astnode.expression.rhs, dims);
+      root->vartype = root->astnode.expression.rhs->vartype;
+      result2 = eval_const_expr (root->astnode.expression.rhs);
       return (result2);
       break;
     case Power:
-      result1 = eval_const_expr (root->astnode.expression.lhs, dims);
-      result2 = eval_const_expr (root->astnode.expression.rhs, dims);
+      result1 = eval_const_expr (root->astnode.expression.lhs);
+      result2 = eval_const_expr (root->astnode.expression.rhs);
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
       return( mypow(result1,result2) );
       break;
     case Binaryop:
-      result1 = eval_const_expr (root->astnode.expression.lhs, dims);
-      result2 = eval_const_expr (root->astnode.expression.rhs, dims);
+      result1 = eval_const_expr (root->astnode.expression.lhs);
+      result2 = eval_const_expr (root->astnode.expression.rhs);
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
       if(root->astnode.expression.optype == '-')
         return (result1 - result2);
       else if(root->astnode.expression.optype == '+')
@@ -3293,8 +3337,9 @@ eval_const_expr(AST *root, int dims)
       return 0;
       break;
     case Unaryop:
+      root->vartype = root->astnode.expression.rhs->vartype;
      /*
-      result1 = eval_const_expr (root->astnode.expression.rhs, dims);
+      result1 = eval_const_expr (root->astnode.expression.rhs);
       if(root->astnode.expression.minus == '-')
         return -result1;
      */
@@ -3306,8 +3351,10 @@ eval_const_expr(AST *root, int dims)
         return( atof(root->astnode.constant.number) );
       break;
     case ArrayIdxRange:
-      return(  eval_const_expr(root->astnode.expression.rhs, dims) - 
-               eval_const_expr(root->astnode.expression.lhs, dims) );
+      /* I dont think it really matters what the type of this node is. --kgs */
+      root->vartype = MIN(root->astnode.expression.lhs->vartype,root->astnode.expression.rhs->vartype);
+      return(  eval_const_expr(root->astnode.expression.rhs) - 
+               eval_const_expr(root->astnode.expression.lhs) );
       break;
     default:
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");

@@ -4,6 +4,7 @@
 #include<string.h>
 
 #define YYDEBUG 0
+#define THISWORKS 0
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -60,7 +61,7 @@ int debug = 0;
 %token <type> TYPE  
 %token DIMENSION
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
-%token SAVE DATA
+%token SAVE DATA COMMENT
 
 %left EQV
 %left OR
@@ -84,37 +85,59 @@ in alphabetic order. */
 %type <ptnode> Arrayindexlist Arrayindex Arrayindexop
 %type <ptnode> Binaryop Blockif Boolean
 %type <ptnode> Call Char Complex Constant  Constantlist Continue
-%type <ptnode> Data Do_incr Doloop 
+%type <ptnode> Data Datalist Do_incr Doloop 
 %type <ptnode> Do_vals Do_statements Do_statement Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
-%type <ptnode> Function Functionargs
+%type <ptnode> Function Functionargs F2java
+%type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto 
 %type <ptnode> Implicit Integer Intlist Intrinsic
 %type <ptnode> Label Lhs Logicalop Logicalif  Logicalifstmts
 %type <ptnode> Name Namelist
-%type <ptnode> Parameter  Pdec Pdecs /* Power */ Program
+%type <ptnode> Parameter  Pdec Pdecs /* Power */ Program 
 %type <ptnode> Relationalop Return 
 %type <ptnode> Save Specstmt Specstmts Statements Statement Subroutinecall
-%type <ptnode> /* Sourcecodes */ Sourcecode Star /* Startindex */  String  Subroutine
+%type <ptnode> Sourcecodes  Sourcecode Star /* Startindex */  
+%type <ptnode> String  Subroutine
 %type <ptnode> Typestmt Typevar Typevarlist
 %type <type>   Types Type
 
 
 %%
 
-/* Sourcecode is the start symbol.  Programs, subroutines and
- functions will all derive from program.
-*/
-/*
-Sourcecodes: Sourcecode
-           | Sourcecodes Sourcecode
+/*  The new stuff is here.  */
+F2java:   Sourcecodes
+          {
+	    $$ = addnode();
+	    $$ = switchem($1);
+                if(JAS) {
+		  assign_local_vars(localvarlist); 
+		  assign_local_vars($1); 
+                  assign($$); 
+                  if(emittem) jas_emit($$);
+                }else {
+                  if(emittem) emit($$);
+                }
+          }
 ;
-*/
 
-Sourcecode:   Program  Specstmts  Statements End 
+
+Sourcecodes:   Sourcecode {$$=$1;}
+             | Sourcecodes Sourcecode {$2->prevstmt = $1; $$=$2;}
+;
+
+
+
+Sourcecode :    Fprogram
+              | Fsubroutine
+              | Ffunction
+;
+
+
+Fprogram:   Program  Specstmts  Statements End 
               {
                 $$ = addnode();
-                $$->nodetype = Source;
+                $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
         	type_hash($2); 
@@ -126,6 +149,8 @@ Sourcecode:   Program  Specstmts  Statements End
                 if(emittem) start_vcg($$);
 #endif
 
+#if THISWORKS  /* Then delete it.  */
+
                 if(JAS) {
 		  assign_local_vars(localvarlist); 
 		  assign_local_vars($2); 
@@ -134,12 +159,15 @@ Sourcecode:   Program  Specstmts  Statements End
                 }else {
                   if(emittem) emit($$);
                 }
+#endif
               }
+;
 
-           |  Subroutine Specstmts Statements End 
+
+Fsubroutine: Subroutine Specstmts Statements End 
               {
                 $$ = addnode();
-                $$->nodetype = Source;
+                $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
         	type_hash($2); 
@@ -149,6 +177,7 @@ Sourcecode:   Program  Specstmts  Statements End
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
+#if THISWORKS
                 if(JAS) {
 		  assign_local_vars(localvarlist); 
 		  assign_local_vars($2); 
@@ -157,13 +186,16 @@ Sourcecode:   Program  Specstmts  Statements End
                 }else {
                   if(emittem) emit($$);
                 }
+#endif
               }
-          |   Function Specstmts Statements  End
+;
+
+Ffunction:   Function Specstmts Statements  End
               {
                 $2 = switchem($2);
 		type_hash($2);
                 $$ = addnode();
-                $$->nodetype = Source;
+                $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
                 $$->astnode.source.typedecs = $2;
 		$4->prevstmt = $3;
@@ -171,6 +203,7 @@ Sourcecode:   Program  Specstmts  Statements End
 #if VCG
                 if(emittem) start_vcg($$);
 #endif
+#if THISWORKS
                 if(JAS) {
 		  assign_local_vars(localvarlist);
 		  assign_local_vars($2);
@@ -179,6 +212,7 @@ Sourcecode:   Program  Specstmts  Statements End
                 }else {
                   if(emittem) emit($$);
                 }
+#endif
               }
 ;
 
@@ -241,7 +275,7 @@ Specstmt:  DIMENSION
          | External  {$$=$1;}
          | Parameter {$$=$1;}
          | Implicit  {$$=$1;}
-         | Data {$$=$1;}
+         | Datalist NL {$$=$1;}
 ;
 
 Save:   SAVE Namelist NL
@@ -268,7 +302,11 @@ Implicit:   IMPLICIT
 
 /*  DATA statement hasn't really been implemented.
     This is just some dummy code to allow parsing. */
-Data:       DATA Namelist DIV Constantlist DIV NL
+Datalist:   Data {$$ = $1;}
+          | Datalist CM Data {$3->prevstmt = $1; $$ = $3;}
+;
+
+Data:       DATA Namelist DIV Constantlist DIV 
             { 
               $$ = addnode();
 	      $$->nodetype = Unimplemented;
@@ -751,7 +789,7 @@ Logicalifstmts:  Assignment NL {
                   }
 ;
 
-/* This has to extended to deal with jasmin opcode. 
+/* This _may_ have to be extended to deal with jasmin opcode. 
    Variables of type array need to have their
    arguments emitted in reverse order so that
    java can increment in row instead of column
@@ -1132,7 +1170,7 @@ yyerror(char *s)
 }
 
 /* To keep things simple, there is only one type of parse tree
-   node.  If there is anyway to ensure that all the pointers
+   node.  If there is any way to ensure that all the pointers
    in this are NULL, it would be a good idea to do that.  I am
    not sure what the default behavior is.
    */
@@ -1393,14 +1431,16 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
         {
           hashtemp->localvarnum = localnum;
               hashtemp->variable->astnode.ident.localvnum = localnum;
-	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum);
+	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, 
+                                     localnum);
           localnum += 2;
         }
       else
         {
           hashtemp->localvarnum = localnum;
               hashtemp->variable->astnode.ident.localvnum = localnum;
-	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, localnum); 
+	  if(debug)printf("%s %d\n", hashtemp->variable->astnode.ident.name, 
+                                     localnum); 
           localnum++;
         }
      }

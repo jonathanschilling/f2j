@@ -43,7 +43,7 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Bad node\n");
 	  emit (root->nextstmt);
-      case Source:
+      case Progunit:
 	  if (gendebug)
 	      printf ("Source.\n");
 	  emit (root->astnode.source.progtype);
@@ -581,7 +581,7 @@ constructor (AST * root)
 	  hashtemp = type_lookup (type_table, tempnode->astnode.ident.name);
 	  if (hashtemp == NULL)
 	    {
-		printf ("Type table is screwed.\n");
+		printf ("Type table is screwed (codegen.c).\n");
 		exit (-1);
 	    }
 	  /* Since all of fortran is call-by-reference, we have to pass

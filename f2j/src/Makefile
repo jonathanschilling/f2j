@@ -42,7 +42,7 @@ lexdebug:  f2jlex.c
 #  Fortran has gotos, java does not.  So we need to 
 #  translate goto statements.
 $(JAVAB):	
-	cd $(GOTO_TRANS);make
+	cd $(GOTO_TRANS); $(MAKE)
 
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
 	$(YACC) $(YFLAGS) f2jparse.y

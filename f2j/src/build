@@ -1,0 +1,31 @@
+#!/bin/csh -f
+
+set PNAME = `echo $0 | awk -F/ '{print $NF}'`
+
+if($#argv != 1) then
+  echo Usage:  $PNAME \<source file\>
+  exit
+endif
+
+set JAVA_SRC = $1
+set CLASS = `echo $1 | sed s/java/class/g`
+set JAS_SRC = `echo $1 | sed s/java/j/g`
+
+echo "javac $JAVA_SRC"
+# set result = `javac $JAVA_SRC`
+rm -f __out
+javac $JAVA_SRC >& __out
+if(! -z __out) then
+ echo "Trouble compiling - check your source file."
+ cat __out
+ rm -f __out
+ exit
+endif
+rm -f __out
+echo "djava -o jasmin $CLASS > $CLASS.out"
+djava -o jasmin $CLASS > $CLASS.out
+echo "./trans < $CLASS.out > $JAS_SRC"
+./trans < $CLASS.out > $JAS_SRC
+echo "jasmin $JAS_SRC"
+jasmin $JAS_SRC
+rm -f $CLASS.out

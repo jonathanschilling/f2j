@@ -1,0 +1,14 @@
+#!/usr/local/bin/perl
+
+undef $/;
+
+$_ = <STDIN>;
+
+s/\s*ldc.*\n\s*bipush\s+(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
+s/\s*ldc.*\n\s*sipush\s+(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
+s/\s*ldc.*\n\s*iconst_(\d+)\n\s*invokestatic Dummy\/go_to\(Ljava\/lang\/String;I\)V\n/\n    goto dlabel$1\n/gi;
+s/\s*ldc.*\n\s*bipush\s+(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
+s/\s*ldc.*\n\s*sipush\s+(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
+s/\s*ldc.*\n\s*iconst_(\d+)\n\s*invokestatic Dummy\/label\(Ljava\/lang\/String;I\)V\n/\ndlabel$1:\n/gi;
+
+print $_;

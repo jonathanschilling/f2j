@@ -1845,6 +1845,11 @@ FormatSeparator:
          $$ = addnode();
          $$->token = CAT;
        }
+     | COLON
+       {
+         $$ = addnode();
+         $$->token = COLON;
+       }
 ;
 
 RepeatSpec:  Integer

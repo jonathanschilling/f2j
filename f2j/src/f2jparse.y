@@ -28,7 +28,7 @@
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
  *****************************************************************************/
 
-#define YYDEBUG 0
+#define YYDEBUG 0 
 
 /*****************************************************************************
  * Global variables.                                                         *
@@ -914,7 +914,21 @@ DataConstant:  Constant
                }
             |  Name
                {
-                 
+                 HASHNODE *hash_temp;
+                 if((parameter_table != NULL) &&
+                 ((hash_temp = type_lookup(parameter_table,yylval.lexeme)) != NULL))
+                 {
+                    $$ = addnode();
+                    $$->nodetype = Constant;
+                    $$->vartype = hash_temp->variable->vartype;
+                    $$->token = hash_temp->variable->token;
+                    strcpy($$->astnode.constant.number,
+                    hash_temp->variable->astnode.constant.number);
+                 }
+                 else{
+                    printf("Error: Data statement constant undeclared\n");
+                    exit(1);
+                 }
                }   
             |  MINUS Constant   
                {

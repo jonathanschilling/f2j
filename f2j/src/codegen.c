@@ -10544,7 +10544,7 @@ emit_invocations(AST *root)
 
     c = newMethodref(cur_const_table,numeric_wrapper[temp->vartype], 
                      numericValue_method[temp->vartype],
-                    numericValue_descriptor[temp->vartype]);
+                     numericValue_descriptor[temp->vartype]);
 
     bytecode1(jvm_invokevirtual, c->index);
 
@@ -10626,10 +10626,13 @@ methcall_arglist_emit(AST *temp)
 
     if(dim > 0) {
       fprintf(curfp,", int _arg%d_offset ", count);
-      count += 2;
+      /* normally, we'd increment count by two, but i'm hacking this
+       * a bit so that the lapack tester works correctly.
+       */
+      /* count += 2;  */
     }
-    else
-      count++;
+
+    count++;
   }
 
   return count;
@@ -10649,10 +10652,10 @@ methcall_obj_array_emit(AST *temp, int lv)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int i = 0, dim = 0;
+  int ai = 0, vi = 1, dim = 0;
   AST *arg;
 
-  for(arg=temp->astnode.ident.arraylist;arg != NULL;arg=arg->nextstmt, i++)
+  for(arg=temp->astnode.ident.arraylist;arg!=NULL;arg=arg->nextstmt,ai++,vi++)
   {
     dim = arg->astnode.ident.dim;
 
@@ -10673,39 +10676,69 @@ methcall_obj_array_emit(AST *temp, int lv)
         rtype = arg->vartype;
 
 
-      if(dim > 0) {
-        fprintf(curfp," _funcargs[%d] = _arg%d;\n", i, i);
-        fprintf(curfp," _funcargs[%d] = new Integer(_arg%d_offset);\n",i+1,i);
+      fprintf(curfp," _funcargs[%d] = new %s(", ai,java_wrapper[rtype]);
 
-        arg_assignment_emit(lv, i, i+1, FALSE, Object);
-        arg_assignment_emit(lv, i+1, i+2, TRUE, Integer);
-        i++;
+      if(dim > 0) {
+        fprintf(curfp,"_arg%d[_arg%d_offset]);\n", ai, ai);
+
+        arg_array_assign_emit(lv, ai, vi, rtype);
+        vi++;
       }
       else {
-        fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
-          i,java_wrapper[rtype], i);
-        arg_assignment_emit(lv, i, i+1, TRUE, rtype);
+        fprintf(curfp,"_arg%d);\n", ai);
+        arg_assignment_emit(lv, ai, vi, TRUE, rtype);
       }
     }
     else
     {
-      fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
-
       if(dim > 0) {
-        arg_assignment_emit(lv, i, i+1, FALSE, Object);
-
-        fprintf(curfp," _funcargs[%d] = _arg%d_offset;\n",i+1,i);
-        arg_assignment_emit(lv, i+1, i+2, FALSE, Integer);
-        i++;
+        fprintf(curfp," _funcargs[%d] = _arg%d[_arg%d_offset];\n",ai,ai,ai);
+        arg_array_assign_emit(lv, ai, vi, rtype);
+        vi++;
       }
       else {
-        arg_assignment_emit(lv, i, i+1, FALSE, rtype);
+        fprintf(curfp," _funcargs[%d] = _arg%d;\n",ai,ai);
+        arg_assignment_emit(lv, ai, vi, FALSE, rtype);
       }
     }
 
     if((rtype == Double) && (dim == 0))
-      i++;
+      vi++;
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * arg_array_assign_emit                                                     *
+ *                                                                           *
+ * this function emits the bytecode for an assignment of an argument to the  *
+ * object array (e.g. _funcargs[%d] = _arg%d[_arg%d_offset]).                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum,
+  enum returntype argtype)
+{
+  CPNODE *c;
+
+  gen_load_op(array_vnum, Object);
+  pushIntConst(array_idx);
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, 
+          numeric_wrapper[argtype]);
+
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
+  gen_load_op(arg_vnum, Object);
+  gen_load_op(arg_vnum + 1, Integer);
+  bytecode0(array_load_opcodes[argtype]);
+
+  c = newMethodref(cur_const_table, numeric_wrapper[argtype],
+           "<init>", wrapper_descriptor[argtype]);
+  bytecode1(jvm_invokespecial, c->index);
+
+  bytecode0(array_store_opcodes[Object]);
 }
 
 /*****************************************************************************

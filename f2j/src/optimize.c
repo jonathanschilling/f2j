@@ -727,6 +727,7 @@ read_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
   HASHNODE *ht;
   AST *temp;
 
@@ -745,8 +746,9 @@ read_optimize (AST * root, AST *rptr)
 
       ht = type_lookup(opt_type_table,temp->astnode.ident.name);
       if(ht) {
-        if(type_lookup(opt_args_table, temp->astnode.ident.name) != NULL)
-          if(type_lookup(opt_common_table, temp->astnode.ident.name) == NULL)
+        if((type_lookup(opt_args_table, temp->astnode.ident.name) != NULL) &&
+           (type_lookup(opt_common_table, temp->astnode.ident.name) == NULL) &&
+           (type_lookup(opt_array_table, temp->astnode.ident.name) == NULL))
             ht->variable->astnode.ident.passByRef = TRUE;
       }
     }
@@ -989,6 +991,7 @@ call_optimize (AST * root, AST *rptr)
 void
 args_optimize(AST *root, AST *rptr)
 {
+  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
   HASHNODE *hashtemp;
   METHODREF *mref;
   AST *temp;
@@ -1022,7 +1025,8 @@ args_optimize(AST *root, AST *rptr)
              printf("call_optimize(): '%s' is pass by ref.\n",
                     temp->astnode.ident.name);
 
-           if(!temp->astnode.ident.arraylist)
+           if((!temp->astnode.ident.arraylist) &&
+              !type_lookup(opt_array_table, temp->astnode.ident.name))
              set_passByRef(temp, rptr);
          }
          else {
@@ -1065,7 +1069,8 @@ args_optimize(AST *root, AST *rptr)
           */
 
          if(isPassByRef_desc(p))
-           if(!temp->astnode.ident.arraylist)
+           if((!temp->astnode.ident.arraylist) &&
+              !type_lookup(opt_array_table, temp->astnode.ident.name))
              set_passByRef(temp, rptr);
        }
 
@@ -1207,6 +1212,7 @@ assign_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
   enum returntype ltype, rtype;
   HASHNODE *ht;
   AST *lhs;
@@ -1235,8 +1241,9 @@ assign_optimize (AST * root, AST *rptr)
      */
 
     if(lhs->astnode.ident.arraylist == NULL)
-      if(type_lookup(opt_args_table, lhs->astnode.ident.name) != NULL)
-        if(type_lookup(opt_common_table, lhs->astnode.ident.name) == NULL)
+      if((type_lookup(opt_args_table, lhs->astnode.ident.name) != NULL) && 
+         (type_lookup(opt_common_table, lhs->astnode.ident.name) == NULL) &&
+         (type_lookup(opt_array_table, lhs->astnode.ident.name) == NULL))
           ht->variable->astnode.ident.passByRef = TRUE;
 
     if( optdebug )

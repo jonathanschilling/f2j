@@ -161,6 +161,8 @@ void
   max_intrinsic_emit (AST *, char *, METHODTAB *),
   min_intrinsic_emit (AST *, char *, METHODTAB *),
   arg_assignment_emit(int, int, int, BOOLEAN, enum returntype),
+  arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
+         enum returntype argtype),
   calcOffsets(CodeGraphNode *),
   traverse_code(Dlist),
   while_emit(AST *),

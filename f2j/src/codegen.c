@@ -1193,7 +1193,8 @@ typedec_emit (AST * root)
   HASHNODE *hashtemp, *ht;
   enum returntype returns;
   char *tempname;
-  void vardec_emit(AST *, enum returntype);
+  void vardec_emit(AST *, enum returntype),
+       newarray_emit(AST *);
 
   /* 
    *  This may have to be moved into the looop also.  Could be
@@ -1330,6 +1331,38 @@ typedec_emit (AST * root)
     vardec_emit(temp, returns);
   }
 }				/* Close typedec_emit(). */
+
+/*****************************************************************************
+ *                                                                           *
+ * newarray_emit                                                             *
+ *                                                                           *
+ * this function emits the newarray instruction appropriate to the data type *
+ * of the given node.                                                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+newarray_emit(AST *root)
+{
+  CPNODE *c;
+
+  switch(root->vartype) {
+    case String:
+    case Character:
+      c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
+      code_one_op_w(jvm_anewarray, c->index);
+      break;
+    case Complex:
+    case Double:
+    case Float:
+    case Integer:
+    case Logical:
+      code_one_op(jvm_newarray, jvm_array_type[root->vartype]);
+      break;
+    default:
+      fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
+  }
+}
 
 /*****************************************************************************
  *                                                                           *
@@ -1474,26 +1507,7 @@ vardec_emit(AST *root, enum returntype returns)
      * different opcodes for creating these arrays.
      */
 
-    switch(root->vartype) {
-      case String:
-      case Character:
-        {
-          CPNODE *c;
-
-          c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
-          code_one_op_w(jvm_anewarray, c->index);
-        }
-        break;
-      case Complex:
-      case Double:
-      case Float:
-      case Integer:
-      case Logical:
-        code_one_op(jvm_newarray, jvm_array_type[root->vartype]);
-        break;
-      default:
-        fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
-    }
+    newarray_emit(root);
 
     c = newFieldref(cur_const_table,cur_filename, name, desc); 
     code_one_op_w(jvm_putstatic, c->index);
@@ -1989,9 +2003,18 @@ AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   int i, count=1, size=0;
+  HASHNODE *ht;
+  CPNODE *c;
 
   if(gendebug)
     printf("VAR here we are in data_array_emit, length = %d\n",length);
+
+  ht=type_lookup(cur_type_table, Ntemp->astnode.ident.name);
+  if(!ht) {
+    fprintf(stderr,"type table may be screwed.  Can't find '%s'.",
+            Ntemp->astnode.ident.name);
+    exit(-1);
+  }
 
   fprintf(curfp,"[] ");
 
@@ -2023,10 +2046,17 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
     size = length;
   
 printf("## using size = %d\n",size);
+  pushIntConst(size);
+  newarray_emit(ht->variable);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
-    if(Ctemp->token == STRING)
+    code_zero_op(jvm_dup);
+    pushIntConst(i);
+
+    if(Ctemp->token == STRING) {
       fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
+      invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
+    }
     else {
       if(Ctemp->nodetype == Binaryop)
       {
@@ -2060,6 +2090,8 @@ printf("## using size = %d\n",size);
         fprintf(curfp,"%s ", Ctemp->astnode.constant.number);
     }
 
+    code_zero_op(array_store_opcodes[ht->variable->vartype]);
+
     /* 
      * Every now and then, emit a newline for readability.
      * I have run across some lines that end up so long that
@@ -2083,6 +2115,11 @@ printf("## using size = %d\n",size);
   }
    
   fprintf(curfp,"};\n");
+
+  c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
+        field_descriptor[ht->variable->vartype][ht->variable->astnode.ident.dim]);
+
+  code_one_op_w(jvm_putstatic, c->index);
 
   return Ctemp;
 }

@@ -3,6 +3,7 @@
 #include<ctype.h>
 #include<string.h>
 #include<time.h>
+#include<signal.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
@@ -46,6 +47,10 @@ main (int argc, char **argv)
     int errflg = 0;
     int c;
 
+    void handle_segfault(int);
+
+    signal(SIGSEGV,handle_segfault);
+
     /* yydebug = DEBUGGEM; */
 
     /* 
@@ -67,6 +72,9 @@ main (int argc, char **argv)
 
     package_name = NULL;
     JAS = 0;   /* default to Java output */
+
+    ignored_formatting = 0;
+    bad_format_count = 0;
 
     while((c = getopt(argc,argv,"j:p:")) != EOF)
       switch(c) {
@@ -205,6 +213,14 @@ main (int argc, char **argv)
     printf("Line number: %d\n", lineno);
     printf("Statement number: %d\n", statementno);
 */
+
+    if(bad_format_count > 0)
+      fprintf(stderr,"Bad formatting (%d statements)\n", bad_format_count);
+
+    if(ignored_formatting > 0)
+      fprintf(stderr,"Ignored %d format statement(s) with implied loops\n", 
+         ignored_formatting);
+
     exit (0);
 }
 
@@ -261,7 +277,7 @@ jasminheader (FILE * jasminfp, char *classname)
    contains directories that contain the actual classes. 
    The preprocessor junk is a necessary evil, at least temporarily. */
 void
-javaheader (FILE * fp, char *classname)
+javaheader (FILE * fp, char *classname, char *reflect)
 {
     fprintf (fp, "/*\n");
     fprintf (fp, " *  Produced by f2java.  f2java is part of the Fortran-\n");
@@ -284,6 +300,10 @@ javaheader (FILE * fp, char *classname)
 
     fprintf (fp, "import java.lang.*;\n");
     fprintf (fp, "import org.netlib.util.*;\n\n");
+    fprintf (fp, "%s", reflect);   /* the import stmt for reflection capability */
+
+    fprintf (fp, "\n\n");
+
     fprintf (fp, "public class %s {\n\n", classname);
 }
 
@@ -328,3 +348,11 @@ while (*name)
     name++;
   }
 } 
+
+void handle_segfault(int x)
+{
+  fflush(stdout);
+  fprintf(stderr,"Segmentation Fault, stdout flushed.\n");
+  fflush(stderr);
+  exit(1);
+}

@@ -63,7 +63,15 @@ typecheck (AST * root)
     case Subroutine:
     case Function:
     case Program:
-      cur_unit = root;
+      {
+        AST *temp;
+
+        cur_unit = root;
+
+        for(temp = root->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
+          if(type_lookup(chk_external_table,temp->astnode.ident.name) != NULL)
+            cur_unit->astnode.source.needs_reflection = TRUE;
+      }
       break;
     case End:
       if (checkdebug)
@@ -672,8 +680,12 @@ expr_check (AST * root)
       if(root->astnode.expression.rhs == NULL)
         fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
       expr_check (root->astnode.expression.rhs);
-      root->vartype = MIN(root->astnode.expression.lhs->vartype,
-                          root->astnode.expression.rhs->vartype);
+
+      /*  vartype should always be double for pow since it is 
+       *  translated to Math.pow(), which returns double.
+       */
+
+      root->vartype = Double;
       break;
     case Binaryop:
       if(root->astnode.expression.lhs == NULL)

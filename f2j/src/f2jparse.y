@@ -23,7 +23,7 @@ void yyerror(char *);
 AST * addnode();
 AST * switchem();
 char funname[30];
-char tempname[30];
+char tempname[60];
 char * tname;
 int temptok;
 char * lowercase(char * );
@@ -96,11 +96,11 @@ out the location of a non-terminal, much easier to find when
 in alphabetic order. */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
-%type <ptnode> Arrayindexlist 
+%type <ptnode> Arrayindexlist
 %type <ptnode> Blockif Boolean Close
-%type <ptnode> Call /* Char Complex */ Constant  Constantlist Continue
-%type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
-%type <ptnode> DataLhs LoopBounds
+%type <ptnode> Call /* Char Complex */ Constant /* Constantlist */ Continue
+%type <ptnode> Data DataList DataConstant DataItem /* DataElement */ Do_incr Doloop 
+%type <ptnode> DataLhs DataConstantList LoopBounds
 %type <ptnode> Do_vals Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -217,6 +217,7 @@ Fprogram:   Program  Specstmts  Statements End
                 $$->astnode.source.dataStmtList = dataStmtList; 
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_reflection = FALSE;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -271,6 +272,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.dataStmtList = dataStmtList; 
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_reflection = FALSE;
 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -321,6 +323,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.dataStmtList = dataStmtList; 
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_reflection = FALSE;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -663,8 +666,7 @@ DataList:   DataItem
             }
 ;
 
-/* DataItem:   Namelist DIV Constantlist DIV */
-DataItem:   LhsList DIV Constantlist DIV
+DataItem:   LhsList DIV DataConstantList DIV
             {
               AST *temp;
               int idx;
@@ -672,6 +674,7 @@ DataItem:   LhsList DIV Constantlist DIV
               $$ = addnode();
               $$->astnode.data.nlist = switchem($1);
               $$->astnode.data.clist = switchem($3);
+
               $$->nodetype = DataStmt;
               $$->prevstmt = NULL;
               $$->nextstmt = NULL;
@@ -700,6 +703,42 @@ DataItem:   LhsList DIV Constantlist DIV
                 }
               }
             }
+;
+
+DataConstantList:  DataConstant
+                   {
+                     $$ = $1;
+                   }
+                |  DataConstantList CM DataConstant
+                   {
+                     $3->prevstmt = $1;
+                     $$ = $3;
+                   }
+;
+
+DataConstant:  Constant
+               {
+                 $$ = $1;
+               }
+            |  MINUS Constant   
+               {
+                 $$ = $2;
+                 $$->astnode.constant.sign = 1;
+               }
+            |  Constant STAR Constant
+               {
+                 $$ = $1;
+                 $$=addnode();
+                 $$->nodetype = Binaryop;
+                 $$->token = STAR;
+                 $1->expr_side = left;
+                 $3->expr_side = right;
+                 $1->parent = $$;
+                 $3->parent = $$;
+                 $$->astnode.expression.lhs = $1;
+                 $$->astnode.expression.rhs = $3;
+                 $$->astnode.expression.optype = '*';
+               }
 ;
 
 LhsList:  DataLhs
@@ -750,6 +789,7 @@ LoopBounds:  Integer CM Integer
              }
 ;
 
+/*
 Constantlist: DataElement
               { 
                 $$ = $1;
@@ -785,6 +825,7 @@ DataConstant: Constant
                 $$->astnode.constant.sign = 1;
               }
 ;
+*/
 
 /*  Here is where the fun begins.  */
 /*  No newline token here.  Newlines have to be dealt with at 
@@ -1107,6 +1148,9 @@ Arraydeclaration: Name OP Arraynamelist CP
                         temp=temp->nextstmt, i++)
                     {
                       $$->astnode.ident.D[i] = eval_const_expr(temp,count);
+                      if(temp->nodetype == ArrayIdxRange)
+                        printf("@#@# %s dim %d is a range\n",$$->astnode.ident.name,
+                           i);
                     }
                        
                     $$->astnode.ident.dim = count;
@@ -1118,7 +1162,8 @@ Arraydeclaration: Name OP Arraynamelist CP
 		      $$->astnode.ident.leaddim = 
                        strdup($$->astnode.ident.arraylist->astnode.constant.number);
                     }
-                    else if($$->astnode.ident.arraylist->nodetype == Binaryop) {
+                    else if(($$->astnode.ident.arraylist->nodetype == Binaryop) ||
+                            ($$->astnode.ident.arraylist->nodetype == ArrayIdxRange)) {
 		      $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
                     } else {
 		      $$->astnode.ident.leaddim = 
@@ -1157,6 +1202,12 @@ Arraynamelist:    Arrayname
 
 Arrayname: Exp {$$ = $1; }
          | Star {$$=$1;}
+         | Exp COLON Exp { 
+             $$ = addnode();
+             $$->nodetype = ArrayIdxRange;
+             $$->astnode.expression.lhs = $1;
+             $$->astnode.expression.rhs = $3;
+           }
 /*
 Arrayname:   Name {$$=$1;}
            | Star {$$=$1;}
@@ -2187,16 +2238,30 @@ Double:       DOUBLE
              }
 ;
                
-/*  Since java doesn't have an EXPONENTIAL data type,
+/*  Since jasmin doesn't have an EXPONENTIAL data type,
     the function exp_to_double rewrite numbers in the
     nn.dde+nn as floats.  The float is written back into
-    the string temp.  */
+    the string temp.  
+
+    For small numbers, exp_to_double isn't good.  e.g., 
+    something like 5.5e-15 would be transformed into
+    "0.00000".
+    
+    I'll just change the 'D' to 'e' and emit as-is for
+    Java.  With Jasmin, I'll still use exp_to_double
+    for now, but it will be wrong.
+
+    3/11/98  -- Keith 
+ */
+
 Exponential:   EXPONENTIAL
              {
                $$ = addnode();
 	       $$->token = EXPONENTIAL;
                $$->nodetype = Constant;
+printf("ok, the lexeme is: %s\n",yylval.lexeme);
 	       exp_to_double(yylval.lexeme, tempname);
+printf("now tempname is: %s\n",tempname);
                strcpy($$->astnode.constant.number, tempname);
                $$->astnode.constant.type = EXPONENTIAL;
                $$->astnode.constant.sign = 0;
@@ -2477,8 +2542,12 @@ exp_to_double (char *lexeme, char *temp)
       }
     /* Java should be able to handle exponential notation as part
        of the float or double constant. */
-   sscanf(lexeme,"%e", &tempnum); /* Read the string into a number.  */
-   sprintf(temp,"%f", tempnum);   /* Reformat the number into a string. */
+   if(JAS) {
+     sscanf(lexeme,"%e", &tempnum); /* Read the string into a number.  */
+     sprintf(temp,"%f", tempnum);   /* Reformat the number into a string. */
+   } else {
+     strcpy(temp,lexeme);
+   }
 
 }  /*  Close exp_to_double().  */
 
@@ -2819,6 +2888,10 @@ eval_const_expr(AST *root, int dims)
         fprintf (stderr, "String in array dec!\n");
       else
         return( atoi(root->astnode.constant.number) );
+      break;
+    case ArrayIdxRange:
+      return(  eval_const_expr(root->astnode.expression.rhs, dims) - 
+               eval_const_expr(root->astnode.expression.lhs, dims) );
       break;
     default:
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");

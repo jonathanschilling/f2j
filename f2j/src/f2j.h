@@ -7,8 +7,8 @@
  */
 
 typedef int BOOLEAN;
-#define TRUE 1
 #define FALSE 0
+#define TRUE  1
 #define VCG 0   /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
@@ -45,6 +45,9 @@ SYMTABLE *function_table;
 SYMTABLE *java_keyword_table; 
 SYMTABLE *jasmin_keyword_table; 
 SYMTABLE *common_block_table;
+
+int ignored_formatting;
+int bad_format_count;
 
 int locals;
 int stacksize;
@@ -128,6 +131,7 @@ typedef struct ast_node
             ComputedGoto,
             ArrayAccess,
             ArrayDec,
+            ArrayIdxRange,
             EmptyArgList,
             IoExplist,
             ImpliedLoop,
@@ -158,6 +162,7 @@ typedef struct ast_node
                   SYMTABLE *parameter_table; 
                   struct ast_node *dataStmtList;
                   int needs_input;
+                  int needs_reflection;
 	      }
 	    source;
 
@@ -196,7 +201,7 @@ typedef struct ast_node
 	      {
 		  int type;
 		  char *opcode;	/* e.g., iconst_1, bipush 121.23  */
-		  char number[30];
+		  char number[80];
                   int sign;     /* sign used for data statements when we dont
                                    want to allow full expressions, but we
                                    need to allow negative constants.  if
@@ -365,7 +370,7 @@ typedef struct {
 /*  Prototypes to keep the compiler from complaining.  */
 
 void jasminheader (FILE *, char *);
-void javaheader (FILE *, char *);
+void javaheader (FILE *, char *, char *);
 void return_emit (AST *);
 void logicalop_assign(AST *);
 void relationalop_assign(AST *);

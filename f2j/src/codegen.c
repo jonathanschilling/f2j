@@ -35,7 +35,7 @@ char
   *methodscan (METHODTAB * , char * );
 
 void code_zero_op(enum _opcode),
-     code_one_op(enum _opcode, u1),
+     code_one_op(enum _opcode, int),
      code_one_op_w(enum _opcode, u2);
 
 int  isPassByRef(char *);
@@ -6924,21 +6924,28 @@ code_zero_op(enum _opcode op)
  *****************************************************************************/
 
 void
-code_one_op(enum _opcode op, u1 opval)
+code_one_op(enum _opcode op, int opval)
 {
   u1 this_opcode = op;
+  u1 this_operand = (u1)opval;
 
   /* if this is a 'wide' op, then call code_one_op_w() */
 
-  if((op == jvm_ldc_w) || (op == jvm_ldc2_w)) {
+  if(jvm_opcode[op].width > 2) {
     code_one_op_w(op,opval); 
   }
   else {
+    /* check for loss of information in the int->u1 cast */
+    if( (int)this_operand != opval )
+      fprintf(stderr,"WARNING: code_one_op() opval lost information.\n");
+
     dec_stack(jvm_opcode[op].stack_pre);
     check_code_size(jvm_opcode[op].width);
-    memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
-    memcpy(cur_code->attr.Code->code + pc + 1, &opval, sizeof(opval));
-    printf("%d %s %d\n",pc, jvm_opcode[op].op, opval);
+    memcpy(cur_code->attr.Code->code + pc,
+           &this_opcode, sizeof(this_opcode));
+    memcpy(cur_code->attr.Code->code + pc + 1, 
+           &this_operand, sizeof(this_operand));
+    printf("%d %s %d\n",pc, jvm_opcode[op].op, this_operand);
     pc += jvm_opcode[op].width;
     inc_stack(jvm_opcode[op].stack_post);
   }

@@ -429,6 +429,7 @@ insert_constant(Dlist list, int tok, void * tag)
   int idx;
   extern BOOLEAN bigEndian;
   u4 u4BigEndian(u4);
+  CPNODE *c;
 
   switch(tok) {
     case INTEGER:
@@ -495,10 +496,17 @@ insert_constant(Dlist list, int tok, void * tag)
          * Note that we only malloc enough for the string itself
          * since the Utf8 string should not be null-terminated.
          */
-      if( !cp_lookup(list, CONSTANT_Utf8, tag))
+printf("inserting a string... '%s'\n",(char *)tag);
+
+      c = cp_lookup(list, CONSTANT_Utf8, tag);
+
+      if(c)
+        idx = c->index;
+      else
       {
         if(cp_debug)
           printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
+printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
 
         newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_Utf8;
@@ -507,13 +515,13 @@ insert_constant(Dlist list, int tok, void * tag)
         strncpy((char *)newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
 
         idx = cp_insert(list, newnode, 1)->index;
-
-        newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
-        newnode->tag = CONSTANT_String;
-        newnode->cpnode.String.string_index = idx;
-
-        return cp_insert(list, newnode, 1);
       }
+
+      newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
+      newnode->tag = CONSTANT_String;
+      newnode->cpnode.String.string_index = idx;
+
+      return cp_insert(list, newnode, 1);
 
       break;
   }

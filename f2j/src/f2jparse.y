@@ -80,7 +80,8 @@ void
   merge_common_blocks(AST *),
   arg_table_load(AST *),
   exp_to_double (char *, char *),
-  prepend_minus(char *);
+  prepend_minus(char *),
+  insert_name(SYMTABLE *, AST *, enum returntype);
 
 AST 
   * dl_astnode_examine(Dlist l),
@@ -525,8 +526,6 @@ Subroutine: SUBROUTINE Name Functionargs NL
 
 Function:  Type FUNCTION Name Functionargs NL 
            {
-             HASHNODE *hash_entry;
-
              if(debug)
                printf("Function ->  Type FUNCTION Name Functionargs NL\n");
              $$ = addnode();
@@ -549,14 +548,7 @@ Function:  Type FUNCTION Name Functionargs NL
               * the hash table for lookup later.
               */
 
-             hash_entry = type_lookup(type_table,$3->astnode.ident.name);
-
-             if(hash_entry == NULL)
-               $3->vartype = $1;
-             else
-               $3->vartype = hash_entry->variable->vartype;
-
-             type_insert(type_table, $3, $3->vartype, $3->astnode.ident.name);
+             insert_name(type_table, $3, $1);
 
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
@@ -1263,7 +1255,9 @@ Name:    NAME
             * the parameter.  normally the only time we'd worry about
             * such a substitution would be when the ident was the lhs
             * of some expression, but that should not happen with parameters.
-            * otherwise, get a new AST node initialized with this name.
+            *
+            * otherwise, if not a parameter, get a new AST node initialized
+            * with this name.
             */
 
            if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL)
@@ -3467,10 +3461,6 @@ gen_iter_expr(AST *start, AST *stop, AST *incr)
 AST *
 initialize_name(char *id)
 {
-/*
-  extern enum returntype default_implicit_table[];
-  extern char * returnstring[];
-*/
   HASHNODE *hashtemp;
   AST *tmp;
 
@@ -3517,4 +3507,28 @@ initialize_name(char *id)
   }
 
   return tmp;
+}
+             
+/*****************************************************************************
+ *                                                                           *
+ * insert_name                                                               *
+ *                                                                           *
+ * this function inserts the given node into the symbol table, if it is not  *
+ * already there.                                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+insert_name(SYMTABLE * tt, AST *node, enum returntype ret)
+{
+  HASHNODE *hash_entry;
+  
+  hash_entry = type_lookup(tt,node->astnode.ident.name);
+
+  if(hash_entry == NULL)
+    node->vartype = ret;
+  else
+    node->vartype = hash_entry->variable->vartype;
+
+  type_insert(tt, node, node->vartype, node->astnode.ident.name);
 }

@@ -162,13 +162,19 @@ typecheck (AST * root)
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
+    case ComputedGoto:
+      if (root->astnode.computed_goto.name)
+        expr_check(root->astnode.computed_goto.name);
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
     case Typedec:
     case Specification:
     case Dimension:
     case Statement:
     case Return:
     case Goto:
-    case ComputedGoto:
     case Format:
     case Stop:
     case Save:

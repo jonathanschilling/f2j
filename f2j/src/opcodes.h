@@ -270,6 +270,19 @@ enum _opcode init_opcodes[MAX_RETURNS+1] =
   jvm_nop
 };
 
+/* opcodes to store local variables:         */
+enum _opcode store_opcodes[MAX_RETURNS+1] =
+{
+  jvm_astore,
+  jvm_astore,
+  jvm_dstore,
+  jvm_dstore,
+  jvm_fstore,
+  jvm_istore,
+  jvm_istore,
+  jvm_astore
+};
+
 /* opcodes to load local variables:         */
 enum _opcode load_opcodes[MAX_RETURNS+1] =
 {
@@ -320,6 +333,19 @@ enum _opcode return_opcodes[MAX_RETURNS+1] =
   jvm_ireturn,
   jvm_ireturn,
   jvm_areturn
+};
+
+/* shorthand opcodes for storing local variables:  */
+enum _opcode short_store_opcodes[MAX_RETURNS+1][4] =
+{
+  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3},
+  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3},
+  {jvm_dstore_0, jvm_dstore_1, jvm_dstore_2, jvm_dstore_3},
+  {jvm_dstore_0, jvm_dstore_1, jvm_dstore_2, jvm_dstore_3},
+  {jvm_fstore_0, jvm_fstore_1, jvm_fstore_2, jvm_fstore_3},
+  {jvm_istore_0, jvm_istore_1, jvm_istore_2, jvm_istore_3},
+  {jvm_istore_0, jvm_istore_1, jvm_istore_2, jvm_istore_3},
+  {jvm_astore_0, jvm_astore_1, jvm_astore_2, jvm_astore_3}
 };
 
 /* shorthand opcodes for loading local variables:  */

@@ -58,7 +58,7 @@ void
 
 int
   isPassByRef(char *),
-  getNextLocal();
+  getNextLocal(enum returntype);
 
 HASHNODE 
   * format_lookup(SYMTABLE *, char *);
@@ -72,7 +72,9 @@ struct method_info
 CodeGraphNode
   * bytecode0(enum _opcode),
   * bytecode1(enum _opcode, u4),
-  * nodeAtPC(int);
+  * nodeAtPC(int),
+  * gen_store_op(int, enum returntype),
+  * gen_load_op(int, enum returntype);
 
 AST
   * label_search(Dlist, int),
@@ -3409,23 +3411,6 @@ pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc,
 
 /*****************************************************************************
  *                                                                           *
- * pushOffsetArg                                                             *
- *                                                                           *
- * pushes an integer offset to an array onto the stack.                      *
- *                                                                           *
- *****************************************************************************/
-
-void
-pushOffsetArg(int lv)
-{
-  if(lv > 3)
-    bytecode1(jvm_iload, lv);
-  else
-    bytecode0(short_load_opcodes[Integer][lv]);
-}
-
-/*****************************************************************************
- *                                                                           *
  * scalar_emit                                                               *
  *                                                                           *
  * This function emits a scalar variable.  The first thing that needs        *
@@ -3700,7 +3685,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           fprintf (curfp, "%s,_%s_offset", name, name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
-          pushOffsetArg(typenode->variable->astnode.ident.localvnum + 1);
+          gen_load_op(typenode->variable->astnode.ident.localvnum + 1, Integer);
         }
         else {
           fprintf (curfp, "%s,0", name);
@@ -6127,8 +6112,6 @@ forloop_emit (AST * root)
 
 void forloop_bytecode_emit(AST *root) 
 {
-  void gen_istore_op(int);
-
   set_bytecode_status(JVM_ONLY);
 
   /* emit the initialization assignment for the loop variable */
@@ -6139,8 +6122,8 @@ void forloop_bytecode_emit(AST *root)
    * into the next available local variable.
    */
   expr_emit(root->astnode.forloop.iter_expr);
-  root->astnode.forloop.localvar = getNextLocal();
-  gen_istore_op(root->astnode.forloop.localvar);
+  root->astnode.forloop.localvar = getNextLocal(Integer);
+  gen_store_op(root->astnode.forloop.localvar, Integer);
 
   /* goto the end of the loop where we test for completion */
   root->astnode.forloop.goto_node = bytecode0(jvm_goto);
@@ -6237,20 +6220,50 @@ printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
 void
 computed_goto_emit (AST *root)
 {
+  CodeGraphNode *if_node, *goto_node;
   AST *temp;
   int count = 1;
+  int lvar;
+
+  lvar = getNextLocal(Integer);
+
+  fprintf(curfp,"{\n");
+  fprintf(curfp,"  int _cg_tmp = ");
+
+  if(root->astnode.computed_goto.name->vartype != Integer) {
+    fprintf(curfp,"(int)( ");
+    expr_emit(root->astnode.computed_goto.name);
+    bytecode0(typeconv_matrix[root->astnode.computed_goto.name->vartype][Integer]);
+    fprintf(curfp,")");
+  }
+  else
+    expr_emit(root->astnode.computed_goto.name);
+  
+  gen_store_op(lvar, Integer);
+  fprintf(curfp,";\n");
 
   for(temp = root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp != root->astnode.computed_goto.intlist)
       fprintf(curfp,"else ");
-    fprintf(curfp,"if (");
-    expr_emit(root->astnode.computed_goto.name);
-    fprintf(curfp," == %d) \n", count);
+    fprintf(curfp,"if (_cg_tmp == %d) \n", count);
     fprintf(curfp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, 
       temp->astnode.constant.number);
+    gen_load_op(lvar, Integer);
+    pushIntConst(count);
+    if_node = bytecode0(jvm_if_icmpne);
+
+    goto_node = bytecode0(jvm_goto);
+    goto_node->branch_target = NULL;
+    goto_node->branch_label = atoi(temp->astnode.constant.number);
+
+    if_node->branch_target = bytecode0(jvm_impdep1);
+
     count++;
   }
+  fprintf(curfp,"}\n");
+
+  releaseLocal(Integer);
 }
 
 /*****************************************************************************
@@ -6297,21 +6310,76 @@ logicalif_emit (AST * root)
 void
 arithmeticif_emit (AST * root)
 {
-  fprintf (curfp, "if ((");
-  if (root->astnode.arithmeticif.cond != NULL)
-    expr_emit (root->astnode.arithmeticif.cond);
-  fprintf (curfp, ") < 0)  \n    ");
+  CodeGraphNode *if_node, *goto_node;
+  int lvar;
+
+  lvar = getNextLocal(root->astnode.arithmeticif.cond->vartype);
+
+printf("got lvar = %d\n", lvar);
+
+  fprintf (curfp, "{\n");
+  fprintf (curfp, "  %s _arif_tmp = ", 
+     returnstring[root->astnode.arithmeticif.cond->vartype]);
+  expr_emit(root->astnode.arithmeticif.cond);
+  gen_store_op(lvar, root->astnode.arithmeticif.cond->vartype);
+
+  fprintf (curfp, ";\n");
+
+  fprintf (curfp, "if (_arif_tmp < 0)  \n    ");
   fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
     root->astnode.arithmeticif.neg_label);
-  fprintf (curfp, "else if ((");
-  if (root->astnode.arithmeticif.cond != NULL)
-    expr_emit (root->astnode.arithmeticif.cond);
-  fprintf (curfp, ") == 0)  \n    ");
+  fprintf (curfp, "else if (_arif_tmp == 0)  \n    ");
   fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
     root->astnode.arithmeticif.zero_label);
   fprintf (curfp, "else ");
   fprintf(curfp,"  Dummy.go_to(\"%s\",%d);\n", cur_filename,
     root->astnode.arithmeticif.pos_label);
+
+  fprintf (curfp, "}\n");
+
+  /* arithmetic ifs may have an integer,real,or double expression.
+   * since the conditionals are handled differently for integer,
+   * we split the cases into integer and non-integer.
+   */
+  if(root->astnode.arithmeticif.cond->vartype == Integer) {
+    gen_load_op(lvar, Integer);
+    if_node = bytecode0(jvm_ifge);
+
+    goto_node = bytecode0(jvm_goto);
+    goto_node->branch_target = NULL;
+    goto_node->branch_label = root->astnode.arithmeticif.neg_label;
+
+    if_node->branch_target = gen_load_op(lvar, Integer);
+  }
+  else {
+    gen_load_op(lvar, root->astnode.arithmeticif.cond->vartype);
+    bytecode0(jvm_dconst_0);
+    bytecode0(jvm_dcmpg);
+    if_node = bytecode0(jvm_ifge);
+
+    goto_node = bytecode0(jvm_goto);
+    goto_node->branch_target = NULL;
+    goto_node->branch_label = root->astnode.arithmeticif.neg_label;
+
+    if_node->branch_target = 
+       gen_load_op(lvar, root->astnode.arithmeticif.cond->vartype);
+    bytecode0(jvm_dconst_0);
+    bytecode0(jvm_dcmpg);
+  }
+
+  if_node = bytecode0(jvm_ifne);
+
+  goto_node = bytecode0(jvm_goto);
+  goto_node->branch_target = NULL;
+  goto_node->branch_label = root->astnode.arithmeticif.zero_label;
+
+  goto_node = bytecode0(jvm_goto);
+  goto_node->branch_target = NULL;
+  goto_node->branch_label = root->astnode.arithmeticif.pos_label;
+
+  if_node->branch_target = goto_node;
+
+  releaseLocal(root->astnode.arithmeticif.cond->vartype);
 }
 
 /*****************************************************************************
@@ -6424,7 +6492,7 @@ forloop_end_bytecode(AST *root)
   if_node = bytecode0(jvm_ifgt);
   if_node->branch_target = root->astnode.forloop.goto_node->next;
 
-  releaseLocal();
+  releaseLocal(Integer);
 
   set_bytecode_status(JAVA_AND_JVM);
 }
@@ -6913,7 +6981,6 @@ write_implied_loop_emit(AST *node)
   AST *temp;
   int icount;
 
-  void gen_istore_op(int);
   AST *addnode();
 
   temp = addnode();
@@ -6977,8 +7044,8 @@ write_implied_loop_emit(AST *node)
    * into the next available local variable.
    */
   expr_emit(node->astnode.forloop.iter_expr);
-  icount = getNextLocal();
-  gen_istore_op(icount);
+  icount = getNextLocal(Integer);
+  gen_store_op(icount, Integer);
 
   /* goto the end of the loop where we test for completion */
   goto_node = bytecode0(jvm_goto);
@@ -7045,7 +7112,7 @@ write_implied_loop_emit(AST *node)
   if_node = bytecode0(jvm_ifgt);
   if_node->branch_target = goto_node->next;
 
-  releaseLocal();
+  releaseLocal(Integer);
   set_bytecode_status(JAVA_AND_JVM);
 }
 
@@ -7070,33 +7137,38 @@ iinc_emit(int idx, int inc_const)
 
 /*****************************************************************************
  *                                                                           *
- * gen_istore_op                                                             *
+ * gen_store_op                                                              *
  *                                                                           *
  * given the local variable number, this function generates a store opcode   *
- * store an integer to the local var.                                        *
+ * to store a value to the local var.                                        *
  *                                                                           *
  *****************************************************************************/
 
-void
-gen_istore_op(int lvnum)
+CodeGraphNode *
+gen_store_op(int lvnum, enum returntype rt)
 {
-  switch (lvnum) {
-    case 0:
-      bytecode0(jvm_istore_0);
-      break;
-    case 1:
-      bytecode0(jvm_istore_1);
-      break;
-    case 2:
-      bytecode0(jvm_istore_2);
-      break;
-    case 3:
-      bytecode0(jvm_istore_3);
-      break;
-    default:
-      bytecode1(jvm_istore, lvnum);
-      break;
-  }
+  if((lvnum >= 0) && (lvnum <= 3))
+    return bytecode0(short_store_opcodes[rt][lvnum]);
+  else
+    return bytecode1(store_opcodes[rt], lvnum);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * gen_load_op                                                               *
+ *                                                                           *
+ * given the local variable number, this function generates a load opcode    *
+ * to load a value from the local var.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+CodeGraphNode *
+gen_load_op(int lvnum, enum returntype rt)
+{
+  if((lvnum >= 0) && (lvnum <= 3))
+    return bytecode0(short_load_opcodes[rt][lvnum]);
+  else
+    return bytecode1(load_opcodes[rt], lvnum);
 }
 
 /*****************************************************************************
@@ -9226,14 +9298,17 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
  *****************************************************************************/
 
 int
-getNextLocal()
+getNextLocal(enum returntype vtype)
 {
-  cur_local++;
+  if(vtype == Double)
+    cur_local+=2;
+  else
+    cur_local++;
 
   if(cur_local > num_locals)
     num_locals = cur_local;
 
-  return cur_local-1;
+  return cur_local - ((vtype == Double) ? 2 : 1);
 }
 
 /*****************************************************************************
@@ -9246,9 +9321,12 @@ getNextLocal()
  *****************************************************************************/
 
 void
-releaseLocal()
+releaseLocal(enum returntype vtype)
 {
-  cur_local--;
+  if(vtype == Double)
+    cur_local-=2;
+  else
+    cur_local--;
 }
 
 /*****************************************************************************

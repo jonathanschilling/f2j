@@ -190,7 +190,6 @@ free_constant_pool(struct ClassFile *class)
   }
 
   dl_delete_list(class->constant_pool);
-  f2jfree(class->constant_pool, sizeof(Dlist));
 }
 
 /*****************************************************************************
@@ -226,7 +225,6 @@ free_fields(struct ClassFile *class)
   }
 
   dl_delete_list(class->fields);
-  f2jfree(class->fields, sizeof(Dlist));
 }
 
 /*****************************************************************************
@@ -249,7 +247,6 @@ free_methods(struct ClassFile *class)
   }
 
   dl_delete_list(class->methods);
-  f2jfree(class->methods, sizeof(Dlist));
 }
 
 /*****************************************************************************
@@ -302,7 +299,6 @@ free_attributes(Dlist attr_list, Dlist const_pool)
         f2jfree(tmpPtr2->val, sizeof(int));
 
       dl_delete_list(tmpattr->attr.Exceptions->exception_index_table);
-      f2jfree(tmpattr->attr.Exceptions->exception_index_table, sizeof(Dlist));
       f2jfree(tmpattr->attr.Exceptions, sizeof(struct Exceptions_attribute));
     }
 
@@ -311,7 +307,6 @@ free_attributes(Dlist attr_list, Dlist const_pool)
   }
 
   dl_delete_list(attr_list);
-  f2jfree(attr_list, sizeof(Dlist));
 }
 
 /*****************************************************************************
@@ -329,5 +324,4 @@ free_code(Dlist g)
     f2jfree(tmp->val, sizeof(CodeGraphNode));
 
   dl_delete_list(g);
-  f2jfree(g, sizeof(Dlist));
 }

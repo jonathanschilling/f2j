@@ -36,9 +36,11 @@ char
   * getVarDescriptor(AST *);
 
 void 
+/*
   code_zero_op(enum _opcode),
   code_one_op(enum _opcode, int),
   code_one_op_w(enum _opcode, u2),
+*/
   pushConst(AST *),
   pushIntConst(int),
   pushDoubleConst(double),
@@ -60,10 +62,11 @@ struct method_info
   * beginNewMethod(u2);
 
 void
-  endNewMethod(struct method_info *, char *,char *, u2);
+  endNewMethod(struct method_info *, char *, char *, u2);
 
-GraphNode *
-  bytecode(enum _opcode, u4);
+CodeGraphNode
+  * bytecode0(enum _opcode),
+  * bytecode1(enum _opcode, u4);
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -299,7 +302,7 @@ emit (AST * root)
            * class.
            */
           if(pc > 0) {
-            bytecode(jvm_return);
+            bytecode0(jvm_return);
             endNewMethod(clinit_method, "<clinit>", "()V", 1);
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, clinit_method);
@@ -346,7 +349,9 @@ emit (AST * root)
              (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
           cur_class_file->constant_pool = cur_const_table;
 
-          write_class(cur_class_file);
+          /* temporarily comment this out until all the graph stuff is working 
+           *   write_class(cur_class_file);
+           */
           break;
         }
       case Subroutine:
@@ -709,10 +714,10 @@ return_emit()
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, wrapped_field_descriptor[cur_unit->vartype][0],
               0, TRUE);
-    bytecode(return_opcodes[cur_unit->vartype]);
+    bytecode0(return_opcodes[cur_unit->vartype]);
   }
   else
-    bytecode(jvm_return);
+    bytecode0(jvm_return);
 }
 
 /*****************************************************************************
@@ -1152,7 +1157,7 @@ common_emit(AST *root)
        * class.
        */
       if(pc > 0) {
-        bytecode(jvm_return);
+        bytecode0(jvm_return);
         endNewMethod(clinit_method, "<clinit>", "()V", 1);
         cur_class_file->methods_count++;
         dl_insert_b(cur_class_file->methods, clinit_method);
@@ -1353,14 +1358,14 @@ newarray_emit(AST *root)
     case String:
     case Character:
       c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
-      bytecode(jvm_anewarray, c->index);
+      bytecode1(jvm_anewarray, c->index);
       break;
     case Complex:
     case Double:
     case Float:
     case Integer:
     case Logical:
-      bytecode(jvm_newarray, jvm_array_type[root->vartype]);
+      bytecode1(jvm_newarray, jvm_array_type[root->vartype]);
       break;
     default:
       fprintf(stderr,"WARNING: vardec_emit() unknown vartype\n");
@@ -1481,9 +1486,9 @@ vardec_emit(AST *root, enum returntype returns)
            * stack, so now we just subtract start from end and increment
            * by one as described above.
            */
-          bytecode(jvm_isub);
-          bytecode(jvm_iconst_1);
-          bytecode(jvm_iadd);
+          bytecode0(jvm_isub);
+          bytecode0(jvm_iconst_1);
+          bytecode0(jvm_iadd);
         }
         else
           expr_emit(temp2);
@@ -1492,7 +1497,7 @@ vardec_emit(AST *root, enum returntype returns)
          * the dimensions to get the total size of the array.
          */
         if(temp2 != root->astnode.ident.arraylist)
-          bytecode(jvm_imul);
+          bytecode0(jvm_imul);
 
         fprintf(curfp,")");
       }
@@ -1513,7 +1518,7 @@ vardec_emit(AST *root, enum returntype returns)
     newarray_emit(root);
 
     c = newFieldref(cur_const_table,cur_filename, name, desc); 
-    bytecode(jvm_putstatic, c->index);
+    bytecode1(jvm_putstatic, c->index);
 
   } else {    /* this is not an array declaration */
 
@@ -1543,8 +1548,8 @@ vardec_emit(AST *root, enum returntype returns)
           c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                   full_wrappername[returns]);
 
-        bytecode(jvm_new,c->index);
-        bytecode(jvm_dup);
+        bytecode1(jvm_new,c->index);
+        bytecode0(jvm_dup);
 
         print_string_initializer(root);
         fprintf(curfp,";\n");
@@ -1557,7 +1562,7 @@ vardec_emit(AST *root, enum returntype returns)
         }
 
         c = newFieldref(cur_const_table,cur_filename,name,desc); 
-        bytecode(jvm_putstatic, c->index);
+        bytecode1(jvm_putstatic, c->index);
       }
       else {
         if(omitWrappers && !isPassByRef(root->astnode.ident.name)) {
@@ -1568,18 +1573,18 @@ vardec_emit(AST *root, enum returntype returns)
           c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                     full_wrappername[returns]);
 
-          bytecode(jvm_new,c->index);
-          bytecode(jvm_dup);
+          bytecode1(jvm_new,c->index);
+          bytecode0(jvm_dup);
 
-          bytecode(init_opcodes[returns]);
+          bytecode0(init_opcodes[returns]);
 
           c = newMethodref(cur_const_table,full_wrappername[returns],
                  "<init>", wrapper_descriptor[returns]);
 
-          bytecode(jvm_invokespecial, c->index);
+          bytecode1(jvm_invokespecial, c->index);
 
           c = newFieldref(cur_const_table,cur_filename,name,desc); 
-          bytecode(jvm_putstatic, c->index);
+          bytecode1(jvm_putstatic, c->index);
 
           fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
             init_vals[returns]);
@@ -1825,7 +1830,7 @@ data_implied_loop_emit(AST * root, AST *Clist)
     expr_emit(Clist);
     fprintf(curfp, ";\n");
     Clist = Clist->nextstmt;
-    bytecode(array_store_opcodes[ht->variable->vartype]);
+    bytecode0(array_store_opcodes[ht->variable->vartype]);
   }
   fprintf(curfp,"}\n");
 
@@ -2066,7 +2071,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
     if(Ctemp->nodetype == Binaryop) 
       count = data_repeat_emit(Ctemp, count);
     else {
-      bytecode(jvm_dup);
+      bytecode0(jvm_dup);
       pushIntConst(count++);
 
       if(Ctemp->token == STRING) {
@@ -2078,7 +2083,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
         pushConst(Ctemp);
       }
 
-      bytecode(array_store_opcodes[ht->variable->vartype]);
+      bytecode0(array_store_opcodes[ht->variable->vartype]);
 
       /* 
        * Every now and then, emit a newline for readability.
@@ -2108,7 +2113,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
   c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
         field_descriptor[ht->variable->vartype][ht->variable->astnode.ident.dim]);
 
-  bytecode(jvm_putstatic, c->index);
+  bytecode1(jvm_putstatic, c->index);
 
   return Ctemp;
 }
@@ -2153,17 +2158,17 @@ data_repeat_emit(AST *root, int idx)
 
   for(j=0;j<repeat-1;j++) {
     fprintf(curfp,"%s, ", ditem);
-    bytecode(jvm_dup);
+    bytecode0(jvm_dup);
     pushIntConst(idx++);
     pushConst(root->astnode.expression.rhs);
-    bytecode(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+    bytecode0(array_store_opcodes[root->astnode.expression.rhs->vartype]);
   }
 
   fprintf(curfp,"%s ", ditem);
-  bytecode(jvm_dup);
+  bytecode0(jvm_dup);
   pushIntConst(idx++);
   pushConst(root->astnode.expression.rhs);
-  bytecode(array_store_opcodes[root->astnode.expression.rhs->vartype]);
+  bytecode0(array_store_opcodes[root->astnode.expression.rhs->vartype]);
 
   return idx;
 }
@@ -2239,7 +2244,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
               wrapped_field_descriptor[String][0]);
       }
 
-      bytecode(jvm_putstatic, c->index);
+      bytecode1(jvm_putstatic, c->index);
     }
     else
     {
@@ -2255,7 +2260,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 
       invoke_constructor(JL_STRING, Ctemp, STR_CONST_DESC);
 
-      bytecode(array_store_opcodes[Ntemp->vartype]);
+      bytecode0(array_store_opcodes[Ntemp->vartype]);
     }
   }
   else 
@@ -2287,7 +2292,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
               wrapped_field_descriptor[type][0]);
       }
 
-      bytecode(jvm_putstatic, c->index);
+      bytecode1(jvm_putstatic, c->index);
     }
     else
     {
@@ -2299,7 +2304,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
       expr_emit(Ntemp);
       fprintf(curfp," = %s;\n", Ctemp->astnode.constant.number);
       pushConst(Ctemp);
-      bytecode(array_store_opcodes[type]);
+      bytecode0(array_store_opcodes[type]);
     }
   }
 }
@@ -2321,13 +2326,13 @@ invoke_constructor(char *classname, AST *constant, char *desc)
 
   c = cp_find_or_insert(cur_const_table,CONSTANT_Class, classname);
 
-  bytecode(jvm_new,c->index);
-  bytecode(jvm_dup);
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
   pushConst(constant);
 
   c = newMethodref(cur_const_table, classname, "<init>", desc);
 
-  bytecode(jvm_invokespecial, c->index);
+  bytecode1(jvm_invokespecial, c->index);
 }
 
 /*****************************************************************************
@@ -2473,7 +2478,7 @@ substring_emit(AST *root)
   }
 
   ct = newMethodref(cur_const_table,JL_STRING, "substring", SUBSTR_DESC);
-  bytecode(jvm_invokevirtual, ct->index);
+  bytecode1(jvm_invokevirtual, ct->index);
 
   return;
 }
@@ -2655,12 +2660,12 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf (curfp, "(");
     expr_emit(root);
     if(root->vartype != Integer)
-      bytecode(typeconv_matrix[root->vartype][Integer]);
+      bytecode0(typeconv_matrix[root->vartype][Integer]);
 
     if(d0 != ht->variable->astnode.ident.D[0]) {
       fprintf (curfp, "+1");
-      bytecode(jvm_iconst_1);
-      bytecode(jvm_iadd);
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_iadd);
     }
     fprintf (curfp, ")");
     
@@ -2669,12 +2674,12 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf (curfp, "(");
     expr_emit(root->nextstmt);
     if(root->nextstmt->vartype != Integer)
-      bytecode(typeconv_matrix[root->nextstmt->vartype][Integer]);
+      bytecode0(typeconv_matrix[root->nextstmt->vartype][Integer]);
 
     if(d1 != ht->variable->astnode.ident.D[1]) {
       fprintf (curfp, "+1");
-      bytecode(jvm_iconst_1);
-      bytecode(jvm_iadd);
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_iadd);
     }
     fprintf (curfp, ")");
     
@@ -2683,25 +2688,25 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf (curfp, "(");
     expr_emit(root->nextstmt->nextstmt);
     if(root->nextstmt->nextstmt->vartype != Integer)
-      bytecode(typeconv_matrix[root->nextstmt->nextstmt->vartype][Integer]);
+      bytecode0(typeconv_matrix[root->nextstmt->nextstmt->vartype][Integer]);
 
     if(!idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt->nextstmt)) {
       fprintf (curfp, "+1");
-      bytecode(jvm_iconst_1);
-      bytecode(jvm_iadd);
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_iadd);
     }
     fprintf (curfp, ")");
     
     fprintf (curfp, " * %d)) *%d) - %d", d1, d0,offset);
 
     pushIntConst(d1);
-    bytecode(jvm_imul);
+    bytecode0(jvm_imul);
     pushIntConst(d0);
-    bytecode(jvm_imul);
-    bytecode(jvm_iadd);
-    bytecode(jvm_iadd);
+    bytecode0(jvm_imul);
+    bytecode0(jvm_iadd);
+    bytecode0(jvm_iadd);
     pushIntConst(offset);
-    bytecode(jvm_isub);
+    bytecode0(jvm_isub);
   }
   else 
   {
@@ -2713,12 +2718,12 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     expr_emit (root);
 
     if(root->vartype != Integer)
-      bytecode(typeconv_matrix[root->vartype][Integer]);
+      bytecode0(typeconv_matrix[root->vartype][Integer]);
 
     if(decrementIndex) {
       fprintf (curfp, ")- 1");
-      bytecode(jvm_iconst_1);
-      bytecode(jvm_isub);
+      bytecode0(jvm_iconst_1);
+      bytecode0(jvm_isub);
     }
     else
       fprintf (curfp, ")");
@@ -2740,12 +2745,12 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "(");
       expr_emit (root);
       if(root->vartype != Integer)
-        bytecode(typeconv_matrix[root->vartype][Integer]);
+        bytecode0(typeconv_matrix[root->vartype][Integer]);
 
       if(decrementIndex) {
         fprintf (curfp, "- 1)");
-        bytecode(jvm_iconst_1);
-        bytecode(jvm_isub);
+        bytecode0(jvm_iconst_1);
+        bytecode0(jvm_isub);
       }
       else
         fprintf (curfp, ")");
@@ -2758,28 +2763,28 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
         expr_emit(rhs);
         if(rhs->vartype != Integer)
-          bytecode(typeconv_matrix[rhs->vartype][Integer]);
+          bytecode0(typeconv_matrix[rhs->vartype][Integer]);
         fprintf (curfp, " - ");
         expr_emit(lhs);
         if(lhs->vartype != Integer)
-          bytecode(typeconv_matrix[lhs->vartype][Integer]);
+          bytecode0(typeconv_matrix[lhs->vartype][Integer]);
         fprintf (curfp, " + 1 ");
-        bytecode(jvm_isub);
-        bytecode(jvm_iconst_1);
-        bytecode(jvm_iadd);
+        bytecode0(jvm_isub);
+        bytecode0(jvm_iconst_1);
+        bytecode0(jvm_iadd);
       }
       else {
         AST * lead_exp = hashtemp->variable->astnode.ident.lead_expr;
 
         expr_emit(lead_exp);
         if(lead_exp->vartype != Integer)
-          bytecode(typeconv_matrix[lead_exp->vartype][Integer]);
+          bytecode0(typeconv_matrix[lead_exp->vartype][Integer]);
       }
 
       fprintf (curfp, ")");
 
-      bytecode(jvm_imul);
-      bytecode(jvm_iadd);
+      bytecode0(jvm_imul);
+      bytecode0(jvm_iadd);
     }
     else if((hashtemp->variable->astnode.ident.leaddim != NULL)
          && (hashtemp->variable->astnode.ident.leaddim[0] != '*')
@@ -2799,12 +2804,12 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       fprintf (curfp, "(");
       expr_emit (root);
       if(root->vartype != Integer)
-        bytecode(typeconv_matrix[root->vartype][Integer]);
+        bytecode0(typeconv_matrix[root->vartype][Integer]);
 
       if(decrementIndex) {
         fprintf (curfp, "- 1)");
-        bytecode(jvm_iconst_1);
-        bytecode(jvm_isub);
+        bytecode0(jvm_iconst_1);
+        bytecode0(jvm_isub);
       }
       else
         fprintf (curfp, ")");
@@ -2847,8 +2852,8 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
                 field_descriptor[hashtemp->variable->vartype][0],
                 hashtemp->variable->astnode.ident.localvnum, FALSE);
       }
-      bytecode(jvm_imul);
-      bytecode(jvm_iadd);
+      bytecode0(jvm_imul);
+      bytecode0(jvm_iadd);
     }  /* Multi dimension.  */
   }
 
@@ -2857,7 +2862,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     pushVar(Integer,is_arg,cur_filename,
             "dummy string...is this significant?",
             "I", root->astnode.ident.localvnum + 1 , FALSE);
-    bytecode(jvm_iadd);
+    bytecode0(jvm_iadd);
   }
 
   if(needs_cast)
@@ -3101,7 +3106,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
       }
       else {
         func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg,FALSE);
-        bytecode(array_load_opcodes[root->vartype]);
+        bytecode0(array_load_opcodes[root->vartype]);
       }
     }
     else if(((root->parent->nodetype == Assignment) &&
@@ -3119,7 +3124,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
     }
     else {
       func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
-      bytecode(array_load_opcodes[root->vartype]);
+      bytecode0(array_load_opcodes[root->vartype]);
     }
   }
 }
@@ -3197,10 +3202,10 @@ pushConst(AST *root) {
       pushDoubleConst(atof(root->astnode.constant.number));
       break;
     case TrUE:   /* dont expect to find booleans anyway, so dont try */
-      bytecode(jvm_iconst_1);
+      bytecode0(jvm_iconst_1);
       break;
     case FaLSE:
-      bytecode(jvm_iconst_0);
+      bytecode0(jvm_iconst_0);
       break;
     case STRING:
       pushStringConst(root->astnode.constant.number);
@@ -3227,20 +3232,20 @@ pushIntConst(int ival)
 
   if(ct) {
     if(ct->index > CPIDX_MAX)
-      bytecode(jvm_ldc_w,ct->index);
+      bytecode1(jvm_ldc_w,ct->index);
     else
-      bytecode(jvm_ldc,ct->index);
+      bytecode1(jvm_ldc,ct->index);
   } else {   /* not found, use literal */
     if((ival < JVM_SHORT_MIN) || (ival > JVM_SHORT_MAX)) {
       fprintf(stderr,"WARNING:expr_emit() bad int literal: %d\n", ival);
       return;
     }
     else if((ival < JVM_BYTE_MIN) || (ival > JVM_BYTE_MAX))
-      bytecode(jvm_sipush, ival);
+      bytecode1(jvm_sipush, ival);
     else if((ival < JVM_ICONST_MIN) || (ival > JVM_ICONST_MAX))
-      bytecode(jvm_bipush, ival);
+      bytecode1(jvm_bipush, ival);
     else
-      bytecode(iconst_opcodes[ival+1]);
+      bytecode0(iconst_opcodes[ival+1]);
   }
 }
 
@@ -3260,11 +3265,11 @@ pushDoubleConst(double dval)
   ct=cp_find_or_insert(cur_const_table,CONSTANT_Double,(void*)&dval);
 
   if(ct)
-    bytecode(jvm_ldc2_w, ct->index);
+    bytecode1(jvm_ldc2_w, ct->index);
   else if(dval == 0.0)
-    bytecode(jvm_dconst_0);
+    bytecode0(jvm_dconst_0);
   else if(dval == 1.0)
-    bytecode(jvm_dconst_1);
+    bytecode0(jvm_dconst_1);
   else
     fprintf(stderr,"WARNING: bad double-prec literal in expr_emit()\n");
 }
@@ -3285,9 +3290,9 @@ pushStringConst(char *str)
   ct=cp_find_or_insert(cur_const_table,CONSTANT_String, (void*)str);
 
   if(ct->index > CPIDX_MAX)
-    bytecode(jvm_ldc_w, ct->index);
+    bytecode1(jvm_ldc_w, ct->index);
   else
-    bytecode(jvm_ldc, ct->index);
+    bytecode1(jvm_ldc, ct->index);
 }
 
 /*****************************************************************************
@@ -3314,25 +3319,25 @@ pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc,
     if((desc[0] == 'L') || (desc[0] == '[')) {
       /* this is a reference type, so always use aload */
       if(lv > 3)
-        bytecode(jvm_aload, lv);
+        bytecode1(jvm_aload, lv);
       else
-        bytecode(short_load_opcodes[0][lv]);
+        bytecode0(short_load_opcodes[0][lv]);
     } else {
       if(lv > 3)
-        bytecode(load_opcodes[vt], lv);
+        bytecode1(load_opcodes[vt], lv);
       else
-        bytecode(short_load_opcodes[vt][lv]);
+        bytecode0(short_load_opcodes[vt][lv]);
     }
   }
   else {
     c = newFieldref(cur_const_table, class, name, desc);
-    bytecode(jvm_getstatic, c->index);
+    bytecode1(jvm_getstatic, c->index);
   }
 
   if(deref) {
     c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
            val_descriptor[vt]);
-    bytecode(jvm_getfield, c->index);
+    bytecode1(jvm_getfield, c->index);
   }
 }
 
@@ -3348,9 +3353,9 @@ void
 pushOffsetArg(int lv)
 {
   if(lv > 3)
-    bytecode(jvm_iload, lv);
+    bytecode1(jvm_iload, lv);
   else
-    bytecode(short_load_opcodes[Integer][lv]);
+    bytecode0(short_load_opcodes[Integer][lv]);
 }
 
 /*****************************************************************************
@@ -3632,7 +3637,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           fprintf (curfp, "%s,0", name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
-          bytecode(jvm_iconst_0);
+          bytecode0(jvm_iconst_0);
         }
       }
       else if((root->parent->nodetype == Assignment) &&
@@ -4158,10 +4163,10 @@ expr_emit (AST * root)
 
         ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
 
-        bytecode(jvm_invokestatic, ct->index);
+        bytecode1(jvm_invokestatic, ct->index);
  
         if(gencast)
-          bytecode(jvm_d2i);
+          bytecode0(jvm_d2i);
 
       }
       break;
@@ -4169,28 +4174,28 @@ expr_emit (AST * root)
       expr_emit (root->astnode.expression.lhs);
 
       if(root->astnode.expression.lhs->vartype > root->vartype)
-        bytecode(
+        bytecode0(
           typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]);
 
       fprintf (curfp, "%c", root->astnode.expression.optype);
       expr_emit (root->astnode.expression.rhs);
 
       if(root->astnode.expression.rhs->vartype > root->vartype)
-        bytecode(
+        bytecode0(
           typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]);
 
       switch(root->astnode.expression.optype) {
         case '+':
-          bytecode(add_opcode[root->vartype]);
+          bytecode0(add_opcode[root->vartype]);
           break;
         case '-':
-          bytecode(sub_opcode[root->vartype]);
+          bytecode0(sub_opcode[root->vartype]);
           break;
         case '/':
-          bytecode(div_opcode[root->vartype]);
+          bytecode0(div_opcode[root->vartype]);
           break;
         case '*':
-          bytecode(mul_opcode[root->vartype]);
+          bytecode0(mul_opcode[root->vartype]);
           break;
         default:
           fprintf(stderr,"WARNING: unsupported optype\n");
@@ -4203,7 +4208,7 @@ expr_emit (AST * root)
       expr_emit (root->astnode.expression.rhs);
 
       if(root->astnode.expression.minus == '-')
-        bytecode(neg_opcode[root->vartype]);
+        bytecode0(neg_opcode[root->vartype]);
 
       break;
     case Constant:
@@ -4288,14 +4293,14 @@ expr_emit (AST * root)
 
       switch(root->token) {
         case NOT:
-          bytecode(jvm_iconst_1);
-          bytecode(jvm_ixor);
+          bytecode0(jvm_iconst_1);
+          bytecode0(jvm_ixor);
           break;
         case AND:
-          bytecode(jvm_iand);
+          bytecode0(jvm_iand);
           break;
         case OR:
-          bytecode(jvm_ior);
+          bytecode0(jvm_ior);
           break;
       }
       break;
@@ -4325,30 +4330,30 @@ expr_emit (AST * root)
           fprintf(curfp,"!");
 
         expr_emit (root->astnode.expression.lhs);
-        bytecode(jvm_invokevirtual, c->index);  /* call trim() */
+        bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
       
         /* after the call to trim, we now have a new string
          * sitting on top of the stack with our second string
          * sitting underneath.  so, we issue a swap instruction
          * and then call trim() on the second string.
          */
-        bytecode(jvm_swap);
+        bytecode0(jvm_swap);
 
         fprintf(curfp,".trim().equalsIgnoreCase(");
 
         expr_emit (root->astnode.expression.rhs);
-        bytecode(jvm_invokevirtual, c->index);  /* call trim() */
+        bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
 
         fprintf(curfp,".trim())");
 
         c = newMethodref(cur_const_table,JL_STRING,
                "equalsIgnoreCase", STREQV_DESC);
-        bytecode(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+        bytecode1(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
 
         /* now check the op type & reverse if .NE. */
         if(root->token == rel_ne) {
-          bytecode(jvm_iconst_1);
-          bytecode(jvm_ixor);
+          bytecode0(jvm_iconst_1);
+          bytecode0(jvm_ixor);
         }
 
         return;   /* nothing more to do for strings here. */
@@ -4373,7 +4378,7 @@ expr_emit (AST * root)
           expr_emit (root->astnode.expression.lhs);
 
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
 
@@ -4382,7 +4387,7 @@ expr_emit (AST * root)
           expr_emit (root->astnode.expression.rhs);
 
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
 
@@ -4391,65 +4396,65 @@ expr_emit (AST * root)
 
           expr_emit (root->astnode.expression.lhs);
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
           fprintf (curfp, " != ");
           expr_emit (root->astnode.expression.rhs);
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
         case rel_lt:
           expr_emit (root->astnode.expression.lhs);
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
           fprintf (curfp, " < ");
           expr_emit (root->astnode.expression.rhs);
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
         case rel_le:
           expr_emit (root->astnode.expression.lhs);
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
           fprintf (curfp, " <= ");
           expr_emit (root->astnode.expression.rhs);
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
         case rel_gt:
           expr_emit (root->astnode.expression.lhs);
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
           fprintf (curfp, " > ");
           expr_emit (root->astnode.expression.rhs);
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
         case rel_ge:
           expr_emit (root->astnode.expression.lhs);
           if(root->astnode.expression.lhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.lhs->vartype][cur_vt]);
           }
           fprintf (curfp, " >= ");
           expr_emit (root->astnode.expression.rhs);
           if(root->astnode.expression.rhs->vartype > cur_vt) {
-            bytecode(
+            bytecode0(
               typeconv_matrix[root->astnode.expression.rhs->vartype][cur_vt]);
           }
           break;
@@ -4472,46 +4477,48 @@ expr_emit (AST * root)
           fprintf(stderr,"WARNING: single precision not supported!\n");
           break;
         case Double: 
-          /* the only difference between dcmpg and dcmpl is the handling of NaN
-           * value.  for .lt. and .le. we use dcmpg, otherwise use dcmpl.
-           * this mirrors the behavior of javac.
-           */
-          if((root->token == rel_lt) || (root->token == rel_le))
-            bytecode(jvm_dcmpg);
-          else
-            bytecode(jvm_dcmpl);
+          {
+            CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
 
-          bytecode(dcmp_opcode[root->token], 
-                   jvm_opcode[dcmp_opcode[root->token]].width +
-                   jvm_opcode[jvm_iconst_1].width +
-                   jvm_opcode[jvm_goto].width);
-          bytecode(jvm_iconst_0);
-          bytecode(jvm_goto, jvm_opcode[jvm_goto].width +
-                        jvm_opcode[jvm_iconst_0].width);
-          bytecode(jvm_iconst_1);
-          /* decrement the stack by one to compensate for the
-           * skipped instruction.  this is a hack and should be fixed
-           * with a more general solution.
-           */
-          dec_stack(1);
+            /* the only difference between dcmpg and dcmpl is the handling of NaN
+             * value.  for .lt. and .le. we use dcmpg, otherwise use dcmpl.
+             * this mirrors the behavior of javac.
+             */
+            if((root->token == rel_lt) || (root->token == rel_le))
+              bytecode0(jvm_dcmpg);
+            else
+              bytecode0(jvm_dcmpl);
 
+            cmp_node = bytecode0(dcmp_opcode[root->token]);
+            bytecode0(jvm_iconst_0);
+            goto_node = bytecode0(jvm_goto);
+            iconst_node = bytecode0(jvm_iconst_1);
+            cmp_node->branch_target = iconst_node;
+
+            /* create a dummy instruction node following the iconst so that
+             * we have a branch target for the goto statement.  it'll be
+             * removed later.
+             */
+            next_node = bytecode0(jvm_impdep1);
+            goto_node->branch_target = next_node;
+          }
           break;
         case Integer: 
-          bytecode(icmp_opcode[root->token], 
-                   jvm_opcode[icmp_opcode[root->token]].width +
-                   jvm_opcode[jvm_iconst_0].width +
-                   jvm_opcode[jvm_goto].width);
-          bytecode(jvm_iconst_0);
-          bytecode(jvm_goto, jvm_opcode[jvm_goto].width +
-                        jvm_opcode[jvm_iconst_1].width);
-          bytecode(jvm_iconst_1);
+          {
+            CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
 
-          /* decrement the stack by one to compensate for the
-           * skipped instruction.  this is a hack and should be fixed
-           * with a more general solution.
-           */
-          dec_stack(1);
+            cmp_node = bytecode0(icmp_opcode[root->token]);
+            bytecode0(jvm_iconst_0);
+            goto_node = bytecode0(jvm_goto);
+            iconst_node = bytecode0(jvm_iconst_1);
 
+            /* create a dummy instruction node following the iconst so that
+             * we have a branch target for the goto statement.  it'll be
+             * removed later.
+             */
+            next_node = bytecode0(jvm_impdep1);
+            goto_node->branch_target = next_node;
+          }
           break;
         default:
           fprintf(stderr,"WARNING: hit default, relop .eq.\n");
@@ -4530,15 +4537,15 @@ expr_emit (AST * root)
         expr_emit(root->astnode.ident.arraylist);
         fprintf(curfp,")-1,");
 
-        bytecode(jvm_iconst_m1);  /* decrement start idx by one */
-        bytecode(jvm_iadd);
+        bytecode0(jvm_iconst_m1);  /* decrement start idx by one */
+        bytecode0(jvm_iadd);
 
         expr_emit(root->astnode.ident.arraylist->nextstmt);
         fprintf(curfp,")");
 
         c = newMethodref(cur_const_table,JL_STRING,
                  "substring", SUBSTR_DESC);
-        bytecode(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
+        bytecode1(jvm_invokevirtual, c->index);  /* equalsIgnoreCase() */
 
       }
       break;
@@ -4701,8 +4708,8 @@ constructor (AST * root)
         c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                 full_wrappername[returns]);
 
-      bytecode(jvm_new,c->index);
-      bytecode(jvm_dup);
+      bytecode1(jvm_new,c->index);
+      bytecode0(jvm_dup);
 
       fprintf(curfp, "static %s %s ", 
            returnstring[returns], name);
@@ -4712,7 +4719,7 @@ constructor (AST * root)
       fprintf(curfp, ";\n\n");
 
       c = newFieldref(cur_const_table,cur_filename, name, desc);
-      bytecode(jvm_putstatic, c->index);
+      bytecode1(jvm_putstatic, c->index);
     }
     else
     {
@@ -4729,18 +4736,18 @@ constructor (AST * root)
         c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
                   full_wrappername[returns]);
 
-        bytecode(jvm_new,c->index);
-        bytecode(jvm_dup);
+        bytecode1(jvm_new,c->index);
+        bytecode0(jvm_dup);
 
-        bytecode(init_opcodes[returns]);
+        bytecode0(init_opcodes[returns]);
 
         c = newMethodref(cur_const_table,full_wrappername[returns],
                "<init>", wrapper_descriptor[returns]);
 
-        bytecode(jvm_invokespecial, c->index);
+        bytecode1(jvm_invokespecial, c->index);
 
         c = newFieldref(cur_const_table,cur_filename,name,desc); 
-        bytecode(jvm_putstatic, c->index);
+        bytecode1(jvm_putstatic, c->index);
 
         fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
           wrapper_returns[returns],
@@ -5766,7 +5773,7 @@ write_emit(AST * root)
        inline_format_emit(AST *);
 
   c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
-  bytecode(jvm_getstatic, c->index);
+  bytecode1(jvm_getstatic, c->index);
 
   /* check if there are no args to this WRITE statement */
   if((root->astnode.io_stmt.arg_list == NULL) &&
@@ -5774,7 +5781,7 @@ write_emit(AST * root)
   {
     fprintf(curfp,"System.out.println();\n");
     c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
-    bytecode(jvm_invokevirtual, c->index);
+    bytecode1(jvm_invokevirtual, c->index);
     return;
   }
 
@@ -5821,7 +5828,7 @@ write_emit(AST * root)
                   println_descriptor[String]);
     }
     fprintf(curfp, ");\n");
-    bytecode(jvm_invokevirtual, c->index);
+    bytecode1(jvm_invokevirtual, c->index);
     return;
   }
 
@@ -5835,8 +5842,8 @@ write_emit(AST * root)
    * all the items.
    */
   c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-  bytecode(jvm_new,c->index);
-  bytecode(jvm_dup);
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
 
   if(root->astnode.io_stmt.fmt_list != NULL)
     inline_format_emit(root);
@@ -5906,17 +5913,17 @@ write_emit(AST * root)
             /* call String.valueOf() to convert this numeric type to string */
             c = newMethodref(cur_const_table, JL_STRING, "valueOf", 
                    string_valueOf_descriptor[temp->vartype]);
-            bytecode(jvm_invokestatic, c->index);
+            bytecode1(jvm_invokestatic, c->index);
           }
 
           c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-          bytecode(jvm_invokespecial, c->index);
+          bytecode1(jvm_invokespecial, c->index);
         }
         else {
           c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
                   append_descriptor[temp->vartype]);
 
-          bytecode(jvm_invokevirtual, c->index);
+          bytecode1(jvm_invokevirtual, c->index);
         }
 
         if(temp->nextstmt != NULL) 
@@ -5925,7 +5932,7 @@ write_emit(AST * root)
           c = newMethodref(cur_const_table, STRINGBUFFER, "append", 
                 append_descriptor[String]);
 
-          bytecode(jvm_invokevirtual, c->index);
+          bytecode1(jvm_invokevirtual, c->index);
 
           if(temp->nextstmt->nodetype == ImpliedLoop) {
             /* next item is an implied loop.  finish up this print statement. */
@@ -5933,11 +5940,11 @@ write_emit(AST * root)
 
             c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
                   TOSTRING_DESC);
-            bytecode(jvm_invokevirtual, c->index);
+            bytecode1(jvm_invokevirtual, c->index);
 
             c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
                   println_descriptor[String]);
-            bytecode(jvm_invokevirtual, c->index);
+            bytecode1(jvm_invokevirtual, c->index);
           }
           else {
             fprintf (curfp, " + \" \" + ");
@@ -5947,7 +5954,7 @@ write_emit(AST * root)
           fprintf (curfp, ");\n");
           c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
                 println_descriptor[String]);
-          bytecode(jvm_invokevirtual, c->index);
+          bytecode1(jvm_invokevirtual, c->index);
         }
       }
     }
@@ -5956,17 +5963,17 @@ write_emit(AST * root)
   if(implied_loop) {
     fprintf (curfp, "\nSystem.out.println();\n");
     c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
-    bytecode(jvm_invokevirtual, c->index);
+    bytecode1(jvm_invokevirtual, c->index);
   }
   else {
     fprintf (curfp, ");\n");
     c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
           TOSTRING_DESC);
-    bytecode(jvm_invokevirtual, c->index);
+    bytecode1(jvm_invokevirtual, c->index);
 
     c = newMethodref(cur_const_table, PRINTSTREAM, "println", 
            println_descriptor[String]);
-    bytecode(jvm_invokevirtual, c->index);
+    bytecode1(jvm_invokevirtual, c->index);
   }
 }
 
@@ -5995,7 +6002,7 @@ inline_format_emit(AST *root)
   if(root->astnode.io_stmt.arg_list != NULL)
   {
     c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-    bytecode(jvm_invokespecial, c->index);
+    bytecode1(jvm_invokespecial, c->index);
 
     fprintf(curfp, " + ");
   }
@@ -7071,47 +7078,46 @@ assign_emit (AST * root)
         c = newMethodref(cur_const_table,numeric_wrapper[ltype], "valueOf",
                         wrapper_valueOf_descriptor[ltype]);
 
-        bytecode(jvm_invokestatic, c->index);
+        bytecode1(jvm_invokestatic, c->index);
 
         c = newMethodref(cur_const_table,numeric_wrapper[ltype], 
                          numericValue_method[ltype],
                         numericValue_descriptor[ltype]);
 
-        bytecode(jvm_invokevirtual, c->index);
+        bytecode1(jvm_invokevirtual, c->index);
       }
       else if( (ltype == Logical) && (rtype != String) )
       {
+        CodeGraphNode *if_node, *goto_node, *iconst_node, *next_node;
+
         /* boolean = numeric value */
         expr_emit (root->astnode.assignment.rhs);
         fprintf(curfp," == 0 ? false : true");
         if(rtype == Integer) {
-          bytecode(jvm_ifeq, 7);
-          bytecode(jvm_iconst_0);
-          bytecode(jvm_goto, 4);
-          bytecode(jvm_iconst_1);
-
-          /* decrement the stack by one to compensate for the
-           * skipped instruction.  this is a hack and should be fixed
-           * with a more general solution.
-           */
-          dec_stack(1);
+          if_node = bytecode0(jvm_ifeq);
+          bytecode0(jvm_iconst_0);
+          goto_node = bytecode0(jvm_goto);
+          iconst_node = bytecode0(jvm_iconst_1);
         }
         else if(rtype == Double) {
-          bytecode(jvm_dconst_0);
-          bytecode(jvm_dcmpl);
-          bytecode(jvm_ifne, 7);
-          bytecode(jvm_iconst_1);
-          bytecode(jvm_goto, 4);
-          bytecode(jvm_iconst_0);
-
-          /* decrement the stack by one to compensate for the
-           * skipped instruction.  this is a hack and should be fixed
-           * with a more general solution.
-           */
-          dec_stack(1);
+          bytecode0(jvm_dconst_0);
+          bytecode0(jvm_dcmpl);
+          if_node = bytecode0(jvm_ifne);
+          bytecode0(jvm_iconst_1);
+          goto_node = bytecode0(jvm_goto);
+          iconst_node = bytecode0(jvm_iconst_0);
         }
         else
           fprintf(stderr,"WARNING: unsupported cast.\n");
+
+        if_node->branch_target = iconst_node;
+
+        /* create a dummy instruction node following the iconst so that
+         * we have a branch target for the goto statement.  it'll be
+         * removed later.
+         */
+        next_node = bytecode0(jvm_impdep1);
+        goto_node->branch_target = next_node;
       }
       else
       {
@@ -7122,7 +7128,7 @@ assign_emit (AST * root)
         fprintf(curfp,"(%s)(",returnstring[ltype]);
         expr_emit (root->astnode.assignment.rhs);
         fprintf(curfp,")");
-        bytecode(typeconv_matrix[rtype][ltype]);
+        bytecode0(typeconv_matrix[rtype][ltype]);
       }
     }
     else   /* lhs and rhs have same types, everything is cool */
@@ -7185,7 +7191,7 @@ assign_emit (AST * root)
       printf("local var #%d\n",root->astnode.assignment.lhs->astnode.ident.localvnum);
 
       c = newFieldref(cur_const_table, class, name, desc);
-      bytecode(jvm_putstatic, c->index);
+      bytecode1(jvm_putstatic, c->index);
     }
     else {
       int vt = root->astnode.assignment.lhs->vartype;
@@ -7195,7 +7201,7 @@ assign_emit (AST * root)
        */
       c = newFieldref(cur_const_table, full_wrappername[vt], "val", 
              val_descriptor[vt]);
-      bytecode(jvm_putfield, c->index);
+      bytecode1(jvm_putfield, c->index);
     }
   }
   else {
@@ -7203,7 +7209,7 @@ assign_emit (AST * root)
      * to the array, the array index, and the RHS expression.  all we need
      * to do now is generate an array store instruction (e.g. iastore).
      */
-    bytecode(array_store_opcodes[root->astnode.assignment.lhs->vartype]);
+    bytecode0(array_store_opcodes[root->astnode.assignment.lhs->vartype]);
   }
 }
 
@@ -7257,18 +7263,18 @@ substring_assign_emit(AST *root)
     c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
               "java/lang/Character");
 
-    bytecode(jvm_new,c->index);
-    bytecode(jvm_dup);
+    bytecode1(jvm_new,c->index);
+    bytecode0(jvm_dup);
 
     c = newMethodref(cur_const_table,"java/lang/Character", "<init>", "(C)V");
 
     fprintf(curfp,"new Character(");
     expr_emit(rhs);
-    bytecode(jvm_invokespecial, c->index);
+    bytecode1(jvm_invokespecial, c->index);
     fprintf(curfp,").toString(),");
     c = newMethodref(cur_const_table,"java/lang/Character", "toString",
                      "()Ljava/lang/String;");
-    bytecode(jvm_invokestatic, c->index);
+    bytecode1(jvm_invokestatic, c->index);
   }
   else if(rhs->vartype == String)
   {
@@ -7281,7 +7287,7 @@ substring_assign_emit(AST *root)
     expr_emit(rhs);
     c = newMethodref(cur_const_table,numeric_wrapper[rhs->vartype],
                      "toString", toString_descriptor[rhs->vartype]);
-    bytecode(jvm_invokestatic, c->index);
+    bytecode1(jvm_invokestatic, c->index);
     fprintf(curfp,"),");
   }
 
@@ -7292,7 +7298,7 @@ substring_assign_emit(AST *root)
   fprintf(curfp,")");
 
   c = newMethodref(cur_const_table,UTIL_CLASS, "stringInsert", INS_DESC);
-  bytecode(jvm_invokestatic, c->index);
+  bytecode1(jvm_invokestatic, c->index);
 }
 
 /*****************************************************************************
@@ -7819,6 +7825,8 @@ inc_stack(int inc)
 {
   stacksize += inc;
   
+  printf("incrementing stack by %d\n", inc);
+
   if(stacksize > cur_code->attr.Code->max_stack)
     cur_code->attr.Code->max_stack = stacksize;
 }
@@ -7834,6 +7842,11 @@ inc_stack(int inc)
 void
 dec_stack(int dec) {
   stacksize -= dec;
+
+  printf("decrementing stack by %d\n", dec);
+
+  if(stacksize < 0)
+    fprintf(stderr,"WARNING: negative stacksize!\n");
 }
 
 /*****************************************************************************
@@ -7846,15 +7859,18 @@ dec_stack(int dec) {
  *                                                                           *
  *****************************************************************************/
 
+/*
 void
 check_code_size(int width)
 {
+*/
   /* note that we're somewhat misusing the cur_code->code_length variable.
    * it should hold the length of the code, not the amount of memory allocated.
    * however, we will temporarily use it to keep track of memory allocation
    * and after generating all the code for this method, we will replace the
    * code_length variable with the correct number.  --kgs 4/26/00
    */
+/*
   if(cur_code->attr.Code->code == NULL) {
     cur_code->attr.Code->code = (u1 *)f2jalloc(CODE_ALLOC_INIT * sizeof(u1));
     cur_code->attr.Code->code_length = CODE_ALLOC_INIT;
@@ -7867,6 +7883,7 @@ check_code_size(int width)
                   cur_code->attr.Code->code_length);
   }
 }
+*/
 
 /*****************************************************************************
  *                                                                           *
@@ -7876,6 +7893,7 @@ check_code_size(int width)
  *                                                                           *
  *****************************************************************************/
 
+/*
 void
 code_zero_op(enum _opcode op)
 {
@@ -7889,6 +7907,7 @@ code_zero_op(enum _opcode op)
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
 }
+*/
 
 /*****************************************************************************
  *                                                                           *
@@ -7899,19 +7918,24 @@ code_zero_op(enum _opcode op)
  *                                                                           *
  *****************************************************************************/
 
+/*
 void
 code_one_op(enum _opcode op, int opval)
 {
   u1 this_opcode = op;
   u1 this_operand = (u1)opval;
 
+*/
   /* if this is a 'wide' op, then call code_one_op_w() */
 
+/*
   if(jvm_opcode[op].width > 2) {
     code_one_op_w(op,opval); 
   }
   else {
+  */
     /* check for loss of information in the int->u1 cast */
+/*
     if( (int)this_operand != opval ) {
       fprintf(stderr,"WARNING: code_one_op() opval lost information.  ");
       fprintf(stderr,"  opcode = %s, ", jvm_opcode[op].op);
@@ -7931,6 +7955,7 @@ code_one_op(enum _opcode op, int opval)
   }
 }
 
+*/
 /*****************************************************************************
  *                                                                           *
  * code_one_op_w                                                             *
@@ -7940,6 +7965,7 @@ code_one_op(enum _opcode op, int opval)
  *                                                                           *
  *****************************************************************************/
 
+/*
 void
 code_one_op_w(enum _opcode op, u2 index)
 {
@@ -7951,15 +7977,19 @@ code_one_op_w(enum _opcode op, u2 index)
   struct stack_info * calcStack(char *), *stackinf;
   int stack_increment, stack_decrement;
 
+*/
   /* unfortunately, must first check some special cases to determine proper
    * stack increment and decrement.
    */
 
+/*
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
    || (op == jvm_invokestatic))
   {
+  */
     /* now we need to determine how many parameters are sitting on the stack */
 
+/*
     c = cp_entry_by_index(cur_const_table, index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.Methodref.name_and_type_index);
@@ -7968,11 +7998,13 @@ code_one_op_w(enum _opcode op, u2 index)
     this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
     stackinf = calcStack(this_desc);
 
+*/
     /* if the opcode is invokespecial or invokevirtual, then there is one
      * object reference + parameters on the stack.  if this is an invokestatic
      * instruction, then there's just parameters. 
      */
 
+/*
     if(op == jvm_invokestatic)
       stack_decrement = stackinf->arg_len;
     else
@@ -8016,11 +8048,14 @@ code_one_op_w(enum _opcode op, u2 index)
         break;
       default:
         fprintf(stderr,"code_one_op_w(): unexpected op type\n");
-        break;  /* ansi compliance */
+        break; */ /* ansi compliance */
+/*
     }
   }
   else {
+  */
     /* else we can determine the stack decrement from a table.  */
+/*
     stack_decrement = jvm_opcode[op].stack_pre;
     stack_increment = jvm_opcode[op].stack_post;
   }
@@ -8034,6 +8069,8 @@ code_one_op_w(enum _opcode op, u2 index)
   pc += jvm_opcode[op].width;
   inc_stack(stack_increment);
 }
+
+*/
 
 /*****************************************************************************
  *                                                                           *
@@ -8059,7 +8096,7 @@ newCodeAttribute()
   tmp->attr.Code->max_stack = 0;
   tmp->attr.Code->max_locals = 0;
   tmp->attr.Code->code_length = 0;
-  tmp->attr.Code->code = NULL;
+  tmp->attr.Code->code = make_dl();
   tmp->attr.Code->exception_table_length = 0;
   tmp->attr.Code->exception_table = NULL;
   tmp->attr.Code->attributes_count = 0;
@@ -8168,9 +8205,9 @@ printf("creating new entry, this -> %s\n",name);
 
   c = newMethodref(cur_const_table,"java/lang/Object", "<init>", "()V");
 
-  bytecode(jvm_aload_0);
-  bytecode(jvm_invokespecial, c->index);
-  bytecode(jvm_return);
+  bytecode0(jvm_aload_0);
+  bytecode1(jvm_invokespecial, c->index);
+  bytecode0(jvm_return);
   
   endNewMethod(meth_tmp, "<init>", "()V", 1);
 
@@ -8218,6 +8255,8 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
 {
   CPNODE *c;
 
+  void traverse_code(Dlist); 
+
   /* at the end of the method, the stacksize should always be zero.
    * if not, we're gonna have verification problems at the very least.
    * at this point, there's not much we can do about it, but issue a
@@ -8257,7 +8296,276 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
   cur_code->attr.Code->max_locals = mloc;
   cur_code->attr.Code->code_length = pc;
 
+  traverse_code(cur_code->attr.Code->code);
   dl_insert_b(meth->attributes, cur_code);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * traverse_code                                                             *
+ *                                                                           *
+ * this function traverses the code graph and determines the max stack and   *
+ * assigns branch target offsets.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+traverse_code(Dlist cgraph) 
+{
+  Dlist tmp;
+  CodeGraphNode *val;
+
+  void calcOffsets(CodeGraphNode *);
+
+  if(dl_empty(cgraph))
+    return;
+
+  /* set initial stack depth to zero */
+  val = (CodeGraphNode *) dl_val(dl_first(cgraph));
+  val->stack_depth = 0;
+
+  dl_traverse(tmp,cgraph) {
+    val = (CodeGraphNode *) tmp->val;
+
+    calcOffsets(val);
+
+    if(jvm_opcode[val->op].width > 1)
+      printf("%d: %s %d\n", val->pc, jvm_opcode[val->op].op, val->operand);
+    else
+      printf("%d: %s\n", val->pc, jvm_opcode[val->op].op);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * calcOffsets                                                               *
+ *                                                                           *
+ * This function calculates the branch target offsets for instructions that  *
+ * branch (gotos, compares, etc).  also set the stack depth for the          *
+ * instruction(s) following this one.  also perform sanity checks on the     *
+ * stack values to make sure that we aren't hitting some instruction from    * 
+ * different places with different stack depths.                             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+calcOffsets(CodeGraphNode *val)
+{
+  int getStackIncrement(enum _opcode, u4),
+      getStackDecrement(enum _opcode, u4);
+
+  printf("in calcoffsets, setting stack_Depth = %d\n",val->stack_depth);
+
+  stacksize = val->stack_depth;
+
+  dec_stack(getStackDecrement(val->op, val->operand));
+  inc_stack(getStackIncrement(val->op, val->operand));
+
+  if((val->op == jvm_goto) || (val->op == jvm_goto_w)) {
+    /* there's a lot of stuff to do/check for goto statements. 
+     *  - calculate the branch target offset (remember that the operand to
+     *      a goto statement is a signed offset, not an absolute address).
+     *  - if this is a goto and the branch_target is NULL, then that means
+     *      this is a fortran goto (as opposed to a goto generated as part
+     *      of some valid java construct).  we need to find the instruction
+     *      corresponding to the branch label and set offset based on that.
+     *  - set/check the stack depth for the target of this goto
+     */
+    if(val->branch_target == NULL) {
+      fprintf(stderr,"warning, fortran gotos not implemented yet.\n");
+    }
+    else {
+      printf("goto branching to pc %d\n", val->branch_target->pc);
+      if(val->next != NULL) {
+        if(val->next->stack_depth == -1)
+          val->next->stack_depth = stacksize;
+        else if (val->next->stack_depth != stacksize)
+          fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
+                  val->next->pc);
+      }
+    }
+  }
+  else if ( val->branch_target != NULL) {
+    /* if this is not a goto, but the branch target is non-null, then it
+     * must be a comparison instruction.  in this case we can either
+     * branch to the next instruction or to the branch target, so we will
+     * set the stack depth for both instructions.
+     */
+    if(val->next != NULL)
+      val->next->stack_depth = stacksize;
+    if(val->branch_target != NULL)
+      val->branch_target->stack_depth = stacksize;
+  }
+  else {
+    /* null branch target, set stack depth for following instruction only. */
+    if(val->next != NULL)
+      val->next->stack_depth = stacksize;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getStackIncrement                                                         *
+ *                                                                           *
+ * determines the number of bytes that this instruction leaves on the stack  *
+ * after execution.  this depends on the instruction and on the data types.  *
+ * e.g. for a method invoke instruction, the number of bytes depends on the  *
+ * return type of the method (double/long = 2 stack entries).                *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+getStackIncrement(enum _opcode op, u4 index)
+{
+  u2 u2BigEndian(u2);
+  char *this_desc;
+  CPNODE *c;
+  struct stack_info * calcStack(char *), *stackinf;
+  int stack_increment;
+
+  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
+   || (op == jvm_invokestatic))
+  {
+    /* now we need to determine how many parameters are sitting on the stack */
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    stackinf = calcStack(this_desc);
+    /* if the opcode is invokespecial or invokevirtual, then there is one
+     * object reference + parameters on the stack.  if this is an invokestatic
+     * instruction, then there's just parameters. 
+     */
+
+    stack_increment = stackinf->ret_len;
+  }
+  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
+          (op == jvm_putfield)  || (op == jvm_getfield))
+  {
+    int tmpsize;
+
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+
+    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
+      tmpsize = 2;
+    else 
+      tmpsize = 1;
+
+    switch(op) {
+      case jvm_getstatic:
+        stack_increment = tmpsize;
+        break;
+      case jvm_putstatic:
+        stack_increment = 0;
+        break;
+      case jvm_getfield:
+        stack_increment = tmpsize;
+        break;
+      case jvm_putfield:
+        stack_increment = 0;
+        break;
+      default:
+        fprintf(stderr,"getSTackIncrement(): unexpected op type\n");
+        break; /* ansi compliance */
+    }
+  }
+  else {
+    /* else we can determine the stack increment from a table.  */
+    stack_increment = jvm_opcode[op].stack_post;
+  }
+
+  return stack_increment;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getStackDecrement                                                         *
+ *                                                                           *
+ * determines the number of bytes that this instruction removes from the     *
+ * stack prior to execution.  this depends on the instruction and on the     *
+ * data types involved.  e.g. a method invoke instruction will remove one or *
+ * two entries per argument, depending on the data type.                     *
+ *                                                                           *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+getStackDecrement(enum _opcode op, u4 index)
+{
+  u2 u2BigEndian(u2);
+  char *this_desc;
+  CPNODE *c;
+  struct stack_info * calcStack(char *), *stackinf;
+  int stack_decrement;
+
+  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
+   || (op == jvm_invokestatic))
+  {
+    /* now we need to determine how many parameters are sitting on the stack */
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    stackinf = calcStack(this_desc);
+    /* if the opcode is invokespecial or invokevirtual, then there is one
+     * object reference + parameters on the stack.  if this is an invokestatic
+     * instruction, then there's just parameters. 
+     */
+    if(op == jvm_invokestatic)
+      stack_decrement = stackinf->arg_len;
+    else
+      stack_decrement = stackinf->arg_len + 1;
+  }
+  else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
+          (op == jvm_putfield)  || (op == jvm_getfield))
+  {
+    int tmpsize;
+
+    c = cp_entry_by_index(cur_const_table, index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.Methodref.name_and_type_index);
+    c = cp_entry_by_index(cur_const_table,
+                          c->val->cpnode.NameAndType.descriptor_index);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+
+    if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
+      tmpsize = 2;
+    else 
+      tmpsize = 1;
+
+    switch(op) {
+      case jvm_getstatic:
+        stack_decrement = 0;
+        break;
+      case jvm_putstatic:
+        stack_decrement = tmpsize;
+        break;
+      case jvm_getfield:
+        stack_decrement = 1;
+        break;
+      case jvm_putfield:
+        stack_decrement = tmpsize + 1;
+        break;
+      default:
+        fprintf(stderr,"getSTackDecrement(): unexpected op type\n");
+        break; /* ansi compliance */
+    }
+  }
+  else {
+    /* else we can determine the stack decrement from a table.  */
+    stack_decrement = jvm_opcode[op].stack_pre;
+  }
+
+  return stack_decrement;
 }
 
 /*****************************************************************************
@@ -8576,36 +8884,72 @@ print_nodetype (AST *root)
  *****************************************************************************/
 
 CodeGraphNode *
-newGraphNode(enum _opcode op, u4 pc, u4 operand)
+newGraphNode(enum _opcode op, u4 operand)
 {
   CodeGraphNode *tmp = (CodeGraphNode *)f2jalloc(sizeof(CodeGraphNode));
   
   tmp->op = op;
-  tmp->pc = pc;
   tmp->operand = operand;
+
+  /* set pc and branch targets later */
+  tmp->pc = pc;
   tmp->branch_target = NULL;
   tmp->next = NULL;
   tmp->optional_targets = NULL;
   tmp->branch_label = -1;
+  tmp->stack_depth = -1;
 
   return tmp;
 }
 
 /*****************************************************************************
  *                                                                           *
- * bytecode                                                                  *
+ * bytecode1                                                                 *
  *                                                                           *
  * inserts the given instruction into the code graph.                        *
  *                                                                           *
  *****************************************************************************/
 
-GraphNode *
-bytecode(enum _opcode op, u4 operand)
+CodeGraphNode *
+bytecode1(enum _opcode op, u4 operand)
 {
-  CodeGraphNode *tmp;
+  CodeGraphNode *tmp, *prev;
 
-  tmp = newGraphNode(op, pc, operand);
   lastOp = op;
 
+  if(cur_code->attr.Code->code == NULL)
+    fprintf(stderr,"ERROR: null code graph.\n");
+
+  prev = (CodeGraphNode *) dl_val(dl_last(cur_code->attr.Code->code));
+
+  if((prev != NULL) && (prev->op == jvm_impdep1)) {
+    prev->op = op;
+    prev->operand = operand;
+    return prev;
+  }
+
+  tmp = newGraphNode(op, operand);
+
+  if(prev != NULL)
+    prev->next = tmp;
+
   dl_insert_b(cur_code->attr.Code->code, tmp);
+
+  pc += jvm_opcode[op].width;
+
+  return tmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * bytecode0                                                                 *
+ *                                                                           *
+ * inserts the given instruction into the code graph.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+CodeGraphNode *
+bytecode0(enum _opcode op)
+{
+  return bytecode1(op,0);
 }

@@ -37,7 +37,7 @@ void
  * Global variables.                                                         *
  *****************************************************************************/
 
-int checkdebug = TRUE;              /* set to TRUE for debugging output     */
+int checkdebug = FALSE;              /* set to TRUE for debugging output     */
 
 extern char *returnstring[];         /* return types (from codegen.c)        */
 

@@ -1078,6 +1078,7 @@ typedef struct _code_graph_node {
                              * have multiple targets (tableswitch).          */
 
   u4 branch_label;          /* f77 label to which this instruction branches  */
+  u4 stack_depth;           /* stack depth prior to execution of this opcode */
 } CodeGraphNode;
 
 #endif

@@ -166,7 +166,7 @@ struct Code_attribute {
   u2 max_stack;               /* max depth of operand stack for this method  */
   u2 max_locals;              /* max num of local variables including params */
   u4 code_length;             /* number of bytes in the code array           */
-  u1 * code;                  /* byte array containing code for this method  */
+  Dlist code;                 /* list containing code for this method        */
   u2 exception_table_length;  /* number of entries in the exception table    */
 
   struct {

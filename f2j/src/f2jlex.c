@@ -242,7 +242,7 @@ yylex ()
         equalseen == TRUE &&
         letterseen == FALSE)
     {
-      if (isalpha (*buffer.stmt))
+      if (isalpha ( (int) *buffer.stmt))
         token = name_scan (&buffer);
 
       if (token)
@@ -290,7 +290,7 @@ yylex ()
       }
 
       /*  Scan for a labeled (numbered) statement. */
-      if (isdigit (*buffer.stmt))
+      if (isdigit ((int) *buffer.stmt))
         token = number_scan (&buffer,format_stmt);
 
       if (token)
@@ -396,7 +396,7 @@ yylex ()
       strcpy(buffer.stmt,stmt_copy);
       strcpy(buffer.text,text_copy);
 
-      if (isalpha (*buffer.stmt))
+      if (isalpha ((int) *buffer.stmt))
         token = name_scan (&buffer);
 
       if (token)
@@ -447,7 +447,7 @@ yylex ()
   }
     
     
-  if (isalpha (*buffer.stmt))
+  if (isalpha ((int) *buffer.stmt))
     token = name_scan (&buffer);
 
   if (token)
@@ -510,7 +510,7 @@ yylex ()
           int len=1;
  
           /* len is initialized to 1, so we skip the '.' char */
-          while(!isdigit(bufptr[len]))
+          while(!isdigit((int) bufptr[len]))
             len++;
               
           bufptr[len+1] = '\0';
@@ -541,7 +541,7 @@ yylex ()
     return token;
   }
 
-  if(isdigit (*buffer.stmt)) {
+  if(isdigit ((int) *buffer.stmt)) {
     token = number_scan (&buffer,format_stmt);
   }
 
@@ -821,7 +821,7 @@ collapse_white_space (BUFFER * bufstruct)
          * loop merely sets the pointer for look-ahead. 
          */
 
-        for (lpp=cp+1;isspace(*lpp);lpp++);
+        for (lpp=cp+1;isspace((int) *lpp);lpp++);
 
         /* Since we have an opportunity, let's trap the
          * error condition of having isspace() pick up
@@ -836,7 +836,7 @@ collapse_white_space (BUFFER * bufstruct)
          * else
          */
 
-        if (isalpha(*lpp)) letterseen = TRUE;
+        if (isalpha((int) *lpp)) letterseen = TRUE;
 
       }  /*  End if for ")".  */
     }    /*  End if for no parens. */
@@ -1056,7 +1056,7 @@ name_scan (BUFFER * bufstruct)
    * it was alphabetic. 
    */
 
-  while (isalnum (*ncp))
+  while (isalnum ((int) *ncp))
   {
     ncp++;
     tokenlength++;
@@ -1110,7 +1110,7 @@ number_scan (BUFFER * bufstruct, int fmt)
   }
 
   if(fmt) {
-    while(isdigit (*ncp)) {
+    while(isdigit ((int) *ncp)) {
       ncp++;
       tokenlength++;
     }
@@ -1123,7 +1123,7 @@ number_scan (BUFFER * bufstruct, int fmt)
      *  efficient, but they should be easy to read.
      */
 
-    while (isdigit (*ncp) ||
+    while (isdigit ((int) *ncp) ||
            *ncp == '.' ||
            *ncp == 'D' ||
            *ncp == 'd' ||
@@ -1155,7 +1155,7 @@ number_scan (BUFFER * bufstruct, int fmt)
            * else get out of while loop.
            */
 
-          if (isdigit (*(ncp + 1)))
+          if (isdigit ((int) *(ncp + 1)))
           {
             ncp += 2;
             tokenlength += 2;
@@ -1202,7 +1202,7 @@ number_scan (BUFFER * bufstruct, int fmt)
 
           /*  Now take care of cases that look like this:  1.0e1.  */
 
-          if (isdigit (*(ncp + 1)))
+          if (isdigit ((int) *(ncp + 1)))
           {
             ncp++;
             tokenlength++;

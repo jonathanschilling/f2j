@@ -29,7 +29,7 @@
  *                                                                           *
  *****************************************************************************/
 
-void
+int
 main (int argc, char **argv)
 {
   extern char *inputfilename;
@@ -41,10 +41,12 @@ main (int argc, char **argv)
 
   extern FILE *ifp;
   extern FILE *jasminfp;
-  extern FILE *vcgfp;
 
-  extern int lineno;
-  extern int statementno;
+/* 3/23/00 kgs -- removed the following unreferenced variables.
+ * extern FILE *vcgfp;
+ * extern int lineno;
+ * extern int statementno;
+ */
 
   char classname[130];
   char *truncfilename;

@@ -777,7 +777,7 @@ equiv_emit (AST *root)
 void
 common_emit(AST *root)
 {
-  extern char *returnstring[];
+  /* extern char *returnstring[];  3/23/00 kgs */
   HASHNODE *hashtemp;
   AST *Ctemp, *Ntemp, *temp;
   char filename[100];
@@ -2195,7 +2195,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       if(gendebug)
         printf("leaddim = %s\n",hashtemp->variable->astnode.ident.leaddim);
 
-      if(isalpha(hashtemp->variable->astnode.ident.leaddim[0])) {
+      if(isalpha((int) hashtemp->variable->astnode.ident.leaddim[0])) {
         if(omitWrappers) {
           if(isPassByRef(hashtemp->variable->astnode.ident.leaddim))
             fprintf(curfp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
@@ -3014,7 +3014,7 @@ intrinsic_emit(AST *root)
 
     temp = root->astnode.ident.arraylist;
 
-    if(temp != NULL)
+    if(temp != NULL) {
       if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
       {
         fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
@@ -3030,6 +3030,7 @@ intrinsic_emit(AST *root)
         if(gendebug)
           printf("LEN(%s) = 1\n",temp->astnode.ident.name);
       }
+    }
     return;
   }
 

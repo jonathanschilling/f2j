@@ -432,7 +432,7 @@ jas_name_emit (AST * root)
   AST *temp;
 
   HASHNODE *hashtemp;
-  extern SYMTABLE * array_table;
+  /* extern SYMTABLE * array_table;   3/23/00 kgs */
   void jas_expr_emit (AST *);
 
 
@@ -573,7 +573,7 @@ jas_constant_emit (AST * root)
 void
 jas_forloop_emit (AST * root)
 {
-  extern labelno;
+  /* extern labelno;  3/23/00 kgs */
   void jas_incr_emit (AST *);
 
   fprintf (jasminfp, "\n; do loop.\n; Initialize counter.\n");

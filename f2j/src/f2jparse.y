@@ -2885,7 +2885,8 @@ assign_local_vars(AST * root)
 {
   AST * locallist, * declist;
   HASHNODE * hashtemp;
-  extern SYMTABLE * type_table, * args_table;
+  extern SYMTABLE * type_table;  
+    /* 3/23/00 kgs -- removed extern SYMTABLE * args_table from decl */
   static int localnum = 0;
   extern int locals;
 

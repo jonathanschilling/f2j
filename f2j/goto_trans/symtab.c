@@ -1,4 +1,6 @@
 #include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
 #include "symtab.h"
 
 #define symdebug 0

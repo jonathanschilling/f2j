@@ -8,7 +8,7 @@ CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
-     codegen.o vcg_emitter.o typeassign.o opcode.o list.o typecheck.o
+     codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -41,8 +41,8 @@ f2jlex: f2jlex.o f2j.h
 f2jlex.o: f2jlex.c
 	$(CC) -c $(CFLAGS) f2jlex.c
 
-list.o: list.c list.h
-	$(CC) -c $(CFLAGS) list.c
+dlist.o: dlist.c dlist.h
+	$(CC) -c $(CFLAGS) dlist.c
 
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 	$(CC) -c $(CFLAGS) f2jparse.tab.c

@@ -16,7 +16,7 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
-#include"list.h"
+#include"dlist.h"
 
 #define ONED 1
 #define TWOD 0
@@ -43,8 +43,8 @@ char *cur_filename;
 int gendebug = 1;
 int cur_idx = 0;
 int return_label = 0;
-EntryList *doloop = NULL;
-EntryList *while_list = NULL;
+Dlist doloop = NULL;
+Dlist while_list = NULL;
 SUBSTITUTION global_sub = { NULL, 0 };
 
 extern char *inputfilename;
@@ -63,6 +63,8 @@ SYMTABLE *cur_save_table;
 SYMTABLE *cur_common_table; 
 SYMTABLE *cur_param_table; 
 AST *cur_dataList;
+
+AST *adapter_list;
 
 /* data types for arrays */
 
@@ -119,8 +121,10 @@ emit (AST * root)
           cur_param_table = root->astnode.source.parameter_table;
           cur_dataList = root->astnode.source.dataStmtList;
 
-          while_list = NULL;
-          doloop = NULL;
+          while_list = make_dl();
+          doloop = make_dl();
+
+          adapter_list = NULL;
 
           open_output_file(root->astnode.source.progtype);
           curfp = javafp;
@@ -1234,6 +1238,7 @@ subcall_emit(AST *root)
  *  function or subroutine and the boolean is_ext represents whether
  *  the array is being passed to an external function.
  */    
+
 int
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
   int is_ext)
@@ -2332,9 +2337,16 @@ int
 forloop_emit (AST * root)
 {
   char *indexname;
+  int *tmp_int;
 
-   /* push this do loop's number on the stack */
-  list_push(&doloop, root->astnode.forloop.Continue->astnode.label.number);
+  tmp_int = (int*)malloc(sizeof(int));
+
+  if(!tmp_int) { perror("malloc"); exit(1); }
+
+  *tmp_int = root->astnode.forloop.Continue->astnode.label.number;
+
+  /* push this do loop's number on the stack */
+  dl_insert_b(doloop, tmp_int);
 
    /*  
     *  Some point I will need to test whether this is really a name
@@ -2406,7 +2418,7 @@ forloop_emit (AST * root)
     */
    
   fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
-     list_pop(&doloop));
+     *((int *) dl_pop(doloop)));
 
   fprintf (curfp, "}              //  Close for() loop. \n");
   fprintf(curfp, "}\n");
@@ -2426,7 +2438,7 @@ forloop_emit (AST * root)
 
 goto_emit (AST * root)
 {
-  if( (doloop != NULL) && list_search(&doloop, root->astnode.go_to.label) )
+  if( (!dl_empty(doloop)) && dl_int_search(doloop, root->astnode.go_to.label) )
   {
      /*
       *  we are inside a do loop and we are looking at a goto
@@ -2436,8 +2448,8 @@ goto_emit (AST * root)
 
     fprintf(curfp,"continue forloop%d;\n",root->astnode.go_to.label);
   }
-  else if((while_list != NULL) && 
-     (list_examine(&while_list) == root->astnode.go_to.label ))
+  else if((!dl_empty(while_list)) && 
+     (dl_int_examine(while_list) == root->astnode.go_to.label ))
   {
        /* 
         *  we are inside a simulated while loop and we are looking at 
@@ -2763,6 +2775,11 @@ blockif_emit (AST * root)
 {
   AST *prev = root->prevstmt;
   AST *temp;
+  int *tmp_int;
+
+  tmp_int = (int*)malloc(sizeof(int));
+
+  if(!tmp_int) { perror("malloc"); exit(1); }
 
   /* if the previous node was a label, this could be a simulated
    * while loop.
@@ -2770,8 +2787,11 @@ blockif_emit (AST * root)
   if(prev != NULL)
     if(prev->nodetype == Label)
     {
+      *tmp_int = root->prevstmt->astnode.label.number;
+
       /* push this while loop's number on the stack */
-      list_push(&while_list, root->prevstmt->astnode.label.number);
+  
+      dl_insert_b(while_list, tmp_int);
 
       if(prev->astnode.label.stmt == NULL)
         if((root->astnode.blockif.elseifstmts == NULL) &&
@@ -2799,7 +2819,7 @@ blockif_emit (AST * root)
         }
 
       /* pop this while loop's label number off the stack */
-      list_pop(&while_list);
+      dl_pop(while_list);
     }
 
   fprintf (curfp, "if (");
@@ -2897,9 +2917,18 @@ call_emit (AST * root)
 
   assert (root != NULL);
 
-/* shouldn't be necessary to lowercase the name
- *   lowercase (root->astnode.ident.name);
- */
+  /* first analyze this function call to determine if we need to generate
+   * an 'adapter' which will simulate passing array elements by reference.
+   */
+
+  if( needs_adapter(root) )
+  {
+    printf("wow, guess we need an adapter for %s.\n", root->astnode.ident.name);
+  }
+
+  /* shouldn't be necessary to lowercase the name
+   *   lowercase (root->astnode.ident.name);
+   */
 
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
@@ -2954,6 +2983,9 @@ call_emit (AST * root)
          }
          else                                /* it is not expecting an array */
          {
+           fprintf(stderr,"Warning: potential problem passing element of array %s ",
+             temp->astnode.ident.name);
+           fprintf(stderr,"to function %s.\n", root->astnode.ident.name);
            fprintf(curfp,"new %s(", wrapper_returns[t2->vartype]);
            fprintf(curfp,"%s",temp->astnode.ident.name);
 
@@ -3049,6 +3081,65 @@ call_emit (AST * root)
   else
     fprintf (curfp, ")");
 }				/*  Close call_emit().  */
+
+/*
+ * This function compares the expressions in the function call with
+ * the arguments of the function to find one specific case: attempting
+ * to pass an array element to a function that expects a scalar.  If
+ * we find such a case, we must generate an adapter that allows
+ * pass by reference of the array element.  Returns 1 if this function
+ * call needs an adapter.  If no adapter is needed or if we dont have
+ * enough info to determine whether one is needed, this function 
+ * returns 0.
+ */
+
+int
+needs_adapter(AST *root)
+{
+  AST *temp;
+  HASHNODE *hashtemp, *ht, *ht2;
+
+  /* first, check for a null parameter list.  if there are no parameters, 
+   * we certainly wont need an adapter.
+   */
+  if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
+     (root->astnode.ident.arraylist == NULL))
+    return 0;
+
+  printf("in needs_adapter: Looking up function name %s, ", 
+    root->astnode.ident.name);
+
+  if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
+  {
+    AST *t2;
+
+    temp = root->astnode.ident.arraylist;
+    t2=hashtemp->variable->astnode.source.args;
+
+    for( ; temp != NULL; temp = temp->nextstmt)
+    {
+         /*
+          * if the arg is an identifier  AND
+          *    it looks like an array access AND
+          *    it is in the array table
+          */
+       if((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist != NULL)
+          && (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
+       {
+         ht2 = type_lookup(cur_args_table, temp->astnode.ident.name);
+
+         printf("CAlling func-array_emit\n");
+
+         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
+           continue;
+         else                                /* it is not expecting an array */
+           return 1;
+       }
+    }
+  }
+
+  return 0;
+}
 
 /* 
  * This function handles code generation for specification statements.
@@ -3254,6 +3345,24 @@ substring_assign_emit(AST *root)
   fprintf(curfp,");\n");
 
   fprintf(curfp,"}\n");
+}
+
+int
+dl_int_examine(Dlist l)
+{
+  return ( *( (int *) dl_val(dl_last(l)) ) );
+}
+
+int
+dl_int_search(Dlist l, int val)
+{
+  Dlist p;
+
+  dl_traverse(p,l)
+    if( *((int *)p->val) == val )
+      return TRUE;
+
+  return FALSE;
 }
 
 /*

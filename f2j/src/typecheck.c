@@ -5,7 +5,6 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
-#include"list.h"
 
 char * strdup ( const char * );
 char * print_nodetype ( AST * ); 

@@ -6909,27 +6909,10 @@ assign_emit (AST * root)
  *                                                                           *
  * substring_assign_emit                                                     *
  *                                                                           *
- * This function handles situations in which the lhs of an                   *
- * assignment statement is a substring operation.  For example:              *
- *   a(3:4) = 'hi'                                                           *
- * We haven't figured out an elegant way to handle this in Java,             *
- * but we do handle it, as follows:                                          *
- *                                                                           *
- *  int E1, E2;                                                              *
- *  E1 = 3;                                                                  *
- *  E2 = 4;                                                                  *
- *  a = new StringW(                                                         *
- *        a.val.substring(0,E1-1) +                                          *
- *        "hi".substring(0,E2-E1+1) +                                        *
- *        a.val.substring(E2,a.val.length())                                 *
- *      );                                                                   *
- *                                                                           *
- * The resulting code looks pretty bad because we have to be                 *
- * prepared to handle rhs strings that are too big to fit in                 *
- * the lhs substring.                                                        *
- *                                                                           *
- * luckily, java provides the String.substring() method, which               *
- * helps out a lot.                                                          *
+ * once upon a time, we generated some funky inline code to handle substring *
+ * ops on the LHS of an assignment.  we moved that code to a method in       *
+ * org.netlib.util.Util called insertString(), which takes the LHS string,   *
+ * the RHS string, and the substring indices and returns the altered string. *
  *                                                                           *
  *****************************************************************************/
 
@@ -6943,27 +6926,10 @@ substring_assign_emit(AST *root)
   if(gendebug)
     printf("substring_assign_emit\n");
 
-  fprintf(curfp,"{\n  int E1, E2;\n");
-  fprintf(curfp,"  E1 = ");
-  expr_emit(lhs->astnode.ident.arraylist);
-  fprintf(curfp,";\n");
-
-  fprintf(curfp,"  E2 = ");
-  expr_emit(lhs->astnode.ident.arraylist->nextstmt);
-  fprintf(curfp,";\n");
-
-  if(omitWrappers) {
-    fprintf(curfp,"%s = new String(",lname);
-    if(isPassByRef(lname))
-      fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
-    else
-      fprintf(curfp,"%s.substring(0,E1-1) + ", lname);
-  }
+  if(omitWrappers && !isPassByRef(lname))
+    fprintf(curfp,"%s = Util.stringInsert(%s,",lname,lname); 
   else
-  {
-    fprintf(curfp,"%s = new StringW(",lname);
-    fprintf(curfp,"%s.val.substring(0,E1-1) + ", lname);
-  }
+    fprintf(curfp,"%s.val = Util.stringInsert(%s.val,",lname,lname); 
 
   if(rhs->vartype == Character)
   {
@@ -6974,32 +6940,25 @@ substring_assign_emit(AST *root)
 
     fprintf(curfp,"new Character(");
     expr_emit(rhs);
-    fprintf(curfp,").toString().substring(0,E2-E1+1) + ");
+    fprintf(curfp,").toString(),");
   }
   else if(rhs->vartype == String)
   {
     expr_emit(rhs);
-    fprintf(curfp,".substring(0,E2-E1+1) + ");
+    fprintf(curfp,",");
   }
   else
   {
-    char *tempstring = strdup(returnstring[rhs->vartype]);
-
-    *tempstring = toupper (*tempstring);
-
-    fprintf(curfp,"%s.toString(", tempstring);
+    fprintf(curfp,"%s.toString(", java_wrapper[rhs->vartype]);
     expr_emit(rhs);
-    fprintf(curfp,").substring(0,E2-E1+1) + ");
+    fprintf(curfp,"),");
   }
 
-  if(omitWrappers && !isPassByRef(lname))
-    fprintf(curfp,"%s.substring(E2,%s.length())",lname,lname);
-  else
-    fprintf(curfp,"%s.val.substring(E2,%s.val.length())",lname,lname);
+  expr_emit(lhs->astnode.ident.arraylist);
+  fprintf(curfp,",");
+  expr_emit(lhs->astnode.ident.arraylist->nextstmt);
 
-  fprintf(curfp,");\n");
-
-  fprintf(curfp,"}\n");
+  fprintf(curfp,")");
 }
 
 /*****************************************************************************

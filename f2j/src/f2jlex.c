@@ -6,6 +6,19 @@
  */
 
 
+/* 
+ * f2jlex.c is a lexer for a Fortran front-end written to
+ * translate Fortran numerical linear algebra code into
+ * Java.  The lexer interacts with a yacc generated parser
+ * and implements a subset of the commands used by the 
+ * flex scanner.  Due to the nature of yacc (uses globals)
+ * the scanner takes no arguments, but examines the globally
+ * declared input source buffer.  It returns a single token
+ * and it's associated lexical value at each call. EOF 
+ * condition passes control back to main() for program
+ * termination.
+ */
+
 
 #include<stdio.h>
 #include<string.h>

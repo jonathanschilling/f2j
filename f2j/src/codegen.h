@@ -259,6 +259,19 @@ enum _opcode {
   jvm_impdep2
 };
 
+/*****************************************************************************
+ * this structure holds information about the state of the stack before and  *
+ * after a method call.  to correctly calculate the maximum stack depth, we  *
+ * need to know how many arguments an invoke[static,virtual,etc] instruction *
+ * will pop off the stack.  even though there is only one return value, it   *
+ * can occupy zero, one, or two stack entries depending on the return type   *
+ * of the method.                                                            *
+ *****************************************************************************/
+struct stack_info {
+  int arg_len,       /* depth of stack when this method is invoked           */
+      ret_len;       /* depth of stack when this method returns              */
+};
+
 char *returnstring[MAX_RETURNS+1] =  /* data types for arrays                */
 {
   "String",

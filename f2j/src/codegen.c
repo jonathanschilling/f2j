@@ -7051,46 +7051,46 @@ code_one_op_w(enum _opcode op, u2 index)
   u2 this_operand = u2BigEndian(index);
   char *this_desc;
   CPNODE *c;
-  int numArguments(char *);
+  struct stack_info * calcStack(char *), *stackinf;
+  int stack_increment, stack_decrement;
 
   /* now we need to determine how many parameters are sitting on the stack */
-  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)) {
-    /* if the opcode is invokespecial or invokevirtual, then there is an
-     * object reference plus parameters on the stack.
-     */
-
+  if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
+   || (op == jvm_invokestatic))
+  {
     c = cp_entry_by_index(cur_const_table, index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.Methodref.name_and_type_index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.NameAndType.descriptor_index);
     this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
-    dec_stack(numArguments(this_desc) + 1);
-  }
-  else if(op == jvm_invokestatic) {
-    /* else if the opcode is invokestatic, then there is no object reference
-     * on the stack, but there are some parameters sitting on the stack.
+    stackinf = calcStack(this_desc);
+
+    /* if the opcode is invokespecial or invokevirtual, then there is one
+     * object reference + parameters on the stack.  if this is an invokestatic
+     * instruction, then there's just parameters. 
      */
 
-    c = cp_entry_by_index(cur_const_table, index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.Methodref.name_and_type_index);
-    c = cp_entry_by_index(cur_const_table,
-                          c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
-    dec_stack(numArguments(this_desc));
+    if(op == jvm_invokestatic)
+      stack_decrement = stackinf->arg_len;
+    else
+      stack_decrement = stackinf->arg_len + 1;
+
+    stack_increment = stackinf->ret_len;
   }
   else {
     /* else we can determine the stack decrement from a table.  */
-    dec_stack(jvm_opcode[op].stack_pre);
+    stack_decrement = jvm_opcode[op].stack_pre;
+    stack_increment = jvm_opcode[op].stack_post;
   }
 
+  dec_stack(stack_decrement);
   check_code_size(jvm_opcode[op].width);
   memcpy(cur_code->attr.Code->code + pc, &this_opcode, sizeof(this_opcode));
   memcpy(cur_code->attr.Code->code + pc + 1, &this_operand, sizeof(this_operand));
   printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);
   pc += jvm_opcode[op].width;
-  inc_stack(jvm_opcode[op].stack_post);
+  inc_stack(stack_increment);
 }
 
 /*****************************************************************************
@@ -7278,6 +7278,14 @@ endNewMethod(struct method_info * meth, char * name, char * desc)
 {
   CPNODE *c;
 
+  /* at the end of the method, the stacksize should always be zero.
+   * if not, we're gonna have verification problems at the very least.
+   * at this point, there's not much we can do about it, but issue a
+   * warning.
+   */
+  if(stacksize != 0)
+    fprintf(stderr,"WARNING: ending method with stacksize = %d\n",stacksize);
+
   /* here we insert the name and descriptor of this method.  the reason that
    * we didn't insert this into the constant pool in the beginNewMethod()
    * function is for the <clinit> case.  we dont always need a <clinit> 
@@ -7314,7 +7322,7 @@ endNewMethod(struct method_info * meth, char * name, char * desc)
 
 /*****************************************************************************
  *                                                                           *
- * numArguments                                                              *
+ * calcStack                                                                 *
  *                                                                           *
  * given a method descriptor, this function returns the number of arguments  *
  * it takes.  we use this value to determine how much to decrement the stack *
@@ -7322,13 +7330,18 @@ endNewMethod(struct method_info * meth, char * name, char * desc)
  *                                                                           *
  *****************************************************************************/
 
-int
-numArguments(char *d)
+struct stack_info *
+calcStack(char *d)
 {
+  char * skipToken(char *);
+
+  struct stack_info *tmp;
   int len = strlen(d);
   char *ptr;
-  int count;
-  char * skipToken(char *);
+
+  tmp = (struct stack_info *)f2jalloc(sizeof(struct stack_info));
+  tmp->arg_len = 1;
+  tmp->ret_len = 1;
 
   /* the shortest method descriptor should be 3 characters: ()V
    * thus, if the given string is < 3 characters, it must be in error.
@@ -7336,29 +7349,48 @@ numArguments(char *d)
 
   if(len < 3) {
     fprintf(stderr,"WARNING: invalid descriptor.\n");
-    return 1;
+    return tmp;
   }
 
   if(d[0] != '(') {
     fprintf(stderr,"WARNING: invalid descriptor.\n");
-    return 1;
+    return tmp;
   }
 
-  ptr = d+1;
-  count = 0;
+  ptr = d;
+
+  /* start at -1 because the opening paren will contribute 1 to
+   * the count.
+   */
+  tmp->arg_len = -1;
 
   while((ptr = skipToken(ptr)) != NULL) {
-    count++;
+    tmp->arg_len++;
+
+    /* check if this is a double or long type.  if so, increment
+     * again because these data types take up two stack entries.
+     */
+    if( (*ptr ==  'D') || (*ptr == 'J') )
+      tmp->arg_len++;
   }
 
-  return count;
+  ptr = strtok(strdup(d),")");
+  ptr = strtok(NULL,")");
+  if( (*ptr ==  'D') || (*ptr == 'J') )
+    tmp->ret_len = 2;
+  else if(*ptr == 'V')
+    tmp->ret_len = 0;
+  else
+    tmp->ret_len = 1;
+
+  return tmp;
 }
 
 /*****************************************************************************
  *                                                                           *
  * skipToken                                                                 *
  *                                                                           *
- * helper routine for numArguments().  this function returns a pointer to    *
+ * helper routine for calcStack().  this function returns a pointer to       *
  * the next field type in this descriptor.  if there are no more field types *
  * this function returns NULL.  on error, this function also returns NULL.   *
  *                                                                           *
@@ -7387,6 +7419,10 @@ skipToken(char *str)
 
     case '[':
       return skipToken(p+1);
+
+    case '(':
+      /* we should hit this case at the beginning of the descriptor */
+      return p+1;
 
     case ')':
       return NULL;

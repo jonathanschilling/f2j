@@ -24,6 +24,8 @@ char *methodscan (METHODTAB *, char *);
 
 extern char *returnstring[]; 
 
+AST *cur_unit;
+
 void
 typecheck (AST * root)
 {
@@ -50,18 +52,30 @@ typecheck (AST * root)
     case Subroutine:
     case Function:
     case Program:
+      cur_unit = root;
+      break;
     case End:
       if (checkdebug)
         printf ("typecheck(): %s.\n", print_nodetype(root));
       break;
-    case Typedec:
     case DataList:
+      data_check(root);
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Label:
+      if(root->astnode.label.stmt != NULL) 
+        typecheck(root->astnode.label.stmt);
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Typedec:
     case Specification:
     case Statement:
     case Return:
     case Goto:
     case ComputedGoto:
-    case Label:
     case Format:
     case Stop:
     case Save:
@@ -151,6 +165,30 @@ typecheck (AST * root)
   }				/* switch on nodetype.  */
 }
 
+int 
+data_check(AST * root)
+{
+  HASHNODE *hashtemp;
+  AST *Dtemp,*Ntemp;
+
+  for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt)
+  {
+    for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt)
+    {
+      hashtemp = type_lookup(chk_type_table,Ntemp->astnode.ident.name);
+
+      if(hashtemp != NULL)
+      {
+        if((Ntemp->astnode.ident.arraylist != NULL) && 
+           (type_lookup(chk_array_table,Ntemp->astnode.ident.name) != NULL))
+          hashtemp->variable->astnode.ident.needs_declaration = TRUE;
+        else
+          hashtemp->variable->astnode.ident.needs_declaration = FALSE;
+      }
+    }
+  }
+}
+
 int
 name_check (AST * root)
 {
@@ -169,11 +207,21 @@ name_check (AST * root)
   /* If the name is in the external table, then check to see if
      it is an intrinsic function instead (e.g. SQRT, ABS, etc).  */
 
+printf("tempname = %s\n", tempname);
+
   if (type_lookup (chk_external_table, root->astnode.ident.name) != NULL)
+  {
+printf("going to external_check\n");
     external_check(root);  /* handles LSAME, LSAMEN */
+  }
   else if( methodscan (intrinsic_toks, tempname) != NULL) 
+  {
+printf("going to intrinsic_check\n");
     intrinsic_check(root);
+  }
   else
+  {
+printf("NOt intrinsic or external\n");
     switch (root->token)
     {
       case STRING:
@@ -194,8 +242,20 @@ name_check (AST * root)
           printf("@# Found!\n");
           root->vartype = ht->variable->vartype;
         }
+        else if( (cur_unit->nodetype == Function) &&
+                 !strcmp(cur_unit->astnode.source.name->astnode.ident.name,
+                         root->astnode.ident.name))
+        {
+          printf("@# this is the implicit function var\n");
+          printf("@# ...setting vartype = %s\n", 
+             returnstring[cur_unit->astnode.source.returns]);
+          root->vartype = cur_unit->astnode.source.returns;
+        }
         else
-          printf("@# NOt Found!\n");
+        {
+          fprintf(stderr,"Undeclared variable: %s\n",root->astnode.ident.name);
+          root->vartype = 0;
+        }
 
         if (root->astnode.ident.arraylist == NULL)
           ; /* nothin for now */
@@ -203,8 +263,8 @@ name_check (AST * root)
           array_check(root, hashtemp);
         else
           subcall_check(root);
-        break;
     }
+  }
 }
 
 /*  This function emits a subroutine call */
@@ -319,7 +379,17 @@ intrinsic_check(AST *root)
 
   if (!strcmp (tempname, "MAX"))
   {
+
+printf("here we are in MAX.  arraylist is %s\n", 
+  (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
+
     temp = root->astnode.ident.arraylist;
+
+printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
+
+printf("temp->next is %s\n",
+  (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
+
     expr_check (temp);
     expr_check (temp->nextstmt);
     root->vartype = Double;
@@ -375,6 +445,38 @@ intrinsic_check(AST *root)
     root->vartype = Integer;
     return;
   }
+
+  if (!strcmp (tempname, "CHAR"))
+  {
+    temp = root->astnode.ident.arraylist;
+    expr_check(temp);
+    root->vartype = Character;
+    return;
+  }
+
+  if (!strcmp (tempname, "ICHAR"))
+  {
+    temp = root->astnode.ident.arraylist;
+    expr_check(temp);
+    root->vartype = Integer;
+    return;
+  }
+
+  if (!strcmp (tempname, "INT"))
+  {
+    temp = root->astnode.ident.arraylist;
+    expr_check(temp);
+    root->vartype = Integer;
+    return;
+  }
+
+  if (!strcmp (tempname, "REAL"))
+  {
+    temp = root->astnode.ident.arraylist;
+    expr_check(temp);
+    root->vartype = Double;
+    return;
+  }
 }
 
 int
@@ -383,10 +485,16 @@ expr_check (AST * root)
   extern METHODTAB intrinsic_toks[];
   char *tempname;
 
+  if(root == NULL) {
+    fprintf(stderr,"expr_check(): NULL root!\n");
+    return 0;
+  }
+
   switch (root->nodetype)
   {
     case Identifier:
       name_check (root);
+      printf("EXPR, root->vartype = %d\n", root->vartype);
       if (checkdebug)
         printf("hit case identifier (%s), now type is %s\n",
            root->astnode.ident.name,returnstring[root->vartype]);
@@ -426,18 +534,20 @@ expr_check (AST * root)
       if (root->astnode.expression.lhs != NULL)
         expr_check (root->astnode.expression.lhs);
       expr_check (root->astnode.expression.rhs);
-      root->vartype = root->astnode.expression.rhs->vartype;
+      root->vartype = Logical;
       break;
     case Relationalop:
       expr_check (root->astnode.expression.lhs);
       expr_check (root->astnode.expression.rhs);
-      root->vartype = MIN(root->astnode.expression.lhs->vartype,
-                          root->astnode.expression.rhs->vartype);
+      root->vartype = Logical;
       break;
     case Substring:
       expr_check(root->astnode.ident.arraylist);
       expr_check(root->astnode.ident.arraylist->nextstmt);
-      root->vartype = Character;
+      root->vartype = String;
+      break;
+    case EmptyArgList:
+      /* do nothing */
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_check(): %s\n",
@@ -510,9 +620,19 @@ int
 call_check (AST * root)
 {
   AST *temp;
+  HASHNODE *ht;
 
   assert (root != NULL);
-  assert (root->astnode.ident.arraylist != NULL);
+  if(root->astnode.ident.arraylist == NULL)
+    return;
+
+printf("the name of this function/subroutine is %s\n",
+         root->astnode.ident.name);
+if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
+{
+  printf("SETting type to %s\n", returnstring[ht->variable->vartype]);
+  root->vartype = ht->variable->vartype;
+}
 
   temp = root->astnode.ident.arraylist;
   while (temp->nextstmt != NULL)
@@ -528,4 +648,7 @@ assign_check (AST * root)
 {
   name_check (root->astnode.assignment.lhs);
   expr_check (root->astnode.assignment.rhs);
+
+printf("## ## typecheck: rtype = %s\n",
+  returnstring[root->astnode.assignment.rhs->vartype]);
 }

@@ -75,11 +75,12 @@ typedef union {
 #define	SAVE	326
 #define	DATA	327
 #define	COMMENT	328
-#define	WRITE	329
-#define	FMT	330
-#define	EDIT_DESC	331
-#define	REPEAT	332
-#define	UMINUS	333
+#define	READ	329
+#define	WRITE	330
+#define	FMT	331
+#define	EDIT_DESC	332
+#define	REPEAT	333
+#define	UMINUS	334
 
 
 extern YYSTYPE yylval;

@@ -17,6 +17,7 @@
 #
 
 set PNAME = `echo $0 | awk -F/ '{print $NF}'`
+set OPT = 
 
 # check the args
 #
@@ -53,9 +54,9 @@ foreach file ($argv)
 # Step 1.  Compile the java .file to a .class file.
 #
 
-  echo "javac $JAVA_SRC"
+  echo "javac $OPT $JAVA_SRC"
   rm -f __out
-  javac $JAVA_SRC >& __out
+  javac $OPT $JAVA_SRC >& __out
 
 # check for compilation errors
   if(! -z __out) then

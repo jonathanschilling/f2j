@@ -13,16 +13,20 @@
 
 
 
-/* The following several tables have their last entry initialized
-   to `NULL'.  This allows each table to be traversed by a while()
-   loop: 'while (tab->entry)' loops until entry is NULL, then
-   gracefully exits.  Similarly, a for() loop can be used, for example:
-   'for (tab;tab;tab++)' traverses tab until the NULL last entry is
-   reached. See the 'keyscan()' and 'methodscan()' procedures. */
+/* 
+ *  The following several tables have their last entry initialized
+ * to `NULL'.  This allows each table to be traversed by a while()
+ * loop: 'while (tab->entry)' loops until entry is NULL, then
+ * gracefully exits.  Similarly, a for() loop can be used, for example:
+ * 'for (tab;tab;tab++)' traverses tab until the NULL last entry is
+ * reached. See the 'keyscan()' and 'methodscan()' procedures. 
+ */
 
-/* Statement starting keywords. The only violation of this
-   in fortran 77 is the keyword THEN following a closing
-   parentheses (')'). */
+/* 
+ *  Statement starting keywords. The only violation of this
+ * in fortran 77 is the keyword THEN following a closing
+ * parentheses (')'). 
+ */
 KWDTAB tab_stmt[] =
 {
     {"CALL", CALL, 0},
@@ -57,9 +61,11 @@ KWDTAB tab_stmt[] =
     NULL  /* Ends a scanning loop.  See comment above. */
 };
 
-/* The type tokens MUST appear at the beginning of a
-   statement, and must occur before any of the
-   executable statements. */
+/* 
+ *  The type tokens MUST appear at the beginning of a
+ * statement, and must occur before any of the
+ * executable statements. 
+ */
 KWDTAB tab_type[] =
 {
     {"DOUBLEPRECISION", TYPE, Double},
@@ -78,12 +84,14 @@ KWDTAB tab_type[] =
     {"COMPLEX*8", TYPE, Complex},
     {"COMPLEX", TYPE, Complex},
 
-    {"CHARACTER", TYPE, Character},
+    {"CHARACTER", TYPE, String},
     NULL  /* Ends a scanning loop.  See comment above. */
 };
 
-/* Miscellaneous tokens.  None of these tokens may
- appear at the beginning fo a statement.  */
+/* 
+ *  Miscellaneous tokens.  None of these tokens may
+ * appear at the beginning fo a statement.  
+ */
 KWDTAB tab_toks[] =
 {
     {"\n", NL, 0},   /*  Statement separator. */
@@ -115,15 +123,17 @@ KWDTAB tab_toks[] =
     NULL  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
-/* This table lists stuff that can be
-   handled with java methods.  The pattern
-   is {"fortran name", "java method"}.
-   Some of the fortran names are intrinsic
-   to fortran and java, others are intrinsic
-   only to java and replace function or sub-
-   routine calls in the lapack or blas source.
-   This table may have to be extended to handle
-   jasmin opcodes.  */
+/* 
+ *  This table lists stuff that can be
+ * handled with java methods.  The pattern
+ * is {"fortran name", "java method"}.
+ * Some of the fortran names are intrinsic
+ * to fortran and java, others are intrinsic
+ * only to java and replace function or sub-
+ * routine calls in the lapack or blas source.
+ * This table may have to be extended to handle
+ * jasmin opcodes.   
+ */
 
 METHODTAB intrinsic_toks[]=
 {
@@ -137,6 +147,10 @@ METHODTAB intrinsic_toks[]=
   {"DSQRT", "Math.sqrt"},
   {"MOD", "(int) Math.IEEEremainder"},
   {"DBLE", "(double)"},
+  {"CHAR", "(char)"},
+  {"ICHAR", "(int)"},
+  {"INT", "(int)"},
+  {"REAL", "(double)"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
@@ -151,10 +165,12 @@ METHODTAB java_toks[]=
   { NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
-/* There are some long strings associated with these, so 
-   I am using the preprocessor to clean this code a bit.
-   The strings are defined at the top of this file, but 
-   probably need to be in a lex header file.  */
+/* 
+ * There are some long strings associated with these, so 
+ * I am using the preprocessor to clean this code a bit.
+ * The strings are defined at the top of this file, but 
+ * probably need to be in a lex header file.  
+ */
 
 METHODTAB jasmin_intrinsic_toks[]=
 {
@@ -164,8 +180,10 @@ METHODTAB jasmin_intrinsic_toks[]=
   NULL      /* Ends a scanning loop.  See comment above. */
 };
 
-/* Table to indicate which primitives have to be passed by
-   reference instead of value.  */
+/* 
+ * Table to indicate which primitives have to be passed by
+ * reference instead of value.  
+ */
 METHODTAB pass_by_refs[]=
 {
   {"WORK", "work.val"},
@@ -173,6 +191,17 @@ METHODTAB pass_by_refs[]=
   NULL      /* Ends a scanning loop.  See comment above. */
 };
 
+/* 
+ *  This is a list of Java reserved words.  If a variable in
+ * the Fortran source matches one of these words, it must be
+ * transformed before generating the Java source.
+ *
+ *  This list comes from p. 181 of Java in a Nutshell (David
+ * Flanagan) so it should be fairly complete for Java versions
+ * 1.0.x.  There will probably need to be some added to comply
+ * with versions 1.1.x.
+ */
+ 
 char *java_reserved_words[] = 
 {
      "abstract" ,    "boolean" ,   "break" ,     "byte" ,   "byvalue" ,

@@ -12,9 +12,7 @@ typedef int BOOLEAN;
 #define VCG 0   /* define VCG to get graph output */
 #define BLAS 0
 #define LAPACK 1
-#define JAVA 0
-#define JASMIN 1
-#define DEFAULT_TARGET_LANG JAVA
+#define DEFAULT_TARGET_LANG 0 /* 0 for JAVA, 1 for JAS */
 
 /*  If 1, yyparse produces voluminous, detailed
     output to stderr during parsing.  */
@@ -57,6 +55,7 @@ enum spectype
 
 enum returntype
   {
+      String,
       Character,
       Complex,
       Double,
@@ -124,6 +123,7 @@ typedef struct ast_node
             ComputedGoto,
             ArrayAccess,
             ArrayDec,
+            EmptyArgList,
 	    Unimplemented
 	}
       nodetype;
@@ -149,6 +149,7 @@ typedef struct ast_node
                   SYMTABLE *save_table; 
                   SYMTABLE *common_table; 
                   SYMTABLE *parameter_table; 
+                  struct ast_node *dataStmtList;
 	      }
 	    source;
 
@@ -208,6 +209,7 @@ typedef struct ast_node
 		  struct ast_node *arraylist;
 		  char  * leaddim;
                   int dim;
+                  int D[3];
 		  char *opcode;	/* e.g., opcode = strdup("iload_1"); */
 		  /*  A string records the appropriate method
 		     to invoke on the stack when opcode is
@@ -216,6 +218,7 @@ typedef struct ast_node
                   char *commonBlockName;
 		  int localvnum;
 		  char name[80];
+                  int needs_declaration;
 	      }
 	    ident;
 

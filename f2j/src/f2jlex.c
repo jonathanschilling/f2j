@@ -148,6 +148,7 @@ yylex ()
       tokennumber = 0;    /* Reset for each statement. */
       parencount = 0;     /* Reset for each statement. */
       format_stmt = 0;    /* Reset for each statement. */
+      firsttoken = 0;
     }
 
     if(lexdebug)
@@ -282,6 +283,10 @@ yylex ()
        place necessary to scan for keywords.  The keywords we
        expect to find are THEN, CONTINUE, and logical if
        statement keywords.  */
+/*
+printf("firsttoken = %s\n",tok2str(firsttoken));
+*/
+
     if ((letterseen == TRUE        &&
 	(firsttoken == IF      ||
 	 firsttoken == ELSEIF)     &&
@@ -1026,7 +1031,7 @@ string_or_char_scan (BUFFER * bufstruct)
             /* Now we determine whether this is the final tick
                or just an escape sequence to actually print a
                tick.  If it's an escape, substitute a backslash
-               for the first tick.  that is,  '' -> /'
+               for the first tick.  that is,  '' -> \'
                9/30/97 --Keith */
 
             if( *(scp + 1) == '\'' )

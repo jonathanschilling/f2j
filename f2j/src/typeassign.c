@@ -186,8 +186,9 @@ name_assign (AST * root)
 		root->astnode.ident.opcode = strdup ("fload");
 		stack++;
 		break;
-case Character: root->astnode.ident.opcode = strdup ("ldc");
-break;
+            case String: 
+                root->astnode.ident.opcode = strdup ("ldc");
+                break;
 	    default:
 		break;
 	    }

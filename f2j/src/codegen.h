@@ -295,4 +295,8 @@ struct stack_info * calcStack(char *);
 METHODREF
   * find_method(char *, Dlist);
 
+BOOLEAN
+  adapter_insert_from_table(AST *, AST *, HASHNODE *),
+  adapter_insert_from_descriptor(AST *, AST *, char *);
+
 #endif

@@ -9087,9 +9087,9 @@ void
 insert_adapter(AST *node)
 {
   HASHNODE *hashtemp;
-  AST *ptr, *t2, *this_call, *other_call;
-  int i, found = FALSE, diff = FALSE;
-  int this_arg_is_arrayacc, other_arg_is_arrayacc;
+  METHODREF *tmp;
+  AST *ptr;
+  int found = FALSE;
   Dlist p;
 
   /* if there is not an adapter for this function call already in the list,
@@ -9121,67 +9121,7 @@ insert_adapter(AST *node)
 
       if((hashtemp=type_lookup(function_table, node->astnode.ident.name)) != NULL)
       {
-        if(gendebug) {
-          printf("** \n");
-          printf("** found prototype.\n");
-        }
-  
-        this_call = node->astnode.ident.arraylist;
-        other_call = ptr->astnode.ident.arraylist;
-  
-        t2 = hashtemp->variable->astnode.source.args;
-  
-        diff = FALSE;
-
-        for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
-        {
-          if(t2 == NULL)
-            break;
-
-          if(gendebug)
-            printf("** arg %d\n",i);
-  
-          if( other_call == NULL )
-          {
-            fprintf(stderr,"2:Function calls to %s in unit %s ", 
-              node->astnode.ident.name, unit_name);
-            fprintf(stderr,"don't have same number of params\n");
-            return;
-          }
-
-          this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
-                (this_call->astnode.ident.arraylist != NULL) &&
-                type_lookup(cur_array_table, this_call->astnode.ident.name);
-
-          if(gendebug)
-            printf("** this_arg_is_arrayacc = %d\n",this_arg_is_arrayacc);
-
-          other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
-                (other_call->astnode.ident.arraylist != NULL) &&
-                type_lookup(cur_array_table, other_call->astnode.ident.name);
-
-          if(gendebug)
-            printf("** other_arg_is_arrayacc = %d\n",other_arg_is_arrayacc);
-
-          if( (! t2->astnode.ident.arraylist) &&
-              (this_arg_is_arrayacc != other_arg_is_arrayacc ))
-          {
-            if(gendebug)
-              printf("** setting diff = TRUE\n");
-
-            diff = TRUE;
-          }
-  
-          if(gendebug)
-            printf("** blah\n");
-
-          other_call = other_call->nextstmt;
-
-          if(t2 != NULL)
-            t2 = t2->nextstmt;
-        }
-  
-        if(!diff) {
+        if(!adapter_insert_from_table(node,ptr,hashtemp)) {
           if(gendebug)
             printf("** found an equivalent adapter.  no need to insert.\n");
 
@@ -9189,9 +9129,14 @@ insert_adapter(AST *node)
         }
       }
       else {
-        if(gendebug)
-          printf("** cant find prototype...returning.\n");  
-  
+        tmp = find_method(node->astnode.ident.name, descriptor_table);
+
+        if(tmp)
+          adapter_insert_from_descriptor(node, ptr, tmp->descriptor);
+        else {
+          if(gendebug)
+            printf("** cant find prototype...returning.\n");  
+        }
                       /* cant find the prototype.  normally, I dont think */
         return;       /* this case will be reached.                       */
       }
@@ -9203,6 +9148,125 @@ insert_adapter(AST *node)
       node->astnode.ident.name);
 
   dl_insert_b(adapter_list,node);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_insert_from_table                                                 *
+ *                                                                           *
+ * this function determines whether the call pointed to by node is different *
+ * from the call pointed to by ptr.                                          *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOLEAN
+adapter_insert_from_table(AST *node, AST *ptr, HASHNODE *avar)
+{
+  int this_arg_is_arrayacc, other_arg_is_arrayacc;
+  AST *t2, *this_call, *other_call;
+  BOOLEAN diff;
+  int i;
+
+  this_call = node->astnode.ident.arraylist;
+  other_call = ptr->astnode.ident.arraylist;
+
+  t2 = avar->variable->astnode.source.args;
+
+  diff = FALSE;
+
+  for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
+  {
+    if(t2 == NULL)
+      break;
+
+    if( other_call == NULL )
+    {
+      fprintf(stderr,"2:Function calls to %s in unit %s ", 
+        node->astnode.ident.name, unit_name);
+      fprintf(stderr,"don't have same number of params\n");
+      return TRUE;
+    }
+
+    this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
+          (this_call->astnode.ident.arraylist != NULL) &&
+          type_lookup(cur_array_table, this_call->astnode.ident.name);
+
+    other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
+          (other_call->astnode.ident.arraylist != NULL) &&
+          type_lookup(cur_array_table, other_call->astnode.ident.name);
+
+    if( (! t2->astnode.ident.arraylist) &&
+        (this_arg_is_arrayacc != other_arg_is_arrayacc ))
+    {
+      diff = TRUE;
+    }
+
+    other_call = other_call->nextstmt;
+
+    if(t2 != NULL)
+      t2 = t2->nextstmt;
+  }
+
+  return diff;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_insert_from_descriptor                                            *
+ *                                                                           *
+ * this function determines whether the call pointed to by node is different *
+ * from the call pointed to by ptr.                                          *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOLEAN
+adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
+{
+  int this_arg_is_arrayacc, other_arg_is_arrayacc, i;
+  AST *this_call, *other_call;
+  BOOLEAN diff;
+  char *dptr;
+
+  this_call = node->astnode.ident.arraylist;
+  other_call = ptr->astnode.ident.arraylist;
+
+  dptr = skipToken(desc);
+
+  diff = FALSE;
+
+  for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
+  {
+    if(dptr == NULL)
+      break;
+
+    if( other_call == NULL )
+    {
+      fprintf(stderr,"2:Function calls to %s in unit %s ", 
+        node->astnode.ident.name, unit_name);
+      fprintf(stderr,"don't have same number of params\n");
+      return TRUE;
+    }
+
+    this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
+          (this_call->astnode.ident.arraylist != NULL) &&
+          type_lookup(cur_array_table, this_call->astnode.ident.name);
+
+    other_arg_is_arrayacc = (other_call->nodetype == Identifier) &&
+          (other_call->astnode.ident.arraylist != NULL) &&
+          type_lookup(cur_array_table, other_call->astnode.ident.name);
+
+    if( (dptr[0] != '[') &&
+        (this_arg_is_arrayacc != other_arg_is_arrayacc ))
+    {
+      diff = TRUE;
+    }
+
+    other_call = other_call->nextstmt;
+
+    dptr = skipToken(dptr);
+  }
+
+  return diff;
 }
 
 /*****************************************************************************

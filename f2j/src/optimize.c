@@ -1156,9 +1156,16 @@ assign_optimize (AST * root, AST *rptr)
   ht=type_lookup(opt_type_table,root->astnode.assignment.lhs->astnode.ident.name);
 
   if(ht) {
-    if(type_lookup(opt_args_table, 
+    /* check if the LHS is an array access.  if so, then we really
+     * should not set passByRef to TRUE here because setting an array
+     * element does not require wrapping the array (not that we support
+     * wrapping array references anyway).
+     */
+
+    if(root->astnode.assignment.lhs->astnode.ident.arraylist == NULL)
+      if(type_lookup(opt_args_table, 
           root->astnode.assignment.lhs->astnode.ident.name) != NULL)
-      ht->variable->astnode.ident.passByRef = TRUE;
+        ht->variable->astnode.ident.passByRef = TRUE;
   }
   else
     fprintf(stderr,"Can't find lhs of assignment: %s\n", 

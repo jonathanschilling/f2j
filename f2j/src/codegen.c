@@ -2869,9 +2869,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 
     pushIntConst(d1);
     bytecode0(jvm_imul);
+    bytecode0(jvm_iadd);
     pushIntConst(d0);
     bytecode0(jvm_imul);
-    bytecode0(jvm_iadd);
     bytecode0(jvm_iadd);
     pushIntConst(offset);
     bytecode0(jvm_isub);
@@ -3025,10 +3025,26 @@ printf("done emitting lead_exp...\n");
   }
 
   if(is_arg) {
+    int varnum;
+
     fprintf(curfp,  "+ _%s_offset",arrayname);
+
+    /* locate the array's symtable entry and assign the varnum
+     * of the offset arg to be one greater than the array's varnum.
+     */
+    ht = type_lookup(cur_type_table, arrayname);
+    if(!ht) {
+      fprintf(stderr,"WARNING: type table screwed.");
+      fprintf(stderr,"  looking for localvarnum for '_%s_offset'\n",
+        arrayname);
+      varnum = 1;
+    }
+    else
+      varnum = ht->variable->astnode.ident.localvnum + 1;
+
     pushVar(Integer,is_arg,cur_filename,
             "dummy string...is this significant?",
-            "I", root->astnode.ident.localvnum + 1 , FALSE);
+            "I", varnum , FALSE);
     bytecode0(jvm_iadd);
   }
 
@@ -5011,9 +5027,16 @@ expr_emit (AST * root)
 
         fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
            
+        /* the args to pow must be doubles, so cast if necessary */
+
         expr_emit (root->astnode.expression.lhs);
+
+        if(root->astnode.expression.lhs->vartype != Double)
+          bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype][Double]);
         fprintf (curfp, ", ");
         expr_emit (root->astnode.expression.rhs);
+        if(root->astnode.expression.rhs->vartype != Double)
+          bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype][Double]);
         fprintf (curfp, ")");
 
         ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
@@ -5022,7 +5045,8 @@ expr_emit (AST * root)
  
         if(gencast)
           bytecode0(jvm_d2i);
-
+        else if(root->vartype != Double)
+          bytecode0(typeconv_matrix[root->vartype][Double]);
       }
       break;
     case Binaryop:
@@ -5187,13 +5211,6 @@ expr_emit (AST * root)
         expr_emit (root->astnode.expression.lhs);
         bytecode1(jvm_invokevirtual, c->index);  /* call trim() */
       
-        /* after the call to trim, we now have a new string
-         * sitting on top of the stack with our second string
-         * sitting underneath.  so, we issue a swap instruction
-         * and then call trim() on the second string.
-         */
-        bytecode0(jvm_swap);
-
         fprintf(curfp,".trim().equalsIgnoreCase(");
 
         expr_emit (root->astnode.expression.rhs);
@@ -8415,15 +8432,13 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
   ht = type_lookup(cur_array_table, temp->astnode.ident.name);
 
   if(gendebug)
-    printf("CAlling func-array_emit\n");
+    printf("arrayacc_arg_emit() %s - %s\n", temp->astnode.ident.name, dptr);
 
   if(dptr[0] == '[')     /* it is expecting an array */
   {
-    /* fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name); */
     push_array_var(temp);
     func_array_emit(temp->astnode.ident.arraylist,ht,
        temp->astnode.ident.name, isarg, TRUE);
-    bytecode0(array_load_opcodes[temp->vartype]);
   }
   else                                /* it is not expecting an array */
   {
@@ -10414,7 +10429,7 @@ dec_stack(int dec) {
   stacksize -= dec;
 
   if(stacksize < 0)
-    fprintf(stderr,"WARNING: negative stacksize!\n");
+    fprintf(stderr,"WARNING: negative stacksize! (%s)\n", cur_filename);
 }
 
 /*****************************************************************************
@@ -10901,7 +10916,7 @@ calcOffsets(CodeGraphNode *val)
 
   val->visited = TRUE;
 
-  printf("in calcoffsets, op = %s, setting stack_Depth = %d\n",
+  printf("in calcoffsets, before op = %s, stack_Depth = %d\n",
          jvm_opcode[val->op].op,val->stack_depth);
 
   stacksize = val->stack_depth;
@@ -10936,8 +10951,8 @@ calcOffsets(CodeGraphNode *val)
           if(label_node->stack_depth == -1)
             label_node->stack_depth = stacksize;
           else if(label_node->stack_depth != stacksize)
-            fprintf(stderr,"WARNING: hit pc %d with differing stack sizes.\n",
-                    label_node->pc);
+            fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s)\n",
+                    label_node->pc, cur_filename);
 
           val->operand = label_node->pc - val->pc;
           calcOffsets(label_node);
@@ -11323,7 +11338,8 @@ assign_local_vars(AST * root)
   for (locallist = root ; locallist; locallist = locallist->nextstmt)
   {
     if(gendebug)
-      printf("arg list name: %s\n", locallist->astnode.ident.name);
+      printf("assign_local_vars(): arg list name: %s, local varnum: %d\n", 
+         locallist->astnode.ident.name, localnum);
 
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
     if(hashtemp == NULL)
@@ -11349,6 +11365,8 @@ assign_local_vars(AST * root)
      * also check whether this is pass by reference, because objects
      * always occupy 1 stack entry, even if the data type is double.
      */
+printf("assign_local_vars(): name: %s, pass by ref: %s\n", 
+ locallist->astnode.ident.name, hashtemp->variable->astnode.ident.passByRef ? "yes" : "no");
 
     if((hashtemp->type == Double ||
         hashtemp->variable->astnode.ident.arraylist != NULL) &&

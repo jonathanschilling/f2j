@@ -2065,6 +2065,16 @@ FormatSpec:
         {
           $$ = $3;
         }
+     | FMT EQ Name
+        {
+          fprintf(stderr,"Warning - ignoring FMT = %s\n",
+             $3->astnode.ident.name);
+          $$ = addnode();
+	  $$->token = INTEGER;
+          $$->nodetype = Constant;
+          strcpy($$->astnode.constant.number,"*");
+	  $$->vartype = Integer;
+        }
 ;
 
 Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL

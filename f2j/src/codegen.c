@@ -9668,7 +9668,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 void
 emit_adapters()
 {
-  char *tempname, *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc;
+  char *tempname, *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc=NULL;
   struct method_info *adapter_method;
   HASHNODE *hashtemp;
   METHODREF *mref;

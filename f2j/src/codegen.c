@@ -1100,6 +1100,9 @@ field_emit(AST *root)
   char * desc, * name;
   HASHNODE *ht;
 
+  if(!type_lookup(cur_type_table, root->astnode.ident.name))
+    return;
+
   /* check whether this is a local var.  if so, then it does not need to
    * be emitted as a static field of this class, so just return now.
    */
@@ -1863,8 +1866,24 @@ typedec_emit (JVM_METHOD *meth, AST * root)
           printf("%s should be %s\n", temp->astnode.ident.name,
             ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
       }
-      else
+      else {
+        char *tempname;
+
+        /* if this is an intrinsic then don't emit any warning since we
+         * didn't want to emit a real declaration for this anyway.
+         */
+        tempname = strdup(temp->astnode.ident.name);
+        uppercase(tempname);
+
+        if(methodscan(intrinsic_toks, tempname)) {
+          free(tempname);
+          continue;
+        }
+
         fprintf(stderr,"could not find %s\n", temp->astnode.ident.name);
+
+        free(tempname);
+      }
     }
 
     if(is_static(temp))
@@ -2090,9 +2109,21 @@ local_emit(JVM_METHOD *meth, AST *root)
 
         ht = type_lookup(cur_type_table,temp->astnode.ident.name);
         if(!ht) {
-          fprintf(stderr,"Warning: local_emit() could not find '%s'\n",
+          char *tempname;
+
+          /* if this is an intrinsic then don't emit any warning since we
+           * didn't want to emit a real declaration for this anyway.
+           */
+          tempname = strdup(temp->astnode.ident.name);
+          uppercase(tempname);
+
+          if(!methodscan(intrinsic_toks, tempname)) {
+            fprintf(stderr,"Warning: local_emit() could not find '%s'\n",
                  temp->astnode.ident.name);
-          fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+            fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+          }
+
+          free(tempname);
           continue;
         }
 
@@ -2134,9 +2165,21 @@ assign_varnums_to_locals(JVM_METHOD *meth, AST *root)
       if(is_local(temp)==TRUE) {
         ht = type_lookup(cur_type_table,temp->astnode.ident.name);
         if(!ht) {
-          fprintf(stderr,"assign_varnums_to_locals() could not find '%s'\n",
+          char *tempname;
+
+          /* if this is an intrinsic then don't emit any warning since we
+           * didn't want to emit a real declaration for this anyway.
+           */
+          tempname = strdup(temp->astnode.ident.name);
+          uppercase(tempname);
+
+          if(!methodscan(intrinsic_toks, tempname)) {
+            fprintf(stderr,"assign_varnums_to_locals() could not find '%s'\n",
                  temp->astnode.ident.name);
-          fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+            fprintf(stderr,"vartype is: %s\n",returnstring[temp->vartype]);
+          }
+
+          free(tempname);
           continue;
         }
 
@@ -2209,8 +2252,24 @@ typedec_emit_all_static (JVM_METHOD *meth, AST * root)
           printf("%s should be %s\n", temp->astnode.ident.name,
             ht->variable->astnode.ident.passByRef ? "WRAPPED" : "PRIMITIVE");
       }
-      else
+      else {
+        char *tempname;
+
+        /* if this is an intrinsic then don't emit any warning since we
+         * didn't want to emit a real declaration for this anyway.
+         */
+        tempname = strdup(temp->astnode.ident.name);
+        uppercase(tempname);
+
+        if(methodscan(intrinsic_toks, tempname)) {
+          free(tempname);
+          continue;
+        }
+
+        free(tempname);
+
         fprintf(stderr,"could not find %s\n", temp->astnode.ident.name);
+      }
     }
 
     /* 
@@ -3472,21 +3531,23 @@ name_emit (JVM_METHOD *meth, AST * root)
    * it is an intrinsic function instead (e.g. SQRT, ABS, etc).  
    */
  
-  if((type_lookup (cur_external_table, root->astnode.ident.name))
-         ||(type_lookup(function_table, root->astnode.ident.name))
-         ||(find_method(root->astnode.ident.name, descriptor_table))){
-            hashtemp = type_lookup(cur_type_table, root->astnode.ident.name);
-            if(hashtemp){
-              root->vartype = hashtemp->variable->vartype;
-            }
-            external_emit(meth, root);
+  if(type_lookup(cur_external_table, root->astnode.ident.name)
+         || type_lookup(function_table, root->astnode.ident.name)
+         || find_method(root->astnode.ident.name, descriptor_table))
+  {
+    hashtemp = type_lookup(cur_type_table, root->astnode.ident.name);
+    if(hashtemp)
+      root->vartype = hashtemp->variable->vartype;
+    external_emit(meth, root);
   }
   else if((type_lookup(function_table, root->astnode.ident.name) == NULL)
          && (find_method(root->astnode.ident.name, descriptor_table) == NULL)
          && (type_lookup(cur_type_table, root->astnode.ident.name) == NULL)
-         && (methodscan(intrinsic_toks, tempname) != NULL)){
-         if(gendebug)printf("calling intrinsic emit %s\n", root->astnode.ident.name);
-         intrinsic_emit(meth, root);
+         && (methodscan(intrinsic_toks, tempname) != NULL))
+  {
+    if(gendebug)
+      printf("calling intrinsic emit %s\n", root->astnode.ident.name);
+    intrinsic_emit(meth, root);
   } 
   else
     switch (root->token)
@@ -3516,8 +3577,10 @@ name_emit (JVM_METHOD *meth, AST * root)
           subcall_emit(meth, root);    
         }
         break;
-  }
+    }
+
   f2jfree(tempname,strlen(tempname)+1);
+
   if(gendebug)
     printf("leaving name_emit\n");
 }
@@ -3977,6 +4040,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
   else {
     fprintf(stderr,"isPassByRef(): variable %s not found (unit: %s)\n", 
           name, unit_name);
+
     return TRUE;
   }
 

@@ -1492,24 +1492,27 @@ Typestmt:      Types Typevarlist NL
                    ret = $1;
                    temp->astnode.ident.len = len;
                    temp->parent = $$;
+
                    hashtemp = type_lookup(args_table, temp->astnode.ident.name);
-                   if(hashtemp)hashtemp->variable->vartype = $1;
+                   if(hashtemp)
+                     hashtemp->variable->vartype = $1;
+
                    hashtemp2 = type_lookup(type_table,  temp->astnode.ident.name);
-                   if(hashtemp2){
-                      temp->vartype = $1;
-                      temp->astnode.ident.explicit=TRUE;
-                      hashtemp2->variable = temp;
-                      if(debug)printf("explicit: %s\n", 
-                        hashtemp2->variable->astnode.ident.name);
+                   if(hashtemp2) {
+                     temp->vartype = $1;
+                     temp->astnode.ident.explicit=TRUE;
+                     hashtemp2->variable = temp;
+                     if(debug) printf("explicit: %s\n", 
+                       hashtemp2->variable->astnode.ident.name);
                    }
-                   if(hashtemp){
-                      if(temp->vartype!=hashtemp->variable->vartype){
-                         if(debug)printf("different vartypes\n");
-                         hashtemp->variable->vartype=temp->vartype;
-                         hashtemp2->variable->vartype=temp->vartype;
-                      }
+
+                   if(hashtemp) {
+                     if(temp->vartype!=hashtemp->variable->vartype){
+                       if(debug) printf("different vartypes\n");
+                       hashtemp->variable->vartype=temp->vartype;
+                       hashtemp2->variable->vartype=temp->vartype;
+                     }
                    }
-                    
                  }
 
                  $$->astnode.typeunit.declist = $2;
@@ -1626,19 +1629,18 @@ Name:    NAME
               * in the arraynamelist, e.g. A(NMAX,NMAX).   so, instead we
               * just copy the relevant fields from the constant node.
               */
-            if(debug)
-                printf("not calling init name, param %s\n", yylval.lexeme);
-            $$ = addnode();
-            $$->nodetype = hashtemp->variable->nodetype;
-            $$->vartype = hashtemp->variable->vartype;
-            $$->token = hashtemp->variable->token;
-            strcpy($$->astnode.constant.number,
-                 hashtemp->variable->astnode.constant.number);
+             if(debug)
+               printf("not calling init name, param %s\n", yylval.lexeme);
+             $$ = addnode();
+             $$->nodetype = hashtemp->variable->nodetype;
+             $$->vartype = hashtemp->variable->vartype;
+             $$->token = hashtemp->variable->token;
+             strcpy($$->astnode.constant.number,
+               hashtemp->variable->astnode.constant.number);
            }
            else{
-             if(debug){
+             if(debug)
                printf("Name -> NAME\n");
-             }
              $$ = initialize_name(yylval.lexeme);
            }
          }
@@ -1726,21 +1728,21 @@ Arraydeclaration: Name OP Arraynamelist CP
                     uppercase(tempname);
                
                     /* put in type table. we now know this intrinsic name is an array */
-                    if(methodscan(intrinsic_toks, tempname)!=NULL){
-                         tmp=addnode();
-                         tmp->token = NAME;
-                         tmp->nodetype = Identifier;
-                         tmp->astnode.ident.needs_declaration = FALSE;
-                         tmp->astnode.ident.explicit = FALSE;
-                         tmp->astnode.ident.localvnum = -1;
-                         id = strdup($1->astnode.ident.name);
-                         strcpy(tmp->astnode.ident.name, id);
-                         ret = implicit_table[tolower(id[0]) - 'a'].type;
-                         tmp->vartype = ret; 
-                         tnode = clone_ident(tmp);
-                         tnode->nodetype = Identifier;
-                         tnode->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
-                         type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
+                    if(methodscan(intrinsic_toks, tempname)!=NULL) {
+                      tmp=addnode();
+                      tmp->token = NAME;
+                      tmp->nodetype = Identifier;
+                      tmp->astnode.ident.needs_declaration = FALSE;
+                      tmp->astnode.ident.explicit = FALSE;
+                      tmp->astnode.ident.localvnum = -1;
+                      id = strdup($1->astnode.ident.name);
+                      strcpy(tmp->astnode.ident.name, id);
+                      ret = implicit_table[tolower(id[0]) - 'a'].type;
+                      tmp->vartype = ret; 
+                      tnode = clone_ident(tmp);
+                      tnode->nodetype = Identifier;
+                      tnode->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
+                      type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
                     }
 
 
@@ -1768,8 +1770,6 @@ Arraydeclaration: Name OP Arraynamelist CP
                         temp != NULL; 
                         temp=temp->nextstmt, i++)
                     {
-/* $$->astnode.ident.D[i] = (int) eval_const_expr(temp); */
-
                       /* if this dimension is an implied size, then set both
                        * start and end to NULL.
                        */
@@ -1790,9 +1790,6 @@ Arraydeclaration: Name OP Arraynamelist CP
                       }
                     }
                        
-/*
-*                    $$->astnode.ident.lead_expr = NULL;
-*/
  	            $$->astnode.ident.leaddim = NULL;
    
                     /* leaddim might be a constant, so check for that.  --keith */
@@ -1801,27 +1798,10 @@ Arraydeclaration: Name OP Arraynamelist CP
  	              $$->astnode.ident.leaddim = 
                        strdup($$->astnode.ident.arraylist->astnode.constant.number);
                     }
-/*
-*                   else if(($$->astnode.ident.arraylist->nodetype == Binaryop) ||
-*                           ($$->astnode.ident.arraylist->nodetype == ArrayIdxRange)) {
-*	              $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
-*                   }
-*/
                     else {
  	              $$->astnode.ident.leaddim = 
                        strdup($$->astnode.ident.arraylist->astnode.ident.name);
                     }
-/*
-*
-*                   if(debug)
-*                   {
-*                     printf("leaddim nodetype = %s\n",
-*                       print_nodetype($$->astnode.ident.arraylist));
-*
-*                     if($$->astnode.ident.leaddim != NULL)
-*                       printf("setting leaddim = %s\n",$$->astnode.ident.leaddim);
-*                   }
-*/
 
 		    store_array_var($$);
                   }
@@ -2657,11 +2637,10 @@ Subroutinecall:   Name OP Explist CP
                      * HASHNODE * hashtemp;  
                      * HASHNODE * ht;
                      */
+                    char *tempname;
 
                     $$ = addnode();
                     $1->parent = $$;  /* 9-4-97 - Keith */
-
-                    /*  $3->parent = $$;  9-4-97 - Keith */
 
                     if($3 != NULL)
                       strcpy($3->parent->astnode.ident.name, 
@@ -2700,16 +2679,27 @@ Subroutinecall:   Name OP Explist CP
                     else
                       $$->astnode.ident.arraylist = switchem($3);
 
-                    if((!type_lookup(external_table, $$->astnode.ident.name))
-                      &&(!type_lookup(array_table, $$->astnode.ident.name))
-                      &&(methodscan(intrinsic_toks, $$->astnode.ident.name))){
+                    tempname = strdup($$->astnode.ident.name);
+                    uppercase(tempname);
 
-                       printf("drew: %s\n", $$->astnode.ident.name);
-                       type_insert(external_table,
-                                   $$, $$->vartype, $$->astnode.ident.name);
+                    if(!type_lookup(external_table, $$->astnode.ident.name) &&
+                       !type_lookup(array_table, $$->astnode.ident.name) &&
+                       methodscan(intrinsic_toks, tempname))
+                    {
+                      HASHNODE *ife;
+
+                      /* this must be an intrinsic function call, so remove
+                       * the entry from the type table (because the code
+                       * generator checks whether something is an intrinsic
+                       * or not by checking whether it's in the type table).
+                       */
+                      ife = type_lookup(type_table, $$->astnode.ident.name);
+                      if(ife)
+                        ife = hash_delete(type_table, $$->astnode.ident.name);
                     }
 
                     free_ast_node($1);
+                    free(tempname);
                   }
 ;
 
@@ -4189,14 +4179,14 @@ printbits(char *header, void *var, int datalen)
 
   printf("%s: ", header);
   for(i=0;i<datalen;i++) {
-      printf("%1x", ((unsigned char *)var)[i] >> 7 );
-      printf("%1x", ((unsigned char *)var)[i] >> 6 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] >> 5 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] >> 4 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] >> 3 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] >> 2 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] >> 1 & 1 );
-      printf("%1x", ((unsigned char *)var)[i] & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 7 );
+    printf("%1x", ((unsigned char *)var)[i] >> 6 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 5 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 4 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 3 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 2 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] >> 1 & 1 );
+    printf("%1x", ((unsigned char *)var)[i] & 1 );
   }
   printf("\n");
 }
@@ -4412,61 +4402,67 @@ initialize_name(char *id)
   tempname = strdup(tmp->astnode.ident.name);
   uppercase(tempname);
 
-  if((type_lookup(parameter_table, tmp->astnode.ident.name) == NULL)
-    &&(in_dlist(subroutine_names, tmp->astnode.ident.name) == 0)){  
-  
-     if(type_table) {
-        hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
-        if(hashtemp)
-        {
-          if(debug)
-             printf("initialize_name:'%s' in already hash table (type=%s)..\n",
-             id, returnstring[hashtemp->variable->vartype]);
+  if((type_lookup(parameter_table, tmp->astnode.ident.name) == NULL) && 
+     (in_dlist(subroutine_names, tmp->astnode.ident.name) == 0))
+  {
+    if(type_table) {
+      hashtemp = type_lookup(type_table, tmp->astnode.ident.name);
+      if(hashtemp)
+      {
+        if(debug)
+          printf("initialize_name:'%s' in already hash table (type=%s)..\n",
+            id, returnstring[hashtemp->variable->vartype]);
        
-          tmp->vartype = hashtemp->variable->vartype;
+        tmp->vartype = hashtemp->variable->vartype;
 
-          if(debug)
-            printf("now type is %s\n", returnstring[tmp->vartype]);
+        if(debug)
+          printf("now type is %s\n", returnstring[tmp->vartype]);
 
-          tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
-        }
-        else
-        {
-           enum returntype ret;
+        tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+      }
+      else
+      {
+        enum returntype ret;
   
-           if(debug)
-             printf("initialize_name:cannot find name %s in hash table..\n",id);
+        if(debug)
+          printf("initialize_name:cannot find name %s in hash table..\n",id);
 
-           if(methodscan(intrinsic_toks, tempname)!=NULL){  
-                  tmp->astnode.ident.which_implicit = 
-                                                 intrinsic_or_implicit(tmp->astnode.ident.name); 
-           }
+        if(methodscan(intrinsic_toks, tempname) != NULL) {
+          tmp->astnode.ident.which_implicit = 
+            intrinsic_or_implicit(tmp->astnode.ident.name); 
+        }
       
-           ret = implicit_table[tolower(id[0]) - 'a'].type;
+        ret = implicit_table[tolower(id[0]) - 'a'].type;
   
-           if(debug)
-              printf("initialize_name:going to insert with default implicit type %s\n",
-              returnstring[ret]);
+        if(debug)
+          printf("initialize_name:insert with default implicit type %s\n",
+            returnstring[ret]);
         
-           tmp->vartype = ret;
+        tmp->vartype = ret;
   
-           if(debug)printf("type_insert: %s %d\n", tmp->astnode.ident.name, tmp->nodetype);           	
+        if(debug)
+          printf("type_insert: %s %d\n", tmp->astnode.ident.name, 
+            tmp->nodetype);           	
 
-           /* clone the ast node before inserting into the table */
-           tnode = clone_ident(tmp);
-           tnode->nodetype = Identifier;
+        /* clone the ast node before inserting into the table */
+        tnode = clone_ident(tmp);
+        tnode->nodetype = Identifier;
 
-           if(tmp->astnode.ident.which_implicit != INTRIN_NAMED_ARRAY_OR_FUNC_CALL) {
-               if(debug){
-                  printf("insert typetable init name\n");
-               }
-               type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
-           }
+        if(tmp->astnode.ident.which_implicit != 
+           INTRIN_NAMED_ARRAY_OR_FUNC_CALL) 
+        {
+          if(debug)
+            printf("insert typetable init name\n");
+
+          type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
         }
+      }
     }
   }
+
   return tmp;
 }
+
 /*****************************************************************************
 *                                                                            *
 * intrinsic_or_implict                                                       *
@@ -4477,63 +4473,64 @@ initialize_name(char *id)
 * or variable.                                                               *
 *                                                                            *
 ******************************************************************************/
+
 int
-intrinsic_or_implicit(char *name){
-   char *p, *tempname, *space_buffer, *clean_buffer, *tmp_spot;
-   char *words[12] = {"INTEGER", "DOUBLEPRECISION", "CHARACTER", "DATA",
+intrinsic_or_implicit(char *name)
+{
+  char *p, *tempname, *space_buffer, *clean_buffer, *tmp_spot;
+  char *words[12] = {"INTEGER", "DOUBLEPRECISION", "CHARACTER", "DATA",
                       "PARAMETER", "LOGICAL", "INTRINSIC", "EXTERNAL", 
                       "SAVE", "IMPLICIT", "DIMENSION", "CALL"};
-   int i, ret_val = INTRIN_NAMED_VARIABLE;
+  int i, ret_val = INTRIN_NAMED_VARIABLE;
 
-   tempname = (char *)malloc((strlen(name)+2)*sizeof(char));
-   space_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
-   clean_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
+  tempname = (char *)malloc((strlen(name)+2)*sizeof(char));
+  space_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
+  clean_buffer = (char *)malloc((strlen(line_buffer)+2)*sizeof(char));
 
-   strcpy(tempname, name);
-   uppercase(tempname);
-   strcat(tempname, "(");
+  strcpy(tempname, name);
+  uppercase(tempname);
+  strcat(tempname, "(");
 
-   uppercase(line_buffer);
+  uppercase(line_buffer);
 
-   tmp_spot = line_buffer;
-   for(i=0; i<12; i++){
-     if(!strncmp(line_buffer, words[i], strlen(words[i]))){
-        tmp_spot = line_buffer + strlen(words[i]);
-        break;
-     }
-   }
-   strcpy(clean_buffer, " \0");
-   strcat(clean_buffer, tmp_spot);
+  tmp_spot = line_buffer;
+  for(i=0; i<12; i++) {
+    if(!strncmp(line_buffer, words[i], strlen(words[i]))) {
+      tmp_spot = line_buffer + strlen(words[i]);
+      break;
+    }
+  }
+  strcpy(clean_buffer, " \0");
+  strcat(clean_buffer, tmp_spot);
 
+  p = strstr(clean_buffer, tempname);
+  while(p) {
+    if((p)&&(!isalpha((int)*(p-1)))) {
+      ret_val=INTRIN_NAMED_ARRAY_OR_FUNC_CALL;
+      break;
+    }
+    for(i=0; i< strlen(tempname); i++)
+      p++;
+    strcpy(space_buffer, " \0");
+    strcat(space_buffer, p);
+    p = strstr(space_buffer, tempname);
+  }
 
-   p = strstr(clean_buffer, tempname);
-   while(p){
-      if((p)&&(!isalpha((int)*(p-1)))){
-         ret_val=INTRIN_NAMED_ARRAY_OR_FUNC_CALL;
-         break;
-      }
-      for(i=0; i<strlen(tempname); i++){
-         p++;
-      }
-      strcpy(space_buffer, " \0");
-      strcat(space_buffer, p);
-      p = strstr(space_buffer, tempname);
-   }
+  free(space_buffer);
+  free(clean_buffer);
+  free(tempname);
 
-   free(space_buffer);
-   free(clean_buffer);
-   free(tempname);
-
-   return ret_val;
+  return ret_val;
 }
 
 /*****************************************************************************
-*                                                                            *
-* print_sym_table_names                                                      *
-*                                                                            *
-* Routine to see whats in the damn sym table                                 *
-*                                                                            *
-******************************************************************************/
+ *                                                                           *
+ * print_sym_table_names                                                     *
+ *                                                                           *
+ * Routine to see what's in the symbol table.                                *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 print_sym_table_names(SYMTABLE *table){
    Dlist t_table, tmp;
@@ -4546,6 +4543,7 @@ print_sym_table_names(SYMTABLE *table){
       printf("sym_table %s\n", node->astnode.ident.name);
    }
 }
+
 /*****************************************************************************
  *                                                                           *
  * insert_name                                                               *
@@ -4577,7 +4575,7 @@ insert_name(SYMTABLE * tt, AST *node, enum returntype ret)
  *                                                                           *
  * this function the implicit table, which indicates the implicit typing for *
  * the current program unit (i.e. which letters correspond to which data     *
- * type).       .                                                            *
+ * type).                                                                    *
  *                                                                           *
  *****************************************************************************/
 
@@ -4604,20 +4602,22 @@ initialize_implicit_table(ITAB_ENTRY *itab)
  * this adds a node for an implicit variable to typedec                      * 
  *                                                                           * 
  *****************************************************************************/
+
 void
-add_implicit_to_tree(AST *typedec){
+add_implicit_to_tree(AST *typedec)
+{
   Dlist t_table, tmp;
   AST *ast, *new_node, *last_typedec;
 
   last_typedec = typedec;
-  while(last_typedec->nextstmt!=NULL){
+  while(last_typedec->nextstmt!=NULL) {
     last_typedec = last_typedec->nextstmt;
   }
 
   t_table = enumerate_symtable(type_table);
-  dl_traverse(tmp, t_table){
+  dl_traverse(tmp, t_table) {
     ast = (AST *)dl_val(tmp);
-    if(ast->astnode.ident.explicit==FALSE){
+    if(ast->astnode.ident.explicit == FALSE) {
       if(debug)printf("implicit name=%s\n", ast->astnode.ident.name);
 
       new_node = addnode();
@@ -4638,30 +4638,33 @@ add_implicit_to_tree(AST *typedec){
  * this function clones an astnode(ident) and passes back the new node       * 
  *                                                                           * 
  *****************************************************************************/
+
 AST *
-clone_ident(AST *ast){
-   AST *new_node;
-   int i;
+clone_ident(AST *ast)
+{
+  AST *new_node;
+  int i;
 
-   new_node = addnode();
+  new_node = addnode();
 
-   new_node->parent = ast->parent;
-   new_node->vartype = ast->vartype;
+  new_node->parent = ast->parent;
+  new_node->vartype = ast->vartype;
 
-   new_node->astnode.ident.dim  = ast->astnode.ident.dim;
-   new_node->astnode.ident.position  = ast->astnode.ident.position;
-   new_node->astnode.ident.len  = ast->astnode.ident.len;
-   new_node->astnode.ident.localvnum  = ast->astnode.ident.localvnum;
-   new_node->astnode.ident.which_implicit = ast->astnode.ident.which_implicit;
+  new_node->astnode.ident.dim  = ast->astnode.ident.dim;
+  new_node->astnode.ident.position  = ast->astnode.ident.position;
+  new_node->astnode.ident.len  = ast->astnode.ident.len;
+  new_node->astnode.ident.localvnum  = ast->astnode.ident.localvnum;
+  new_node->astnode.ident.which_implicit = ast->astnode.ident.which_implicit;
 
-   new_node->astnode.ident.passByRef = ast->astnode.ident.passByRef;
-   new_node->astnode.ident.needs_declaration = ast->astnode.ident.needs_declaration;
-   new_node->astnode.ident.explicit = FALSE;
+  new_node->astnode.ident.passByRef = ast->astnode.ident.passByRef;
+  new_node->astnode.ident.needs_declaration = 
+     ast->astnode.ident.needs_declaration;
+  new_node->astnode.ident.explicit = FALSE;
 
-   for(i=0; i<=MAX_ARRAY_DIM; i++){
-      new_node->astnode.ident.startDim[i] = ast->astnode.ident.startDim[i];
-      new_node->astnode.ident.endDim[i] = ast->astnode.ident.endDim[i];
-   }
+  for(i=0; i<=MAX_ARRAY_DIM; i++) {
+    new_node->astnode.ident.startDim[i] = ast->astnode.ident.startDim[i];
+    new_node->astnode.ident.endDim[i] = ast->astnode.ident.endDim[i];
+  }
 
   new_node->astnode.ident.arraylist = ast->astnode.ident.arraylist;
 
@@ -4672,17 +4675,19 @@ clone_ident(AST *ast){
     new_node->astnode.ident.opcode = strdup(ast->astnode.ident.opcode);
 
   if(ast->astnode.ident.commonBlockName)
-    new_node->astnode.ident.commonBlockName = strdup(ast->astnode.ident.commonBlockName);
+    new_node->astnode.ident.commonBlockName = 
+      strdup(ast->astnode.ident.commonBlockName);
 
   strcpy(new_node->astnode.ident.name, ast->astnode.ident.name);
 
   if(ast->astnode.ident.merged_name)
-    new_node->astnode.ident.merged_name = strdup(ast->astnode.ident.merged_name);
+    new_node->astnode.ident.merged_name = 
+      strdup(ast->astnode.ident.merged_name);
 
   if(ast->astnode.ident.descriptor)
-    new_node->astnode.ident.descriptor = strdup(ast->astnode.ident.descriptor);
+    new_node->astnode.ident.descriptor = 
+      strdup(ast->astnode.ident.descriptor);
 
- 
   return new_node;
 }
 
@@ -4690,19 +4695,22 @@ clone_ident(AST *ast){
  *                                                                           *
  * in_dlist                                                                  *
  *                                                                           *
- * returns 1 if it is in the list 0 otherwise                                *
+ * Returns 1 if the given name is in the list, returns 0 otherwise.          *
+ * Assumes that the list contains char pointers.                             *
  *                                                                           *
  *****************************************************************************/
+
 int
-in_dlist(Dlist list, char *name){
-   Dlist ptr;
-   char *list_name;
+in_dlist(Dlist list, char *name)
+{
+  Dlist ptr;
+  char *list_name;
 
-   dl_traverse(ptr, list){
-      list_name = (char *)dl_val(ptr);
-      if(!strcmp(list_name, name))
-         return 1;
-   }
+  dl_traverse(ptr, list){
+    list_name = (char *)dl_val(ptr);
+    if(!strcmp(list_name, name))
+      return 1;
+  }
 
-   return 0;
+  return 0;
 }

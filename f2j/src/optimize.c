@@ -1051,7 +1051,7 @@ args_optimize(AST *root, AST *rptr)
           * must be an object reference.
           */
 
-         if(p[0] == 'L')
+         if(isPassByRef_desc(p))
            set_passByRef(temp, rptr);
        }
     }
@@ -1067,6 +1067,53 @@ args_optimize(AST *root, AST *rptr)
     for( ; temp != NULL; temp = temp->nextstmt)
       expr_optimize (temp, rptr);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * isPassByRef_desc                                                          *
+ *                                                                           *
+ * given the field descriptor for a method argument, determine whether this  *
+ * arg is passed by reference.   returns BOOLEAN.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+BOOLEAN
+isPassByRef_desc(char *desc)
+{
+  char *desc_copy, *dptr;
+
+  printf("isPassByRef_desc, desc = %s\n", desc);
+
+  /* quick check.. if the first char is not L then this can't be
+   * pass by reference.
+   */
+  if(desc[0] != 'L')  {
+    printf("returning FALSE\n");
+    return FALSE;
+  }
+
+  /* copy the descriptor and chop off the remainder. */
+  desc_copy = strdup(desc);
+  dptr = skipToken(desc_copy);
+  if(dptr != NULL)
+    *dptr = '\0';
+
+  /* if the data type is String or Object, then it's not really
+   * pass by reference, even though it's a reference data type.
+   */
+  if(!strcmp(desc_copy,"Ljava/lang/String;") ||
+     !strcmp(desc_copy,"Ljava/lang/Object;"))
+  {
+    printf("returning FALSE\n");
+    return FALSE;
+  }
+
+  /* didn't hit any of the above cases, so this must be
+   * pass by reference.
+   */
+    printf("returning TRUE\n");
+  return TRUE;
 }
 
 /*****************************************************************************

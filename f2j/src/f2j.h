@@ -660,4 +660,7 @@ struct _str
 int
   isPassByRef(char *, SYMTABLE *, SYMTABLE *, SYMTABLE *);
 
+BOOLEAN
+  isPassByRef_desc(char *);
+
 #endif

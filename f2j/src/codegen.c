@@ -3097,8 +3097,10 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
   ht = type_lookup(ttable,name);
   if(ht) {
 
-    if(ht->variable->nodetype != Identifier)
+    if(ht->variable->nodetype != Identifier) {
       fprintf(stderr,"isPassByRef():  non-ident node found.\n");
+      return FALSE;
+    }
 
     if(ht->variable->astnode.ident.passByRef)
     {
@@ -8286,7 +8288,7 @@ emit_call_arguments(AST *root, BOOLEAN adapter)
    */
 
   if(gendebug)
-    printf("Looking up function name %s, ", root->astnode.ident.name);
+    printf("Looking up function name %s...\n", root->astnode.ident.name);
 
   if( (mref = get_methodref(root)) != NULL)
     emit_call_args_known(root, mref->descriptor, adapter);
@@ -8361,7 +8363,8 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
     }
     else if(omitWrappers && (temp->nodetype == Constant))
     {
-      if(dptr[0] == 'L') {
+      if(isPassByRef_desc(dptr))
+      {
         CPNODE *c;
 
         fprintf(curfp,"new %s(", 
@@ -8446,11 +8449,10 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
      * adapter, so we dont wrap it in an object.
      */
 
-    /* fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name); */
     push_array_var(temp);
 
     if(omitWrappers) {
-      if(adapter && (dptr[0] == 'L'))
+      if(adapter && isPassByRef_desc(dptr))
         isext = TRUE;
       else
         isext = FALSE;
@@ -8497,7 +8499,7 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
     if(gendebug)
       printf("NOT expecting array\n");
 
-    if(omitWrappers && (dptr[0] != 'L')) {
+    if(omitWrappers && !isPassByRef_desc(dptr)) {
       /* fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name); */
       push_array_var(temp);
       fprintf(curfp,"[0]");
@@ -8538,10 +8540,12 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
 void
 scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 {
-printf("scalar_arg_emit.. %s\n",temp->astnode.ident.name);
+  if(gendebug)
+    printf("scalar_arg_emit.. name = %s, dptr = %s, pass by ref = %s\n",
+      temp->astnode.ident.name, dptr, cgPassByRef(temp->astnode.ident.name)?
+      "yes" : "no");
 
-  if((dptr[0] == 'L') != 
-     cgPassByRef(temp->astnode.ident.name))
+  if(isPassByRef_desc(dptr) != cgPassByRef(temp->astnode.ident.name))
   {
 
     if(cgPassByRef(temp->astnode.ident.name)) {
@@ -8597,7 +8601,7 @@ wrapped_arg_emit(AST *temp, char *dptr)
    * Otherwise, use wrappers.
    */
   if(omitWrappers) {
-    if(dptr[0] == 'L') {
+    if(isPassByRef_desc(dptr)) {
       fprintf(curfp,"new %s(", wrapper_returns[vtype]);
       c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
             full_wrappername[temp->vartype]);
@@ -8641,7 +8645,7 @@ wrapped_arg_emit(AST *temp, char *dptr)
   }
 
   if(omitWrappers) {
-    if(dptr[0] == 'L') {
+    if(isPassByRef_desc(dptr)) {
       fprintf(curfp,")");
       bytecode1(jvm_invokespecial, c->index);
     }
@@ -8881,7 +8885,7 @@ needs_adapter(AST *root)
         if(omitWrappers) {
           if((temp->nodetype == Identifier) && 
               type_lookup(cur_array_table, temp->astnode.ident.name) &&
-              (dptr[0] != '[') && (dptr[0] == 'L'))
+              (dptr[0] != '[') && isPassByRef_desc(dptr))
                  return 1;
         }
         else
@@ -9721,7 +9725,7 @@ printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
               type_lookup(cur_array_table,arg->astnode.ident.name) &&
               (dptr[0] != '[') )
     {
-      if(omitWrappers && (dptr[0] != 'L')) {
+      if(omitWrappers && !isPassByRef_desc(dptr)) {
         fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
         if(ctype == Double)
           lvnum += 2;
@@ -9741,7 +9745,7 @@ printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
     }
     else
     {
-      if(omitWrappers && (dptr[0] != 'L')) {
+      if(omitWrappers && !isPassByRef_desc(dptr)) {
         fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
         if(ctype == Double)
           lvnum += 2;
@@ -9830,7 +9834,7 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       wrapper = get_wrapper_from_desc(dptr);
 
       if(omitWrappers) {
-        if(dptr[0] == 'L') {
+        if(isPassByRef_desc(dptr)) {
           fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
             wrapper, i, wrapper, i, i);
           adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
@@ -9928,7 +9932,7 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
      (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
      (dptr[0] != '['))
   {
-    if(omitWrappers && (dptr[0] != 'L')) {
+    if(omitWrappers && !isPassByRef_desc(dptr)) {
       fprintf(curfp,"arg%d",i);
       gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
     }
@@ -9982,7 +9986,7 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
        (dptr[0] != '['))
     {
       if(omitWrappers) {
-        if(dptr[0] == 'L')
+        if(isPassByRef_desc(dptr))
           adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
       else
@@ -11697,6 +11701,10 @@ get_type_from_field_desc(char * fd)
         return Float;
       else if(!strcmp(wrap, "booleanW"))
         return Logical;
+      else if(!strcmp(wrap, "String"))
+        return String;
+      else if(!strcmp(wrap, "Object"))
+        return Object;
       /* else drop to default case.  break intentionally missing. */
     default:
       fprintf(stderr,"get_type_from_field_desc() hit default case '%s'!!\n",

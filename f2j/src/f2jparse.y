@@ -1261,8 +1261,19 @@ Name:    NAME
             * with this name.
             */
 
-           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL)
-             $$ = hashtemp->variable; 
+           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL) {
+             /* had a problem here just setting $$ = hashtemp->variable
+              * when there's an arraydec with two of the same PARAMETERS
+              * in the arraynamelist, e.g. A(NMAX,NMAX).   so, instead we
+              * just copy the relevant fields from the constant node.
+              */
+             $$ = addnode();
+             $$->nodetype = hashtemp->variable->nodetype;
+             $$->vartype = hashtemp->variable->vartype;
+             $$->token = hashtemp->variable->token;
+             strcpy($$->astnode.constant.number,
+                 hashtemp->variable->astnode.constant.number);
+           }
            else
              $$ = initialize_name(yylval.lexeme);
          }
@@ -1304,6 +1315,7 @@ Arraydeclaration: Name OP Arraynamelist CP
 		     */
 
 		    $$ = $1;
+printf("reduced arraydeclaration... calling switchem\n");
 		    $$->astnode.ident.arraylist = switchem($3);
                   
                     count = 0;
@@ -2751,7 +2763,7 @@ switchem(AST * root)
   if (root->prevstmt == NULL) 
     return root;
 
-  while (root->prevstmt != 0) 
+  while (root->prevstmt != NULL) 
   {
     root->prevstmt->nextstmt = root;
     root = root->prevstmt;

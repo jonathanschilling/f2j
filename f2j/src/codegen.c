@@ -9278,7 +9278,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 void
 emit_adapters()
 {
-  char *ret, *tmpdesc, *ret_desc, *cur_name, *cur_desc;
+  char *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc;
   struct method_info *adapter_method;
   HASHNODE *hashtemp;
   METHODREF *mref;
@@ -9289,32 +9289,51 @@ emit_adapters()
   {
     cval = (AST *)dl_val(p);
 
-    cur_name = cval->astnode.ident.name;
+    cur_name = (char *)f2jrealloc(cur_name, strlen(cval->astnode.ident.name) + 10);
+
+    strcpy(cur_name, cval->astnode.ident.name);
+    strcat(cur_name, "_adapter");
 
     adapter_method = beginNewMethod(ACC_PRIVATE | ACC_STATIC);
 
     hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
-    ret = get_return_type_from_descriptor(mref->descriptor);
-
-    if(ret[0] == 'V')
-      ret_desc = "V";
-    else
-      ret_desc = returnstring[get_type_from_field_desc(ret[0])];
-
-    tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist);
-    cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
-      strlen(ret_desc) + 10);
-
-    strcpy(cur_desc,"(");
-    strcat(cur_desc,tmpdesc);
-    strcat(cur_desc,")");
-    strcat(cur_desc,ret_desc);
-
     if(hashtemp)
       adapter_emit_from_table(cval,hashtemp);
-    else
-      adapter_emit_from_descriptor(cval);
+    else {
+      printf("looking up descriptor for %s\n",cval->astnode.ident.name);
+
+      mref = find_method(cval->astnode.ident.name, descriptor_table);
+
+      if(mref) {
+        ret = get_return_type_from_descriptor(mref->descriptor);
+
+        printf("--- ret is '%s'\n", ret);
+
+        if(ret[0] == 'V')
+          ret_desc = "V";
+        else
+          ret_desc = returnstring[get_type_from_field_desc(ret)];
+
+        tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist);
+
+        cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
+          strlen(ret_desc) + 10);
+
+        strcpy(cur_desc,"(");
+        strcat(cur_desc,tmpdesc);
+        strcat(cur_desc,")");
+        strcat(cur_desc,ret_desc);
+
+        adapter_emit_from_descriptor(mref, cval);
+      }
+      else {
+        fprintf(stderr,"Could not generate adapter for '%s'\n",
+           cval->astnode.ident.name);
+        cur_name = "BAD_ADAPTER";
+        cur_desc = "()V";
+      }
+    }
 
     endNewMethod(cur_class_file, adapter_method, cur_name, cur_desc,
          num_locals, NULL );
@@ -9332,22 +9351,12 @@ emit_adapters()
  *****************************************************************************/
 
 void
-adapter_emit_from_descriptor(AST *node)
+adapter_emit_from_descriptor(METHODREF *mref, AST *node)
 {
-  METHODREF *mref;
   char *ret;
 
   fprintf(curfp,"// adapter for %s\n", 
     node->astnode.ident.name);
-
-  printf("looking up descriptor for %s\n",node->astnode.ident.name);
-  mref = find_method(node->astnode.ident.name, descriptor_table);
-  
-  if(!mref) {
-    fprintf(stderr,"Could not generate adapter for '%s'\n",
-       node->astnode.ident.name);
-    return;
-  }
 
   ret = get_return_type_from_descriptor(mref->descriptor);
 
@@ -9357,12 +9366,14 @@ adapter_emit_from_descriptor(AST *node)
     return;
   }
 
+  num_locals = cur_local = num_locals_in_descriptor(mref->descriptor);
+
   if(ret[0] == 'V')
     fprintf(curfp,"private static void %s_adapter(", 
       node->astnode.ident.name);
   else
     fprintf(curfp,"private static %s %s_adapter(", 
-      returnstring[get_type_from_field_desc(ret[0])],
+      returnstring[get_type_from_field_desc(ret)],
       node->astnode.ident.name);
 
   adapter_args_emit_from_descriptor(node->astnode.ident.arraylist,
@@ -9373,7 +9384,7 @@ adapter_emit_from_descriptor(AST *node)
   adapter_temps_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
 
-  adapter_methcall_emit_from_descriptor( node, mref->descriptor, ret);
+  adapter_methcall_emit_from_descriptor(node, mref->descriptor, ret);
 
   adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
      mref->descriptor);
@@ -9382,6 +9393,7 @@ adapter_emit_from_descriptor(AST *node)
   {
     fprintf(curfp,"\nreturn %s_retval;\n",
       node->astnode.ident.name);
+    bytecode0(return_opcodes[get_type_from_field_desc(ret)]);
   }
 
   fprintf(curfp,"}\n\n");
@@ -9412,11 +9424,11 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
       break;
     }
 
-    ctype = get_type_from_field_desc(*dptr);
+    ctype = get_type_from_field_desc(dptr);
 
     if(dptr[0] == '[') {
       fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
-        returnstring[get_type_from_field_desc(*(dptr+1))], i, i);
+        returnstring[get_type_from_field_desc(dptr+1)], i, i);
     }
     else if ( (arg->nodetype == Identifier) &&
               (arg->astnode.ident.arraylist != NULL) &&
@@ -11467,9 +11479,11 @@ get_return_type_from_descriptor(char *desc)
  *****************************************************************************/
 
 enum returntype
-get_type_from_field_desc(char fd)
+get_type_from_field_desc(char * fd)
 {
-  switch(fd) {
+  char * wrap;
+
+  switch(fd[0]) {
     case 'B':
       return Integer;
     case 'C':
@@ -11488,9 +11502,27 @@ get_type_from_field_desc(char fd)
       return Logical;
     case 'V':
       return Object; /* no void in the array, so use object instead */ 
+    case 'L':
+      wrap = get_wrapper_from_desc(fd);
+
+      if(!strcmp(wrap, "StringW"))
+        return String;
+      else if(!strcmp(wrap, "complexW"))
+        return Complex;
+      else if(!strcmp(wrap, "intW"))
+        return Integer;
+      else if(!strcmp(wrap, "doubleW"))
+        return Double;
+      else if(!strcmp(wrap, "floatW"))
+        return Float;
+      else if(!strcmp(wrap, "booleanW"))
+        return Logical;
+      
+      /* if we hit none of the above, drop to default below.. */
     default:
       /* could be an array or reference type.  */
-      fprintf(stderr,"get_type_from_field_desc() hit default case!!\n");
+      fprintf(stderr,"get_type_from_field_desc() hit default case (%s)!!\n",
+        fd);
       return Integer;
   }
 }

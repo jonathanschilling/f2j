@@ -235,7 +235,7 @@ void
   adapter_methcall_emit_from_table(AST *, AST *),
   adapter_assign_emit_from_table(AST *, AST *),
   adapter_emit_from_table(AST *, HASHNODE *),
-  adapter_emit_from_descriptor(AST *),
+  adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
   adapter_temps_emit_from_descriptor(AST *, char *),
   adapter_methcall_emit_from_descriptor(AST *, char *, char *),
@@ -294,7 +294,7 @@ AST
   * format_item_emit(AST *, AST **);
 
 enum returntype
-  get_type_from_field_desc(char),
+  get_type_from_field_desc(char *),
   get_type(char *);
 
 struct _str

@@ -1104,6 +1104,7 @@ check_continued_lines (FILE * fp, char *current_line)
 {
   int items;
   char next_line[100];
+  int i,j ; /* rws indexes for chopping off end of line */
 
   /* Now we have to determine whether the statement
    * is continued on the next line by getting another 
@@ -1168,14 +1169,32 @@ check_continued_lines (FILE * fp, char *current_line)
     else
     {
       /* We have a continuation marker.  Get another line
-       * and cat it to the previous. 
+       * and cat it to the previous.
        */
 
       if(lexdebug)
         printf ("char 6, next_line: %c\n", next_line[5]);
 
       f2j_fgets (next_line, 100, fp);
-      next_line[strlen(next_line)-1] = '\0';
+
+      if(lexdebug)
+        printf("the next_line is [%s](%d)\n",next_line,
+           strlen(next_line));
+
+      /* rws August 21, 2003
+       * added next four lines
+       */
+
+      /*  truncate anything beyond 72 characters (72-6=66) */
+      j = strlen(next_line);
+
+      for (i=66;i<j;i++)
+        next_line[i] = '\0';
+
+      /* rws August 21, 2003
+       * next line no longer needed
+       */
+      /* next_line[strlen(next_line)-1] = '\0'; */
 
       if(current_line[strlen(current_line)-1] == '\n')
         current_line[strlen(current_line)-1] = '\0';

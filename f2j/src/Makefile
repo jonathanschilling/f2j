@@ -30,14 +30,14 @@ GOTO_TRANS=../goto_trans
 JAVAB=../bin/javab
 
 #  The main executable.
-../bin/f2java: bytecode_library f2j.h f2jparse.y $(OBJS) $(JAVAB) 
+../bin/f2java: $(BYTE_DIR)/libbytecode.a f2j.h f2jparse.y $(OBJS) $(JAVAB) 
 	${CC} $(CFLAGS) -o $@ $(OBJS) -L $(BYTE_DIR) $(LIBS)
 
-bytecode_library:
+$(BYTE_DIR)/libbytecode.a:
 	cd $(BYTE_DIR); $(MAKE)
          
 #  The purify version...
-puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB) bytecode_library
+puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB) $(BYTE_DIR)/libbytecode.a
 	$(PURIFY) $(PFLAGS) ${CC} $(CFLAGS) -o $@ $(OBJS) -L $(BYTE_DIR) $(LIBS)
 	mv $@ ../bin
 
@@ -92,8 +92,7 @@ f2jmem.o: f2jmem.c f2jmem.h f2j.h symtab.h dlist.h \
 
 clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
-	tmp f2j core a.out *.output *~  *.vcg $(BYTE_DIR)/*.o \
-	$(BYTE_DIR)/*.a
+	tmp f2j core a.out *.output *~  *.vcg
 
 goto:
 	cd $(GOTO_TRANS); $(MAKE) realclean

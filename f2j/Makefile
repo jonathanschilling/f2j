@@ -7,7 +7,10 @@
 
 all:	f2java javab
 
-f2java:
+libbytecode/libbytecode.a:
+	cd libbytecode; $(MAKE)
+	
+f2java: libbytecode/libbytecode.a
 	cd src; $(MAKE)
 
 javab:

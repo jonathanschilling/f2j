@@ -11542,12 +11542,13 @@ getStackIncrement(enum _opcode op, u4 index)
 {
   char *this_desc;
   CPNODE *c;
-  struct stack_info *stackinf;
   int stack_increment;
 
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
    || (op == jvm_invokestatic))
   {
+    struct stack_info *stackinf;
+
     /* now we need to determine how many parameters are sitting on the stack */
     c = cp_entry_by_index(cur_const_table, index);
     c = cp_entry_by_index(cur_const_table,
@@ -11562,6 +11563,8 @@ getStackIncrement(enum _opcode op, u4 index)
      */
 
     stack_increment = stackinf->ret_len;
+
+    f2jfree(stackinf, sizeof(stackinf));
     f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 
@@ -11625,12 +11628,13 @@ getStackDecrement(enum _opcode op, u4 index)
 {
   char *this_desc;
   CPNODE *c;
-  struct stack_info *stackinf;
   int stack_decrement;
 
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
    || (op == jvm_invokestatic))
   {
+    struct stack_info *stackinf;
+
     /* now we need to determine how many parameters are sitting on the stack */
     c = cp_entry_by_index(cur_const_table, index);
     c = cp_entry_by_index(cur_const_table,
@@ -11647,6 +11651,8 @@ getStackDecrement(enum _opcode op, u4 index)
       stack_decrement = stackinf->arg_len;
     else
       stack_decrement = stackinf->arg_len + 1;
+
+    f2jfree(stackinf, sizeof(stackinf));
     f2jfree(this_desc, strlen(this_desc)+1);
   }
   else if((op == jvm_putstatic) || (op == jvm_getstatic) || 

@@ -682,6 +682,7 @@ cp_dump(Dlist list)
   CPNODE * tmpconst, * tmpconst2;
   Dlist tmpPtr;
   double x;
+  char *tmp_str;
 
   dl_traverse(tmpPtr,list) {
     tmpconst = (CPNODE *) tmpPtr->val;
@@ -690,7 +691,11 @@ cp_dump(Dlist list)
     printf("\ttag: %s\n", constant_tags[tmpconst->val->tag]);
     switch(tmpconst->val->tag) {
       case CONSTANT_Utf8:
-        printf("\tstring: %s\n",null_term(tmpconst->val->cpnode.Utf8.bytes,tmpconst->val->cpnode.Utf8.length));
+        tmp_str = null_term(tmpconst->val->cpnode.Utf8.bytes,
+                            tmpconst->val->cpnode.Utf8.length);
+        printf("\tstring: %s\n",tmp_str);
+
+        f2jfree(tmp_str, strlen(tmp_str)+1);
         break;
       case CONSTANT_Integer:
         if(bigEndian)
@@ -729,9 +734,12 @@ cp_dump(Dlist list)
         break;
       case CONSTANT_Class:
         tmpconst2 = cp_entry_by_index(list,tmpconst->val->cpnode.Class.name_index);
+        tmp_str = null_term(tmpconst2->val->cpnode.Utf8.bytes,tmpconst2->val->cpnode.Utf8.length);
 
         printf("\tclass index: %d -> %s\n",tmpconst->val->cpnode.Class.name_index,
            null_term(tmpconst2->val->cpnode.Utf8.bytes,tmpconst2->val->cpnode.Utf8.length));
+
+        f2jfree(tmp_str, strlen(tmp_str)+1);
 
         break;
       case CONSTANT_String:

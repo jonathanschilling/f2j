@@ -608,6 +608,7 @@ printf("full_file = '%s'\n", full_file);
   }
 
   chdir(pwd);
+  f2jfree(buf, sizeof(buf));
   f2jfree(pwd, strlen(pwd)+1);
   return NULL;
 }

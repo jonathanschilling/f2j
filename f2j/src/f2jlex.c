@@ -384,6 +384,8 @@ yylex ()
       {
         if(lexdebug)
           printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+        f2jfree(stmt_copy, strlen(stmt_copy)+1);
+        f2jfree(text_copy, strlen(text_copy)+1);
         return token;
       }
 
@@ -416,8 +418,12 @@ yylex ()
           if(token == NAME)
             printf("7.2: ...and the name is %s\n",yylval.lexeme);
         }
+        f2jfree(stmt_copy, strlen(stmt_copy)+1);
+        f2jfree(text_copy, strlen(text_copy)+1);
         return token;
       }
+      f2jfree(stmt_copy, strlen(stmt_copy)+1);
+      f2jfree(text_copy, strlen(text_copy)+1);
     }
     else  /*  equalseen == FALSE.  */
     {
@@ -449,11 +455,16 @@ yylex ()
             format_stmt = 1;
           if(lexdebug)
             printf("8: lexer returns %s (%s)\n",
+               tok2str(token),buffer.stmt);
 
-          tok2str(token),buffer.stmt);
+          f2jfree(stmt_copy, strlen(stmt_copy)+1);
+          f2jfree(text_copy, strlen(text_copy)+1);
           return token;
         }
       }
+
+      f2jfree(stmt_copy, strlen(stmt_copy)+1);
+      f2jfree(text_copy, strlen(text_copy)+1);
     }
   }
     

@@ -9282,193 +9282,547 @@ void
 emit_adapters()
 {
   HASHNODE *hashtemp;
-  AST * arg, * temp;
-  char *tempname;
   Dlist p;
-  int i;
-
 
   dl_traverse(p,adapter_list)
   {
     hashtemp = type_lookup(function_table, 
         ((AST *)dl_val(p))->astnode.ident.name);
 
-    if(hashtemp == NULL) {
-      fprintf(stderr,"Error: cant generate adapter for %s\n",
-         ( (AST *) dl_val(p) )->astnode.ident.name);
-      continue;
+    if(hashtemp)
+      adapter_emit_from_table((AST *)dl_val(p),hashtemp);
+    else
+      adapter_emit_from_descriptor((AST *)dl_val(p));
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_emit_from_descriptor                                              *
+ *                                                                           *
+ * This function generates an adapters, in situations where the prototype    *
+ * cannot be found in the symbol table.  instead, we look for the descriptor *
+ * in any .f2j files in F2J_SEARCH_PATH.                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_emit_from_descriptor(AST *node)
+{
+  METHODREF *mref;
+  char *ret;
+
+  fprintf(curfp,"// adapter for %s\n", 
+    node->astnode.ident.name);
+
+  printf("looking up descriptor for %s\n",node->astnode.ident.name);
+  mref = find_method(node->astnode.ident.name, descriptor_table);
+  
+  if(!mref) {
+    fprintf(stderr,"Could not generate adapter for '%s'\n",
+       node->astnode.ident.name);
+    return;
+  }
+
+  ret = get_return_type_from_descriptor(mref->descriptor);
+
+  if((ret == NULL) || (ret[0] == '[') || (ret[0] == 'L')) {
+    fprintf(stderr,"Not expecting NULL, reference, or array return type ");
+    fprintf(stderr,"for adapter '%s'\n", node->astnode.ident.name);
+    return;
+  }
+
+  if(ret[0] == 'V')
+    fprintf(curfp,"private static void %s_adapter(", 
+      node->astnode.ident.name);
+  else
+    fprintf(curfp,"private static %s %s_adapter(", 
+      returnstring[get_type_from_field_desc(ret[0])],
+      node->astnode.ident.name);
+
+  adapter_args_emit_from_descriptor(node->astnode.ident.arraylist,
+     mref->descriptor);
+
+  fprintf(curfp,")\n{\n");
+
+  adapter_temps_emit_from_descriptor(node->astnode.ident.arraylist,
+     mref->descriptor);
+
+  adapter_methcall_emit_from_descriptor( node, mref->descriptor, ret);
+
+  adapter_assign_emit_from_descriptor(node->astnode.ident.arraylist,
+     mref->descriptor);
+
+  if(ret[0] != 'V')
+  {
+    fprintf(curfp,"\nreturn %s_retval;\n",
+      node->astnode.ident.name);
+  }
+
+  fprintf(curfp,"}\n\n");
+
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_args_emit_from_descriptor                                         *
+ *                                                                           *
+ * this function generates the argument list for an adapter, when the        *
+ * prototype cannot be found in the symbol table.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_args_emit_from_descriptor(AST *arg, char *desc)
+{
+  enum returntype ctype;
+  char *dptr;
+  int i;
+
+  dptr = skipToken(desc);
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(dptr == NULL) {
+      fprintf(stderr,"Error: mismatch between adapter call and prototype\n");
+      break;
     }
 
-    fprintf(curfp,"// adapter for %s\n", 
-      ( (AST *) dl_val(p) )->astnode.ident.name);
-  
-    /* first generate the method header */
+    ctype = get_type_from_field_desc(*dptr);
 
-    if(hashtemp->variable->nodetype == Function)
-      fprintf(curfp,"private static %s %s_adapter(", 
-          returnstring[hashtemp->variable->astnode.source.returns],
-          hashtemp->variable->astnode.source.name->astnode.ident.name);
-    else
-      fprintf(curfp,"private static void %s_adapter(", 
-          hashtemp->variable->astnode.source.name->astnode.ident.name);
-
-    temp = hashtemp->variable->astnode.source.args;
-    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
-    
-    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    if(dptr[0] == '[') {
+      fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
+        returnstring[get_type_from_field_desc(*(dptr+1))], i, i);
+    }
+    else if ( (arg->nodetype == Identifier) &&
+              (arg->astnode.ident.arraylist != NULL) &&
+              type_lookup(cur_array_table,arg->astnode.ident.name) )
     {
-      if(temp == NULL) {
-        fprintf(stderr,"Error: mismatch between call to %s and prototype\n",
-           ( (AST *) dl_val(p) )->astnode.ident.name);
-        break;
-      }
+      if(omitWrappers && (dptr[0] != 'L'))
+        fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
+      else
+        fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
+          returnstring[ctype], i, i);
+    }
+    else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
+    {
+      fprintf(curfp,"Object arg%d ", i);
+    }
+    else
+    {
+      if(omitWrappers && (dptr[0] != 'L'))
+        fprintf(curfp,"%s arg%d ", returnstring[ctype], i);
+      else
+        fprintf(curfp,"%s arg%d ", wrapper_returns[ctype], i);
+    }
 
-      if(temp->astnode.ident.arraylist) {
+    dptr = skipToken(dptr);
+
+    if(arg->nextstmt != NULL)
+      fprintf(curfp,",");
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_temps_emit_from_descriptor                                        *
+ *                                                                           *
+ * this function generates the temporary variable declarations for an        *
+ * adapter, when the prototype cannot be found in the symbol table.          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_temps_emit_from_descriptor(AST *arg, char *desc)
+{
+  char *dptr, *wrapper;
+  int i;
+
+  dptr = skipToken(desc);
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(dptr == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) &&
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (dptr[0] != '['))
+    {
+      wrapper = get_wrapper_from_desc(dptr);
+
+      if(omitWrappers) {
+        if(dptr[0] == 'L')
+          fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+            wrapper, i, wrapper, i, i);
+      }
+      else
+      {
+        fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+          wrapper, i, wrapper, i, i);
+      }
+    }
+
+    dptr = skipToken(dptr);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_methcall_emit_from_descriptor                                     *
+ *                                                                           *
+ * this function generates the actual method call within the adapter.        *
+ * used in the case when the prototype is not found in the symbol table.     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_methcall_emit_from_descriptor(AST *node, char *desc, char *ret)
+{
+  char *tempname, *dptr;
+  AST *arg;
+  int i;
+
+  tempname = strdup( node->astnode.ident.name );
+  *tempname = toupper(*tempname);
+
+  if(ret[0] == 'V')
+    fprintf(curfp,"\n%s.%s(",tempname,  node->astnode.ident.name );
+  else
+  {
+    fprintf(curfp,"%s %s_retval;\n\n", ret,
+        node->astnode.ident.name);
+
+    fprintf(curfp,"%s_retval = %s.%s(", node->astnode.ident.name,
+       tempname,  node->astnode.ident.name );
+  }
+
+  dptr = skipToken(desc);
+  arg = node->astnode.ident.arraylist;
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(dptr == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) &&
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (dptr[0] != '['))
+    {
+      if(omitWrappers && (dptr[0] != 'L'))
+        fprintf(curfp,"arg%d",i);
+      else
+        fprintf(curfp,"_f2j_tmp%d",i);
+    }
+    else if((arg->nodetype == Identifier) &&
+            (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+            (dptr[0] == '['))
+       fprintf(curfp,"arg%d, arg%d_offset",i,i);
+    else
+       fprintf(curfp,"arg%d",i);
+
+    dptr = skipToken(dptr);
+
+    if(arg->nextstmt != NULL)
+      fprintf(curfp,",");
+  }
+
+  fprintf(curfp,");\n\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_assign_emit_from_descriptor                                       *
+ *                                                                           *
+ * this function emits the final assignments back to the array elements      *
+ * after the call (when we cannot find the prototype in the sybmol table).   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_assign_emit_from_descriptor(AST *arg, char *desc)
+{
+  char *dptr;
+  int i;
+
+  dptr = skipToken(desc);
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(dptr == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) &&
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (dptr[0] != '['))
+    {
+      if(omitWrappers) {
+        if(dptr[0] == 'L')
+          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+      }
+      else
+      {
+        fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+      }
+    }
+
+    dptr = skipToken(dptr);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_emit_from_table                                                   *
+ *                                                                           *
+ * This function generates an adapters based on a prototype found in the     *
+ * symbol table.                                                             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_emit_from_table(AST *node, HASHNODE *hashtemp)
+{
+  fprintf(curfp,"// adapter for %s\n", 
+    node->astnode.ident.name);
+  
+  /* first generate the method header */
+
+  if(hashtemp->variable->nodetype == Function)
+    fprintf(curfp,"private static %s %s_adapter(", 
+        returnstring[hashtemp->variable->astnode.source.returns],
+        hashtemp->variable->astnode.source.name->astnode.ident.name);
+  else
+    fprintf(curfp,"private static void %s_adapter(", 
+        hashtemp->variable->astnode.source.name->astnode.ident.name);
+
+  adapter_args_emit_from_table(hashtemp->variable->astnode.source.args,
+     node->astnode.ident.arraylist);
+
+  fprintf(curfp,")\n{\n");
+
+  adapter_temps_emit_from_table(hashtemp->variable->astnode.source.args,
+     node->astnode.ident.arraylist);
+
+  /*  now emit the call */
+
+  adapter_methcall_emit_from_table( node, hashtemp->variable);
+
+  /*  assign the temp variables to the array elements */
+
+  adapter_assign_emit_from_table(hashtemp->variable->astnode.source.args,
+     node->astnode.ident.arraylist);
+    
+  if(hashtemp->variable->nodetype == Function)
+  {
+    fprintf(curfp,"\nreturn %s_retval;\n", 
+        hashtemp->variable->astnode.source.name->astnode.ident.name);
+  }
+
+  fprintf(curfp,"}\n\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_args_emit_from_table                                              *
+ *                                                                           *
+ * this function generates the argument list for an adapter, when the        *
+ * prototype can be found in the symbol table.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_args_emit_from_table(AST *temp, AST *arg)
+{
+  int i;
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(temp == NULL) {
+      fprintf(stderr,"Error: mismatch between adapter call and prototype\n");
+      break;
+    }
+
+    if(temp->astnode.ident.arraylist) {
+      fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
+        returnstring[temp->vartype], i, i);
+    }
+    else if ( (arg->nodetype == Identifier) && 
+              (arg->astnode.ident.arraylist != NULL) &&
+              type_lookup(cur_array_table,arg->astnode.ident.name) )
+    {
+      if(omitWrappers && !temp->astnode.ident.passByRef)
+        fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
+      else
         fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
           returnstring[temp->vartype], i, i);
-      }
-      else if ( (arg->nodetype == Identifier) && 
-                (arg->astnode.ident.arraylist != NULL) &&
-                type_lookup(cur_array_table,arg->astnode.ident.name) )
-      {
-        if(omitWrappers && !temp->astnode.ident.passByRef)
-          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        else
-          fprintf(curfp,"%s [] arg%d , int arg%d_offset ", 
-            returnstring[temp->vartype], i, i);
-      }
-      else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
-      {
-        fprintf(curfp,"Object arg%d ", i);
-      }
-      else
-      {
-        if(omitWrappers && !temp->astnode.ident.passByRef)
-          fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
-        else
-          fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
-      }
-
-      if(temp != NULL)
-        temp = temp->nextstmt;
-      if(arg->nextstmt != NULL)
-        fprintf(curfp,",");
     }
-
-    fprintf(curfp,")\n{\n");
-
-    temp = hashtemp->variable->astnode.source.args;
-    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
-    
-    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+    else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
     {
-      if(temp == NULL)
-        break;
-
-      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
-            type_lookup(cur_array_table,arg->astnode.ident.name) &&
-            !temp->astnode.ident.arraylist)
-      {
-        if(omitWrappers) {
-          if(temp->astnode.ident.passByRef)
-            fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-              wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
-        }
-        else
-        {
-          fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
-            wrapper_returns[temp->vartype], i, wrapper_returns[temp->vartype], i, i);
-        }
-      }
-
-      if(temp != NULL)
-        temp = temp->nextstmt;
-    }
-
-    /*  now emit the call here */
-
-    tempname = strdup( ((AST *) dl_val(p))->astnode.ident.name );
-    *tempname = toupper(*tempname);
-
-    if(hashtemp->variable->nodetype == Function)
-    {
-      fprintf(curfp,"%s %s_retval;\n\n", 
-          returnstring[hashtemp->variable->astnode.source.returns],
-          hashtemp->variable->astnode.source.name->astnode.ident.name);
-
-      fprintf(curfp,"%s_retval = %s.%s(", ((AST *) dl_val(p))->astnode.ident.name,
-         tempname,  ((AST *) dl_val(p))->astnode.ident.name );
+      fprintf(curfp,"Object arg%d ", i);
     }
     else
-      fprintf(curfp,"\n%s.%s(",tempname,  ((AST *) dl_val(p))->astnode.ident.name );
-    
-    temp = hashtemp->variable->astnode.source.args;
-    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
-    
-    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
     {
-      if(temp == NULL)
-        break;
-
-      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
-            type_lookup(cur_array_table,arg->astnode.ident.name) &&
-            !temp->astnode.ident.arraylist)
-      {
-        if(omitWrappers && !temp->astnode.ident.passByRef)
-          fprintf(curfp,"arg%d",i);
-        else
-          fprintf(curfp,"_f2j_tmp%d",i);
-      }
-      else if((arg->nodetype == Identifier) &&
-            type_lookup(cur_array_table,arg->astnode.ident.name) &&
-            temp->astnode.ident.arraylist)
-         fprintf(curfp,"arg%d, arg%d_offset",i,i);
+      if(omitWrappers && !temp->astnode.ident.passByRef)
+        fprintf(curfp,"%s arg%d ", returnstring[temp->vartype], i);
       else
-         fprintf(curfp,"arg%d",i);
-
-      if(temp != NULL)
-        temp = temp->nextstmt;
-      if(arg->nextstmt != NULL)
-        fprintf(curfp,",");
+        fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
     }
 
-    fprintf(curfp,");\n\n");
+    if(temp != NULL)
+      temp = temp->nextstmt;
+    if(arg->nextstmt != NULL)
+      fprintf(curfp,",");
+  }
+}
 
-    /*  assign the temp variable to the array element */
+/*****************************************************************************
+ *                                                                           *
+ * adapter_temps_emit_from_table                                             *
+ *                                                                           *
+ * this function generates the temporary variable declarations for an        *
+ * adapter, when the prototype can be found in the symbol table.             *
+ *                                                                           *
+ *****************************************************************************/
 
-    temp = hashtemp->variable->astnode.source.args;
-    arg = ((AST *)dl_val(p))->astnode.ident.arraylist;
-    
-    for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+void
+adapter_temps_emit_from_table(AST *temp, AST *arg)
+{
+  int i;
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(temp == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) &&
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (temp->astnode.ident.arraylist == NULL))
     {
-      if(temp == NULL)
-        break;
-
-      if((arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
-            type_lookup(cur_array_table,arg->astnode.ident.name) &&
-            !temp->astnode.ident.arraylist)
-      {
-        if(omitWrappers) {
-          if(temp->astnode.ident.passByRef)
-            fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
-        }
-        else
-        {
-          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
-        }
+      if(omitWrappers) {
+        if(temp->astnode.ident.passByRef)
+          fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+            wrapper_returns[temp->vartype], i, 
+            wrapper_returns[temp->vartype], i, i);
       }
-
-      if(temp != NULL)
-        temp = temp->nextstmt;
+      else
+      {
+        fprintf(curfp,"%s _f2j_tmp%d = new %s(arg%d[arg%d_offset]);\n", 
+          wrapper_returns[temp->vartype], i,
+          wrapper_returns[temp->vartype], i, i);
+      }
     }
 
-    if(hashtemp->variable->nodetype == Function)
+    if(temp != NULL)
+      temp = temp->nextstmt;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_methcall_emit_from_table                                          *
+ *                                                                           *
+ * this function generates the actual method call within the adapter.        *
+ * used in the case when the prototype is found in the symbol table.         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_methcall_emit_from_table(AST *node, AST *var)
+{
+  char *tempname;
+  AST *temp, *arg;
+  int i;
+
+  tempname = strdup( node->astnode.ident.name );
+  *tempname = toupper(*tempname);
+
+  if(var->nodetype == Function)
+  {
+    fprintf(curfp,"%s %s_retval;\n\n", 
+        returnstring[var->astnode.source.returns],
+        var->astnode.source.name->astnode.ident.name);
+
+    fprintf(curfp,"%s_retval = %s.%s(", node->astnode.ident.name,
+       tempname,  node->astnode.ident.name );
+  }
+  else
+    fprintf(curfp,"\n%s.%s(",tempname,  node->astnode.ident.name );
+
+  temp = var->astnode.source.args;
+  arg = node->astnode.ident.arraylist;
+    
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(temp == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) && 
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (temp->astnode.ident.arraylist == NULL))
     {
-      fprintf(curfp,"\nreturn %s_retval;\n", 
-          hashtemp->variable->astnode.source.name->astnode.ident.name);
+      if(omitWrappers && !temp->astnode.ident.passByRef)
+        fprintf(curfp,"arg%d",i);
+      else
+        fprintf(curfp,"_f2j_tmp%d",i);
+    }
+    else if((arg->nodetype == Identifier) &&
+            (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+            (temp->astnode.ident.arraylist != NULL))
+       fprintf(curfp,"arg%d, arg%d_offset",i,i);
+    else
+       fprintf(curfp,"arg%d",i);
+
+    if(temp != NULL)
+      temp = temp->nextstmt;
+
+    if(arg->nextstmt != NULL)
+      fprintf(curfp,",");
+  }
+
+  fprintf(curfp,");\n\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * adapter_assign_emit_from_table                                            *
+ *                                                                           *
+ * this function emits the final assignments back to the array elements      *
+ * after the call.                                                           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_assign_emit_from_table(AST *temp, AST *arg)
+{
+  int i;
+
+  for(i = 0; arg != NULL ; arg = arg->nextstmt, i++)
+  {
+    if(temp == NULL)
+      break;
+
+    if((arg->nodetype == Identifier) && 
+       (arg->astnode.ident.arraylist != NULL) &&
+       (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
+       (temp->astnode.ident.arraylist == NULL))
+    {
+      if(omitWrappers) {
+        if(temp->astnode.ident.passByRef)
+          fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+      }
+      else
+      {
+        fprintf(curfp,"arg%d[arg%d_offset] = _f2j_tmp%d.val;\n",i,i,i);
+      }
     }
 
-    fprintf(curfp,"}\n\n");
+    if(temp != NULL)
+      temp = temp->nextstmt;
   }
 }
 
@@ -11041,4 +11395,112 @@ int
 opWidth(enum _opcode op)
 {
   return jvm_opcode[op].width;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_return_type_from_descriptor                                           *
+ *                                                                           *
+ * given a method descriptor, this function returns the string representing  *
+ * the return type of the method.                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_return_type_from_descriptor(char *desc)
+{
+  char *dptr;
+
+  dptr = desc;
+
+  /* skip characters until we hit the closing paren, making sure that
+   * we dont go beyond the end of hte string. 
+   */
+
+  while(*dptr != ')') {
+    if((*dptr == '\0') || (*(dptr+1) == '\0')) {
+      fprintf(stderr,"Could not determine return type for descriptor '%s'\n",
+         desc);
+      return NULL;
+    }
+
+    dptr++;
+  }
+
+  /* now skip over the closing paren and return the remaining portion
+   * of the descriptor */
+
+  return strdup(dptr+1);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_retstring_from_field_desc                                             *
+ *                                                                           *
+ * given a field descriptor, this function returns the string representation *
+ * of the appropriate java data type.                                        *
+ *                                                                           *
+ *****************************************************************************/
+
+enum returntype
+get_type_from_field_desc(char fd)
+{
+  switch(fd) {
+    case 'B':
+      return Integer;
+    case 'C':
+      return Character;
+    case 'D':
+      return Double;
+    case 'F':
+      return Float;
+    case 'I':
+      return Integer;
+    case 'J':
+      return Integer;
+    case 'S':
+      return Integer;
+    case 'Z':
+      return Logical;
+    case 'V':
+      return Object; /* no void in the array, so use object instead */ 
+    default:
+      /* could be an array or reference type.  */
+      fprintf(stderr,"get_type_from_field_desc() hit default case!!\n");
+      return Integer;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * get_wrapper_from_desc                                                     *
+ *                                                                           *
+ * given the descriptor of one of the numeric wrappers, return just the      *
+ * last part (e.g. Integer, Double, etc).  assume that desc points to the    *
+ * initial 'L' of the field descriptor, but may contain extraneous chars     *
+ * after the final ';'.                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+get_wrapper_from_desc(char *desc)
+{
+  char *ls, *dptr, *new;
+ 
+  ls = dptr = desc;
+
+  while( *dptr != ';' ) {
+    if(*dptr == '\0')
+      return desc;
+
+    if(*dptr == '/')
+      ls = dptr;
+
+    dptr++;
+  }
+
+  new = strdup(ls+1);
+  new[dptr-ls-1] = '\0';
+
+  return new;
 }

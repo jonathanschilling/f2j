@@ -128,6 +128,8 @@ char
   * getVarDescriptor(AST *),
   * char_substitution(char *, int, int),
   * get_full_classname(char *),
+  * get_return_type_from_descriptor(char *),
+  * get_wrapper_from_desc(char *),
   * get_desc_from_arglist(AST *);
 
 METHODTAB
@@ -228,6 +230,16 @@ void
   data_scalar_emit(enum returntype, AST *, AST *, int),
   func_array_emit(AST *, HASHNODE *, char *, int, int),
   methcall_obj_array_emit(AST *, int),
+  adapter_args_emit_from_table(AST *, AST *),
+  adapter_temps_emit_from_table(AST *, AST *),
+  adapter_methcall_emit_from_table(AST *, AST *),
+  adapter_assign_emit_from_table(AST *, AST *),
+  adapter_emit_from_table(AST *, HASHNODE *),
+  adapter_emit_from_descriptor(AST *),
+  adapter_args_emit_from_descriptor(AST *, char *),
+  adapter_temps_emit_from_descriptor(AST *, char *),
+  adapter_methcall_emit_from_descriptor(AST *, char *, char *),
+  adapter_assign_emit_from_descriptor(AST *, char *),
   inc_stack(int);
 
 int
@@ -282,6 +294,7 @@ AST
   * format_item_emit(AST *, AST **);
 
 enum returntype
+  get_type_from_field_desc(char),
   get_type(char *);
 
 struct _str

@@ -7049,6 +7049,12 @@ code_one_op_w(enum _opcode op, u2 index)
   u1 this_opcode = op;
   u2 u2BigEndian(u2);
   u2 this_operand = u2BigEndian(index);
+  BOOLEAN is_inv;
+
+  is_inv = (op == jvm_invokeinterface) ||
+           (op == jvm_invokespecial) ||
+           (op == jvm_invokestatic) ||
+           (op == jvm_invokevirtual);
 
   dec_stack(jvm_opcode[op].stack_pre);
   check_code_size(jvm_opcode[op].width);
@@ -7276,6 +7282,94 @@ endNewMethod(struct method_info * meth, char * name, char * desc)
   cur_code->attr.Code->code_length = pc;
 
   dl_insert_b(meth->attributes, cur_code);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * numArguments                                                              *
+ *                                                                           *
+ * given a method descriptor, this function returns the number of arguments  *
+ * it takes.  we use this value to determine how much to decrement the stack *
+ * after a method invocation.                                                *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+numArguments(char *d)
+{
+  int len = strlen(d);
+  char *ptr;
+  int count;
+  char * skipToken(char *);
+
+  /* the shortest method descriptor should be 3 characters: ()V
+   * thus, if the given string is < 3 characters, it must be in error.
+   */
+
+  if(len < 3) {
+    fprintf(stderr,"WARNING: invalid descriptor.\n");
+    return 1;
+  }
+
+  if(d[0] != '(') {
+    fprintf(stderr,"WARNING: invalid descriptor.\n");
+    return 1;
+  }
+
+  ptr = d+1;
+  count = 0;
+
+  while((ptr = skipToken(ptr)) != NULL) {
+    count++;
+  }
+
+  return count;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * skipToken                                                                 *
+ *                                                                           *
+ * helper routine for numArguments().  this function returns a pointer to    *
+ * the next field type in this descriptor.  if there are no more field types *
+ * this function returns NULL.  on error, this function also returns NULL.   *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+skipToken(char *str)
+{
+  char *p = str;
+
+  switch(*p) {
+    case 'B': case 'C': case 'D': case 'F':
+    case 'I': case 'J': case 'S': case 'Z':
+      return p+1;
+
+    case 'L':
+      while((*p != ';') && (*p != '\0'))
+        p++;
+
+      if(*p == '\0') {
+        fprintf(stderr,"WARNING: skipToken() incomplete classname in descriptor\n");
+        return NULL;
+      }
+
+      return p+1;
+
+    case '[':
+      return skipToken(p+1);
+
+    case ')':
+      return NULL;
+
+    default:
+      fprintf(stderr,"WARNING: skipToken() unrecognized character in descriptor\n");
+      return NULL;
+  }
+
+  /* should never reach here */
+  return NULL;
 }
 
 /*****************************************************************************

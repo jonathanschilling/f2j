@@ -1,3 +1,10 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
 %{
 #include<stdio.h>
 #include<stdlib.h>
@@ -41,7 +48,6 @@ SYMTABLE *jasmin_table;
 int emittem = 1;
 int len = 1;
 
-AST *dataStmtList = NULL;
 AST *equivList = NULL;
 
 void assign_local_vars(AST *);
@@ -266,7 +272,6 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
-                $$->astnode.source.dataStmtList = dataStmtList; 
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
@@ -320,7 +325,6 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
-                $$->astnode.source.dataStmtList = dataStmtList; 
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
@@ -372,7 +376,6 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
-                $$->astnode.source.dataStmtList = dataStmtList; 
                 $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
@@ -777,28 +780,6 @@ Data:       DATA DataList
               $$ = addnode();
               $$->nodetype = DataList;
               $$->astnode.label.stmt = $2;
-    
-              /* 
-               * Add this data statement to the
-               * list of data statements. 
-               */
-              if(dataStmtList == NULL)
-              {
-                dataStmtList = addnode();
-                dataStmtList->nodetype = DataList;
-                dataStmtList->astnode.label.stmt = $2;
-              }
-              else
-              {
-                AST *temp;
-
-                temp = addnode();
-                temp->nodetype = DataList;
-                temp->astnode.label.stmt = $2;
-  
-                temp->nextstmt = dataStmtList;
-                dataStmtList = temp;
-              }
             } 
 ;
 
@@ -2981,7 +2962,6 @@ init_tables()
   intrinsic_table = (SYMTABLE *) new_symtable(211);
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
-  dataStmtList    = NULL;
   equivList       = NULL;
 }
 

@@ -176,7 +176,6 @@ typedef struct ast_node
                   SYMTABLE *common_table; 
                   SYMTABLE *parameter_table; 
                   SYMTABLE *equivalence_table; 
-                  struct ast_node *dataStmtList;
                   struct ast_node *equivalences;
                   struct ast_node *prologComments;
                   int needs_input;

@@ -6,10 +6,13 @@
  */
 
 
-/*  
- * codegen.c
- *   Generates java source code for checking.
- */
+/*****************************************************************************
+ * codegen                                                                   *
+ *                                                                           *
+ * Generates Java source code from the AST representation of a Fortran       *
+ * program.                                                                  *
+ *                                                                           *
+ *****************************************************************************/
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -18,150 +21,203 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
-/* Define ONED as 1 if two-dimensional arrays should be linearized.    */
-/* Define TWOD as 1 if they should be generated as Java 2D arrays.     */
-/* The latter option is not currently implemented.                     */
+/*****************************************************************************
+ * Define ONED as 1 if two-dimensional arrays should be linearized.          *
+ * Define TWOD as 1 if they should be generated as Java 2D arrays.           *
+ * The latter option is not currently implemented.                           *
+ *****************************************************************************/
 
 #define ONED 1
 #define TWOD 0
 
-/* MAX_RETURNS represents the number of elements in the returnstring   */
-/* array (see below).  OBJECT_TYPE identifies the type Object, which   */
-/* is not contained in the array.                                      */
+/*****************************************************************************
+ * MAX_RETURNS represents the number of elements in the returnstring         *
+ * array (see below).  OBJECT_TYPE identifies the type 'Object'.             *
+ *****************************************************************************/
 
 #define MAX_RETURNS 7
 #define OBJECT_TYPE 7
 
-/* Function prototypes:                                                */
-
-char * strdup ( const char * );
-char * print_nodetype ( AST * ); 
-char * lowercase ( char * );
-HASHNODE * format_lookup(SYMTABLE *, char *);
-char * methodscan (METHODTAB * , char * );
-
-int gendebug = TRUE;   /* set to TRUE to generate debugging output     */
-
-/*  
- *   Global variables, a necessary evil when working with
- * yacc. 
- */
-
-extern int 
-  ignored_formatting,  /* number of FORMAT statements ignored          */
-  bad_format_count;    /* number of bad FORMAT statements encountered  */
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
 
 char 
-  *unit_name,          /* name of this function/subroutine             */
-  *returnname,         /* return type of this prog. unit               */
-  *cur_filename;       /* name of the class file currently writing     */
+  *strdup ( const char * ),
+  *print_nodetype ( AST * ),
+  *lowercase ( char * ),
+  *methodscan (METHODTAB * , char * );
+
+HASHNODE * format_lookup(SYMTABLE *, char *);
+
+/*****************************************************************************
+ *   Global variables, a necessary evil when working with yacc.              *
+ *****************************************************************************/
+
+int gendebug = TRUE;   /* set to TRUE to generate debugging output           */
+
+extern int 
+  ignored_formatting,  /* number of FORMAT statements ignored                */
+  bad_format_count;    /* number of bad FORMAT statements encountered        */
+
+char 
+  *unit_name,          /* name of this function/subroutine                   */
+  *returnname,         /* return type of this prog. unit                     */
+  *cur_filename;       /* name of the class file currently writing           */
 
 Dlist 
-  doloop = NULL,        /* stack of do loop labels                     */
-  while_list = NULL,    /* stack of while loop labels                  */
-  adapter_list = NULL,  /* list of adapter functions (see tech report) */
-  methcall_list = NULL; /* list of methods to be called by reflection  */
+  doloop = NULL,        /* stack of do loop labels                           */
+  while_list = NULL,    /* stack of while loop labels                        */
+  adapter_list = NULL,  /* list of adapter functions (see tech report)       */
+  methcall_list = NULL; /* list of methods to be called by reflection        */
 
 SUBSTITUTION 
-  global_sub={NULL,0};  /* substitution used for implied loops         */
+  global_sub={NULL,0};  /* substitution used for implied loops               */
 
 extern char 
-  *inputfilename;       /* name of the fortran input file              */
+  *inputfilename;       /* name of the fortran input file                    */
 
 FILE 
-  *javafp,              /* the class file currently generating         */
-  *curfp;               /* the file currently being written to         */
+  *javafp,              /* the class file currently generating               */
+  *curfp;               /* the file currently being written to               */
 
-SYMTABLE                /* Symbol tables containing...                 */
-  *cur_type_table,      /* type information                            */
-  *cur_external_table,  /* external functions                          */
-  *cur_intrinsic_table, /* intrinsic functions                         */
-  *cur_args_table,      /* variables which are arguments               */
-  *cur_array_table,     /* variables which are arrays                  */
-  *cur_format_table,    /* format statements                           */
-  *cur_data_table,      /* variables contained in DATA stmts           */
-  *cur_save_table,      /* variables contained in SAVE stmts           */
-  *cur_common_table,    /* variables contained in COMMON stmts         */
-  *cur_param_table,     /* variables which are parameters              */
-  *cur_equiv_table;     /* variables which are equivalenced            */
+SYMTABLE                /* Symbol tables containing...                       */
+  *cur_type_table,      /* type information                                  */
+  *cur_external_table,  /* external functions                                */
+  *cur_intrinsic_table, /* intrinsic functions                               */
+  *cur_args_table,      /* variables which are arguments                     */
+  *cur_array_table,     /* variables which are arrays                        */
+  *cur_format_table,    /* format statements                                 */
+  *cur_data_table,      /* variables contained in DATA stmts                 */
+  *cur_save_table,      /* variables contained in SAVE stmts                 */
+  *cur_common_table,    /* variables contained in COMMON stmts               */
+  *cur_param_table,     /* variables which are parameters                    */
+  *cur_equiv_table;     /* variables which are equivalenced                  */
 
 AST 
-  *cur_dataList,
-  *cur_equivList;
+  *cur_equivList;       /* list of equivalences                              */
 
-int 
-  import_reflection,
-  import_blas;
+BOOLEAN 
+  import_reflection,    /* does this class need to import reflection         */
+  import_blas;          /* does it need to import the BLAS library           */
 
-/* data types for arrays */
+char *returnstring[] =  /* data types for arrays                             */
+{ 
+  "String", 
+  "String", 
+  "complex", 
+  "double", 
+  "float", 
+  "int", 
+  "boolean", 
+  "Object"
+};
 
-char *returnstring[] =
-{"String", "String", "complex", "double", "float", "int", "boolean", "Object"};
+char *wrapper_returns[] =  /* data types for pass by reference scalars       */
+{ 
+  "StringW", 
+  "StringW", 
+  "complexW", 
+  "doubleW", 
+  "floatW", 
+  "intW", 
+  "booleanW", 
+  "Object"
+};
 
-/* data types for scalars */
 
-char *wrapper_returns[] =
-{"StringW", "StringW", "complexW", "doubleW", "floatW", "intW", "booleanW", "Object"};
+char *java_wrapper[] =  /* names of the standard Java wrappers               */
+{
+  "String", 
+  "String", 
+  "Complex", 
+  "Double", 
+  "Float", 
+  "Integer", 
+  "Boolean", 
+  "Object"
+};
 
-/* java wrapper names */
+char *init_vals[] =    /* initial values for above data types                */
+{
+  "\" \"", 
+  "\" \"", 
+  "0", 
+  "0.0", 
+  "0.0", 
+  "0", 
+  "false"
+};
 
-char *java_wrapper[] =
-{"String", "String", "Complex", "Double", "Float", "Integer", "Boolean", "Object"};
+char *input_func[] =  /* input functions to read various data types          */
+{
+  "readChars", 
+  "readChars", 
+  "readComplex", 
+  "readDouble", 
+  "readFloat", 
+  "readInt", 
+  "readBoolean"
+};
 
-/* initial values for above data types */
+char *input_func_eof[] = /* input functions that detect EOF                  */
+{
+  "readchars", 
+  "readchars", 
+  "readcomplex", 
+  "readdouble", 
+  "readfloat", 
+  "readint", 
+  "readboolean"
+};
 
-char *init_vals[] =
-{"\" \"", "\" \"", "0", "0.0", "0.0", "0", "false"};
-
-char *input_func[] =
-{"readChars", "readChars", "readComplex", "readDouble", "readFloat", "readInt", "readBoolean"};
-
-char *input_func_eof[] =
-{"readchars", "readchars", "readcomplex", "readdouble", "readfloat", "readint", "readboolean"};
-
-/*
- * emit()
- *
- * This is the main code generation function.  We traverse the
- * AST and call recursively call emit() on each node.  This
- * function figures out what kind of node it's looking at and
- * calls the appropriate function to handle the code generation.
- *
- */
+/*****************************************************************************
+ *                                                                           *
+ * emit                                                                      *
+ *                                                                           *
+ * This is the main code generation function.  We traverse the               *
+ * AST and call recursively call emit() on each node.  This                  *
+ * function figures out what kind of node it's looking at and                *
+ * calls the appropriate function to handle the code generation.             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 emit (AST * root)
 {
-    void open_output_file(AST *);
-    void emit_adapters();
-    void constructor (AST *);
-    void typedec_emit (AST *);
-    void data_emit(AST *);
-    void spec_emit (AST *);
-    void assign_emit (AST *);
-    void equiv_emit (AST *);
-    void call_emit (AST *);
-    void forloop_emit (AST *);
-    void blockif_emit (AST *);
-    void logicalif_emit (AST *);
-    void arithmeticif_emit (AST *);
-    void goto_emit (AST *);
-    void computed_goto_emit (AST *);
-    void label_emit (AST *);
-    void write_emit (AST *);
-    void common_emit(AST *);
-    void read_emit (AST *);
-    void emit_invocations(AST *);
-    void merge_equivalences(AST *);
-    void print_equivalences(AST *);
-    void emit_prolog_comments(AST *);
+    void 
+       open_output_file(AST *),
+       emit_adapters(),
+       constructor (AST *),
+       typedec_emit (AST *),
+       data_emit(AST *),
+       spec_emit (AST *),
+       assign_emit (AST *),
+       equiv_emit (AST *),
+       call_emit (AST *),
+       forloop_emit (AST *),
+       blockif_emit (AST *),
+       logicalif_emit (AST *),
+       arithmeticif_emit (AST *),
+       goto_emit (AST *),
+       computed_goto_emit (AST *),
+       label_emit (AST *),
+       write_emit (AST *),
+       common_emit(AST *),
+       read_emit (AST *),
+       emit_invocations(AST *),
+       merge_equivalences(AST *),
+       print_equivalences(AST *),
+       emit_prolog_comments(AST *);
+
     int isPassByRef(char *);
 
     switch (root->nodetype)
-      {
+    {
       case 0:
 	  if (gendebug)
             fprintf (stderr,"Bad node\n");
+
 	  emit (root->nextstmt);
       case Progunit:
         {
@@ -183,16 +239,19 @@ emit (AST * root)
           cur_common_table = root->astnode.source.common_table;
           cur_param_table = root->astnode.source.parameter_table;
           cur_equiv_table = root->astnode.source.equivalence_table;
-          cur_dataList = root->astnode.source.dataStmtList;
           cur_equivList = root->astnode.source.equivalences;
 
           if(gendebug)
             print_equivalences(cur_equivList);
 
+          /* Initialize the lists. */
+
           while_list = make_dl();
           doloop = make_dl();
           adapter_list = make_dl();
           methcall_list = make_dl();
+
+          /* needs_reflection is determined during typecheck */
 
           if(root->astnode.source.progtype->astnode.source.needs_reflection)
             import_reflection = TRUE;
@@ -201,6 +260,8 @@ emit (AST * root)
 
           tmpname = root->astnode.source.progtype->
                        astnode.source.name->astnode.ident.name;
+
+          /* needs_blas is also determined during typecheck */
 
           if(root->astnode.source.progtype->astnode.source.needs_blas &&
              !type_lookup(blas_routine_table,tmpname))
@@ -218,6 +279,10 @@ emit (AST * root)
           
 	  emit (root->astnode.source.progtype);
 
+          /* The 'catch' corresponding to the following try is generated
+           * in case End. 
+           */
+
           if(import_reflection) 
             fprintf(curfp,"try {\n");
 
@@ -234,6 +299,7 @@ emit (AST * root)
       case Subroutine:
 	  if (gendebug)
 	      printf ("Subroutine.\n");
+
 	  returnname = NULL;	/* Subroutines return void. */
           unit_name = root->astnode.source.name->astnode.ident.name;
 	  constructor (root);
@@ -241,26 +307,33 @@ emit (AST * root)
       case Function:
 	  if (gendebug)
 	      printf ("Function.\n");
+
 	  returnname = root->astnode.source.name->astnode.ident.name;
           unit_name = root->astnode.source.name->astnode.ident.name;
+
           if(gendebug)
             printf ("Function name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
+
 	  constructor (root);
 	  break;
       case Program:
 	  if (gendebug)
 	      printf ("Program.\n");
+
 	  returnname = NULL;	/* programs return void. */
           unit_name = root->astnode.source.name->astnode.ident.name;
+
 	  if (gendebug)
 	    printf ("Program name: %s\n", 
               root->astnode.source.name->astnode.ident.name);
+
           constructor(root);
           break;
       case Typedec:
 	  if (gendebug)
 	      printf ("Typedec.\n");
+
 	  typedec_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -268,6 +341,7 @@ emit (AST * root)
       case DataList:
 	  if (gendebug)
 	      printf ("Data.\n");
+
 	  data_emit (root);
 	  if (root->nextstmt != NULL)	/* End of data list. */
 	      emit (root->nextstmt);
@@ -275,6 +349,7 @@ emit (AST * root)
       case Specification:
 	  if (gendebug)
 	      printf ("Specification.\n");
+
 	  spec_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -282,6 +357,7 @@ emit (AST * root)
       case Equivalence:
 	  if (gendebug)
 	      printf ("Equivalence.\n");
+
 	  equiv_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
@@ -289,13 +365,14 @@ emit (AST * root)
       case Statement:
 	  if (gendebug)
 	      printf ("Statement.\n");
+
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
 	  break;
-
       case Assignment:
 	  if (gendebug)
 	      printf ("Assignment.\n");
+
 	  assign_emit (root);
 	  fprintf (curfp, ";\n");
 	  if (root->nextstmt != NULL)
@@ -304,6 +381,7 @@ emit (AST * root)
       case Call:
 	  if (gendebug)
 	      printf ("Call.\n");
+
 	  call_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -311,14 +389,15 @@ emit (AST * root)
       case Forloop:
 	  if (gendebug)
 	      printf ("Forloop.\n");
+
 	  forloop_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
 	  break;
-
       case Blockif:
 	  if (gendebug)
 	      printf ("Blockif.\n");
+
 	  blockif_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -326,6 +405,7 @@ emit (AST * root)
       case Elseif:
 	  if (gendebug)
 	      printf ("Elseif.\n");
+
 	  elseif_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -333,6 +413,7 @@ emit (AST * root)
       case Else:
 	  if (gendebug)
 	      printf ("Else.\n");
+
 	  else_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -340,6 +421,7 @@ emit (AST * root)
       case Logicalif:
 	  if (gendebug)
 	      printf ("Logicalif.\n");
+
 	  logicalif_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -347,6 +429,7 @@ emit (AST * root)
       case Arithmeticif:
 	  if (gendebug)
 	      printf ("Arithmeticif.\n");
+
 	  arithmeticif_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -375,6 +458,7 @@ emit (AST * root)
       case Goto:
 	  if (gendebug)
 	      printf ("Goto.\n");
+
 	  goto_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
@@ -382,6 +466,7 @@ emit (AST * root)
       case ComputedGoto:
 	  if (gendebug)
 	      printf ("Goto.\n");
+
 	  computed_goto_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
@@ -389,6 +474,7 @@ emit (AST * root)
       case Label:
 	  if (gendebug)
 	      printf ("Label.\n");
+
           label_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -396,6 +482,7 @@ emit (AST * root)
       case Write:
 	  if (gendebug)
 	      printf ("Write statement.\n");
+
 	  write_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
@@ -403,6 +490,7 @@ emit (AST * root)
       case Read:
 	  if (gendebug)
 	      printf ("Read statement.\n");
+
 	  read_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
@@ -410,6 +498,7 @@ emit (AST * root)
       case Format:
 	  if (gendebug)
             printf("skipping format statement\n");
+
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
           break;
@@ -455,11 +544,13 @@ emit (AST * root)
             fprintf (curfp, "return;\n");
 
           if(import_reflection) {
-            fprintf(curfp, "%s%s%s%s%s",
+            fprintf(curfp, "%s%s%s%s%s%s%s",
                "} catch (java.lang.reflect.InvocationTargetException e) {\n",
-               "   System.err.println(\"Error calling method.  \"+ e.getMessage());\n",
+               "   System.err.println(\"Error calling method.", 
+               "  \"+ e.getMessage());\n",
                "} catch (java.lang.IllegalAccessException e2) {\n",
-               "   System.err.println(\"Error calling method.  \"+e2.getMessage());\n",
+               "   System.err.println(\"Error calling method.",
+               "  \"+ e2.getMessage());\n",
                "}\n");
           }
 
@@ -468,12 +559,14 @@ emit (AST * root)
       case Save:
 	  if (gendebug)
 	      printf ("Save (ignoring).\n");
+
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
           break;
       case Common:
           if (gendebug)
             printf ("Common.\n");
+
           common_emit(root);
           if (root->nextstmt != NULL)
             emit (root->nextstmt);
@@ -489,7 +582,8 @@ emit (AST * root)
             emit (root->nextstmt);
           break;
       case Unimplemented:
-	  fprintf (curfp, "// WARNING: Unimplemented statement in Fortran source.\n");
+	  fprintf (curfp, 
+            "// WARNING: Unimplemented statement in Fortran source.\n");
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
@@ -497,8 +591,17 @@ emit (AST * root)
       default:
           fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
             print_nodetype(root));
-      }				/* switch on nodetype.  */
+    }				/* switch on nodetype.  */
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * print_equivalences                                                        *
+ *                                                                           *
+ * Print the variables that are equivalenced.                                *
+ * This routine is used only for debugging                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 print_equivalences(AST *root)
@@ -512,6 +615,35 @@ print_equivalences(AST *root)
     print_eqv_list(temp,stdout);
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * print_eqv_list                                                            *
+ *                                                                           *
+ * This function prints the equivalence list to the file                     *
+ * pointed to by fptr.                                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void 
+print_eqv_list(AST *root, FILE *fptr)
+{
+  AST *temp;
+
+  for(temp = root->astnode.equiv.clist;temp!=NULL;temp=temp->nextstmt)
+    fprintf(fptr," %s, ", temp->astnode.ident.name);
+  fprintf(fptr,"\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_prolog_comments                                                      *
+ *                                                                           *
+ * 'Prolog' refers to those comments found before the                        *
+ * function/subroutine declaration.  Here we emit those                      *
+ * comments.                                                                 *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 emit_prolog_comments(AST *root)
@@ -530,15 +662,20 @@ emit_prolog_comments(AST *root)
   }
 }
 
-void 
-print_eqv_list(AST *root, FILE *fptr)
-{
-  AST *temp;
+/*****************************************************************************
+ *                                                                           *
+ * equiv_emit                                                                *
+ *                                                                           *
+ * Generate declarations for equivalenced variables.  This handles           *
+ * only a very restricted set of equivalences.  Scalars can be               *
+ * equivalenced and arrays can be equivalenced, but only if the              *
+ * starting points are the same.                                             *
+ *                                                                           *
+ * To translate equivalences, we just merge the equivalenced names           *
+ * into one name and generate one Java declaration.                          *
+ *                                                                           *
+ *****************************************************************************/
 
-  for(temp = root->astnode.equiv.clist;temp!=NULL;temp=temp->nextstmt)
-    fprintf(fptr," %s, ", temp->astnode.ident.name);
-  fprintf(fptr,"\n");
-}
 
 void 
 equiv_emit (AST *root)
@@ -548,10 +685,19 @@ equiv_emit (AST *root)
   enum returntype curType;
   void vardec_emit(AST *, enum returntype);
 
+  /* for each group of equivalenced variables... */
+
   for(temp = root->astnode.equiv.nlist; temp != NULL; temp = temp->nextstmt)
+  {
+
+    /* just check the first variable since we're only going to emit
+     * one declaration.
+     */
+
     if(temp->astnode.equiv.clist != NULL) {
       ht = type_lookup(cur_type_table,
                temp->astnode.equiv.clist->astnode.ident.name);
+
       if(ht) {
         curType = ht->variable->vartype;
 
@@ -566,20 +712,27 @@ equiv_emit (AST *root)
         curType = 0;
       }
 
+      /* now emit the declaration as with any other variable.  */
+
       if(temp->astnode.equiv.clist->astnode.ident.merged_name != NULL)
         vardec_emit(ht->variable, curType);
     }
+  }
 }
 
-/*  
- *  This function emits common blocks as a static class containing
- *  the variables specified in the COMMON statement.  Currently,
- *  each COMMON statement must specify the same variable names for
- *  the translation to work reliably.     10/9/97   --Keith    
- *
- *  Now COMMON statements may use different variable names and
- *  f2java attempts to merge the names into one.  --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ *  common_emit                                                              *
+ *                                                                           *
+ *  This function emits common blocks as a static class containing           *
+ *  the variables specified in the COMMON statement.  Currently,             *
+ *  each COMMON statement must specify the same variable names for           *
+ *  the translation to work reliably.     10/9/97   --Keith                  *
+ *                                                                           *
+ *  Now COMMON statements may use different variable names and               *
+ *  f2java attempts to merge the names into one.  --Keith                    *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 common_emit(AST *root)
@@ -641,6 +794,7 @@ common_emit(AST *root)
         /* each variable in the common block should have a type
          * declaration associated with it.
          */
+
         if((hashtemp = type_lookup(cur_type_table,Ntemp->astnode.ident.name)) == NULL)
         {
           fprintf(stderr,"Error: can't find type for common %s\n",
@@ -675,9 +829,16 @@ common_emit(AST *root)
   curfp = javafp;
 }
 
-/* Emit all the type declarations.  This procedure checks
-   whether variables are typed in the argument list, and
-   does not redeclare those arguments. */
+/*****************************************************************************
+ *                                                                           *
+ * typedec_emit                                                              *
+ *                                                                           *
+ * Emit all the type declarations.  This procedure checks                    *
+ * whether variables are typed in the argument list, and                     *
+ * does not redeclare those arguments.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 typedec_emit (AST * root)
 {
@@ -824,15 +985,19 @@ typedec_emit (AST * root)
   }
 }				/* Close typedec_emit(). */
 
-/* 
- * the body of this function used to be in typedec_emit, but
- * I moved it so that I could use the same code to emit static
- * or nonstatic variables.   10/3/97  -- Keith 
- *
- * This could probably be simplified somewhat now that all
- * variables are emitted 'static'.   1/27/98 -- Keith
- * ...done 3/26/98 -- Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * vardec_emit                                                               *
+ *                                                                           *
+ * the body of this function used to be in typedec_emit, but                 *
+ * I moved it so that I could use the same code to emit static               *
+ * or nonstatic variables.   10/3/97  -- Keith                               *
+ *                                                                           *
+ * This could probably be simplified somewhat now that all                   *
+ * variables are emitted 'static'.   1/27/98 -- Keith                        *
+ * ...done 3/26/98 -- Keith                                                  *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 vardec_emit(AST *root, enum returntype returns)
@@ -880,14 +1045,22 @@ vardec_emit(AST *root, enum returntype returns)
     hashtemp = type_lookup(cur_array_table,root->astnode.ident.name);
     if(hashtemp != NULL) 
     {
+      /* loop through each dimension of the array */
+
       temp2=root->astnode.ident.arraylist;
       for(count=0 ; temp2!=NULL ; temp2=temp2->nextstmt, count++) 
       {
         if(temp2 != root->astnode.ident.arraylist)
           fprintf(curfp, " * ");   /* if not the first iteration */
+
         fprintf(curfp,"(");
+
         if(temp2->nodetype == ArrayIdxRange)
         {
+          /* if we have a range of indices (e.g. integer a(0:12))
+           * then we must allocate (end - start + 1) elements. 
+           */
+
           expr_emit(temp2->astnode.expression.rhs);
           fprintf(curfp," - ");
           expr_emit(temp2->astnode.expression.lhs);
@@ -895,6 +1068,7 @@ vardec_emit(AST *root, enum returntype returns)
         }
         else
           expr_emit(temp2);
+
         fprintf(curfp,")");
       }
     }
@@ -923,16 +1097,12 @@ vardec_emit(AST *root, enum returntype returns)
 
     name_emit (root);
 
+    /* Check to see whether this variable is a PARAMETER */
+
     if (gendebug)
       printf("looking for %s in parameter table\n",root->astnode.ident.name);
 
     p = type_lookup(cur_param_table, root->astnode.ident.name);
-
-    /*  
-     * initialize local variables to zero or
-     * false to keep the java compiler from
-     * squawking.  
-     */
 
     if(p != NULL)
     {
@@ -990,10 +1160,18 @@ vardec_emit(AST *root, enum returntype returns)
   }
 }
 
-/* 
- * This function prints the initialization code for a 
- * String object. 
- */
+/*****************************************************************************
+ *                                                                           *
+ * print_string_initializer                                                  *
+ *                                                                           *
+ * This function prints the initialization code for a                        *
+ * String object.  If we know how long the string is supposed to             *
+ * be, then we can generate a blank string of that length.  Thus             *
+ * any length operations on the 'uninitialized' string would be              *
+ * correct.                                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
 
 void
 print_string_initializer(AST *root)
@@ -1006,6 +1184,11 @@ print_string_initializer(AST *root)
   {
     fprintf(stderr,"Weird...can't find %s in type_table\n",
       root->astnode.ident.name);
+
+    /* We can't find this variable in the hash table, 
+     * so just initialize the string to the standard initial
+     * value found in init_vals.
+     */
 
     if(omitWrappers) {
       if(isPassByRef(root->astnode.ident.name))
@@ -1020,6 +1203,13 @@ print_string_initializer(AST *root)
   }
   else
   {
+    /* We know how long this string is supposed to be, so we
+     * allocate a blank string with that many characters.  For
+     * example, CHARACTER*5 blah is translated to:
+     *   String blah = new String("     ");
+     * assuming it has not been declared with a DATA statement.
+     */
+
     char buf[ ht->variable->astnode.ident.len ];
 
     sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
@@ -1037,14 +1227,18 @@ print_string_initializer(AST *root)
   }
 }
 
-/* 
- * This function handles emitting DATA statements, which consist of a
- * list of names and a list of data items.  We start with the first name
- * and assign as many data items from the list as the size allows.  for
- * example if the first name is a 5 element array, we assign the first 5
- * data items to the first name.  then we go to the second name, third 
- * name, etc. and assign values in the same way.     10/3/97  --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * data_emit                                                                 *
+ *                                                                           *
+ * This function handles emitting DATA statements, which consist of a        *
+ * list of names and a list of data items.  We start with the first name     *
+ * and assign as many data items from the list as the size allows.  for      *
+ * example if the first name is a 5 element array, we assign the first 5     *
+ * data items to the first name.  then we go to the second name, third       *
+ * name, etc. and assign values in the same way.     10/3/97  --Keith        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 data_emit(AST *root)
@@ -1103,25 +1297,28 @@ data_emit(AST *root)
   }
 }
 
-/*
- * This function generates the code for implied do loops in DATA
- * statements.  The initialization is done in Java within a static
- * block.  For example, the following fortran statements:
- * 
- *    integer x
- *    data (x(j),j=1,4)/5,6,7,8/
- * 
- * would be emitted in Java as:
- * 
- *    static int [] x= new int[(4)];
- *    static {
- *    x[( 1 )- 1] = 5;
- *    x[( 2 )- 1] = 6;
- *    x[( 3 )- 1] = 7;
- *    x[( 4 )- 1] = 8;
- *    }
- *
- */
+/*****************************************************************************
+ *                                                                           *
+ * data_implied_loop_emit                                                    *
+ *                                                                           *
+ * This function generates the code for implied do loops in DATA             *
+ * statements.  The initialization is done in Java within a static           *
+ * block.  For example, the following fortran statements:                    *
+ *                                                                           *
+ *    integer x                                                              *
+ *    data (x(j),j=1,4)/5,6,7,8/                                             *
+ *                                                                           *
+ * would be emitted in Java as:                                              *
+ *                                                                           *
+ *    static int [] x= new int[(4)];                                         *
+ *    static {                                                               *
+ *    x[( 1 )- 1] = 5;                                                       *
+ *    x[( 2 )- 1] = 6;                                                       *
+ *    x[( 3 )- 1] = 7;                                                       *
+ *    x[( 4 )- 1] = 8;                                                       *
+ *    }                                                                      *
+ *                                                                           *
+ *****************************************************************************/
 
 AST *
 data_implied_loop_emit(AST * root, AST *Clist)
@@ -1177,6 +1374,8 @@ data_implied_loop_emit(AST * root, AST *Clist)
 
   global_sub.name = loop_var->astnode.ident.name;
 
+  /* emit the static initialization block */
+
   fprintf(curfp,"static {\n");
   for(i = start; i <= stop; i += incr)
   {
@@ -1197,19 +1396,24 @@ data_implied_loop_emit(AST * root, AST *Clist)
   return Clist;
 }
 
-/* 
- * This function emits variable declarations for those variables
- * originally contained in DATA statements in the fortran source.
- */
+/*****************************************************************************
+ *                                                                           *
+ * data_var_emit                                                             *
+ *                                                                           *
+ * This function emits variable declarations for those variables             *
+ * originally contained in DATA statements in the fortran source.            *
+ *                                                                           *
+ *****************************************************************************/
+
 
 AST *
 data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 {
   int length=1, is_array=FALSE, needs_dec = FALSE;
+
   AST * data_array_emit(int , AST *, AST *, int );
-  int determine_var_length(HASHNODE *);
   void data_scalar_emit(enum returntype, AST *, AST *, int);
-  int isPassByRef(char *);
+  int determine_var_length(HASHNODE *), isPassByRef(char *);
 
   /* check to see whether we're going to be assigning to
    * an array element.  If so, the declaration for the array
@@ -1312,9 +1516,12 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   return Ctemp;
 }
 
-/* 
- * Determine the number of elements in this array variable 
- */
+/*****************************************************************************
+ * determine_var_length                                                      *
+ *                                                                           *
+ * Determine the number of elements in this array variable.                  *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 determine_var_length(HASHNODE *var)
@@ -1327,13 +1534,19 @@ determine_var_length(HASHNODE *var)
   int idxNeedsDecr(AST *, int);
 
   if(gendebug) {
-    printf("VAR - determining length of %s\n", var->variable->astnode.ident.name);
-    printf("VAR - dim = %d\n", dims);
+    printf("determining length of %s\n", var->variable->astnode.ident.name);
+    printf("dim = %d\n", dims);
   }
  
+  /* loop through each dimension of the array and evaluate it.
+   * multiply the length of each dimension as we go.
+   */
+
   temp2=var->variable->astnode.ident.arraylist;
   for( ; temp2 != NULL ; temp2=temp2->nextstmt ) {
+
     if(temp2->nodetype == ArrayIdxRange) {
+
       if(idxNeedsDecr(temp2,dims))
         length *= eval_const_expr(temp2->astnode.expression.rhs, dims);
       else
@@ -1343,11 +1556,6 @@ determine_var_length(HASHNODE *var)
         printf("VAR now length = %d\n", length);
     }
     else if(temp2->nodetype != Constant) {
-
-      /*
-       * fprintf(stderr,"Cant translate data statement for %s\n",
-       *   var->variable->astnode.ident.name);
-       */
 
       length = -1;
       break;
@@ -1363,11 +1571,15 @@ determine_var_length(HASHNODE *var)
   return length;
 }
 
-/* 
- * This function generates array declarations which are contained in
- * DATA statements.
- * 
- */
+/*****************************************************************************
+ *                                                                           *
+ * data_array_emit                                                           *
+ *                                                                           *
+ * This function generates array declarations which are contained in         *
+ * DATA statements.                                                          *
+ *                                                                           *
+ *****************************************************************************/
+
 
 AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
@@ -1387,14 +1599,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
    * 10/3/97  --Keith
    */
 
-/*
- * dont worry about SAVE statements now.  11/11/97 --keith
- *
- *  if(type_lookup(cur_save_table,Ntemp->astnode.ident.name) && !needs_dec)
- *    fprintf(curfp,"_temp_%s = {",Ntemp->astnode.ident.name);
- *  else
- */
-    fprintf(curfp,"%s = {",Ntemp->astnode.ident.name);
+  fprintf(curfp,"%s = {",Ntemp->astnode.ident.name);
 
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++,count++) {
     if(Ctemp->token == STRING)
@@ -1458,22 +1663,18 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
   }
    
   fprintf(curfp,"};\n");
-/*
- * dont worry about SAVE statements now.  11/11/97 --keith
- *
- *  if(type_lookup(cur_save_table,Ntemp->astnode.ident.name) && !needs_dec)
- *    fprintf(curfp,"%s = _temp_%s;\n",Ntemp->astnode.ident.name,
- *      Ntemp->astnode.ident.name);
- */
 
   return Ctemp;
 }
 
-/* 
- * This function generates declarations of scalar items which are
- * contained in DATA statements.
- * 
- */
+/*****************************************************************************
+ *                                                                           *
+ * data_scalar_emit                                                          *
+ *                                                                           *
+ * This function generates declarations of scalar items which are            *
+ * contained in DATA statements.                                             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
@@ -1534,6 +1735,9 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
   }
   else 
   {
+    /* this is not a string, so the declaration/initialization is
+     * pretty straightforward.
+     */
 
     if(!needs_dec)
     {
@@ -1566,23 +1770,28 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
   }
 }
 
-/* 
- * A name will either fly solo or lead off
- * a named array.  So far, this code will emit
- * a name or an array with integer indices.  The
- * procedure also needs to check all relevant tables
- * to determine whether the name is an array or
- * a procedure (i.e. Class.method) call, and whether
- * the name is a STRING, CHAR, etc.  Frankly, this is
- * a hideous procedure and really needs to
- * be rewritten. 
- *
- * ...and it's getting worse by the day  --Keith
- *
- *  Heh... gotta love it...  -dmd  9/26/97
- *
- *  Started cleaning up name_emit  10/10/97  --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * name_emit                                                                 *
+ *                                                                           *
+ * A name will either fly solo or lead off                                   *
+ * a named array.  So far, this code will emit                               *
+ * a name or an array with integer indices.  The                             *
+ * procedure also needs to check all relevant tables                         *
+ * to determine whether the name is an array or                              *
+ * a procedure (i.e. Class.method) call, and whether                         *
+ * the name is a STRING, CHAR, etc.  Frankly, this is                        *
+ * a hideous procedure and really needs to                                   *
+ * be rewritten.                                                             *
+ *                                                                           *
+ * ...and it's getting worse by the day  --Keith                             *
+ *                                                                           *
+ *  Heh... gotta love it...  -dmd  9/26/97                                   *
+ *                                                                           *
+ *  Started cleaning up name_emit  10/10/97  --Keith                         *
+ *                                                                           *
+ *****************************************************************************/
+
 
 void
 name_emit (AST * root)
@@ -1650,6 +1859,11 @@ name_emit (AST * root)
 
         hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
 
+        /* depending on whether this name is an array, scalar, or
+         * function/subroutine call, we call scalar_emit, array_emit,
+         * or subcall_emit, respectively.
+         */
+
         if (root->astnode.ident.arraylist == NULL)
           scalar_emit(root, hashtemp);
         else if (hashtemp != NULL)
@@ -1663,11 +1877,16 @@ name_emit (AST * root)
     printf("leaving name_emit\n");
 }
 
-/*  This function emits a function call.  I think this function
- * is only called in cases where the function or subroutine is
- * not declared external or intrinsic and we dont know what
- * else to do with it.
- */
+/*****************************************************************************
+ *                                                                           *
+ * subcall_emit                                                              *
+ *                                                                           *
+ *  This function emits a function call.  I think this function              *
+ * is only called in cases where the function or subroutine is               *
+ * not declared external or intrinsic and we dont know what                  *
+ * else to do with it.                                                       *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 subcall_emit(AST *root)
@@ -1675,6 +1894,10 @@ subcall_emit(AST *root)
   AST *temp;
   char *tempstr;
   void expr_emit (AST *);
+
+  /* captialize the first letter of the subroutine name to get the 
+   * class name. 
+   */
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
@@ -1689,6 +1912,8 @@ subcall_emit(AST *root)
   fprintf (curfp, "%s.%s", tempstr,root->astnode.ident.name);
   temp = root->astnode.ident.arraylist;
 
+  /* Loop through the argument list and emit each one. */
+
   fprintf (curfp, "(");
   if(temp->nodetype != EmptyArgList)
     for (; temp != NULL; temp = temp->nextstmt)
@@ -1702,6 +1927,20 @@ subcall_emit(AST *root)
   fprintf (curfp, ")");
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * idxNeedsDecr                                                              *
+ *                                                                           *
+ * This function returns a boolean value depending on whether                *
+ * the array pointed to by alist needs to have its index (dims)              *
+ * decremented by one or not.  This allows arrays to start                   *
+ * indexing at an arbitrary point.  If we recognize that the                 *
+ * indexing starts at 0 then we dont have to decrement and we                *
+ * return FALSE.  If indexing begins at 1 (the default in Fortran),          *
+ * then we must decrement since Java indexing begins at 0.                   *
+ *                                                                           *
+ *****************************************************************************/
+
 int
 idxNeedsDecr(AST *alist, int dims)
 {
@@ -1713,6 +1952,10 @@ idxNeedsDecr(AST *alist, int dims)
   {
     if((startIdx = alist->astnode.expression.lhs) != NULL)
     {
+      /* evaluate the start index.  we dont really care about the
+       * end index at this point.
+       */
+
       eval = eval_const_expr(startIdx,dims);
     
       if(gendebug)
@@ -1731,12 +1974,16 @@ idxNeedsDecr(AST *alist, int dims)
   return TRUE;
 }
 
-/*  
- *  This function emits the index to an array.  The boolean argument
- *  is_arg represents whether the array is an argument to the current 
- *  function or subroutine and the boolean is_ext represents whether
- *  the array is being passed to an external function.
- */    
+/*****************************************************************************
+ *                                                                           *
+ * func_array_emit                                                           *
+ *                                                                           *
+ * This function emits the index to an array.  The boolean argument          *
+ * is_arg represents whether the array is an argument to the current         *
+ * function or subroutine and the boolean is_ext represents whether          *
+ * the array is being passed to an external function.                        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
@@ -1753,6 +2000,8 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     fprintf (curfp, ",");
   else
     fprintf (curfp, "[");
+
+  /* if the index is not an integer value, then it needs a cast to int. */
 
   needs_cast = root->vartype != Integer;
 
@@ -1827,6 +2076,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   else 
   {
     /* if this isn't a 3 dimensional array, it is handled here */
+
     int decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist, 
                                       ht->variable->astnode.ident.dim);
 
@@ -1848,8 +2098,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         fprintf(stderr,"Error: array %s doesn't have that many dimensions\n",
           root->astnode.ident.name);
       else
-        decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
-                                      ht->variable->astnode.ident.dim);
+        decrementIndex = 
+           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
+                        ht->variable->astnode.ident.dim);
+
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
@@ -1857,16 +2109,20 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         fprintf (curfp, "- 1)");
       else
         fprintf (curfp, ")");
+
       fprintf (curfp, "* (");
       if(hashtemp->variable->astnode.ident.lead_expr->nodetype == ArrayIdxRange)
       {
-        expr_emit(hashtemp->variable->astnode.ident.lead_expr->astnode.expression.rhs);
+        expr_emit(
+          hashtemp->variable->astnode.ident.lead_expr->astnode.expression.rhs);
         fprintf (curfp, " - ");
-        expr_emit(hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs);
+        expr_emit(
+          hashtemp->variable->astnode.ident.lead_expr->astnode.expression.lhs);
         fprintf (curfp, " + 1 ");
       }
       else
         expr_emit(hashtemp->variable->astnode.ident.lead_expr);
+
       fprintf (curfp, ")");
     }
     else if((hashtemp->variable->astnode.ident.leaddim != NULL)
@@ -1880,8 +2136,10 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         fprintf(stderr,"Error: array %s doesn't have that many dimensions\n",
           root->astnode.ident.name);
       else
-        decrementIndex = idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
-                                      ht->variable->astnode.ident.dim);
+        decrementIndex = 
+           idxNeedsDecr(ht->variable->astnode.ident.arraylist->nextstmt, 
+                        ht->variable->astnode.ident.dim);
+
       fprintf (curfp, "+");
       fprintf (curfp, "(");
       expr_emit (root);
@@ -1889,6 +2147,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
         fprintf (curfp, "- 1)");
       else
         fprintf (curfp, ")");
+
       fprintf (curfp, "*");
 
       if(gendebug)
@@ -1926,6 +2185,17 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
 #endif
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * isPassByRef                                                               *
+ *                                                                           *
+ * Given the name of a variable, this function returns                       *
+ * TRUE if the variable is passed by reference, FALSE                        *
+ * otherwise.  Generally, being passed by reference                          *
+ * means that the variable will be wrapped in an object.                     *
+ *                                                                           *
+ *****************************************************************************/
+
 int
 isPassByRef(char *name)
 {
@@ -1934,24 +2204,47 @@ isPassByRef(char *name)
   int pos, i;
   AST *temp;
 
+  /* First look up the variable name in the main hash table. */
+
   ht = type_lookup(cur_type_table,name);
   if(ht) {
+
     if(ht->variable->nodetype != Identifier)
       fprintf(stderr,"isPassByRef():  non-ident node found.\n");
 
     if(ht->variable->astnode.ident.passByRef)
     {
+      /* simple case.  if the variable is tagged as pass-by-reference
+       * in the hash table, then return TRUE.
+       */
+
       return TRUE;
     }
     else {
+      /* otherwise, we look up the variable name in the table of
+       * COMMON variables.
+       */
+
       ht2 = type_lookup(cur_common_table,name);
       if(ht2) {
+
+        /* since different declarations of the same common block
+         * may use different variable names for the members, we
+         * use the position of the variable in the common block
+         * to look up the actual variable.
+         */
+
         pos = ht2->variable->astnode.ident.position;
         blockName = ht2->variable->astnode.ident.commonBlockName;
 
         ht3 = type_lookup(global_common_table, blockName);
         if(ht3) {
           
+          /* after getting a pointer to the common block, we loop
+           * through the entries until we get to the Nth entry, where
+           * N = pos, or until the pointer is NULL.
+           */
+ 
           i = 0;
           temp = ht3->variable->astnode.common.nlist;
 
@@ -1984,12 +2277,16 @@ isPassByRef(char *name)
   return TRUE;
 }
 
-/* 
- * Here we emit array variables.  actually we first determine 
- * the context in which the array access is found and then call
- * func_array_emit() to emit the array index.
- * 10/10/97 --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * array_emit                                                                *
+ *                                                                           *
+ * Here we emit array variables.  actually we first determine                *
+ * the context in which the array access is found and then call              *
+ * func_array_emit() to emit the array index.                                *
+ * 10/10/97 --Keith                                                          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 array_emit(AST *root, HASHNODE *hashtemp)
@@ -2006,12 +2303,22 @@ array_emit(AST *root, HASHNODE *hashtemp)
       root->astnode.ident.name,
       print_nodetype(root));
 
+  /* If this is a COMMON variable, get the prefix for the common
+   * class name.
+   */
+
   com_prefix = get_common_prefix(root->astnode.ident.name);
 
   name = root->astnode.ident.name;
 
   if(com_prefix[0] != '\0')
   {
+    /* if this is a COMMON variable, find out the merged
+     * name, if any, that we should use instead.  Names are
+     * merged when different declarations of a common
+     * block use different variable names.
+     */
+
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
       fprintf(stderr,"array_emit:Cant find %s in type_table\n",
@@ -2020,6 +2327,11 @@ array_emit(AST *root, HASHNODE *hashtemp)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
   }
+
+  /* if this is an equivalenced variable, find out the merged
+   * name that we should use instead.  Equivalenced names are
+   * always merged.
+   */
 
   if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
     name = ht->variable->astnode.ident.merged_name;
@@ -2050,15 +2362,21 @@ array_emit(AST *root, HASHNODE *hashtemp)
   temp = root->astnode.ident.arraylist;
 
   if(root->parent == NULL) {
+
     /* Under normal circumstances, I dont think this should 
-       be reached */
+     * be reached.
+     */
+
     fprintf (stderr,"Array... %s, NO PARENT - ", name);
     fprintf (stderr,"This is not good!\n");
   } else {
     if(gendebug)
       printf ("Array... %s, Parent node type... %s\n", 
-        name,
-        print_nodetype(root->parent));
+        name, print_nodetype(root->parent));
+
+    /* Determine whether this variable is an argument to the current
+     * program unit.
+     */
 
     if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
       is_arg = TRUE;
@@ -2091,11 +2409,16 @@ array_emit(AST *root, HASHNODE *hashtemp)
   }
 }
 
-/* 
- * If the variable is in a common block, this function returns the name of
- * the class file in which it is declared.  Otherwise, it returns a blank
- * string.
- */
+/*****************************************************************************
+ *                                                                           *
+ * get_common_prefix                                                         *
+ *                                                                           *
+ * If the variable is in a common block, this function returns the name of   *
+ * the class file in which it is declared.  Otherwise, it returns a blank    *
+ * string.                                                                   *
+ *                                                                           *
+ *****************************************************************************/
+
 
 char *
 get_common_prefix(char *varname)
@@ -2103,6 +2426,8 @@ get_common_prefix(char *varname)
   HASHNODE *ht;
   char * prefix = strtok(strdup(inputfilename),".");
   static char * cprefix;
+
+  /* Look up this variable name in the table of COMMON variables */
 
   ht = type_lookup(cur_common_table, varname);
 
@@ -2120,19 +2445,23 @@ get_common_prefix(char *varname)
   return(cprefix);
 }
 
-/*  
- *  This function emits a scalar variable.  The first thing that needs
- *  to be checked here is whether the variable is part of a common block.
- *  If so, we need to emit the common block name followed by a dot and
- *  the variable name.  Otherwise, just emit the variable name.   If using
- *  object wrappers, the nodetype of the parent node must be checked.  If the 
- *  parent node is a 'call' to an external function then the variables must 
- *  be passed as objects.  Otherwise, the value from the wrapper should be 
- *  obtained by appending .val to the variable name.   10/10/97  -- Keith
- * 
- *  (note: this function also emits array variables which do not have
- *   indices since they look like scalars to the parser)
- */
+/*****************************************************************************
+ *                                                                           *
+ * scalar_emit                                                               *
+ *                                                                           *
+ * This function emits a scalar variable.  The first thing that needs        *
+ * to be checked here is whether the variable is part of a common block.     *
+ * If so, we need to emit the common block name followed by a dot and        *
+ * the variable name.  Otherwise, just emit the variable name.   If using    *
+ * object wrappers, the nodetype of the parent node must be checked.  If the *
+ * parent node is a 'call' to an external function then the variables must   *
+ * be passed as objects.  Otherwise, the value from the wrapper should be    *
+ * obtained by appending .val to the variable name.   10/10/97  -- Keith     *
+ *                                                                           *
+ * (note: this function also emits array variables which do not have         *
+ *  indices since they look like scalars to the parser)                      *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 scalar_emit(AST *root, HASHNODE *hashtemp)
@@ -2142,7 +2471,6 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   char *name;
   HASHNODE *ht;
 
-
   /* get the name of the common block class file, if applicable */
 
   com_prefix = get_common_prefix(root->astnode.ident.name);
@@ -2151,6 +2479,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   if(com_prefix[0] != '\0')
   {
+    /* if this is a COMMON variable, find out the merged
+     * name, if any, that we should use instead.  Names are
+     * merged when different declarations of a common
+     * block use different variable names.
+     */
+
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
       fprintf(stderr,"scalar_emit:Cant find %s in type_table\n",
@@ -2159,19 +2493,25 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       name = ht->variable->astnode.ident.merged_name;
   }
 
+  /* if this is an equivalenced variable, find out the merged
+   * name that we should use instead.  Equivalenced names are
+   * always merged.
+   */
+
   if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
     name = ht->variable->astnode.ident.merged_name;
 
   if (name == NULL)
   {
-    fprintf(stderr,"scalar_emit: setting name to NULL!\n");
+    fprintf(stderr,"scalar_emit: name was NULL!\n");
     name = root->astnode.ident.name;
   }
 
   if(hashtemp == NULL) {
     /* if hashtemp is NULL, then this variable is not in the
-     * array table.
+     * array table (i.e. it is not an array).
      */
+
     if(gendebug) {
       printf("here we are emitting a scalar: %s, len = %d",
         root->astnode.ident.name, root->astnode.ident.len);
@@ -2182,6 +2522,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       printf("### #in scalar_emit, setting name = %s\n",name);
 
     if(root->parent == NULL) {
+      /* not good. */
       fprintf(stderr,"scalar_emit(): NO PARENT! (%s)\n", name);
     } else {
       if (root->parent->nodetype == Call) {
@@ -2195,17 +2536,18 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         tempname = strdup(root->parent->astnode.ident.name);
         uppercase(tempname);
 
-        /* determine whether the parent (a call) is an intrinsic or an 
+        /* Determine whether the parent (a call) is an intrinsic or an 
          * array access.  If neither, we pass the scalar as is - wrapped
-         * in an object.  This provides the ability to simulate pass by
-         * reference in Java.  If the parent is either an intrinsic 
+         * in an object if necessary.  This provides the ability to simulate 
+         * pass by reference in Java.  If the parent is either an intrinsic 
          * function call or an array access, we must pass the actual value.
          * Fortran intrinsics are implemented using functions from the core
          * Java API which only take primitive types as arguments.  And arrays
          * must always be indexed using primitive integers.  Therefore, in
-         * those two cases, we must emit the primitive value obtained by
-         * appending ".val" to the wrapper object.
+         * those two cases, we must emit the primitive value, in some cases
+         * obtained by appending ".val" to the wrapper object.
          */
+
         if((methodscan (intrinsic_toks, tempname) == NULL) &&
            (type_lookup(cur_array_table, root->parent->astnode.ident.name) == NULL))
         {
@@ -2233,17 +2575,31 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         }
       }
       else if(root->parent->nodetype == Typedec) {
+
+        /* Parent is a type declaration - just emit the name itself */
+
         if(gendebug)
           printf("Emitting typedec name: %s\n", name);
         fprintf (curfp, "%s", name);
       }
       else if(root->parent->nodetype == Equivalence) {
+
+        /* Parent is an EQUIVALENCE statement.  This is handled the 
+         * same as a type declaration, except we emit the merged name.
+         */
+
         if(gendebug)
           printf("Emitting equivalenced name: %s\n", 
              root->astnode.ident.merged_name);
         fprintf (curfp, "%s", root->astnode.ident.merged_name);
       }
       else if(root->parent->nodetype == ArrayDec) {
+
+        /* Parent is an array declaration, but we know that the
+         * variable we're emitting is not an array, so this must
+         * be the size of the array.
+         */
+
         if(omitWrappers) {
           if(isPassByRef(root->astnode.ident.name))
             fprintf (curfp, "%s%s.val", com_prefix, name);
@@ -2256,6 +2612,11 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
         }
       }
       else {
+       
+        /* General case - just generate the name, with the 
+         * .val suffix if applicable.
+         */
+
         if( (global_sub.name != NULL) && 
             !strcmp(global_sub.name, name))
           fprintf (curfp, " %d ", global_sub.val);
@@ -2292,7 +2653,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     else 
     {
       if(gendebug) {
-        printf("CRAP here we are emitting a scalar: %s,",name);
+        printf("here we are emitting a scalar: %s,",name);
         printf("The parent node is : %s\n",print_nodetype(root->parent));
       }
 
@@ -2311,19 +2672,22 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   }
 }
 
-/*  
- *  This function translates calls to external functions.  First, 
- *  check whether we are translating a call to LSAME or LSAMEN.
- *  LSAME is from BLAS and LSAMEN is from LAPACK.  Instead of translating
- *  the actual files lsame.f and lsamen.f to java, we just translate
- *  the calls to equivalent java method calls (String.equalsIgnoreCase
- *  and String.regionMatches respectively).   If we're not translating
- *  a call to LSAME or LSAMEN, use the function call_emit().  --Keith 
- *
- *  changing equalsIgnoreCase() to a character comparison since the
- *  LAPACK routine only compares the first character.  12/4/97 --Keith
- *
- */
+/*****************************************************************************
+ *                                                                           *
+ * external_emit                                                             *
+ *                                                                           *
+ * This function translates calls to external functions.  First,             *
+ * check whether we are translating a call to LSAME or LSAMEN.               *
+ * LSAME is from BLAS and LSAMEN is from LAPACK.  Instead of translating     *
+ * the actual files lsame.f and lsamen.f to java, we just translate          *
+ * the calls to equivalent java method calls (String.equalsIgnoreCase        *
+ * and String.regionMatches respectively).   If we're not translating        *
+ * a call to LSAME or LSAMEN, use the function call_emit().  --Keith         *
+ *                                                                           *
+ * changing equalsIgnoreCase() to a character comparison since the           *
+ * LAPACK routine only compares the first character.  12/4/97 --Keith        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 external_emit(AST *root)
@@ -2389,10 +2753,16 @@ external_emit(AST *root)
     return;
   }
 
+  /* Ensure that the call has arguments */
+
   if (root->astnode.ident.arraylist != NULL)
   {
     if (!strcmp (tempname, "LSAME"))
     {
+      /* LSAME should return TRUE if the two character arguments are
+       * the same letter, regardless of case.
+       */ 
+
       temp = root->astnode.ident.arraylist;
 
       if(gendebug)
@@ -2401,14 +2771,19 @@ external_emit(AST *root)
 
       fprintf(curfp, "(");
       expr_emit(temp);
-      fprintf(curfp, ".charAt(0) == ");
+      fprintf(curfp, ".toLowerCase().charAt(0) == ");
       expr_emit(temp->nextstmt);
-      fprintf(curfp, ".charAt(0))");
+      fprintf(curfp, ".toLowerCase().charAt(0))");
 
       return;
     }
     else if (!strcmp (tempname, "LSAMEN"))
     {
+      /* LSAMEN should return TRUE if the first N characters of the
+       * two arguments are the same, regardless of case.  Currently
+       * this is mapped to java.lang.String.regionMatches().
+       */
+
       temp = root->astnode.ident.arraylist;
 
       /* first, make sure there are enough args to work with */
@@ -2436,16 +2811,20 @@ external_emit(AST *root)
   }
 }
 
-/*
- * This function generates calls to intrinsic functions.  Basically we just
- * map fortran intrinsics to equivalent functions in the core Java API.
- * It might be a good idea to write separate handlers for each intrinsic.
- * Many intrinsics can be handled with a generic handler, so we could have
- * a generic one-argument handler, a generic two-argument handler, etc.
- * Intrinsics that need more specialized handling, such as LOG10, would need
- * their own handler.  Because of the need for specialized handlers, the
- * commented-out loop below may not ever really work.
- */
+/*****************************************************************************
+ *                                                                           *
+ * intrinsic_emit                                                            *
+ *                                                                           *
+ * This function generates calls to intrinsic functions.  Basically we just  *
+ * map fortran intrinsics to equivalent functions in the core Java API.      *
+ * It might be a good idea to write separate handlers for each intrinsic.    *
+ * Many intrinsics can be handled with a generic handler, so we could have   *
+ * a generic one-argument handler, a generic two-argument handler, etc.      *
+ * Intrinsics that need more specialized handling, such as LOG10, would need *
+ * their own handler.  Because of the need for specialized handlers, the     *
+ * commented-out loop below may not ever really work.                        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 intrinsic_emit(AST *root)
@@ -2585,6 +2964,10 @@ intrinsic_emit(AST *root)
 
   if(!strcmp(tempname,"LEN"))
   {
+    /* LEN is a fortran intrinsic which returns the number of characters 
+     * allocated to a string.
+     */
+
     HASHNODE *ht;
 
     temp = root->astnode.ident.arraylist;
@@ -2610,6 +2993,11 @@ intrinsic_emit(AST *root)
 
   if (!strcmp (tempname, "MOD"))
   {
+    /* integer mod.  Perhaps here we should check the types of the
+     * operands and emit a % for integers and Math.IEEERemainder
+     * for doubles.
+     */
+
     temp = root->astnode.ident.arraylist;
     fprintf(curfp,"(");
     expr_emit(temp);
@@ -2693,14 +3081,18 @@ intrinsic_emit(AST *root)
     printf("leaving intrinsic_emit\n");
 }
 
-/*
- * This function tries to guess the type of a value contained
- * in a string.  If we find a '.' in the string, we guess that
- * it's a floating point number.  If the string contains 'true'
- * or 'false', we guess that it's a boolean value.  Otherwise
- * we guess that it's an integer value.  Not very sophisticated,
- * but it works most of the time.
- */
+/*****************************************************************************
+ *                                                                           *
+ * get_type                                                                  *
+ *                                                                           *
+ * This function tries to guess the type of a value contained                *
+ * in a string.  If we find a '.' in the string, we guess that               *
+ * it's a floating point number.  If the string contains 'true'              *
+ * or 'false', we guess that it's a boolean value.  Otherwise                *
+ * we guess that it's an integer value.  Not very sophisticated,             *
+ * but it works most of the time.                                            *
+ *                                                                           *
+ *****************************************************************************/
 
 enum returntype
 get_type(char *num)
@@ -2719,11 +3111,15 @@ get_type(char *num)
   return Integer;
 }
 
-/* 
- * All this will do is emit a number if there is one.
- * Needs to be extended for arrays, etc.  Consider using
- * a switch/case structure for this.
- */
+/*****************************************************************************
+ *                                                                           *
+ * expr_emit                                                                 *
+ *                                                                           *
+ * This function traverses an expression subtree and emits code for simple   *
+ * operations.  For more complex operations, we call the appropriate code    *
+ * generation routine.                                                       *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 expr_emit (AST * root)
@@ -2734,6 +3130,8 @@ expr_emit (AST * root)
 
   if(root == NULL)
   {
+    /* We should not have a NULL expression */
+
     fprintf(stderr,"Warning: NULL root in expr_emit\n");
     return;
   }
@@ -2857,6 +3255,11 @@ expr_emit (AST * root)
                 returnstring[root->astnode.expression.rhs->vartype]);
           }
 
+          /* Check the data types.  Equality is different for strings
+           * and numbers.  Use == for numbers and .equalsIgnoreCase()
+           * for strings.
+           */
+
           if(((root->astnode.expression.lhs->vartype == String) ||
               (root->astnode.expression.lhs->vartype == Character)) &&
              ((root->astnode.expression.rhs->vartype == String) ||
@@ -2875,6 +3278,9 @@ expr_emit (AST * root)
           }
           break;
         case rel_ne:
+
+          /* As with equality, we check the data types first. */
+
           if(((root->astnode.expression.lhs->vartype == String) ||
               (root->astnode.expression.lhs->vartype == Character)) &&
              ((root->astnode.expression.rhs->vartype == String) ||
@@ -2916,6 +3322,9 @@ expr_emit (AST * root)
       }
       break;
     case Substring:
+
+      /* Substring operations are handled with java.lang.String.substring */
+
       if(omitWrappers) {
         if(isPassByRef(root->astnode.ident.name))
           fprintf(curfp,"%s.val.substring((",root->astnode.ident.name);
@@ -2938,10 +3347,14 @@ expr_emit (AST * root)
   }
 }
 
-/*
- * This function attempts to open the output file.
- *
- */
+/*****************************************************************************
+ *                                                                           *
+ * open_output_file                                                          *
+ *                                                                           *
+ * This function attempts to open the output file and write the              *
+ * header.                                                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 open_output_file(AST *root)
@@ -2950,8 +3363,11 @@ open_output_file(AST *root)
   char * classname;
   char import_stmt[60];
   
+  /* allocate some space for the filename */
+
   filename = (char *)
      malloc(strlen(root->astnode.source.name->astnode.ident.name) + 10);
+
   if(filename == NULL)
   {
     perror("Unsuccessful malloc()");
@@ -2973,6 +3389,8 @@ open_output_file(AST *root)
     exit(1);
   }
 
+  /* add import statements if necessary */
+
   import_stmt[0] = '\0';
   
   if(import_reflection)
@@ -2984,211 +3402,237 @@ open_output_file(AST *root)
   javaheader(javafp,classname,import_stmt);
 }
 
-/*
+/*****************************************************************************
+ *                                                                           *
+ * constructor                                                               *
+ *                                                                           *
  * This function generates the method header for the current 
  * function or subroutine.
- */
+ *                                                                           *
+ *****************************************************************************/
 
 void
 constructor (AST * root)
 {
-    enum returntype returns;
-    extern char *returnstring[];
-    AST *tempnode;
-    char *tempstring;
-    HASHNODE *hashtemp;
-    void print_string_initializer(AST *);
-    void emit_interface(AST *);
-#if TWOD
-    AST *temp;
-#endif
+  enum returntype returns;
+  extern char *returnstring[];
+  AST *tempnode;
+  char *tempstring;
+  HASHNODE *hashtemp;
+  void print_string_initializer(AST *);
+  void emit_interface(AST *);
 
-    /* 
-     * In fortran, functions return a value implicitly
-     * associated with there own name. In java, we declare a
-     * variable in the constructor that shadows the class
-     * (function) name and returns the same type. 
-     */
+  /* 
+   * In fortran, functions return a value implicitly
+   * associated with their own name. In java, we declare a
+   * variable in the constructor that shadows the class
+   * (function) name and returns the same type. 
+   */
 
-    if (root->nodetype == Function)
+  if (root->nodetype == Function)
+  {
+    returns = root->astnode.source.returns;
+
+    /* Test code.... */
+    if ((returns == String) || (returns == Character))
     {
-
-      returns = root->astnode.source.returns;
-
-      /* Test code.... */
-      if ((returns == String) || (returns == Character))
-      {
-         print_string_initializer(root);
-         fprintf(curfp, ";\n\n");
-      }
-      else
-      {
-        if(omitWrappers) {
-          if(isPassByRef(root->astnode.source.name->astnode.ident.name))
-            fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
-              wrapper_returns[returns],
-              root->astnode.source.name->astnode.ident.name,
-              wrapper_returns[returns],
-              init_vals[returns]);
-          else
-            fprintf (curfp, "static %s %s = %s;\n\n", 
-              returnstring[returns],
-              root->astnode.source.name->astnode.ident.name,
-              init_vals[returns]);
-        }
-        else
-        {
+       print_string_initializer(root);
+       fprintf(curfp, ";\n\n");
+    }
+    else
+    {
+      if(omitWrappers) {
+        if(isPassByRef(root->astnode.source.name->astnode.ident.name))
           fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
             wrapper_returns[returns],
             root->astnode.source.name->astnode.ident.name,
             wrapper_returns[returns],
             init_vals[returns]);
-        }
+        else
+          fprintf (curfp, "static %s %s = %s;\n\n", 
+            returnstring[returns],
+            root->astnode.source.name->astnode.ident.name,
+            init_vals[returns]);
       }
-
-      /* Define the constructor for the class. */
-
-      fprintf (curfp, "\npublic static %s %s (",
-        returnstring[returns],
-        root->astnode.source.name->astnode.ident.name);
-
-      if(genInterfaces)
-        emit_interface(root);
+      else
+      {
+        fprintf (curfp, "static %s %s = new %s(%s);\n\n", 
+          wrapper_returns[returns],
+          root->astnode.source.name->astnode.ident.name,
+          wrapper_returns[returns],
+          init_vals[returns]);
+      }
     }
-    /* Else we have a subroutine, which returns void. */
-    else if(root->nodetype == Subroutine)
+
+    /* Define the constructor for the class. */
+
+    fprintf (curfp, "\npublic static %s %s (",
+      returnstring[returns],
+      root->astnode.source.name->astnode.ident.name);
+
+    if(genInterfaces)
+      emit_interface(root);
+  }
+  /* Else we have a subroutine, which returns void. */
+  else if(root->nodetype == Subroutine)
+  {
+    fprintf (curfp, "\npublic static void %s (",
+      root->astnode.source.name->astnode.ident.name);
+
+    if(genInterfaces)
+      emit_interface(root);
+  }
+  else  /* Else we have a program, create a main() function */
+  {
+    fprintf (curfp, "\npublic static void main (String [] args");
+  }
+
+  /*
+   *  Now traverse the list of constructor arguments for either
+   *  functions or subroutines.   This is where I will
+   *  have to check what the variable type is in the
+   *  symbol table. 
+   */
+
+  tempnode = root->astnode.source.args;
+
+  for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
+    if (hashtemp == NULL)
     {
-      fprintf (curfp, "\npublic static void %s (",
-        root->astnode.source.name->astnode.ident.name);
-
-      if(genInterfaces)
-        emit_interface(root);
-    }
-    else  /* Else we have a program, create a main() function */
-    {
-      fprintf (curfp, "\npublic static void main (String [] args");
+      fprintf (stderr,"Type table is screwed (codegen.c).\n");
+      fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
+      exit (-1);
     }
 
-    /*
-     *  Now traverse the list of constructor arguments for either
-     *  functions or subroutines.   This is where I will
-     *  have to check what the variable type is in the
-     *  symbol table. 
+    /* If this variable is declared external and it is an argument to
+     * this program unit, it must be declared as Object in Java.
      */
 
-    tempnode = root->astnode.source.args;
+    if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
+      returns = OBJECT_TYPE;
+    else
+      returns = hashtemp->type;
 
-    for (; tempnode != NULL; tempnode = tempnode->nextstmt)
-    {
-      hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
-      if (hashtemp == NULL)
-      {
-        fprintf (stderr,"Type table is screwed (codegen.c).\n");
-        fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-        exit (-1);
-      }
+    /* 
+     * Check the numerical value returns.  It should not 
+     * exceed the value of the enum returntypes.  
+     */
 
-      if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
-        returns = OBJECT_TYPE;
-      else
-        returns = hashtemp->type;
+    if (returns > MAX_RETURNS)
+      fprintf (stderr,"Bad return value, check types.\n");
 
-      /* 
-       * Check the numerical value returns.  It should not 
-       * exceed the value of the enum returntypes.  
-       */
-
-      if (returns > MAX_RETURNS)
-        fprintf (stderr,"Bad return value, check types.\n");
-
-      if(omitWrappers) {
-        if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-          isPassByRef(tempnode->astnode.ident.name))
-            tempstring = wrapper_returns[returns];
-        else
-          tempstring = returnstring[returns];
-      }
-      else
-      {
-        if (hashtemp->variable->astnode.ident.arraylist == NULL)
+    if(omitWrappers) {
+      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
+        isPassByRef(tempnode->astnode.ident.name))
           tempstring = wrapper_returns[returns];
-        else
-          tempstring = returnstring[returns];
-      }
-
-        /* 
-         * I haven't yet decided how the pass-by-reference
-         * pass-by-value problem will be resolved.  It may
-         * not be an issue at all in a java calling java
-         * situation.  The next line, when used, will list
-         * all the arguments to the method as references.
-         * This means that primitives such as int and
-         * double are wrapped as objects.
-         *
-         * *tempstring = toupper (*tempstring);
-         *
-         * To save storage space, I'm wrapping the primitives with
-         * special-purpose wrappers (intW, doubleW, etc.).
-         * 10/8/97  --Keith 
-         */
-
-	  fprintf (curfp, "%s ", tempstring);
-
-	  if (hashtemp->variable->astnode.ident.arraylist == NULL)
-	      fprintf (curfp, "%s", tempnode->astnode.ident.name);
-	  else
-	      /* Declare as array variables.  */
-	    {
-               char temp2[100];
-#if ONED
-	fprintf (curfp, "[]");
-#endif      
-#if TWOD
-		temp = hashtemp->variable->astnode.ident.arraylist;
-		for (; temp != NULL; temp = temp->nextstmt)
-		  {
-		      fprintf (curfp, "[]");
-		  }		/* Close for() loop. */
-#endif
-		fprintf (curfp, " %s", tempnode->astnode.ident.name);
-
-                /* 
-                 * for arrays, add a parameter representing the base 
-                 * index.   -- Keith 
-                 */
-                strcpy( temp2, "_");
-                strcat( temp2, tempnode->astnode.ident.name);
-                strcat( temp2, "_offset");
-                fprintf(curfp, ", int %s",temp2);
-	    }
-	  /* Don't emit a comma on the last iteration. */
-	  if (tempnode->nextstmt)
-	      fprintf (curfp, ",\n");
-      }
-
-    fprintf (curfp, ")  {\n\n");
-    
-    if(import_reflection) {
-      tempnode = root->astnode.source.args;
-      for (; tempnode != NULL; tempnode = tempnode->nextstmt)
-      {
-        if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
-        {
-          fprintf(curfp,"  java.lang.reflect.Method _%s_meth ", 
-             tempnode->astnode.ident.name);
-          fprintf(curfp," = %s.getClass().getDeclaredMethods()[0];\n",
-             tempnode->astnode.ident.name);
-        }
-      }
+      else
+        tempstring = returnstring[returns];
+    }
+    else
+    {
+      if (hashtemp->variable->astnode.ident.arraylist == NULL)
+        tempstring = wrapper_returns[returns];
+      else
+        tempstring = returnstring[returns];
     }
 
-    if(root->astnode.source.needs_input)
-      fprintf(curfp,"  EasyIn _f2j_in = new EasyIn();\n");
+    /* 
+     * I haven't yet decided how the pass-by-reference
+     * pass-by-value problem will be resolved.  It may
+     * not be an issue at all in a java calling java
+     * situation.  The next line, when used, will list
+     * all the arguments to the method as references.
+     * This means that primitives such as int and
+     * double are wrapped as objects.
+     *
+     * *tempstring = toupper (*tempstring);
+     *
+     * To save storage space, I'm wrapping the primitives with
+     * special-purpose wrappers (intW, doubleW, etc.).
+     * 10/8/97  --Keith 
+     */
 
-    if(type_lookup(cur_external_table,"etime") != NULL)
-      fprintf(curfp, "  Etime.etime();\n");
+    fprintf (curfp, "%s ", tempstring);
 
+    if (hashtemp->variable->astnode.ident.arraylist == NULL)
+      fprintf (curfp, "%s", tempnode->astnode.ident.name);
+    else {
+      /* Declare as array variables.  */
+      char temp2[100];
+#if ONED
+      fprintf (curfp, "[]");
+#endif      
+#if TWOD
+      temp = hashtemp->variable->astnode.ident.arraylist;
+      for (; temp != NULL; temp = temp->nextstmt)
+      {
+        fprintf (curfp, "[]");
+      }		/* Close for() loop. */
+#endif
+      fprintf (curfp, " %s", tempnode->astnode.ident.name);
+
+      /* 
+       * for arrays, add a parameter representing the base 
+       * index.   -- Keith 
+       */
+
+      strcpy( temp2, "_");
+      strcat( temp2, tempnode->astnode.ident.name);
+      strcat( temp2, "_offset");
+      fprintf(curfp, ", int %s",temp2);
+    }
+
+    /* Don't emit a comma on the last iteration. */
+    if (tempnode->nextstmt)
+      fprintf (curfp, ",\n");
+  }
+
+  fprintf (curfp, ")  {\n\n");
+    
+  /* if one of the arguments is a function, we must use the
+   * reflection mechanism to perform the method call.
+   */
+
+  if(import_reflection) {
+    tempnode = root->astnode.source.args;
+    for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+    {
+      if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
+      {
+        fprintf(curfp,"  java.lang.reflect.Method _%s_meth ", 
+          tempnode->astnode.ident.name);
+        fprintf(curfp," = %s.getClass().getDeclaredMethods()[0];\n",
+          tempnode->astnode.ident.name);
+      }
+    }
+  }
+
+  /* If this program unit does any reading, we declare an instance of
+   * the EasyIn class.
+   */
+
+  if(root->astnode.source.needs_input)
+    fprintf(curfp,"  EasyIn _f2j_in = new EasyIn();\n");
+
+  if(type_lookup(cur_external_table,"etime") != NULL)
+    fprintf(curfp, "  Etime.etime();\n");
 }				/*  Close  constructor(). */
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_interface                                                            *
+ *                                                                           *
+ * This function generates a simplified interface to the underlying          *
+ * numerical routine.  This simplification includes:                         *
+ *   . accepting Java row-major 2D arrays                                    *
+ *   . omitting leading dimension parameters                                 *
+ *   . omitting offset parameters                                            *
+ * The interface will have the same name as the numerical routine, but       *
+ * it will be in all caps.                                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 emit_interface(AST *root)
@@ -3363,10 +3807,14 @@ emit_interface(AST *root)
     fprintf (intfp, "\n%s _retval;\n",
       returnstring[root->astnode.source.returns]);
 
+  /* Emit all the 2D -> 1D conversion method calls */
+
   dl_traverse (tmp, decs)
     fprintf(intfp,"%s\n", (char *) dl_val(tmp));
 
   emit_methcall(intfp,root);
+
+  /* Now emit all the 1D -> 2D conversion method calls */
 
   dl_traverse (tmp, rest)
     fprintf(intfp,"%s\n", (char *) dl_val(tmp));
@@ -3379,6 +3827,16 @@ emit_interface(AST *root)
 
   fclose(intfp);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_methcall                                                             *
+ *                                                                           *
+ * This routine generates the call to a 'raw' numerical routine.             *
+ * Normally this is written to the file containing the simplified            *
+ * interface for that routine.                                               *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 emit_methcall(FILE *intfp, AST *root)
@@ -3401,6 +3859,7 @@ emit_methcall(FILE *intfp, AST *root)
   prev = NULL;
   tempnode = root->astnode.source.args;
 
+  /* for each argument */
   for (; tempnode != NULL; tempnode = tempnode->nextstmt)
   {
     skipped = FALSE;
@@ -3437,6 +3896,10 @@ emit_methcall(FILE *intfp, AST *root)
       if((prev != NULL) && (prev->astnode.ident.dim > 1) &&
          !strcmp(tempnode->astnode.ident.name,prev->astnode.ident.leaddim))
       {
+        /* If this arg follows a 2D array, pass the array's .length as the
+         * leading dimension to the numerical routine.
+         */
+
         skipped = TRUE;
         fprintf(intfp, "%s.length" , prev->astnode.ident.name);
       }
@@ -3450,7 +3913,6 @@ emit_methcall(FILE *intfp, AST *root)
       if(hashtemp->variable->astnode.ident.dim > 2)
         fprintf(stderr,
            "Cant correctly generate interface with array over 2 dimensions\n");
-
      
       if(hashtemp->variable->astnode.ident.dim == 1)
         fprintf(intfp, " %s", tempnode->astnode.ident.name);
@@ -3479,14 +3941,18 @@ emit_methcall(FILE *intfp, AST *root)
   fprintf (intfp, ");\n\n");
 }
 
-/*
- * This function generates code to implement the fortran DO loop.
- * naturally, we use Java's 'for' loop for this purpose.
- *
- * We also keep track of the nesting of for loops so that if we
- * encounter a goto statement within a loop, we can generate a
- * java 'break' or 'continue' statement.
- */
+/*****************************************************************************
+ *                                                                           *
+ * forloop_emit                                                              *
+ *                                                                           *
+ * This function generates code to implement the fortran DO loop.            *
+ * naturally, we use Java's 'for' loop for this purpose.                     *
+ *                                                                           *
+ * We also keep track of the nesting of for loops so that if we              *
+ * encounter a goto statement within a loop, we can generate a               *
+ * java 'break' or 'continue' statement.                                     *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 forloop_emit (AST * root)
@@ -3549,6 +4015,10 @@ forloop_emit (AST * root)
   }
   else
   {
+    /* if there is an increment the code should use >= if the
+     * increment is negative and <= if the increment is positive.
+     */
+
     fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
     fprintf(curfp," >= ");
@@ -3568,17 +4038,21 @@ forloop_emit (AST * root)
 
 }
 
-/* 
- * Since gotos aren't supported by java, we can't just emit a goto here.
- * labeled continues and breaks are supported in java, but only in certain 
- * cases.  so, if we are within a loop, and we are trying to goto the CONTINUE 
- * statement of an enclosing loop, then we can just emit a labeled continue 
- * statement.  --Keith       
- *
- * I think I fixed a previous problem emitting gotos within nested 
- * simulated while loops by keeping track of all if statements rather than
- * just the ones identified as while statements.   10/3/97 -- Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * goto_emit                                                                 *
+ *                                                                           *
+ * Since gotos aren't supported by java, we can't just emit a goto here.     *
+ * labeled continues and breaks are supported in java, but only in certain   *
+ * cases.  so, if we are within a loop, and we are trying to goto the        *
+ * CONTINUE statement of an enclosing loop, then we can just emit a labeled  *
+ * continue statement.  --Keith                                              *
+ *                                                                           *
+ * I think I fixed a previous problem emitting gotos within nested           *
+ * simulated while loops by keeping track of all if statements rather than   *
+ * just the ones identified as while statements.   10/3/97 -- Keith          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 goto_emit (AST * root)
@@ -3599,32 +4073,36 @@ goto_emit (AST * root)
   else if((!dl_empty(while_list)) && 
      (dl_int_examine(while_list) == root->astnode.go_to.label ))
   {
-       /* 
-        *  we are inside a simulated while loop and we are looking at 
-        *  a goto statement to the 'beginning' statement of the most
-        *  enclosing if statment.  Since we are translating this to an 
-        *  actual while loop, we ignore this goto statement 
-        */
+     /* 
+      *  we are inside a simulated while loop and we are looking at 
+      *  a goto statement to the 'beginning' statement of the most
+      *  enclosing if statment.  Since we are translating this to an 
+      *  actual while loop, we ignore this goto statement 
+      */
 
     fprintf(curfp,"// goto %d (end while)\n",root->astnode.go_to.label);
   }
   else 
   {
-       /*  
-        *  otherwise, not quite sure what to do with this one, so
-        *  we'll just emit a dummy goto 
-        */
+     /*  
+      *  otherwise, not quite sure what to do with this one, so
+      *  we'll just emit a dummy goto 
+      */
 
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.go_to.label);
   }
 }
 
-/*
- * This function generates code to implement fortran's computed
- * GOTO statement.   we simply use a series of if-else statements
- * to implement the computed goto.
- */
+/*****************************************************************************
+ *                                                                           *
+ * computed_goto_emit                                                        *
+ *                                                                           *
+ * This function generates code to implement fortran's computed              *
+ * GOTO statement.   we simply use a series of if-else statements            *
+ * to implement the computed goto.                                           *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 computed_goto_emit (AST *root)
@@ -3645,10 +4123,14 @@ computed_goto_emit (AST *root)
   }
 }
 
-/*
- * This function generates code for IF statements.  Java and Fortran have
- * pretty similar if statements, so this one is simple.
- */
+/*****************************************************************************
+ *                                                                           *
+ * logicalif_emit                                                            *
+ *                                                                           *
+ * This function generates code for IF statements.  Java and Fortran have    *
+ * pretty similar if statements, so this one is simple.                      *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 logicalif_emit (AST * root)
@@ -3659,6 +4141,14 @@ logicalif_emit (AST * root)
   fprintf (curfp, ")  \n    ");
   emit (root->astnode.logicalif.stmts);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * arithmeticif_emit                                                         *
+ *                                                                           *
+ * This function generates code for arithmetic IF statements.                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 arithmeticif_emit (AST * root)
@@ -3680,10 +4170,14 @@ arithmeticif_emit (AST * root)
     root->astnode.arithmeticif.pos_label);
 }
 
-/*
- * This function generates labels.  We generate both a java label
- * and a call to the Dummy.label() method for goto translation.
- */
+/*****************************************************************************
+ *                                                                           *
+ * label_emit                                                                *
+ *                                                                           *
+ * This function generates labels.  We generate both a java label            *
+ * and a call to the Dummy.label() method for goto translation.              *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 label_emit (AST * root)
@@ -3692,12 +4186,10 @@ label_emit (AST * root)
 
   if (root->astnode.label.stmt != NULL) {
     if (root->astnode.label.stmt->nodetype != Format) {
-/*      fprintf(curfp,"{\n"); */
       fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
         root->astnode.label.number);
       emit (root->astnode.label.stmt);
-/*      fprintf(curfp,"}\n"); */
     }
   } 
   else {
@@ -3705,6 +4197,7 @@ label_emit (AST * root)
      * recent DO loop, then this is the end of the loop - pop
      * the label off the doloop list.
      */
+
     if(!dl_empty(doloop) && 
        (dl_int_examine(doloop) == root->astnode.label.number))
     {
@@ -3724,12 +4217,23 @@ label_emit (AST * root)
        * a CONTINUE statement (but not associated with a
        * DO loop).
        */
+
       fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
         root->astnode.label.number);
     }
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * read_emit                                                                 *
+ *                                                                           *
+ * This function generates READ statements.  We generate calls to a          *
+ * Java class called EasyIn to perform the I/O.  Also emit a try-catch       *
+ * to trap IOExceptions.                                                     *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 read_emit (AST * root)
@@ -3738,10 +4242,19 @@ read_emit (AST * root)
   void read_implied_loop_emit(AST *, char **);
   char **funcname;
 
+  /* if the READ statement has no args, just read a line and
+   * ignore it.
+   */
+
   if(root->astnode.io_stmt.arg_list == NULL) {
     fprintf(curfp,"_f2j_in.readString();  // skip a line\n");
     return;
   }
+
+  /* if the READ statement includes an END label, then we
+   * use a try block to determine EOF.  the catch block, emitted
+   * below, just contains the GOTO. 
+   */
 
   if(root->astnode.io_stmt.end_num > 0 )
   {
@@ -3773,6 +4286,10 @@ read_emit (AST * root)
   }
   fprintf(curfp,"_f2j_in.skipRemaining();\n");
 
+  /* Emit the catch block for when we hit EOF.  We only care if
+   * the READ statement has an END label.
+   */
+
   if(root->astnode.io_stmt.end_num > 0 )
   {
     fprintf(curfp,"} catch (java.io.IOException e) {\n");
@@ -3781,6 +4298,15 @@ read_emit (AST * root)
     fprintf(curfp,"}\n");
   }
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * read_implied_loop_emit                                                    *
+ *                                                                           *
+ * This function generates code for implied DO loops contained in READ       *
+ * statements.  We dont handle any FORMAT statements.                        *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 read_implied_loop_emit(AST *node, char **func)
@@ -3833,10 +4359,14 @@ read_implied_loop_emit(AST *node, char **func)
   }
 }
 
-/*
- * This function handles WRITE statements.  It is FAR from complete,
- * but it is usually good enough to test the numerical routines.
- */
+/*****************************************************************************
+ *                                                                           *
+ * write_emit                                                                *
+ *                                                                           *
+ * This function handles WRITE statements.  It is FAR from complete,         *
+ * but it is usually good enough to test the numerical routines.             *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 write_emit (AST * root)
@@ -3909,11 +4439,13 @@ write_emit (AST * root)
     if(gendebug)
       printf("****NOT FOUND****\n");
 
+    /* if there's a FORMAT statement and an implied loop, ignore the
+     * formatting and increment a counter of the number of FORMAT
+     * statements that we have ignored.
+     */
+
     if(hnode && implied_loop)
-    {
-      /* fprintf(stderr,"Warning: Ignoring formatting stmt for WRITE with implied loop\n"); */
       ignored_formatting++;
-    }
 
     for( temp = root->astnode.io_stmt.arg_list; 
       temp != NULL; 
@@ -3952,6 +4484,15 @@ write_emit (AST * root)
   else
     fprintf (curfp, ");\n");
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * write_implied_loop_emit                                                   *
+ *                                                                           *
+ * This function generates code for implied DO loops in WRITE statements.    *
+ * Dont worry about FORMAT statements.                                       *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 write_implied_loop_emit(AST *node)
@@ -4008,10 +4549,14 @@ write_implied_loop_emit(AST *node)
   }
 }
 
-/*
- * This function loops through each format item and generates the
- * code to print the appropriate value(s).
- */
+/*****************************************************************************
+ *                                                                           *
+ * format_list_emit                                                          *
+ *                                                                           *
+ * This function loops through each format item and generates the            *
+ * code to print the appropriate value(s).                                   *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 format_list_emit(AST *node, AST **nptr)
@@ -4022,10 +4567,14 @@ format_list_emit(AST *node, AST **nptr)
     temp = format_item_emit(temp,nptr);
 }
 
-/*
- * This function generates the code to print item(s) from the 
- * format list.
- */
+/*****************************************************************************
+ *                                                                           *
+ * format_item_emit                                                          *
+ *                                                                           *
+ * This function generates the code to print item(s) from the                *
+ * format list.                                                              *
+ *                                                                           *
+ *****************************************************************************/
 
 AST *
 format_item_emit(AST *temp, AST **nodeptr)
@@ -4129,10 +4678,14 @@ format_item_emit(AST *temp, AST **nodeptr)
   }
 }
 
-/*
- * This function generates the code to print a Name from the 
- * format list.
- */
+/*****************************************************************************
+ *                                                                           *
+ * format_name_emit                                                          *
+ *                                                                           *
+ * This function generates the code to print a Name from the                 *
+ * format list.                                                              *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 format_name_emit(AST *node)
@@ -4173,13 +4726,17 @@ format_name_emit(AST *node)
   fprintf(curfp," + \" \" ");
 }
 
-/*
- * This function generates the code which implements fortran's
- * block if.  This could also be a simulated while loop, which
- * is why we push this loop's number on the while_list.  This
- * way we can generate a java 'while' loop instead of the
- * simulated while loop using gotos.
- */
+/*****************************************************************************
+ *                                                                           *
+ * blockif_emit                                                              *
+ *                                                                           *
+ * This function generates the code which implements fortran's               *
+ * block if.  This could also be a simulated while loop, which               *
+ * is why we push this loop's number on the while_list.  This                *
+ * way we can generate a java 'while' loop instead of the                    *
+ * simulated while loop using gotos.                                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 blockif_emit (AST * root)
@@ -4248,25 +4805,29 @@ blockif_emit (AST * root)
     emit (root->astnode.blockif.elsestmts);
 }
 
-/* 
- *   while_emit() is called when an if statement has been identified
- *   as a simulated while loop, e.g.:
- *
- *     10 continue
- *        if(x < 10) then
- *           do something
- *           x = x+1
- *        goto 10
- *
- *   this can be translated into java as:
- *
- *     while(x<10) {
- *       do something
- *       x = x+1
- *     }
- *
- *   that just gives us one less goto statement to worry about.  --Keith
- */
+/*****************************************************************************
+ *                                                                           *
+ * while_emit                                                                *
+ *                                                                           *
+ * while_emit() is called when an if statement has been identified           *
+ * as a simulated while loop, e.g.:                                          *
+ *                                                                           *
+ *   10 continue                                                             *
+ *      if(x < 10) then                                                      *
+ *         do something                                                      *
+ *         x = x+1                                                           *
+ *      goto 10                                                              *
+ *                                                                           *
+ * this can be translated into java as:                                      *
+ *                                                                           *
+ *   while(x<10) {                                                           *
+ *     do something                                                          *
+ *     x = x+1                                                               *
+ *   }                                                                       *
+ *                                                                           *
+ * that gives us one less goto statement to worry about.  --Keith            *
+ *                                                                           *
+ *****************************************************************************/
 
 void 
 while_emit(AST *root)
@@ -4281,41 +4842,53 @@ while_emit(AST *root)
 
 }
 
-/* 
- * This function generates the code for the fortran 'else if'
- * construct.
- */
+/*****************************************************************************
+ *                                                                           *
+ * elseif_emit                                                               *
+ *                                                                           *
+ * This function generates the code for the fortran 'else if'                *
+ * construct.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 elseif_emit (AST * root)
 {
-    fprintf (curfp, "else if (");
-    if (root->astnode.blockif.conds != NULL)
-	expr_emit (root->astnode.blockif.conds);
-    fprintf (curfp, ")  {\n    ");
-    emit (root->astnode.blockif.stmts);
-    fprintf (curfp, "}              // Close else if()\n");
+  fprintf (curfp, "else if (");
+  if (root->astnode.blockif.conds != NULL)
+    expr_emit (root->astnode.blockif.conds);
+  fprintf (curfp, ")  {\n    ");
+  emit (root->astnode.blockif.stmts);
+  fprintf (curfp, "}              // Close else if()\n");
 }
 
-/* 
- * This function generates the code for the fortran 'else'
- * construct.
- */
+/*****************************************************************************
+ *                                                                           *
+ * else_emit                                                                 *
+ *                                                                           *
+ * This function generates the code for the fortran 'else'                   *
+ * construct.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 else_emit (AST * root)
 {
-    fprintf (curfp, "else  {\n  ");
-    emit (root->astnode.blockif.stmts);
-    fprintf (curfp, "}              //  Close else.\n");
+  fprintf (curfp, "else  {\n  ");
+  emit (root->astnode.blockif.stmts);
+  fprintf (curfp, "}              //  Close else.\n");
 }
 
-/* 
- *  This procedure implements Lapack and Blas type methods.
- *  They are translated to static method invocations.
- *  This is not a portable solution, it is specific to
- *  the Blas and Lapack. 
- */
+/*****************************************************************************
+ *                                                                           *
+ * call_emit                                                                 *
+ *                                                                           *
+ * This procedure implements Lapack and Blas type methods.                   *
+ * They are translated to static method invocations.                         *
+ * This is not a portable solution, it is specific to                        *
+ * the Blas and Lapack.                                                      *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 call_emit (AST * root)
@@ -4379,8 +4952,12 @@ call_emit (AST * root)
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
         cnt++;
       
+      /* create object array to hold the args */
+
       fprintf(curfp," Object [] _%s_args = new Object[%d];\n",
          root->astnode.ident.name, cnt);
+
+      /* foreach arg, assign that arg to an element of the object array */
 
       cnt = 0;
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
@@ -4410,6 +4987,7 @@ call_emit (AST * root)
     else   /* function with args. */
     {
       /* add this call to the list of calls which need adapters */
+
       insert_methcall(methcall_list,root);
 
       fprintf(curfp,"%s_methcall",root->astnode.ident.name);
@@ -4437,6 +5015,8 @@ call_emit (AST * root)
   if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
      (root->astnode.ident.arraylist == NULL))
   {
+    /* the arg list is empty, just emit "()" and return */
+
     if(root->nodetype == Call)
       fprintf (curfp, "();\n");
     else
@@ -4456,8 +5036,9 @@ call_emit (AST * root)
       fprintf(curfp,",");
   }
 
-
-  /* look up the function name so that we may compare the parameters */
+  /* look up the function that we are calling so that we may compare
+   * the parameters.
+   */
 
   if(gendebug)
     printf("Looking up function name %s, ", root->astnode.ident.name);
@@ -4482,6 +5063,7 @@ call_emit (AST * root)
           *    it looks like an array access AND
           *    it is in the array table
           */
+
        if((temp->nodetype == Identifier) && 
           (temp->astnode.ident.arraylist != NULL) && 
           (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
@@ -4529,6 +5111,7 @@ call_emit (AST * root)
           *      it does not look like an array access AND
           *      it is in the array table
           */
+
        else if((temp->nodetype == Identifier) &&
                (temp->astnode.ident.arraylist == NULL) && 
                type_lookup(cur_array_table, temp->astnode.ident.name) )
@@ -4563,11 +5146,13 @@ call_emit (AST * root)
            }
          }
        }
+
          /* 
           * else if the arg is an identifier AND
           *      it does not look like an array access AND
           *      it is not in the array table
           */
+
        else if(omitWrappers && ((temp->nodetype == Identifier) &&
                (temp->astnode.ident.arraylist == NULL) && 
                !type_lookup(cur_array_table, temp->astnode.ident.name) ))
@@ -4633,6 +5218,8 @@ call_emit (AST * root)
            printf("   wrapper type is %s\n",wrapper_returns[t2->vartype]);
            printf("   data type is %s\n",returnstring[temp->vartype]);
          }
+  
+         /* emit a cast if necessary */
 
          if( temp->vartype != t2->vartype )
            fprintf(curfp,"(%s) ( ",returnstring[t2->vartype]);
@@ -4659,6 +5246,10 @@ call_emit (AST * root)
   }
   else
   {
+    /* General case.  we dont know what the parameters are supposed to be
+     * so we have to guess here.
+     */
+
     temp = root->astnode.ident.arraylist;
 
     for( ; temp != NULL; temp = temp->nextstmt)
@@ -4700,7 +5291,14 @@ call_emit (AST * root)
     fprintf (curfp, ")");
 }				/*  Close call_emit().  */
 
-/* insert this call.  */
+/*****************************************************************************
+ *                                                                           *
+ * insert_methcall                                                           *
+ *                                                                           *
+ * Insert this method call into the list.   We are keeping track of          *
+ * the method calls in order to generate adapter functions later.            *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 insert_methcall(Dlist mlist, AST *root)
@@ -4781,16 +5379,20 @@ insert_methcall(Dlist mlist, AST *root)
   dl_insert_b(mlist,new);
 }
 
-/*
- * This function compares the expressions in the function call with
- * the arguments of the function to find one specific case: attempting
- * to pass an array element to a function that expects a scalar.  If
- * we find such a case, we must generate an adapter that allows
- * pass by reference of the array element.  Returns 1 if this function
- * call needs an adapter.  If no adapter is needed or if we dont have
- * enough info to determine whether one is needed, this function 
- * returns 0.
- */
+/*****************************************************************************
+ *                                                                           *
+ * needs_adapter                                                             *
+ *                                                                           *
+ * This function compares the expressions in the function call with          *
+ * the arguments of the function to find one specific case: attempting       *
+ * to pass an array element to a function that expects a scalar.  If         *
+ * we find such a case, we must generate an adapter that allows              *
+ * pass by reference of the array element.  Returns 1 if this function       *
+ * call needs an adapter.  If no adapter is needed or if we dont have        *
+ * enough info to determine whether one is needed, this function             *
+ * returns 0.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 needs_adapter(AST *root)
@@ -4849,10 +5451,14 @@ needs_adapter(AST *root)
   return 0;
 }
 
-/* 
- * This function handles code generation for specification statements.
- * Actually, there isn't a whole lot to do for spec statements.
- */
+/*****************************************************************************
+ *                                                                           *
+ * spec_emit                                                                 *
+ *                                                                           *
+ * This function handles code generation for specification statements.       *
+ * Actually, there isn't a whole lot to do for spec statements.              *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 spec_emit (AST * root)
@@ -4872,10 +5478,10 @@ spec_emit (AST * root)
      */
     case Parameter:
 
-     /*************************************************************
+     /*
       * now handling parameters as part of vardec_emit.  
       * 11/3/97 --Keith
-      *************************************************************/
+      */
 
       break;
 
@@ -4887,19 +5493,22 @@ spec_emit (AST * root)
       name_emit (root);
       break;
     case External:
-      break;
     case Implicit:
-      /* do nothing for implicit */
+      /* do nothing for external or implicit */
       break;
   }
 }
 
-/* 
- * This function generates the code for assignment statements.
- * If it looks like the lhs and rhs have different types, we
- * try to provide the appropriate cast, but in some cases the
- * resulting code may need to be modified slightly.
- */
+/*****************************************************************************
+ *                                                                           *
+ * assign_emit                                                               *
+ *                                                                           *
+ * This function generates the code for assignment statements.               *
+ * If it looks like the lhs and rhs have different types, we                 *
+ * try to provide the appropriate cast, but in some cases the                *
+ * resulting code may need to be modified slightly.                          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 assign_emit (AST * root)
@@ -4907,6 +5516,16 @@ assign_emit (AST * root)
   enum returntype ltype, rtype;
   void name_emit (AST *);
   void substring_assign_emit(AST *);
+
+  /* this used to be a pretty simple procedure:
+   *    emit LHS
+   *    print = 
+   *    emit RHS
+   * and that was it.  but it turns out that Fortran doesn't really
+   * care much if the LHS and RHS are different types.  However, Java
+   * doesn't like that, so we have to insert the appropriate cast or
+   * conversion if the types do not agree.
+   */
 
   ltype = root->astnode.assignment.lhs->vartype;
   rtype = root->astnode.assignment.rhs->vartype;
@@ -4972,29 +5591,33 @@ assign_emit (AST * root)
     expr_emit (root->astnode.assignment.rhs);
 }
 
-/*
- * This function handles situations in which the lhs of an
- * assignment statement is a substring operation.  For example:
- *   a(3:4) = 'hi'
- * We haven't figured out an elegant way to handle this in Java,
- * but we do handle it, as follows:
- *
- *  int E1, E2;
- *  E1 = 3;
- *  E2 = 4;
- *  a = new StringW(
- *        a.val.substring(0,E1-1) + 
- *        "hi".substring(0,E2-E1+1) + 
- *        a.val.substring(E2,a.val.length())
- *      );
- *
- * The resulting code looks pretty bad because we have to be
- * prepared to handle rhs strings that are too big to fit in
- * the lhs substring.
- *
- * luckily, java provides the String.substring() method, which
- * helps out a lot.
- */
+/*****************************************************************************
+ *                                                                           *
+ * substring_assign_emit                                                     *
+ *                                                                           *
+ * This function handles situations in which the lhs of an                   *
+ * assignment statement is a substring operation.  For example:              *
+ *   a(3:4) = 'hi'                                                           *
+ * We haven't figured out an elegant way to handle this in Java,             *
+ * but we do handle it, as follows:                                          *
+ *                                                                           *
+ *  int E1, E2;                                                              *
+ *  E1 = 3;                                                                  *
+ *  E2 = 4;                                                                  *
+ *  a = new StringW(                                                         *
+ *        a.val.substring(0,E1-1) +                                          *
+ *        "hi".substring(0,E2-E1+1) +                                        *
+ *        a.val.substring(E2,a.val.length())                                 *
+ *      );                                                                   *
+ *                                                                           *
+ * The resulting code looks pretty bad because we have to be                 *
+ * prepared to handle rhs strings that are too big to fit in                 *
+ * the lhs substring.                                                        *
+ *                                                                           *
+ * luckily, java provides the String.substring() method, which               *
+ * helps out a lot.                                                          *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 substring_assign_emit(AST *root)
@@ -5072,10 +5695,13 @@ substring_assign_emit(AST *root)
   fprintf(curfp,"}\n");
 }
 
-/*
- * This function returns the last item in a dlist
- * of integers.
- */
+/*****************************************************************************
+ *                                                                           *
+ * dl_int_examine                                                            *
+ *                                                                           *
+ * This function returns the last item in a dlist of integers.               *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 dl_int_examine(Dlist l)
@@ -5083,11 +5709,15 @@ dl_int_examine(Dlist l)
   return ( *( (int *) dl_val(dl_last(l)) ) );
 }
 
-/*
- * This function searches for a value in a dlist of
- * integers.  Returns TRUE if the value is found, FALSE
- * otherwise.
- */
+/*****************************************************************************
+ *                                                                           *
+ * dl_int_search                                                             *
+ *                                                                           *
+ * This function searches for a value in a dlist of                          *
+ * integers.  Returns TRUE if the value is found, FALSE                      *
+ * otherwise.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 int
 dl_int_search(Dlist l, int val)
@@ -5101,11 +5731,15 @@ dl_int_search(Dlist l, int val)
   return FALSE;
 }
 
-/*
- * This function searches for a value in a dlist of
- * AST nodes.  Returns the node if it is found, NULL
- * otherwise.
- */
+/*****************************************************************************
+ *                                                                           *
+ * dl_name_search                                                            *
+ *                                                                           *
+ * This function searches for a value in a dlist of                          *
+ * AST nodes.  Returns the node if it is found, NULL                         *
+ * otherwise.                                                                *
+ *                                                                           *
+ *****************************************************************************/
 
 AST *
 dl_name_search(Dlist l, char *name)
@@ -5118,6 +5752,15 @@ dl_name_search(Dlist l, char *name)
 
   return NULL;
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * insert_adapter                                                            *
+ *                                                                           *
+ * Insert this method call into the list.   We are keeping track of          *
+ * the method calls in order to generate adapter functions later.            *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 insert_adapter(AST *node)
@@ -5241,10 +5884,14 @@ insert_adapter(AST *node)
   dl_insert_b(adapter_list,node);
 }
 
-/*
- * This function generates any adapters necessary to
- * allow functions to pass array elements by reference.
- */
+/*****************************************************************************
+ *                                                                           *
+ * emit_adapters                                                             *
+ *                                                                           *
+ * This function generates any adapters necessary to                         *
+ * allow functions to pass array elements by reference.                      *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 emit_adapters()
@@ -5459,6 +6106,16 @@ emit_adapters()
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * emit_invocations                                                          *
+ *                                                                           *
+ * This function generates adapter functions which use reflection to         *
+ * call another method.  This is used to implement passing functions as      *
+ * arguments.                                                                *
+ *                                                                           *
+ *****************************************************************************/
+
 void
 emit_invocations(AST *root)
 {
@@ -5553,10 +6210,14 @@ emit_invocations(AST *root)
   } 
 }
 
-/*
- * This is primarily a debugging tool.  Given a node, it returns a
- * string containing the node type.
- */
+/*****************************************************************************
+ *                                                                           *
+ * print_nodetype                                                            *
+ *                                                                           *
+ * This is primarily a debugging tool.  Given a node, it returns a           *
+ * string containing the node type.                                          *
+ *                                                                           *
+ *****************************************************************************/
 
 char * 
 print_nodetype (AST *root) 

@@ -451,9 +451,6 @@ insert_constant(Dlist list, int tok, void * tag)
   int idx;
   CPNODE *c;
 
-  if(cp_debug)
-    printf("insert_constant: tok is '%s'\n", tok2str(tok));
-
   switch(tok) {
     case INTEGER:
       {

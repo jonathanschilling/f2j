@@ -25,7 +25,7 @@ void write_code(Dlist, FILE *),
      write_exception_table(struct ExceptionTable *, int, FILE *);
 
 int
-  classdebug = TRUE;     /* set to TRUE to generate debugging output         */
+  class_debug = TRUE;     /* set to TRUE to generate debugging output        */
 
 /*****************************************************************************
  * write_class                                                               *
@@ -125,7 +125,7 @@ write_constant_pool(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->constant_pool) {
     tmpconst = (CPNODE *) tmpPtr->val;
 
-    if(classdebug)
+    if(class_debug)
       printf("write_constant_pool() - tag = %d\n",tmpconst->val->tag);
 
     write_u1(tmpconst->val->tag, out);
@@ -212,7 +212,7 @@ write_fields(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->fields) {
     tmpfield = (struct field_info *) tmpPtr->val;
 
-    if(classdebug)
+    if(class_debug)
       printf("write_fields() %d, %d, %d\n", 
         tmpfield->access_flags, tmpfield->name_index,
         tmpfield->descriptor_index);
@@ -317,7 +317,7 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
     if(class_debug) report_position("attribute length", out);
     write_u4(tmpattr->attribute_length,out);
 
-    if(classdebug)
+    if(class_debug)
       printf("write_attributes() - attribute length: %d, idx: %d\n",
         tmpattr->attribute_length, tmpattr->attribute_name_index);
 

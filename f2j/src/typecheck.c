@@ -27,8 +27,7 @@
 
 char 
   * strdup ( const char * ),
-  * merge_names(AST *),
-  * print_nodetype ( AST * );
+  * merge_names(AST *);
 
 METHODTAB
   * methodscan (METHODTAB *, char *);

@@ -50,7 +50,6 @@ int optdebug = TRUE;
 
 char 
   * strdup ( const char * ),
-  * print_nodetype ( AST * ),
   * lowercase ( char * );
 
 METHODTAB

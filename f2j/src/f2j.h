@@ -672,8 +672,9 @@ void
 Dlist
   build_method_table(char *);
 
-char *
-  get_method_descriptor(AST *, SYMTABLE *, SYMTABLE *, SYMTABLE *);
+char
+  * get_method_descriptor(AST *, SYMTABLE *, SYMTABLE *, SYMTABLE *),
+  * print_nodetype ( AST * );
 
 struct _str
   * strAppend(struct _str *, char *);

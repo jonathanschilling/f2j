@@ -3502,7 +3502,6 @@ get_var_info(AST *root)
    */
 
   com_prefix = get_common_prefix(root->astnode.ident.name);
-  tmpclass = cur_filename;
   name = root->astnode.ident.name;
 
   if(com_prefix[0] != '\0')
@@ -3521,10 +3520,11 @@ get_var_info(AST *root)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
-    /* tmpclass = strdup(com_prefix); */
     tmpclass = get_full_classname(com_prefix);
     tmpclass[strlen(tmpclass)-1] = '\0';
   }
+  else
+    tmpclass = strdup(cur_filename);
 
   /* if this is an equivalenced variable, find out the merged
    * name that we should use instead.  Equivalenced names are
@@ -3559,6 +3559,7 @@ get_var_info(AST *root)
   new_array_inf->class = strdup(tmpclass);
 
   f2jfree(com_prefix, strlen(com_prefix)+1);
+  f2jfree(tmpclass, strlen(tmpclass)+1);
   return new_array_inf;
 }
 
@@ -5195,6 +5196,8 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
   /* special handling of common situation in which MAX or MIN has three args. */
 
   else if(arg_count == 3) {
+    char *ta_tmp;
+
     temp = root->astnode.ident.arraylist;
     fprintf(curfp, "%s(", threearg);
     intrinsic_arg_emit(temp,entry->ret);
@@ -5204,11 +5207,15 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
     intrinsic_arg_emit(temp->nextstmt->nextstmt,entry->ret);
     fprintf (curfp, ")");
 
-    method = strtok(strdup(threearg),".");
+    ta_tmp = strdup(threearg);
+
+    method = strtok(ta_tmp,".");
     method = strtok(NULL,".");
     c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
 
     bytecode1(jvm_invokestatic, c->index);
+
+    f2jfree(ta_tmp, strlen(ta_tmp)+1);
   }
 
   /*
@@ -5224,6 +5231,8 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
    */
 
   else {
+    char *ta_tmp;
+
     for(ii=0;ii<arg_count -3;ii++)
       fprintf(curfp,"%s(",javaname);
     fprintf(curfp,"%s(",threearg);
@@ -5237,7 +5246,9 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
     temp = temp->nextstmt;
     intrinsic_arg_emit(temp, entry->ret);
 
-    method = strtok(strdup(threearg),".");
+    ta_tmp = strdup(threearg);
+
+    method = strtok(ta_tmp,".");
     method = strtok(NULL,".");
     c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
 
@@ -5254,6 +5265,8 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
         fprintf (curfp, ") ");
       bytecode1(jvm_invokestatic, c->index);
     }
+
+    f2jfree(ta_tmp, strlen(ta_tmp)+1);
   }
 }
 
@@ -8092,6 +8105,7 @@ blockif_emit (AST * root)
             if(temp->nodetype == Goto)
               if(temp->astnode.go_to.label == prev->astnode.label.number) {
                 while_emit(root);
+                dl_delete_list(gotos);
                 return;
               }
           }
@@ -10071,7 +10085,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 void
 emit_adapters()
 {
-  char *tempname, *ret, *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc=NULL;
+  char *tmpdesc, *ret_desc, *cur_name = NULL, *cur_desc=NULL;
   struct method_info *adapter_method;
   HASHNODE *hashtemp;
   METHODREF *mref;
@@ -10092,9 +10106,12 @@ emit_adapters()
     hashtemp = type_lookup(function_table, cval->astnode.ident.name);
 
     if(hashtemp) {
+      char *tempname;
+
       mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
 
-      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.descriptor, cval->astnode.ident.arraylist);
+      tmpdesc = get_adapter_desc(hashtemp->variable->astnode.source.descriptor,
+                     cval->astnode.ident.arraylist);
 
       if(hashtemp->variable->nodetype == Function)
         ret_desc = field_descriptor[hashtemp->variable->astnode.source.returns][0];
@@ -10113,13 +10130,15 @@ emit_adapters()
       *tempname = toupper(*tempname);
 
       mref->classname = get_full_classname(tempname);
-      mref->methodname = strdup(hashtemp->variable->astnode.source.name->astnode.ident.name);
+      mref->methodname = strdup(
+         hashtemp->variable->astnode.source.name->astnode.ident.name);
       mref->descriptor = strdup(hashtemp->variable->astnode.source.descriptor);
 
       adapter_emit_from_descriptor(mref, cval);
 
       free_fieldref(mref);
       f2jfree(tmpdesc, strlen(tmpdesc)+1);
+      f2jfree(tempname, strlen(tempname)+1);
     }
     else {
       printf("looking up descriptor for %s\n",cval->astnode.ident.name);
@@ -10127,7 +10146,7 @@ emit_adapters()
       mref = find_method(cval->astnode.ident.name, descriptor_table);
 
       if(mref) {
-        ret = get_return_type_from_descriptor(mref->descriptor);
+        char *ret = get_return_type_from_descriptor(mref->descriptor);
 
         printf("--- ret is '%s'\n", ret);
 
@@ -10150,18 +10169,33 @@ emit_adapters()
         adapter_emit_from_descriptor(mref, cval);
 
         f2jfree(tmpdesc, strlen(tmpdesc)+1);
+        f2jfree(ret, strlen(ret)+1);
       }
       else {
         fprintf(stderr,"Could not generate adapter for '%s'\n",
            cval->astnode.ident.name);
-        cur_name = "BAD_ADAPTER";
-        cur_desc = "()V";
+ 
+        /* assume that since cur_name was already allocated strlen(var)+10
+         * bytes and "BAD_ADAP" requires less than 10 bytes, there's no need
+         * to realloc here.  but if we hit this case, then cur_desc may not
+         * have any memory allocated yet, so call realloc here.
+         */
+
+        strcpy(cur_name, "BAD_ADAP");
+
+        cur_desc=(char *)f2jrealloc(cur_name,4);
+        strcpy(cur_desc, "()V");
       }
     }
 
     endNewMethod(cur_class_file, adapter_method, cur_name, cur_desc,
          num_locals, NULL );
   }
+
+  if(cur_desc)
+    f2jfree(cur_desc, strlen(cur_desc)+1);
+  if(cur_name)
+    f2jfree(cur_name, strlen(cur_name)+1);
 }
 
 /*****************************************************************************
@@ -10189,6 +10223,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
   if((ret == NULL) || (ret[0] == '[') || (ret[0] == 'L')) {
     fprintf(stderr,"Not expecting NULL, reference, or array return type ");
     fprintf(stderr,"for adapter '%s'\n", node->astnode.ident.name);
+    f2jfree(ret,strlen(ret)+1);
     return;
   }
 
@@ -10234,6 +10269,7 @@ adapter_emit_from_descriptor(METHODREF *mref, AST *node)
     bytecode0(jvm_return);
 
   fprintf(curfp,"}\n\n");
+  f2jfree(ret,strlen(ret)+1);
 }
 
 /*****************************************************************************
@@ -10406,6 +10442,8 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
         adapter_tmp_assign_emit(arg->astnode.ident.localvnum, 
           get_type_from_field_desc(dptr));
       }
+
+      f2jfree(wrapper, strlen(wrapper)+1);
     }
     else if(dptr[0] == '[')
       dptr = skipToken(dptr);
@@ -10472,6 +10510,8 @@ adapter_methcall_emit_from_descriptor(AST *node, int lv_temp,
             mref->methodname,mref->descriptor);
  
   bytecode1(jvm_invokestatic, c->index);
+
+  f2jfree(tempname, strlen(tempname)+1);
 }
 
 /*****************************************************************************

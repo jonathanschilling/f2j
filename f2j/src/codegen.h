@@ -127,7 +127,6 @@ void cfg_emit(Dlist, char *);
 char 
   * tok2str(int),
   * strdup ( const char * ),
-  * print_nodetype ( AST * ),
   * lowercase ( char * ),
   * skipToken(char *),
   * get_common_prefix(char *),

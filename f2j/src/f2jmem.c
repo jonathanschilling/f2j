@@ -27,7 +27,6 @@ void
 f2jfree(void *p, size_t size)
 {
 #ifdef DEBUG_MEM
-printf("going to free %p\n", p);
   memset(p, 0xA, size);
 #endif
 
@@ -368,5 +367,30 @@ free_code(Dlist g)
 void
 free_ast_node(AST *n)
 {
+  if( n == NULL )
+    return;
+
+/*  fprintf(stderr,"free_ast_node() free %s node at %p.\n", 
+ *       print_nodetype(n), n);
+ */
+
+  switch(n->nodetype) {
+    case Identifier:
+    case Constant:
+    case Typedec:
+      break;
+    case Expression:
+      free_ast_node(n->astnode.expression.rhs);
+      break;
+    case Binaryop:
+      free_ast_node(n->astnode.expression.lhs);
+      free_ast_node(n->astnode.expression.rhs);
+      break;
+    default:
+      fprintf(stderr,"free_ast_node() warning: unsupported node %s.\n", 
+         print_nodetype(n));
+      break; /*ansi*/
+  }
+
   f2jfree(n, sizeof(AST));
 }

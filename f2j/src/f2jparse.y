@@ -62,7 +62,6 @@ double
 char 
   * strdup(const char *),
   * lowercase(char * ),
-  * print_nodetype (AST *),
   * tok2str(int );
 
 void 
@@ -2840,7 +2839,12 @@ Pdec:     Assignment
             $$->astnode.assignment.rhs = temp;
                                                       
             type_insert(parameter_table, temp, 0,
+               strdup($$->astnode.assignment.lhs->astnode.ident.name));
+            free_ast_node($$->astnode.assignment.lhs);
+/*
+            type_insert(parameter_table, temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
+*/
 
             /*
              *  $$->astnode.typeunit.specification = Parameter; 

@@ -101,6 +101,9 @@ void
 METHODTAB
   * methodscan (METHODTAB *, char *);
 
+extern Dlist
+  file_stack;
+
 /*****************************************************************************
  * STANDALONE is defined in the makefile when compiling the                  *
  * lex file as a stand alone program for debugging the lexer.                *
@@ -190,6 +193,31 @@ yylex ()
   {
     if(lexdebug) printf("calling prelex\n");
     token = prelex (&buffer);   /* No more tokens? Get another statement. */
+
+    if(token == INCLUDE) {
+      FILE *tempfp;
+      int tmplen;
+
+      buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
+      buffer.text[0] = '\n'; buffer.text[1] = '\0';
+
+      tempfp = fopen(yylval.lexeme,"rb");
+
+      tmplen = strlen(yylval.lexeme);
+      yylval.lexeme[ tmplen ] = '\n';
+      yylval.lexeme[ tmplen + 1] = '\0';
+
+      if(!tempfp) {
+        fprintf(stderr,"Error: could not open include file %s",
+          yylval.lexeme);
+        return COMMENT;
+      }
+
+      dl_insert_b(file_stack, ifp);
+      ifp = tempfp;
+
+      return COMMENT;
+    }
 
     if(token == COMMENT) {
       if(lexdebug)
@@ -669,64 +697,120 @@ prelex (BUFFER * bufstruct)
   if(lexdebug)
     printf("entering prelex()\n");
 
-  while (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
-  {
-    if(lexdebug)
-      printf("the line is [%s](%d)\n",bufstruct->stmt,
-         strlen(bufstruct->stmt));
-
-    /* truncate anything beyond 72 characters */
-    bufstruct->stmt[72] = '\n';
-    bufstruct->stmt[73] = '\0';
-
-    /* Dispose of comments and blank lines for now.
-     * Later, a COMMENT token can be defined and the
-     * comment returned for inclusion in either
-     * source or assembler code. 
-     */
-
-    if (bufstruct->stmt[0] == 'c' ||
-        bufstruct->stmt[0] == 'C' ||
-        bufstruct->stmt[0] == '*' ||
-        bufstruct->stmt[0] == '\n')
+  do {
+    while (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
     {
+      if(lexdebug)
+        printf("the line is [%s](%d)\n",bufstruct->stmt,
+           strlen(bufstruct->stmt));
+
+      /* truncate anything beyond 72 characters */
+      bufstruct->stmt[72] = '\n';
+      bufstruct->stmt[73] = '\0';
+
+      /* Dispose of comments and blank lines for now.
+       * Later, a COMMENT token can be defined and the
+       * comment returned for inclusion in either
+       * source or assembler code. 
+       */
+
+      if (bufstruct->stmt[0] == 'c' ||
+          bufstruct->stmt[0] == 'C' ||
+          bufstruct->stmt[0] == '*' ||
+          bufstruct->stmt[0] == '\n')
+      {
+        lineno++;
+        strcpy(yylval.lexeme, bufstruct->stmt);
+        return COMMENT;
+      }
+  
+      if(lexdebug)
+        printf ("First char in buffer: %c\n", bufstruct->stmt[0]);
+  
+      /* Ok, we have a line that is not a comment and that 
+       * does not start and end with a newline, i.e. blank.
+       * If the current statement is continued on the 
+       * next line, that statement is catenated to the
+       * current statement.
+       */
+  
+      check_continued_lines (ifp, bufstruct->stmt);
+      collapse_white_space (bufstruct);
+
+      if(bufstruct->stmt[0] == '\n') {
+        lineno++;
+        strcpy(yylval.lexeme, bufstruct->stmt);
+        return COMMENT;
+      }
+  
+      if( ! strncmp(bufstruct->stmt, "INCLUDE", 7) ) {
+        /* we are probably looking at an include statement */
+        int iidx, yidx;
+        BOOL ftickseen;
+  
+#define FTICK 39
+#define INC_OFFSET 8
+
+        if(bufstruct->stmt[7] != FTICK) {
+          fprintf(stderr,"Badly formed INCLUDE statement\n");
+          strcpy(yylval.lexeme, bufstruct->stmt);
+          return COMMENT;
+        }
+  
+        yidx = 0;
+        iidx = INC_OFFSET;
+        ftickseen = FALSE;
+  
+        while( (bufstruct->stmt[iidx] != '\0') && (iidx < BIGBUFF)) {
+          if(bufstruct->stmt[iidx] == FTICK) {
+            if((bufstruct->stmt[iidx+1] == FTICK)) {
+              yylval.lexeme[yidx] = bufstruct->stmt[iidx];
+              yylval.lexeme[yidx+1] = bufstruct->stmt[iidx+1];
+  
+              iidx+=2;
+              yidx+=2;
+  
+              continue;
+            }
+            else {
+              ftickseen = TRUE;
+              break;
+            }
+          }
+  
+          yylval.lexeme[yidx] = bufstruct->stmt[iidx];
+          iidx++;
+          yidx++;
+        }
+
+
+        if(! ftickseen) {
+          fprintf(stderr,"Badly formed INCLUDE statement\n");
+          strcpy(yylval.lexeme, bufstruct->stmt);
+          return COMMENT;
+        }
+  
+        yylval.lexeme[yidx] = '\0';
+
+        return INCLUDE;
+      }
+
+      if(lexdebug)
+        printf ("From prelex: %s\n", bufstruct->stmt);
+
       lineno++;
-      strcpy(yylval.lexeme, bufstruct->stmt);
-      return COMMENT;
+      statementno++;
+      func_stmt_num++;
+      return 0;
     }
 
-    if(lexdebug)
-      printf ("First char in buffer: %c\n", bufstruct->stmt[0]);
-
-    /* Ok, we have a line that is not a comment and that 
-     * does not start and end with a newline, i.e. blank.
-     * If the current statement is continued on the 
-     * next line, that statement is catenated to the
-     * current statement.
-     */
-
-    check_continued_lines (ifp, bufstruct->stmt);
-    collapse_white_space (bufstruct);
-
-    if(bufstruct->stmt[0] == '\n') {
-      lineno++;
-      strcpy(yylval.lexeme, bufstruct->stmt);
-      return COMMENT;
-    }
+    /* EOF conditions. */
 
     if(lexdebug)
-      printf ("From prelex: %s\n", bufstruct->stmt);
+      printf ("EOF\n");
 
-    lineno++;
-    statementno++;
-    func_stmt_num++;
-    return 0;
-  }
-
-  /* EOF conditions. */
-
-  if(lexdebug)
-    printf ("EOF\n");
+    ifp = (FILE *)dl_pop(file_stack);
+  }while(ifp != NULL);
 
   bufstruct->stmt[0] = '\0';
   return 0;

@@ -34,6 +34,7 @@ extern char *blas_routines[];
 extern char *generic_intrinsics[];
 extern char *unit_name;
 extern char *optarg;
+extern Dlist file_stack;
 
 #ifdef _WIN32
   char null_file[] = "f2j.tmp";
@@ -43,17 +44,30 @@ extern char *optarg;
 
 FILE *devnull;             /* pointer to the file /dev/null                  */
 
-BOOL isBigEndian(void);
-AST *addnode(void);
-char *strdup(const char *),
-     *f2j_fgets(char *, int, FILE *),
-       * get_full_classname(char *);
-SYMTABLE * new_symtable (int);
-int yyparse (void);
-extern int getopt(int, char *const *, const char *);
-void type_insert (SYMTABLE *, AST *, enum returntype, char *);
-void handle_segfault(int);
-void insert_entries(char *, Dlist);
+BOOL
+  isBigEndian(void);
+
+AST
+  *addnode(void);
+
+char
+  *strdup(const char *),
+  *f2j_fgets(char *, int, FILE *),
+  *get_full_classname(char *);
+
+SYMTABLE
+  *new_symtable (int);
+
+int
+  yyparse (void);
+
+void
+  type_insert (SYMTABLE *, AST *, enum returntype, char *),
+  handle_segfault(int),
+  insert_entries(char *, Dlist);
+
+extern int
+  getopt(int, char *const *, const char *);
 
 /*****************************************************************************
  * main                                                                      *
@@ -138,6 +152,8 @@ will most likely not work for other code.\n";
   bigEndian     = isBigEndian();
   output_dir    = NULL; 
   search_path   = NULL; 
+
+  file_stack = make_dl();
 
   ignored_formatting = 0;
   bad_format_count = 0;

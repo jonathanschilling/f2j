@@ -71,8 +71,10 @@ SYMTABLE
   *global_common_table,    /* Global COMMON table                            */
   *generic_table;          /* table of the generic intrinsic functions       */
 
-Dlist constants_table,     /* constants (for bytecode constant pool gen.)    */
-  descriptor_table;        /* list of method descriptors from *.f2j files    */
+Dlist 
+  constants_table,         /* constants (for bytecode constant pool gen.)    */
+  descriptor_table,        /* list of method descriptors from *.f2j files    */
+  file_stack;              /* file stack for handling include statements     */
 
 /*****************************************************************************
  * Statement starting keywords. The only violation of this                   *

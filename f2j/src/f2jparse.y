@@ -1453,6 +1453,14 @@ printf("reduced arraydeclaration... calling switchem\n");
                         temp=temp->nextstmt)
                       count++;
 
+                    if(count > MAX_ARRAY_DIM) {
+                      fprintf(stderr,"Error: array %s exceeds maximum ",
+                         $$->astnode.ident.name);
+                      fprintf(stderr,"number of dimensions: %d\n", 
+                         MAX_ARRAY_DIM);
+                      exit(-1);
+                    }
+
                     for(temp = $$->astnode.ident.arraylist, i = 0;
                         temp != NULL; 
                         temp=temp->nextstmt, i++)

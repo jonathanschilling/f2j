@@ -116,6 +116,12 @@ typedef struct _methodref {
 #define CS_ARGS (STRING_ARG | CHAR_ARG)
 
 /*****************************************************************************
+ * MAX_ARRAY_DIM is the maximum number of dimensions allowed in an array.    *
+ *****************************************************************************/
+
+#define MAX_ARRAY_DIM 7
+
+/*****************************************************************************
  * MAIN_DESCRIPTOR is the descriptor required for a main() method in Java.   *
  *****************************************************************************/
 
@@ -390,7 +396,7 @@ struct _ident
 {
   int 
     dim,                            /* number of dimensions (for arrays)     */
-    D[3],                           /* num elements in each dim (up to 3)    */
+    D[MAX_ARRAY_DIM],               /* num elements in each dim              */
     position;                       /* ident's position in COMMON block      */
 
   unsigned int

@@ -3365,6 +3365,27 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
     pushIntConst(offset);
     bytecode0(jvm_isub);
   }
+  else if(ht->variable->astnode.ident.dim > 3)
+  {
+    AST *tmp;
+    int i,j,d;
+
+    tmp = root;
+    for(i=0;i<ht->variable->astnode.ident.dim;i++) {
+      expr_emit(tmp);
+
+      for(j=i-1;j>0;j--) {
+        d = ht->variable->astnode.ident.D[j];
+        if(!idxNeedsDecr(tmp))
+          d++;
+
+        fprintf(curfp," * ");
+      }
+
+      fprintf(curfp," + ");
+      tmp = tmp->nextstmt;
+    }
+  }
   else 
   {
     /* if this isn't a 3 dimensional array, it is handled here */

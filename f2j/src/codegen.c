@@ -6856,10 +6856,12 @@ void
 code_one_op_w(enum _opcode op, u2 index)
 {
   u1 this_opcode = op;
+  u2 u2BigEndian(u2);
+  u2 this_operand = u2BigEndian(index);
 
   dec_stack(jvm_opcode[op].stack_pre);
   memcpy(cur_code->code + pc, &this_opcode, sizeof(this_opcode));
-  memcpy(cur_code->code + pc + 1, &index, sizeof(index));
+  memcpy(cur_code->code + pc + 1, &this_operand, sizeof(this_operand));
   printf("%d %s #%d\n", pc, jvm_opcode[op].op, index);
   pc += jvm_opcode[op].width;
   inc_stack(jvm_opcode[op].stack_post);
@@ -6913,6 +6915,8 @@ newClassFile(char *name, char *srcFile)
   struct method_info * meth_tmp;
   struct cp_info *newnode;
   struct ClassFile * tmp;
+  u4 u4BigEndian(u4);
+  u2 u2BigEndian(u2);
   char *thisname;
   CPNODE *c;
 

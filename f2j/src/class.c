@@ -30,21 +30,21 @@ write_class(struct ClassFile *class)
 
   cfp = open_output_classfile(class);
 
-  fwrite(&(class->magic), sizeof(class->magic), 1, cfp);
-  fwrite(&(class->minor_version), sizeof(class->minor_version), 1, cfp);
-  fwrite(&(class->major_version), sizeof(class->major_version), 1, cfp);
-  fwrite(&(class->constant_pool_count), sizeof(class->constant_pool_count), 1, cfp);
+  write_u4(class->magic, cfp);
+  write_u2(class->minor_version, cfp);
+  write_u2(class->major_version, cfp);
+  write_u2(class->constant_pool_count, cfp);
   write_constant_pool(class, cfp);
-  fwrite(&(class->access_flags), sizeof(class->access_flags), 1, cfp);
-  fwrite(&(class->this_class), sizeof(class->this_class), 1, cfp);
-  fwrite(&(class->super_class), sizeof(class->super_class), 1, cfp);
-  fwrite(&(class->interfaces_count), sizeof(class->interfaces_count), 1, cfp);
+  write_u2(class->access_flags, cfp);
+  write_u2(class->this_class, cfp);
+  write_u2(class->super_class, cfp);
+  write_u2(class->interfaces_count, cfp);
   write_interfaces(class,cfp);
-  fwrite(&(class->fields_count), sizeof(class->fields_count), 1, cfp);
+  write_u2(class->fields_count, cfp);
   write_fields(class,cfp);
-  fwrite(&(class->methods_count), sizeof(class->methods_count), 1, cfp);
+  write_u2(class->methods_count, cfp);
   write_methods(class,cfp);
-  fwrite(&(class->attributes_count), sizeof(class->attributes_count), 1, cfp);
+  write_u2(class->attributes_count, cfp);
   write_attributes(class->attributes,class->constant_pool,cfp);
 
   fclose(cfp);
@@ -71,12 +71,11 @@ write_constant_pool(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->constant_pool) {
     tmpconst = (CPNODE *) tmpPtr->val;
 
-    fwrite(&(tmpconst->val->tag),sizeof(tmpconst->val->tag),1,out);
+    write_u1(tmpconst->val->tag, out);
 
     switch(tmpconst->val->tag) {
       case CONSTANT_Utf8:
-        fwrite(&(tmpconst->val->cpnode.Utf8.length),
-           sizeof(tmpconst->val->cpnode.Utf8.length),1,out);
+        write_u2(tmpconst->val->cpnode.Utf8.length,out);
         fwrite(tmpconst->val->cpnode.Utf8.bytes,
            tmpconst->val->cpnode.Utf8.length,1,out);
         break;
@@ -101,26 +100,20 @@ write_constant_pool(struct ClassFile *class, FILE *out)
            sizeof(tmpconst->val->cpnode.Double.low_bytes),1,out);
         break;
       case CONSTANT_Class:
-        fwrite(&(tmpconst->val->cpnode.Class.name_index),
-           sizeof(tmpconst->val->cpnode.Class.name_index),1,out);
+        write_u2(tmpconst->val->cpnode.Class.name_index,out);
         break;
       case CONSTANT_String:
-        fwrite(&(tmpconst->val->cpnode.String.string_index),
-           sizeof(tmpconst->val->cpnode.String.string_index),1,out);
+        write_u2(tmpconst->val->cpnode.String.string_index, out);
         break;
       case CONSTANT_Fieldref:
       case CONSTANT_Methodref:
       case CONSTANT_InterfaceMethodref:
-        fwrite(&(tmpconst->val->cpnode.Methodref.class_index),
-           sizeof(tmpconst->val->cpnode.Methodref.class_index),1,out);
-        fwrite(&(tmpconst->val->cpnode.Methodref.name_and_type_index),
-           sizeof(tmpconst->val->cpnode.Methodref.name_and_type_index),1,out);
+        write_u2(tmpconst->val->cpnode.Methodref.class_index,out);
+        write_u2(tmpconst->val->cpnode.Methodref.name_and_type_index,out);
         break;
       case CONSTANT_NameAndType:
-        fwrite(&(tmpconst->val->cpnode.NameAndType.name_index),
-           sizeof(tmpconst->val->cpnode.NameAndType.name_index),1,out);
-        fwrite(&(tmpconst->val->cpnode.NameAndType.descriptor_index),
-           sizeof(tmpconst->val->cpnode.NameAndType.descriptor_index),1,out);
+        write_u2(tmpconst->val->cpnode.NameAndType.name_index,out);
+        write_u2(tmpconst->val->cpnode.NameAndType.descriptor_index,out);
         break;
       default:
         fprintf(stderr,"WARNING: unknown tag in write_constant_pool()\n");
@@ -162,9 +155,9 @@ write_fields(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->fields) {
     tmpfield = (struct field_info *) tmpPtr->val;
 
-    fwrite(&(tmpfield->access_flags),sizeof(tmpfield->access_flags),1,out);
-    fwrite(&(tmpfield->name_index),sizeof(tmpfield->name_index),1,out);
-    fwrite(&(tmpfield->descriptor_index),sizeof(tmpfield->descriptor_index),1,out);
+    write_u2(tmpfield->access_flags,out);
+    write_u2(tmpfield->name_index,out);
+    write_u2(tmpfield->descriptor_index,out);
 
     /* we do not expect there to be any field attributes, so check the 
      * count and issue a warning message if count > 0
@@ -175,7 +168,7 @@ write_fields(struct ClassFile *class, FILE *out)
       tmpfield->attributes_count = 0;
     }
 
-    fwrite(&(tmpfield->attributes_count),sizeof(tmpfield->attributes_count),1,out);
+    write_u2(tmpfield->attributes_count,out);
 
     /* here is where we'd write the attributes themselves, if f2j should
      * ever need to use them.
@@ -201,10 +194,10 @@ write_methods(struct ClassFile *class, FILE *out)
   dl_traverse(tmpPtr,class->methods) {
     tmpmeth = (struct method_info *) tmpPtr->val;
 
-    fwrite(&(tmpmeth->access_flags),sizeof(tmpmeth->access_flags),1,out);
-    fwrite(&(tmpmeth->name_index),sizeof(tmpmeth->name_index),1,out);
-    fwrite(&(tmpmeth->descriptor_index),sizeof(tmpmeth->descriptor_index),1,out);
-    fwrite(&(tmpmeth->attributes_count),sizeof(tmpmeth->attributes_count),1,out);
+    write_u2(tmpmeth->access_flags,out);
+    write_u2(tmpmeth->name_index,out);
+    write_u2(tmpmeth->descriptor_index,out);
+    write_u2(tmpmeth->attributes_count,out);
 
     write_attributes(tmpmeth->attributes,class->constant_pool,out);
   }
@@ -241,29 +234,21 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
       
     attr_name = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
 
-    fwrite(&(tmpattr->attribute_name_index),
-      sizeof(tmpattr->attribute_name_index),1,out);
-    fwrite(&(tmpattr->attribute_length),
-      sizeof(tmpattr->attribute_length),1,out);
+    write_u2(tmpattr->attribute_name_index,out);
+    write_u4(tmpattr->attribute_length,out);
 
     if(!strcmp(attr_name,"SourceFile")) {
-      fwrite(&(tmpattr->attr.SourceFile->sourcefile_index),
-         sizeof(tmpattr->attr.SourceFile->sourcefile_index),1,out);
+      write_u2(tmpattr->attr.SourceFile->sourcefile_index,out);
     } 
     else if(!strcmp(attr_name,"Code")) {
-      fwrite(&(tmpattr->attr.Code->max_stack), 
-         sizeof(tmpattr->attr.Code->max_stack), 1, out);
-      fwrite(&(tmpattr->attr.Code->max_locals), 
-         sizeof(tmpattr->attr.Code->max_locals), 1, out);
-      fwrite(&(tmpattr->attr.Code->code_length), 
-         sizeof(tmpattr->attr.Code->code_length), 1, out);
+      write_u2(tmpattr->attr.Code->max_stack,out);
+      write_u2(tmpattr->attr.Code->max_locals,out); 
+      write_u4(tmpattr->attr.Code->code_length,out);
       fwrite(tmpattr->attr.Code->code, tmpattr->attr.Code->code_length, 1, out);
-      fwrite(&(tmpattr->attr.Code->exception_table_length), 
-         sizeof(tmpattr->attr.Code->exception_table_length), 1, out);
+      write_u2(tmpattr->attr.Code->exception_table_length,out);
       if(tmpattr->attr.Code->exception_table_length > 0)
         fprintf(stderr,"WARNING: dont know how to write exception table yet.\n");
-      fwrite(&(tmpattr->attr.Code->attributes_count), 
-         sizeof(tmpattr->attr.Code->attributes_count), 1, out);
+      write_u2(tmpattr->attr.Code->attributes_count,out);
       if(tmpattr->attr.Code->attributes_count > 0)
         write_attributes(tmpattr->attr.Code->attributes, const_pool, out);
     } 
@@ -318,4 +303,53 @@ open_output_classfile(struct ClassFile *class)
   }
 
   return newfp;
+}
+
+/*****************************************************************************
+ * write_u1                                                                  *
+ *                                                                           *
+ * Writes an unsigned byte to the specified file pointer.  there are no      *
+ * issues with endianness here, but this function is included for            *
+ * consistency.                                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_u1(u1 num, FILE *out)
+{
+  fwrite(&num, sizeof(num), 1, out);
+}
+
+/*****************************************************************************
+ * write_u2                                                                  *
+ *                                                                           *
+ * Writes an unsigned short to the specified file pointer, changing          *
+ * endianness if necessary.                                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_u2(u2 num, FILE *out)
+{
+  u2 u2BigEndian(u2);
+
+  num = u2BigEndian(num);
+  fwrite(&num, sizeof(num), 1, out);
+}
+
+/*****************************************************************************
+ * write_u4                                                                  *
+ *                                                                           *
+ * Writes an unsigned int to the specified file pointer, changing endianness *
+ * if necessary.                                                             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_u4(u4 num, FILE *out)
+{
+  u4 u4BigEndian(u4);
+
+  num = u4BigEndian(num);
+  fwrite(&num, sizeof(num), 1, out);
 }

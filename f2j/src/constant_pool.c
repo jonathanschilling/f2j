@@ -724,6 +724,27 @@ null_term(u1 * str, int len)
 
 /*****************************************************************************
  *                                                                           *
+ * u2BigEndian                                                               *
+ *                                                                           *
+ * This function converts a u2 (unsigned short) to big endian format.  if the*
+ * machine is big endian already, we do nothing.  otherwise, we reverse the  *
+ * byte order and return the reversed number.                                *
+ *                                                                           *
+ *****************************************************************************/
+
+u2
+u2BigEndian(u2 num)
+{
+  extern BOOLEAN bigEndian;
+
+  if(bigEndian)
+    return num;
+  else
+    return (num>>8)+((num&0xFF)<<8); 
+}
+
+/*****************************************************************************
+ *                                                                           *
  * u4BigEndian                                                               *
  *                                                                           *
  * This function converts a u4 (unsigned int) to big endian format.  if the  *

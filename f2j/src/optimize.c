@@ -1,6 +1,7 @@
 /*
  * $Source$
  * $Revision$
+ * $Date$
  * $Author$
  */
 
@@ -16,302 +17,319 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
-#include"dlist.h"
 
-int optdebug = TRUE;
+int optdebug = FALSE;
 
 char * strdup ( const char * );
 char * print_nodetype ( AST * ); 
 char * lowercase ( char * );
 char * methodscan (METHODTAB * , char * );
 
-AST *ASTroot;
-
 /*
- * optimize
+ * optimiziation
  */
 
 void
-optimize (AST * root)
+optScalar(AST *root)
 {
-  void assign_optimize(AST *);
-  void call_optimize(AST *);
-  void forloop_optimize(AST *);
-  void blockif_optimize(AST *);
-  void elseif_optimize(AST *);
-  void else_optimize(AST *);
-  void logicalif_optimize(AST *);
-  void read_optimize(AST *);
+  AST *temp;
+  HASHNODE *ht;
+  void optimize (AST *, AST *);
+  SYMTABLE *opt_type_table = root->astnode.source.type_table;
 
-    switch (root->nodetype)
-      {
-      case 0:
-	  if (optdebug)
-	      printf ("Bad node\n");
-	  optimize (root->nextstmt);
-      case Progunit:
-        {
-	  if (optdebug)
-	      printf ("Source.\n");
+  ht = type_lookup(global_func_table, 
+   root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
-          ASTroot = root;
-          optimize(root->astnode.source.typedecs);
-          optimize(root->astnode.source.progtype);
-          optimize(root->astnode.source.statements);
+  if(!ht) {
+    fprintf(stderr,"optScalar: Cant find %s in global function table\n",
+     root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+    return;
+  }
 
-	  break;
-        }
-      case Subroutine:
-	  if (optdebug)
-	      printf ("Subroutine.\n");
+  printf("attempting to optimize %s\n",
+   root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
-	  break;
-      case Function:
-	  if (optdebug)
-	      printf ("Function.\n");
+  if(ht->variable->astnode.source.scalarOptStatus == NOT_VISITED)
+    printf("%s has not been visited yet\n",
+      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  else if(ht->variable->astnode.source.scalarOptStatus == VISITED)
+    printf("%s has been visited but not finished\n",
+      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  else if(ht->variable->astnode.source.scalarOptStatus == FINISHED)
+    printf("%s has been finished\n",
+      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  else
+    printf("%s has an invalid status field\n",
+      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
-          if(optdebug)
-            printf ("Function name: %s\n", 
-              root->astnode.source.name->astnode.ident.name);
+  if(ht->variable->astnode.source.scalarOptStatus == NOT_VISITED) {
+    ht->variable->astnode.source.scalarOptStatus = VISITED;
+    optimize(root, root);
+  }
+  
+  ht->variable->astnode.source.scalarOptStatus = FINISHED;
 
-	  break;
-      case Program:
-	  if (optdebug)
-	      printf ("Program.\n");
-
-	  if (optdebug)
-	    printf ("Program name: %s\n", 
-              root->astnode.source.name->astnode.ident.name);
-
-          break;
-      case Typedec:
-	  if (optdebug)
-	      printf ("Typedec.\n");
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case DataList:
-	  if (optdebug)
-	      printf ("Data.\n");
-
-	  if (root->nextstmt != NULL)	/* End of data list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Specification:
-	  if (optdebug)
-	      printf ("Specification.\n");
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Equivalence:
-	  if (optdebug)
-	      printf ("Equivalence.\n");
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Statement:
-	  if (optdebug)
-	      printf ("Statement.\n");
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-
-      case Assignment:
-	  if (optdebug)
-	      printf ("Assignment.\n");
-
-	  assign_optimize (root);
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Call:
-	  if (optdebug)
-	      printf ("Call.\n");
-
-	  call_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Forloop:
-	  if (optdebug)
-	      printf ("Forloop.\n");
-
-	  forloop_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-
-      case Blockif:
-	  if (optdebug)
-	      printf ("Blockif.\n");
-
-	  blockif_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Elseif:
-	  if (optdebug)
-	      printf ("Elseif.\n");
-
-	  elseif_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Else:
-	  if (optdebug)
-	      printf ("Else.\n");
-
-	  else_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Logicalif:
-	  if (optdebug)
-	      printf ("Logicalif.\n");
-
-	  logicalif_optimize (root);
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Return:
-	  if (optdebug)
-	    printf ("Return.\n");
-            
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Goto:
-	  if (optdebug)
-	      printf ("Goto.\n");
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case ComputedGoto:
-	  if (optdebug)
-	      printf ("Goto.\n");
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Label:
-	  if (optdebug)
-	      printf ("Label.\n");
-
-	  if (root->nextstmt != NULL)	/* End of typestmt list. */
-	      optimize (root->nextstmt);
-	  break;
-      case Write:
-	  if (optdebug)
-	      printf ("Write statement.\n");
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Read:
-	  if (optdebug)
-	      printf ("Read statement.\n");
-
-	  read_optimize (root);
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Format:
-	  if (optdebug)
-            printf("skipping format statement\n");
-
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-          break;
-      case Stop:
-          if (optdebug)
-            printf ("Stop.\n");
-
-          if (root->nextstmt != NULL)
-            optimize (root->nextstmt);
-	  break;
-      case End:
-	  if (optdebug)
-	      printf ("End.\n");
-	  break;
-      case Save:
-	  if (optdebug)
-	      printf ("Save (ignoring).\n");
-
-          if (root->nextstmt != NULL)
-            optimize (root->nextstmt);
-	  break;
-      case Common:
-	  if (optdebug)
-	      printf ("Common.\n");
-
-          if (root->nextstmt != NULL)
-            optimize (root->nextstmt);
-	  break;
-      case Unimplemented:
-	  if (root->nextstmt != NULL)
-	      optimize (root->nextstmt);
-	  break;
-      case Constant:
-      default:
-          fprintf(stderr,"optimize(): Error, bad nodetype (%s)\n",
-            print_nodetype(root));
-      }				/* switch on nodetype.  */
+  temp = root->astnode.source.progtype->astnode.source.args;
+  for(;temp != NULL;temp = temp->nextstmt)
+    if((ht = type_lookup(opt_type_table,temp->astnode.ident.name)) != NULL)
+      if(ht->variable->astnode.ident.passByRef)
+        temp->astnode.ident.passByRef = TRUE;
 }
 
-/* 
- * A name will either fly solo or lead off
- * a named array.  So far, this code will optimize
- * a name or an array with integer indices.  The
- * procedure also needs to check all relevant tables
- * to determine whether the name is an array or
- * a procedure (i.e. Class.method) call, and whether
- * the name is a STRING, CHAR, etc.  Frankly, this is
- * a hideous procedure and really needs to
- * be rewritten. 
- *
- * ...and it's getting worse by the day  --Keith
- *
- *  Heh... gotta love it...  -dmd  9/26/97
- *
- *  Started cleaning up name_optimize  10/10/97  --Keith
- */
+void
+optimize (AST * root, AST * rptr)
+{
+  void assign_optimize(AST *, AST*);
+  void call_optimize(AST *, AST*);
+  void forloop_optimize(AST *, AST*);
+  void blockif_optimize(AST *, AST*);
+  void elseif_optimize(AST *, AST*);
+  void else_optimize(AST *, AST*);
+  void logicalif_optimize(AST *, AST*);
+  void read_optimize(AST *, AST*);
+  void write_optimize(AST *, AST*);
+  void spec_optimize(AST *, AST*);
+
+  switch (root->nodetype)
+  {
+    case 0:
+      if (optdebug)
+        printf ("Bad node\n");
+
+      optimize (root->nextstmt, rptr);
+    case Progunit:
+      if (optdebug)
+        printf ("Source.\n");
+
+      optimize(root->astnode.source.typedecs, rptr);
+      optimize(root->astnode.source.progtype, rptr);
+      optimize(root->astnode.source.statements, rptr);
+
+      break;
+    case Subroutine:
+    case Function:
+    case Program:
+      if (optdebug)
+        printf ("Unit name: %s\n", 
+          root->astnode.source.name->astnode.ident.name);
+      break;
+    case Assignment:
+      if (optdebug)
+        printf ("Assignment.\n");
+ 
+      assign_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Call:
+      if (optdebug)
+        printf ("Call.\n");
+
+      call_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Forloop:
+      if (optdebug)
+        printf ("Forloop.\n");
+
+      forloop_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Blockif:
+      if (optdebug)
+        printf ("Blockif.\n");
+
+      blockif_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Elseif:
+      if (optdebug)
+        printf ("Elseif.\n");
+
+      elseif_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Else:
+      if (optdebug)
+        printf ("Else.\n");
+
+      else_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Logicalif:
+      if (optdebug)
+        printf ("Logicalif.\n");
+
+      logicalif_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Label:
+      if (optdebug)
+        printf ("Label.\n");
+
+      if((root->astnode.label.stmt != NULL) &&
+         (root->astnode.label.stmt->nodetype != Format))
+            optimize(root->astnode.label.stmt, rptr);
+
+      if (root->nextstmt != NULL)	/* End of typestmt list. */
+        optimize (root->nextstmt, rptr);
+      break;
+    case Write:
+      if (optdebug)
+        printf ("Write statement.\n");
+
+      write_optimize(root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Read:
+      if (optdebug)
+        printf ("Read statement.\n");
+
+      read_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Format:
+    case Stop:
+    case Save:
+    case Common:
+    case ComputedGoto:
+    case Goto:
+    case Return:
+    case Statement:
+    case DataList:
+    case Equivalence:
+    case Typedec:
+    case Unimplemented:
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Specification:
+      spec_optimize(root, rptr);
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case End:
+      break;
+    case Constant:
+    default:
+      fprintf(stderr,"optimize(): Error, bad nodetype (%s)\n",
+         print_nodetype(root));
+    }				/* switch on nodetype.  */
+}
 
 void
-name_optimize (AST * root)
+spec_optimize(AST *root, AST *rptr)
+{
+  SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
+  AST *temp;
+  HASHNODE *ht, *ht2;
+  void name_emit(AST *);
+
+  switch (root->astnode.typeunit.specification)
+  {
+    case Parameter:
+    case Implicit:
+      break;
+    case Intrinsic:
+      name_emit (root);
+      break;
+    case External:
+      temp = root->astnode.typeunit.declist;
+      for(;temp != NULL;temp = temp->nextstmt) {
+
+        printf("external %s\n", temp->astnode.ident.name);
+        ht= type_lookup(opt_external_table,temp->astnode.ident.name);
+        if(ht)
+        {
+          printf("going to optimize external %s\n",temp->astnode.ident.name);
+
+          ht2 = type_lookup(global_func_table,temp->astnode.ident.name);
+          if(!ht2) {
+            fprintf(stderr,"Cant locate %s, not optimizing.\n",
+               temp->astnode.ident.name);
+            continue;
+          }
+
+          optScalar(ht2->variable);
+        }
+      }
+      break;
+  }
+}
+
+void
+external_optimize(AST *root, AST *rptr)
+{
+  extern METHODTAB intrinsic_toks[];
+  char *tempname, *javaname;
+  void call_optimize(AST *, AST *);
+
+  if(optdebug) {
+    printf("here we are in external_optimize\n");
+    printf("nodetype = %s, parent nodetype = %s\n",
+      print_nodetype(root),print_nodetype(root->parent));
+  }
+
+  tempname = strdup(root->astnode.ident.name);
+  uppercase(tempname);
+
+  javaname = (char *) methodscan (intrinsic_toks, tempname);
+
+  /*
+   *  This block of code is only called if the identifier
+   *  absolutely does not have an entry in any table,
+   *  and corresponds to a method invocation of
+   *  something in the blas or lapack packages.
+   */
+
+  if (javaname == NULL)
+  {
+    if (root->astnode.ident.arraylist != NULL)
+      call_optimize (root, rptr);
+
+    return;
+  }
+
+}
+
+void
+name_optimize (AST * root, AST *rptr)
 {
   HASHNODE *hashtemp;
   char * tempname;
   extern METHODTAB intrinsic_toks[];
-  SYMTABLE *opt_external_table = ASTroot->astnode.source.external_table;
-  SYMTABLE *opt_intrinsic_table = ASTroot->astnode.source.intrinsic_table;
-  SYMTABLE *opt_type_table = ASTroot->astnode.source.type_table;
-  SYMTABLE *opt_array_table = ASTroot->astnode.source.type_table;
+  SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
+  SYMTABLE *opt_intrinsic_table = rptr->astnode.source.intrinsic_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
 
-  void subcall_optimize(AST *);
+  void subcall_optimize(AST *, AST *);
 
-  printf("entering name_optimize\n");
+printf("here in name_optimize... %s\n",print_nodetype(root));
+if(root->nodetype == Identifier)
+  printf("name is %s\n",root->astnode.ident.name);
 
   /*  
    *  Check to see whether name is in external table.  Names are
    *  loaded into the external table from the parser.   
    */
-
-  if(root->nodetype == Identifier)
-    if(root->token == STRING)
-      printf("** maybe I should optimize a string literal here\n");
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -323,11 +341,14 @@ name_optimize (AST * root)
 
   if (type_lookup (opt_external_table, root->astnode.ident.name) != NULL)
   {
+printf("going to external_optimize\n");
+    external_optimize(root, rptr);
   }
   else if(( methodscan (intrinsic_toks, tempname) != NULL) 
      && ( (type_lookup(opt_intrinsic_table, root->astnode.ident.name) != NULL)
        || (type_lookup(opt_type_table, root->astnode.ident.name) == NULL)))
   {
+printf("looks like an intrinsic\n");
   }
   else
     switch (root->token)
@@ -358,10 +379,12 @@ name_optimize (AST * root)
         {
         }
         else
-          subcall_optimize(root);
+        {
+printf("going to subcall_optimize\n");
+          subcall_optimize(root, rptr);
+        }
         break;
     }
-  printf("leaving name_optimize\n");
 }
 
 /*  This function optimize a function call.  I think this function
@@ -371,11 +394,11 @@ name_optimize (AST * root)
  */
 
 void 
-subcall_optimize(AST *root)
+subcall_optimize(AST *root, AST *rptr)
 {
   AST *temp;
   char *tempstr;
-  void expr_optimize (AST *);
+  void expr_optimize (AST *, AST *);
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
@@ -387,7 +410,7 @@ subcall_optimize(AST *root)
     {
                         
       if (*temp->astnode.ident.name != '*')
-        expr_optimize (temp);
+        expr_optimize (temp, rptr);
     }
 }
 
@@ -398,10 +421,10 @@ subcall_optimize(AST *root)
  */
 
 void
-expr_optimize (AST * root)
+expr_optimize (AST * root, AST *rptr)
 {
   char *tempname;
-  void name_optimize (AST *);
+  void name_optimize (AST *, AST *);
 
   if(root == NULL)
   {
@@ -412,27 +435,27 @@ expr_optimize (AST * root)
   switch (root->nodetype)
   {
     case Identifier:
-      name_optimize (root);
+      name_optimize (root, rptr);
       break;
     case Expression:
 
       if (root->astnode.expression.lhs != NULL)
-        expr_optimize (root->astnode.expression.lhs);
+        expr_optimize (root->astnode.expression.lhs, rptr);
 
-      expr_optimize (root->astnode.expression.rhs);
+      expr_optimize (root->astnode.expression.rhs, rptr);
 
       break;
     case Power:
       /* hack alert: */
-      expr_optimize (root->astnode.expression.lhs);
-      expr_optimize (root->astnode.expression.rhs);
+      expr_optimize (root->astnode.expression.lhs, rptr);
+      expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Binaryop:
-      expr_optimize (root->astnode.expression.lhs);
-      expr_optimize (root->astnode.expression.rhs);
+      expr_optimize (root->astnode.expression.lhs, rptr);
+      expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Unaryop:
-      expr_optimize (root->astnode.expression.rhs);
+      expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Constant:
 
@@ -455,8 +478,8 @@ expr_optimize (AST * root)
        * The parser code will have to store the NOT token.
        */
       if (root->astnode.expression.lhs != NULL)
-        expr_optimize (root->astnode.expression.lhs);
-      expr_optimize (root->astnode.expression.rhs);
+        expr_optimize (root->astnode.expression.lhs, rptr);
+      expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Relationalop:
 
@@ -469,13 +492,13 @@ expr_optimize (AST * root)
              ((root->astnode.expression.rhs->vartype == String) ||
               (root->astnode.expression.rhs->vartype == Character)))
           {
-            expr_optimize (root->astnode.expression.lhs);
-            expr_optimize (root->astnode.expression.rhs);
+            expr_optimize (root->astnode.expression.lhs, rptr);
+            expr_optimize (root->astnode.expression.rhs, rptr);
           }
           else
           {
-            expr_optimize (root->astnode.expression.lhs);
-            expr_optimize (root->astnode.expression.rhs);
+            expr_optimize (root->astnode.expression.lhs, rptr);
+            expr_optimize (root->astnode.expression.rhs, rptr);
           }
           break;
         case rel_ne:
@@ -484,36 +507,36 @@ expr_optimize (AST * root)
              ((root->astnode.expression.rhs->vartype == String) ||
               (root->astnode.expression.rhs->vartype == Character)))
           {
-            expr_optimize (root->astnode.expression.lhs);
-            expr_optimize (root->astnode.expression.rhs);
+            expr_optimize (root->astnode.expression.lhs, rptr);
+            expr_optimize (root->astnode.expression.rhs, rptr);
           }
           else
           {
-            expr_optimize (root->astnode.expression.lhs);
-            expr_optimize (root->astnode.expression.rhs);
+            expr_optimize (root->astnode.expression.lhs, rptr);
+            expr_optimize (root->astnode.expression.rhs, rptr);
           }
           break;
         case rel_lt:
-          expr_optimize (root->astnode.expression.lhs);
-          expr_optimize (root->astnode.expression.rhs);
+          expr_optimize (root->astnode.expression.lhs, rptr);
+          expr_optimize (root->astnode.expression.rhs, rptr);
           break;
         case rel_le:
-          expr_optimize (root->astnode.expression.lhs);
-          expr_optimize (root->astnode.expression.rhs);
+          expr_optimize (root->astnode.expression.lhs, rptr);
+          expr_optimize (root->astnode.expression.rhs, rptr);
           break;
         case rel_gt:
-          expr_optimize (root->astnode.expression.lhs);
-          expr_optimize (root->astnode.expression.rhs);
+          expr_optimize (root->astnode.expression.lhs, rptr);
+          expr_optimize (root->astnode.expression.rhs, rptr);
           break;
         case rel_ge:
-          expr_optimize (root->astnode.expression.lhs);
-          expr_optimize (root->astnode.expression.rhs);
+          expr_optimize (root->astnode.expression.lhs, rptr);
+          expr_optimize (root->astnode.expression.rhs, rptr);
           break;
       }
       break;
     case Substring:
-      expr_optimize(root->astnode.ident.arraylist);
-      expr_optimize(root->astnode.ident.arraylist->nextstmt);
+      expr_optimize(root->astnode.ident.arraylist, rptr);
+      expr_optimize(root->astnode.ident.arraylist->nextstmt, rptr);
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_optimize(): %s\n",
@@ -532,12 +555,12 @@ expr_optimize (AST * root)
  */
 
 void
-forloop_optimize (AST * root)
+forloop_optimize (AST * root, AST *rptr)
 {
   char *indexname;
   int *tmp_int;
-  void name_optimize (AST *);
-  void assign_optimize (AST *);
+  void name_optimize (AST *, AST *);
+  void assign_optimize (AST *, AST *);
 
   tmp_int = (int*)malloc(sizeof(int));
 
@@ -554,29 +577,29 @@ forloop_optimize (AST * root)
 
   if(root->astnode.forloop.incr != NULL)
   {
-    expr_optimize (root->astnode.forloop.incr);
+    expr_optimize (root->astnode.forloop.incr, rptr);
   }
 
-  assign_optimize (root->astnode.forloop.start);
+  assign_optimize (root->astnode.forloop.start, rptr);
 
   if(root->astnode.forloop.incr == NULL)
   {
-    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs);
+    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
 
-    expr_optimize (root->astnode.forloop.stop);
+    expr_optimize (root->astnode.forloop.stop, rptr);
 
 
-    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs);
+    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
 
   }
   else
   {
-    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs);
-    expr_optimize (root->astnode.forloop.stop);
-    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs);
-    expr_optimize (root->astnode.forloop.stop);
+    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
+    expr_optimize (root->astnode.forloop.stop, rptr);
+    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
+    expr_optimize (root->astnode.forloop.stop, rptr);
     
-    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs);
+    name_optimize(root->astnode.forloop.start->astnode.assignment.lhs, rptr);
   }
 
    /*  Done with loop parameters.  */
@@ -584,35 +607,32 @@ forloop_optimize (AST * root)
 }
 
 void
-logicalif_optimize (AST * root)
+logicalif_optimize (AST * root, AST *rptr)
 {
   if (root->astnode.logicalif.conds != NULL)
-    expr_optimize (root->astnode.logicalif.conds);
-  optimize (root->astnode.logicalif.stmts);
-}
-
-/*
- * This function generates labels.  We generate both a java label
- * and a call to the Dummy.label() method for goto translation.
- */
-
-void
-label_optimize (AST * root)
-{
-  int dl_int_examine(Dlist);
-
-  if (root->astnode.label.stmt != NULL) {
-    if (root->astnode.label.stmt->nodetype != Format) {
-      optimize (root->astnode.label.stmt);
-    }
-  } 
+    expr_optimize (root->astnode.logicalif.conds, rptr);
+  optimize (root->astnode.logicalif.stmts, rptr);
 }
 
 void
-read_optimize (AST * root)
+write_optimize (AST * root, AST *rptr)
 {
   AST *temp;
-  void read_implied_loop_optimize(AST *);
+  void expr_optimize(AST *, AST *);
+
+  for(temp = root->astnode.io_stmt.arg_list; temp!=NULL;temp=temp->nextstmt)
+    if(temp->nodetype != ImpliedLoop)
+      expr_optimize(temp, rptr);
+}
+
+void
+read_optimize (AST * root, AST *rptr)
+{
+  SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  HASHNODE *ht;
+  void read_implied_loop_optimize(AST *, AST *);
+  AST *temp;
 
   if(root->astnode.io_stmt.arg_list == NULL) {
     return;
@@ -621,10 +641,16 @@ read_optimize (AST * root)
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == ImpliedLoop)
-      read_implied_loop_optimize(temp);
+      read_implied_loop_optimize(temp, rptr);
     else if(temp->nodetype == Identifier)
     {
-      name_optimize(temp);
+      name_optimize(temp, rptr);
+
+      ht = type_lookup(opt_type_table,temp->astnode.ident.name);
+      if(ht) {
+        if(type_lookup(opt_args_table, temp->astnode.ident.name) != NULL)
+          ht->variable->astnode.ident.passByRef = TRUE;
+      }
     }
     else
     {
@@ -637,13 +663,13 @@ read_optimize (AST * root)
 }
 
 void
-read_implied_loop_optimize(AST *node)
+read_implied_loop_optimize(AST *node, AST *rptr)
 {
 
-  expr_optimize(node->astnode.forloop.start);
-  expr_optimize(node->astnode.forloop.stop);
+  expr_optimize(node->astnode.forloop.start, rptr);
+  expr_optimize(node->astnode.forloop.stop, rptr);
   if(node->astnode.forloop.incr != NULL)
-    expr_optimize(node->astnode.forloop.incr);
+    expr_optimize(node->astnode.forloop.incr, rptr);
 
   if(node->astnode.forloop.Label->nodetype != Identifier) {
     fprintf(stderr,"Cant handle this nodetype (%s) ",
@@ -651,7 +677,7 @@ read_implied_loop_optimize(AST *node)
     fprintf(stderr," in implied loop (read stmt)\n");
   }
   else {
-    name_optimize(node->astnode.forloop.Label);
+    name_optimize(node->astnode.forloop.Label, rptr);
   }
 }
 
@@ -664,12 +690,12 @@ read_implied_loop_optimize(AST *node)
  */
 
 void
-blockif_optimize (AST * root)
+blockif_optimize (AST * root, AST *rptr)
 {
   AST *prev = root->prevstmt;
   AST *temp;
   int *tmp_int;
-  void while_optimize(AST *);
+  void while_optimize(AST *, AST *);
 
   tmp_int = (int*)malloc(sizeof(int));
 
@@ -703,7 +729,7 @@ blockif_optimize (AST * root)
               ; /* do nothing */
           if(temp->nodetype == Goto)
             if(temp->astnode.go_to.label == prev->astnode.label.number) {
-              while_optimize(root);
+              while_optimize(root, rptr);
               return;
             }
         }
@@ -711,15 +737,15 @@ blockif_optimize (AST * root)
     }
 
   if (root->astnode.blockif.conds != NULL)
-    expr_optimize (root->astnode.blockif.conds);
+    expr_optimize (root->astnode.blockif.conds, rptr);
 
-  optimize (root->astnode.blockif.stmts);
+  optimize (root->astnode.blockif.stmts, rptr);
 
   if (root->astnode.blockif.elseifstmts != NULL)
-    optimize (root->astnode.blockif.elseifstmts);
+    optimize (root->astnode.blockif.elseifstmts, rptr);
 
   if (root->astnode.blockif.elsestmts != NULL)
-    optimize (root->astnode.blockif.elsestmts);
+    optimize (root->astnode.blockif.elsestmts, rptr);
 }
 
 /* 
@@ -743,12 +769,12 @@ blockif_optimize (AST * root)
  */
 
 void 
-while_optimize(AST *root)
+while_optimize(AST *root, AST *rptr)
 {
 
   if (root->astnode.blockif.conds != NULL)
-    expr_optimize (root->astnode.blockif.conds);
-  optimize (root->astnode.blockif.stmts);
+    expr_optimize (root->astnode.blockif.conds, rptr);
+  optimize (root->astnode.blockif.stmts, rptr);
 
 }
 
@@ -758,11 +784,11 @@ while_optimize(AST *root)
  */
 
 void
-elseif_optimize (AST * root)
+elseif_optimize (AST * root, AST *rptr)
 {
     if (root->astnode.blockif.conds != NULL)
-	expr_optimize (root->astnode.blockif.conds);
-    optimize (root->astnode.blockif.stmts);
+	expr_optimize (root->astnode.blockif.conds, rptr);
+    optimize (root->astnode.blockif.stmts, rptr);
 }
 
 /* 
@@ -771,9 +797,9 @@ elseif_optimize (AST * root)
  */
 
 void
-else_optimize (AST * root)
+else_optimize (AST * root, AST *rptr)
 {
-    optimize (root->astnode.blockif.stmts);
+    optimize (root->astnode.blockif.stmts, rptr);
 }
 
 /* 
@@ -784,26 +810,22 @@ else_optimize (AST * root)
  */
 
 void
-call_optimize (AST * root)
+call_optimize (AST * root, AST *rptr)
 {
-  AST *temp;
+  AST *temp, *temp2;
   char *tempname;
   HASHNODE *hashtemp;
-  HASHNODE *ht;
-  HASHNODE *ht2;
-  int needs_adapter(AST *);
-  void insert_adapter(AST *);
-  void insert_methcall(Dlist, AST *);
-  SYMTABLE *opt_args_table = ASTroot->astnode.source.args_table;
-  SYMTABLE *opt_array_table = ASTroot->astnode.source.type_table;
+  HASHNODE *ht, *ht2, *ht3;
+  SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
+  SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+  void expr_optimize(AST *, AST *);
+  int cnt;
+
+printf("enter call_optimize\n");
 
   assert (root != NULL);
-
-  printf("@##@ in call_optimize, %s\n",root->astnode.ident.name);
-
-  /* shouldn't be necessary to lowercase the name
-   *   lowercase (root->astnode.ident.name);
-   */
 
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
@@ -813,7 +835,6 @@ call_optimize (AST * root)
    */
 
   if(type_lookup(opt_args_table, root->astnode.ident.name)) {
-    printf("@@ calling passed-in func %s\n",root->astnode.ident.name);
 
     /* if this function has no args, we can simplify the calling
      * process by not creating an argument array or calling a
@@ -831,158 +852,97 @@ call_optimize (AST * root)
 
       /* subroutine with args.  */
 
-      int cnt = 0;
-
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
-        cnt++;
-      
-
-      cnt = 0;
-      for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
-      {
-        if(((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL)) ||
-            (temp->nodetype == Constant))
-        {
-          expr_optimize (temp);
-        }
-        else
-        {
-          expr_optimize (temp);
-        }
-
-
-        cnt++;
-      }
+        expr_optimize (temp, rptr);
 
       return;
     }
   }
 
-  /* analyze this function call to determine if we need to generate an 
-   * 'adapter' which will simulate passing array elements by reference.
-   */
-
-  else if( needs_adapter(root) )
-  {
-    printf("wow, guess we need an adapter for %s.\n", root->astnode.ident.name);
-    insert_adapter(root);
-
-    /* Assume all methods that are invoked are static.  */
-  }
-
-  if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
-     (root->astnode.ident.arraylist == NULL))
-  {
+  if(root->astnode.ident.arraylist->nodetype == EmptyArgList)
     return;
-  }
-
-
 
   /* look up the function name so that we may compare the parameters */
 
-  printf("Looking up function name %s, ", root->astnode.ident.name);
-
-  if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
+printf("looking up %s in the global function table\n",root->astnode.ident.name);
+  if((hashtemp=type_lookup(global_func_table, root->astnode.ident.name)) != NULL)
   {
     AST *t2;
 
-    printf("Found!!\n");
-
     temp = root->astnode.ident.arraylist;
-    t2=hashtemp->variable->astnode.source.args;
+    t2=hashtemp->variable->astnode.source.progtype->astnode.source.args;
 
     for( ; temp != NULL; temp = temp->nextstmt)
     {
-         /* 
-          * if the arg is an identifier  AND
-          *    it looks like an array access AND
-          *    it is in the array table
-          */
-       if((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist != NULL)
-          && (ht=type_lookup(opt_array_table, temp->astnode.ident.name)) )
-       {
-         ht2 = type_lookup(opt_args_table, temp->astnode.ident.name);
+       expr_optimize(temp, rptr);
 
-         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
-         {
+       /*  if this node is an identifier AND
+        *      it does not look like an array AND
+        *      it is not in the array table
+        */
+
+       if((temp->nodetype == Identifier) && 
+          (temp->astnode.ident.arraylist == NULL) && 
+          (type_lookup(opt_array_table,temp->astnode.ident.name)==NULL))
+       {
+         /* now we check whether the function/subroutine expects this 
+          * to be passed by reference.
+          */
+
+         if(t2->astnode.ident.passByRef) {
+           ht = type_lookup(opt_type_table,temp->astnode.ident.name);
+           if(ht) {
+             ht->variable->astnode.ident.passByRef = TRUE;
+
+             ht2 = type_lookup(opt_common_table,temp->astnode.ident.name);
+             if(ht2) {
+               ht3 = type_lookup(global_common_table,
+                       ht2->variable->astnode.ident.commonBlockName);
+   
+               if(ht3) {
  
-         }
-         else                                /* it is not expecting an array */
-         {
+                 temp2 = ht3->variable->astnode.common.nlist;
+                 cnt = 0;
 
-         }
-       }
-         /* 
-          * else if the arg is an identifier AND
-          *      it does not look like an array access AND
-          *      it is in the array table
-          */
-       else if((temp->nodetype == Identifier) &&
-               (temp->astnode.ident.arraylist == NULL) && 
-               type_lookup(opt_array_table, temp->astnode.ident.name) )
-       {
-         if(t2->astnode.ident.arraylist)     /* it is expecting an array */
-         {
-           printf("expecting array\n");
-           expr_optimize(temp);
-         }
-         else
-         {
-           printf("NOT expecting array\n");
-         }
-       }
-       else if(
-         ((temp->nodetype == Identifier) &&
-          (temp->astnode.ident.arraylist == NULL) )
-          || (temp->nodetype == Constant) )
-       {
-         expr_optimize(temp);
-       }
-       else if(temp->nodetype == EmptyArgList)
-       {
-          ;  /* do nothing */
-       }
-         /* 
-          * Otherwise, use wrappers.
-          */
-       else 
-       {
+                 while((cnt < ht2->variable->astnode.ident.position) &&
+                       (temp2 != NULL))
+                 {
+                   cnt++;
+                   temp2 = temp2->nextstmt;
+                 }
 
-         expr_optimize(temp);
-
+                 if(temp2 != NULL) {
+                   temp2->astnode.ident.passByRef = TRUE;
+                 }
+                 else {
+                   fprintf(stderr, "optimize(): Common block length ");
+                   fprintf(stderr, "does not match position of ident\n");
+                 }
+               }
+               else {
+                 fprintf(stderr,"Cant find common block %s\n", 
+                   ht2->variable->astnode.ident.commonBlockName);
+               }
+             }
+           }
+         }
        }
+
        if(t2 != NULL)
          t2 = t2->nextstmt;
     }
   }
   else
   {
+    printf("call_optimize(): %s not found in global function table.\n",
+      root->astnode.ident.name);
+
     temp = root->astnode.ident.arraylist;
 
     for( ; temp != NULL; temp = temp->nextstmt)
-    {
-      if(((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL)) ||
-          (temp->nodetype == Constant))
-      {
-        expr_optimize (temp);
-      }
-      else
-      {
-        expr_optimize (temp);
-      }
-
-    }
+      expr_optimize (temp, rptr);
   }
-
-  /*  
-   *  Problem here, depends on who called this procedure.
-   *  When this is used by the CALL keyword, it works as
-   *  written.  When used to create an external function call,
-   *  it adds an extra ; and \n to the output.  Might be
-   *  able to fix this by checking the nodetype. 
-   */
-
-}				/*  Close call_optimize().  */
+}
 
 /* 
  * This function generates the code for assignment statements.
@@ -992,10 +952,13 @@ call_optimize (AST * root)
  */
 
 void
-assign_optimize (AST * root)
+assign_optimize (AST * root, AST *rptr)
 {
+  SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   enum returntype ltype, rtype;
-  void name_optimize (AST *);
+  void name_optimize (AST *, AST *);
+  HASHNODE *ht;
 
   ltype = root->astnode.assignment.lhs->vartype;
   rtype = root->astnode.assignment.rhs->vartype;
@@ -1006,37 +969,17 @@ assign_optimize (AST * root)
     return;
   }
 
-  name_optimize (root->astnode.assignment.lhs);
-
-  if(ltype != rtype)
-  {
-    /* lhs and rhs have different types */
-
-    if((ltype != String) && (ltype != Logical) && (rtype == String))
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
-    else if((ltype != String) && (ltype != Logical) && (rtype == Character))
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
-    else if( (ltype == Logical) && (rtype == String) )
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
-    else if( (ltype == Logical) && (rtype == Character) )
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
-    else if( (ltype == Logical) && (rtype != String) )
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
-    else
-    {
-      expr_optimize (root->astnode.assignment.rhs);
-    }
+  name_optimize (root->astnode.assignment.lhs, rptr);
+  
+  ht = type_lookup(opt_type_table,root->astnode.assignment.lhs->astnode.ident.name);
+  if(ht) {
+    if(type_lookup(opt_args_table, 
+          root->astnode.assignment.lhs->astnode.ident.name) != NULL)
+      ht->variable->astnode.ident.passByRef = TRUE;
   }
-  else   /* lhs and rhs have same types, everything is cool */
-    expr_optimize (root->astnode.assignment.rhs);
+  else
+    printf("Can't find lhs of assignment: %s\n", 
+       root->astnode.assignment.lhs->astnode.ident.name);
+
+  expr_optimize (root->astnode.assignment.rhs, rptr);
 }

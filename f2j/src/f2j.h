@@ -1,5 +1,6 @@
 #include<assert.h>
 #include"symtab.h"
+#include"dlist.h"
 
 /*  Fortran is context sensitive.  These 
    boolean values are an attempt to deal 
@@ -13,6 +14,14 @@ typedef int BOOLEAN;
 #define BLAS 0
 #define LAPACK 1
 #define DEFAULT_TARGET_LANG 0 /* 0 for JAVA, 1 for JAS */
+#define TYPECHECK
+#define OPT_SCALAR
+
+/* defines for optimization of the use of object wrappers */
+
+#define NOT_VISITED 0
+#define VISITED     1
+#define FINISHED    2
 
 /*  If 1, yyparse produces voluminous, detailed
     output to stderr during parsing.  */
@@ -45,6 +54,8 @@ SYMTABLE *function_table;
 SYMTABLE *java_keyword_table; 
 SYMTABLE *jasmin_keyword_table; 
 SYMTABLE *common_block_table;
+SYMTABLE *global_func_table;
+SYMTABLE *global_common_table;
 
 int ignored_formatting;
 int bad_format_count;
@@ -166,6 +177,9 @@ typedef struct ast_node
                   struct ast_node *equivalences;
                   int needs_input;
                   int needs_reflection;
+#ifdef OPT_SCALAR
+                  int scalarOptStatus;
+#endif
 	      }
 	    source;
 
@@ -240,7 +254,12 @@ typedef struct ast_node
                   char *merged_name;
                   int needs_declaration;
                   int len;
+#ifdef OPT_SCALAR
                   int passByRef;
+                  int isLhs;
+                  int isReadArg;
+                  int position;
+#endif
 	      }
 	    ident;
 

@@ -33,29 +33,26 @@ puref2j:	f2j.h f2jparse.y $(OBJS) $(JAVAB)
 $(JAVAB):	
 	cd $(GOTO_TRANS);make
 
-f2jmain.o:  f2jmain.c f2j.h f2jparse.y
-	$(CC) -c $(CFLAGS) f2jmain.c
-
 f2jlex: f2jlex.o f2j.h
 	$(CC) $(CFLAGS) -o f2jlex f2jlex.o
 
 f2jlex.o: f2jlex.c
-	$(CC) -c $(CFLAGS) f2jlex.c
-
-dlist.o: dlist.c dlist.h
-	$(CC) -c $(CFLAGS) dlist.c
-
-f2jparse.tab.o: f2jparse.tab.c f2j.h
-	$(CC) -c $(CFLAGS) f2jparse.tab.c
 
 f2jparse.tab.c f2jparse.tab.h:  f2jparse.y
 	$(YACC) $(YFLAGS) f2jparse.y
 
+f2jmain.o:  f2jmain.c f2j.h f2jparse.y
+
 dlist.o: dlist.c
  
+dlist.o: dlist.c dlist.h
+
+f2jparse.tab.o: f2jparse.tab.c f2j.h
+
 codegen.o:  codegen.c f2j.h
 
 #  vcg = visualization of compiler graphs.
+
 vcg_emitter.o:  vcg_emitter.c f2j.h
 
 opcode.o: opcode.c f2j.h
@@ -67,8 +64,6 @@ typeassign.o: typeassign.c f2j.h
 typecheck.o: typecheck.c f2j.h
 
 optimize.o: optimize.c f2j.h
-
-#initialize.o: initialize.c f2j.h
 
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 

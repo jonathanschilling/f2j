@@ -36,6 +36,8 @@
 
 #define YYTEXTLEN 100 
 
+int lexdebug = FALSE;
+
 /* Some of these variable may not be used anymore.
    gcc -Wall needs to be run to clean up this stuff
    before they turn into confusion factors. */
@@ -56,8 +58,6 @@ BOOLEAN typedecs = FALSE;
 BOOLEAN letterseen;
 BOOLEAN equalseen;
 BOOLEAN commaseen;
-
-int lexdebug = 0;
 
 char *tok2str(int);
 char *strdup(const char *);
@@ -357,7 +357,8 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
 	      {
                 if((token == DO) || (token == IF))
                 {
-                  printf("got incorrect DO or IF keyword, restoring buffer\n");
+                  if(lexdebug)
+                    printf("got incorrect DO or IF keyword, restoring buffer\n");
                   strcpy(buffer.stmt,stmt_copy);
                   strcpy(buffer.text,text_copy);
                 }

@@ -6,8 +6,8 @@
 #include<string.h>
 
 #define YYDEBUG 0
-#define TYPECHECK
-#define OPTIMIZE
+
+int debug = FALSE;
 
 extern char yytext[]; 
 extern enum contexts context;
@@ -42,7 +42,6 @@ SYMTABLE *ident_table;
 SYMTABLE *jasmin_table;
 
 int emittem = 1;
-int debug = 0;
 int len = 1;
 
 AST *dataStmtList = NULL;
@@ -51,7 +50,7 @@ AST *equivList = NULL;
 void assign_local_vars(AST *);
 void assign(AST *);
 void typecheck(AST *);
-void optimize(AST *);
+void optScalar(AST *);
 int hash(char *);
 void type_insert (HASHNODE ** , AST * , int , char *);
 void type_hash(AST *);
@@ -85,7 +84,7 @@ SYMTABLE * new_symtable (int );
 %token IF THEN ELSE ELSEIF ENDIF DO GOTO ASSIGN TO CONTINUE STOP
 %token RDWR END  STRING CHAR
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
-%token PROGRAM FUNCTION SUBROUTINE ENTRY END CALL RETURN
+%token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
 %token <type> TYPE  
 %token DIMENSION
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
@@ -156,8 +155,8 @@ F2java:   Sourcecodes
 #ifdef TYPECHECK
                   typecheck(temp);
 #endif
-#ifdef OPTIMIZE
-                  optimize(temp);
+#ifdef OPT_SCALAR
+                  optScalar(temp);
 #endif
                   emit(temp);
                 }
@@ -166,38 +165,67 @@ F2java:   Sourcecodes
           }
 ;
 
-
 Sourcecodes:   Sourcecode 
                {
+#ifdef OPT_SCALAR
+                 AST *temp;
+                 char *hashid;
+                 int index;
+#endif
+
                  if(debug)
                    printf("Sourcecodes -> Sourcecode\n"); 
                  $$=$1;
+
+#ifdef OPT_SCALAR
+                 temp = $1->astnode.source.progtype->astnode.source.name;
+
+                 hashid =temp->astnode.ident.name;
+                 index = hash(hashid) % global_func_table->num_entries;
+                 type_insert(&(global_func_table->entry[index]), $1, 0,
+                   temp->astnode.ident.name);
+#endif
                }
              | Sourcecodes Sourcecode 
                {
+#ifdef OPT_SCALAR
+                 AST *temp;
+                 char *hashid;
+                 int index;
+#endif
                  if(debug)
                    printf("Sourcecodes -> Sourcecodes Sourcecode\n");
                  $2->prevstmt = $1; 
                  $$=$2;
+
+#ifdef OPT_SCALAR
+                 temp = $2->astnode.source.progtype->astnode.source.name;
+
+                 hashid =temp->astnode.ident.name;
+                 index = hash(hashid) % global_func_table->num_entries;
+                 type_insert(&(global_func_table->entry[index]), $2, 0,
+                   temp->astnode.ident.name);
+#endif
                }
 ;
-
-
 
 Sourcecode :    Fprogram
                 { 
                   if(debug)
                     printf("Sourcecode -> Fprogram\n"); 
+                  $$=$1;
                 }
               | Fsubroutine
                 { 
                   if(debug)
                     printf("Sourcecode -> Fsubroutine\n"); 
+                  $$=$1;
                 }
               | Ffunction
                 { 
                   if(debug)
                     printf("Sourcecode -> Ffunction\n"); 
+                  $$=$1;
                 }
 ;
 
@@ -205,11 +233,7 @@ Fprogram:   Program  Specstmts  Statements End
               {
                 if(debug)
                   printf("Fprogram -> Program  Specstmts  Statements End\n");
-/*
- *  moved the type_hash stuff to the Specstmts production
- *     $2 = switchem($2);
- *     type_hash($2); 
- */
+
                 $$ = addnode();
 
                 $$->astnode.source.type_table = type_table;
@@ -227,6 +251,9 @@ Fprogram:   Program  Specstmts  Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+#ifdef OPT_SCALAR
+                $$->astnode.source.scalarOptStatus = NOT_VISITED;
+#endif
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -261,12 +288,6 @@ Fsubroutine: Subroutine Specstmts Statements End
 	        $4->parent = $$;
                 $$->nodetype = Progunit;
                 $$->astnode.source.progtype = $1;
-/*
- *  moved the type_hash stuff to the Specstmts production
- *      $2 = switchem($2);
- *      type_hash($2); 
- */
-
 
                 $$->astnode.source.type_table = type_table;
                 $$->astnode.source.external_table = external_table;
@@ -283,6 +304,9 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+#ifdef OPT_SCALAR
+                $$->astnode.source.scalarOptStatus = NOT_VISITED;
+#endif
 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -313,11 +337,7 @@ Ffunction:   Function Specstmts Statements  End
 
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
-/*
- *  moved the type_hash stuff to the Specstmts production
- *       $2 = switchem($2);
- *       type_hash($2);
- */
+
                 $$ = addnode();
 
                 $$->astnode.source.type_table = type_table;
@@ -335,6 +355,9 @@ Ffunction:   Function Specstmts Statements  End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
+#ifdef OPT_SCALAR
+                $$->astnode.source.scalarOptStatus = NOT_VISITED;
+#endif
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -379,7 +402,6 @@ Program:      PROGRAM Name NL
               }
 ;
 
-/*  Subroutine is handled correctly.  */
 Subroutine: SUBROUTINE Name Functionargs NL
               {
                  if(debug)
@@ -422,6 +444,11 @@ Subroutine: SUBROUTINE Name Functionargs NL
 
 Function:  Type FUNCTION Name Functionargs NL 
            {
+#ifdef OPT_SCALAR
+             HASHNODE *hash_entry;
+             char *hashid;
+             int index;
+#endif
              if(debug)
                printf("Function ->  Type FUNCTION Name Functionargs NL\n");
              $$ = addnode();
@@ -441,6 +468,25 @@ Function:  Type FUNCTION Name Functionargs NL
              else 
                $$->astnode.source.args = switchem($4);
 
+#ifdef OPT_SCALAR
+             hashid = $3->astnode.ident.name;
+
+             /*  Hash...  */
+             index = hash(hashid) % type_table->num_entries;
+             hash_entry = search_hashlist (type_table->entry[index], hashid);
+             if(hash_entry != NULL)
+                if(debug) printf("Duplicate symbol table entry: %s\n", hashid);  
+
+#ifdef TYPECHECK
+             if(hash_entry == NULL)
+               $3->vartype = $1;
+             else
+               $3->vartype = hash_entry->variable->vartype;
+#endif
+
+             type_insert(&(type_table->entry[index]), $3, $3->vartype,
+                  $3->astnode.ident.name);
+#endif
              fprintf(stderr,"\t%s:\n",$3->astnode.ident.name);
            }
 ; 
@@ -586,23 +632,31 @@ CommonList: CommonSpec
 CommonSpec: DIV Name DIV Namelist
            {
               AST *temp;
-              int idx;
+              int idx, pos;
 
               $$ = addnode();
               $$->nodetype = Common;
               $$->astnode.common.name = strdup($2->astnode.ident.name);
               $$->astnode.common.nlist = switchem($4);
 
-              for(temp=$4;temp!=NULL;temp=temp->prevstmt) {
+              pos = 0;
+              for(temp=$$->astnode.common.nlist;temp!=NULL;temp=temp->nextstmt)
+              {
                 temp->astnode.ident.commonBlockName = 
                   strdup($2->astnode.ident.name);
+                temp->astnode.ident.position = pos++;
+printf("set %s's position to %d\n",temp->astnode.ident.name,temp->astnode.ident.position);
                 idx = hash(temp->astnode.ident.name)%common_table->num_entries;
                 if(debug)
-                  printf("@@insert %s (block = %s) into common table (idx=%d)\n",
+                  printf("@insert %s (block = %s) into common table (idx=%d)\n",
                    temp->astnode.ident.name, $2->astnode.ident.name, idx);
                 type_insert(&(common_table->entry[idx]), temp, Float,
                    temp->astnode.ident.name);
               }
+
+              idx = hash($$->astnode.common.name) % global_common_table->num_entries;
+              type_insert(&(global_common_table->entry[idx]), $$, Float,
+                 $$->astnode.common.name);
            }
          | CAT Namelist     /* CAT is // */
            {
@@ -623,6 +677,10 @@ CommonSpec: DIV Name DIV Namelist
                 type_insert(&(common_table->entry[idx]), temp, Float,
                    temp->astnode.ident.name);
               }
+
+              idx = hash($$->astnode.common.name) % global_common_table->num_entries;
+              type_insert(&(global_common_table->entry[idx]), $$, Float,
+                 $$->astnode.common.name);
            }
 ;
 
@@ -958,8 +1016,24 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               }
             | Read
               {
+#ifdef OPT_SCALAR
+                HASHNODE *ht;
+                AST *temp;
+#endif
+
                 $$ = $1;
                 $$->nodetype = Read;
+
+#ifdef OPT_SCALAR
+                for(temp = $1->astnode.io_stmt.arg_list;
+                 temp != NULL; temp = temp->nextstmt)
+                  if(temp->nodetype == Identifier) {
+                    ht = type_lookup(type_table,temp->astnode.ident.name);
+                    if(ht)
+                      ht->variable->astnode.ident.isReadArg = TRUE;
+                  }
+#endif
+
               }
             | Stop
               {
@@ -983,15 +1057,18 @@ Close:  CLOSE OP Name CP NL
 End:    END  NL 
         {
           $$ = addnode();
-	  $$->token = END;
+          $$->token = END;
           $$->nodetype = End;
         }
 ;
 
-/* We have to load up a symbol table here with the names of all the
-   variables that are passed in as arguments to our function or
-   subroutine.  Also need to pass `namelist' off to a procedure
-   to load a local variable table for opcode generation.   */
+/* 
+ * We have to load up a symbol table here with the names of all the
+ * variables that are passed in as arguments to our function or
+ * subroutine.  Also need to pass `namelist' off to a procedure
+ * to load a local variable table for opcode generation.   
+ */
+
 Functionargs:   OP Namelist CP   
                 {
                   if(JAS)
@@ -1067,15 +1144,19 @@ Types:       Type
              }
 ;
 
-Type:  TYPE { $$ = yylval.type;   }
+Type:  TYPE
+       { 
+         $$ = yylval.type;
+       }
 ;
 
 /* Here I'm going to do the same thing I did with Explist.  That is,
-   each element in the list of typevars will have a parent link to a 
-   single node indicating that the context of the array is a
-   declaration.  --Keith */
+ * each element in the list of typevars will have a parent link to a 
+ * single node indicating that the context of the array is a
+ * declaration.  --Keith 
+ */
 
-Typevarlist:     Typevar
+Typevarlist: Typevar
              {
                AST *temp;
 
@@ -1104,16 +1185,18 @@ Typevar:   Name
 ;
 
 /*  Deleted the Type REAL hack...  Need to take care of that in the 
-    lexer.  This CHAR and STRING stuff is in the wrong place and
-    needs to get axed.  Putting the TYPE back in ...
-          ^^^^^^^^^^^ it is commented out for now 9-12-97, Keith
-                   moved to 'Constant' production 9-17-97, Keith
+ *  lexer.  This CHAR and STRING stuff is in the wrong place and
+ *  needs to get axed.  Putting the TYPE back in ...
+ *        ^^^^^^^^^^^ it is commented out for now 9-12-97, Keith
+ *                 moved to 'Constant' production 9-17-97, Keith
  */
 
-/*  Might have to explicitly set the arraydeclist pointer to
-    NULL in this action.  `Name' gets pointed to by the node
-    that carries the array information.
-    */
+/*
+ *  Might have to explicitly set the arraydeclist pointer to
+ *  NULL in this action.  `Name' gets pointed to by the node
+ *  that carries the array information.
+ */
+
 Name:    NAME  
          {
            HASHNODE *hashtemp;
@@ -1121,16 +1204,21 @@ Name:    NAME
            $$=addnode();
 	   $$->token = NAME;
            $$->nodetype = Identifier;
+
            $$->astnode.ident.needs_declaration = FALSE;
-           $$->astnode.ident.passByRef = TRUE;
            $$->astnode.ident.lead_expr = NULL;
+
+#ifdef OPT_SCALAR
+           $$->astnode.ident.passByRef = FALSE;
+           $$->astnode.ident.isLhs     = FALSE;
+           $$->astnode.ident.isReadArg = FALSE;
+#endif
 
            lowercase(yylval.lexeme);
 
            if(type_lookup(java_keyword_table,yylval.lexeme) ||
               type_lookup(jasmin_keyword_table,yylval.lexeme))
                  yylval.lexeme[0] = toupper(yylval.lexeme[0]);
-
 
            strcpy($$->astnode.ident.name, yylval.lexeme);
 
@@ -1295,19 +1383,30 @@ Star:  STAR
 ;
 
 /*  At some point, I will need to typecheck the `Name' on the left
-    hand side of this rule in case it has an array form.  If it looks like
-    an array, but it isn't in the array table, that's an error. 
+ *  hand side of this rule in case it has an array form.  If it looks like
+ *  an array, but it isn't in the array table, that's an error. 
  */
+
 Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
-                             declaration, where it is not followed by a NL.
-                           */
+                          *  declaration, where it is not followed by a NL.
+                          */
              { 
+#ifdef OPT_SCALAR
+                HASHNODE *ht;
+#endif
+
                 $$ = addnode();
-	        $1->parent = $$; /* 9-4-97 - Keith */
-	        $3->parent = $$; /* 9-4-97 - Keith */
+                $1->parent = $$; /* 9-4-97 - Keith */
+                $3->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Assignment;
                 $$->astnode.assignment.lhs = $1;
                 $$->astnode.assignment.rhs = $3;
+
+#ifdef OPT_SCALAR
+                ht = type_lookup(type_table, $1->astnode.ident.name);
+                if(ht)
+                  ht->variable->astnode.ident.isLhs = TRUE;                    
+#endif
              }
 ;
 
@@ -1316,33 +1415,38 @@ Lhs:     Name
            $$=$1;
            $$->nextstmt = NULL;
            $$->prevstmt = NULL;
-         } 
+         }
       |  Name OP Arrayindexlist CP
          {
            /*   Use the following declaration in case we 
-                need to switch index order. 
-
-	      HASHNODE * hashtemp;  
+            *   need to switch index order. 
+            *
+            *   HASHNODE * hashtemp;  
             */
 
-	   $$ = addnode();
-	   $1->parent = $$; /* 9-4-97 - Keith */
-	   $3->parent = $$; /* 9-4-97 - Keith */
-	   $$->nodetype = Identifier;
+           $$ = addnode();
+           $1->parent = $$; /* 9-4-97 - Keith */
+           $3->parent = $$; /* 9-4-97 - Keith */
+           $$->nodetype = Identifier;
            $$->astnode.ident.lead_expr = NULL;
            $$->prevstmt = NULL;
            $$->nextstmt = NULL;
-	   strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-	   /*  This is in case we want to switch index order later. */
-	   /*
-	   hashtemp = type_lookup(array_table, $1->astnode.ident.name);
-	   if(hashtemp)
-	     $$->astnode.ident.arraylist = $3;
-	   else
-	   */
-	   /* We don't switch index order.  */
-	   $$->astnode.ident.arraylist = switchem($3);
-	 }
+
+           strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+
+           /*  This is in case we want to switch index order later.
+            *
+            *  hashtemp = type_lookup(array_table, $1->astnode.ident.name);
+            *  if(hashtemp)
+            *    $$->astnode.ident.arraylist = $3;
+            *  else
+            *    $$->astnode.ident.arraylist = switchem($3);
+            */
+
+           /* We don't switch index order.  */
+
+           $$->astnode.ident.arraylist = switchem($3);
+         }
       |  Name OP Exp COLON Exp CP
          {
            $$=addnode();
@@ -1864,55 +1968,60 @@ Logicalifstmts:  Assignment NL
 
 *******************************************************************/
 
-/* This _may_ have to be extended to deal with jasmin opcode. 
-   Variables of type array need to have their
-   arguments emitted in reverse order so that
-   java can increment in row instead of column
-   order.  So we look each name up in the array
-   table, it is in there we leave the argument
-   list reversed, otherwise, it is a subroutine
-   or function (method) call and we reverse
-   the arguments.  */
+/* 
+ * This _may_ have to be extended to deal with 
+ * jasmin opcode.  Variables of type array need 
+ * to have their arguments emitted in reverse order 
+ * so that java can increment in row instead of column
+ * order.  So we look each name up in the array table, 
+ * it is in there we leave the argument list reversed, 
+ * otherwise, it is a subroutine or function (method) 
+ * call and we reverse the arguments.
+ */
+
 Subroutinecall:   Name OP Explist CP
                   {
                     /* Use the following declarations in case we 
-                       need to switch index order.
-
-                       HASHNODE * hashtemp;  
-                       HASHNODE * ht;
+                     * need to switch index order.
+                     * 
+                     * HASHNODE * hashtemp;  
+                     * HASHNODE * ht;
                      */
 
                     $$ = addnode();
                     $1->parent = $$;  /* 9-4-97 - Keith */
+
                     /*  $3->parent = $$;  9-4-97 - Keith */
 
                     if($3 != NULL)
                       strcpy($3->parent->astnode.ident.name, 
                         $1->astnode.ident.name);
 
-/*
- *  Here we could look up the name in the array table and set the
- *  nodetype to ArrayAccess if it is found.  Then the code generator
- *  could easily distinguish between array accesses and function
- *  calls.  I'll have to implement the rest of this soon.  -- Keith
- *
- *                  if(type_lookup(array_table, $1->astnode.ident.name))
- *                    $$->nodetype = ArrayAccess;
- *                  else
- *                    $$->nodetype = Identifier;
- */
-                      $$->nodetype = Identifier;
+                    /*
+                     *  Here we could look up the name in the array table and set 
+                     *  the nodetype to ArrayAccess if it is found.  Then the code 
+                     *  generator could easily distinguish between array accesses 
+                     *  and function calls.  I'll have to implement the rest of 
+                     *  this soon.  -- Keith
+                     *
+                     *     if(type_lookup(array_table, $1->astnode.ident.name))
+                     *       $$->nodetype = ArrayAccess;
+                     *     else
+                     *       $$->nodetype = Identifier;
+                     */
+
+                    $$->nodetype = Identifier;
 
                     $$->astnode.ident.lead_expr = NULL;
                     strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 
-                    /*  This is in case we want to switch index order later. */
-                    /*
-                       hashtemp = type_lookup(array_table, $1->astnode.ident.name);
-                       if(hashtemp != NULL)
-                         $$->astnode.ident.arraylist = $3;
-                       else
-                    */
+                    /*  This is in case we want to switch index order later.
+                     *
+                     *  hashtemp = type_lookup(array_table, $1->astnode.ident.name);
+                     *  if(hashtemp != NULL)
+                     *    $$->astnode.ident.arraylist = $3;
+                     *  else
+                     */
 
                     /* We don't switch index order.  */
                     if($3 == NULL) {
@@ -1940,12 +2049,14 @@ SubstringOp: Name OP Exp COLON Exp CP
 ;
 
 
-/* What I'm going to try to do here is have each element
-   of the list linked back to a single node through its
-   parent pointer.  This will allow the code generator
-   to check the array context (whether it is being used
-   as part of an external call or part of a call to an
-   intrinsic function or some other use). --Keith */
+/* 
+ * What I'm going to try to do here is have each element
+ * of the list linked back to a single node through its
+ * parent pointer.  This will allow the code generator
+ * to check the array context (whether it is being used
+ * as part of an external call or part of a call to an
+ * intrinsic function or some other use). --Keith 
+ */
 
 Explist:   Exp
            {
@@ -1970,7 +2081,7 @@ Explist:   Exp
 ;
 
 /*  This is not exactly right.  There will need to 
-    be a struct to handle this.
+ *  be a struct to handle this.
  */
 Call:     CALL   Subroutinecall  NL
           {
@@ -2335,9 +2446,7 @@ Exponential:   EXPONENTIAL
                $$ = addnode();
 	       $$->token = EXPONENTIAL;
                $$->nodetype = Constant;
-printf("ok, the lexeme is: %s\n",yylval.lexeme);
 	       exp_to_double(yylval.lexeme, tempname);
-printf("now tempname is: %s\n",tempname);
                strcpy($$->astnode.constant.number, tempname);
                $$->astnode.constant.type = EXPONENTIAL;
                $$->astnode.constant.sign = 0;
@@ -2498,13 +2607,15 @@ AST * newnode;
 } 
 
 
-/*  Need to turn the linked list around,
-so that it can traverse forward instead of in reverse.
-What I do here is create a doubly linked list. 
-Note that there is no `sentinel' or `head' node
-in this list.  It is acyclic and terminates in 
-NULL pointers.
-*/
+/*  
+ * Need to turn the linked list around,
+ * so that it can traverse forward instead of in reverse.
+ * What I do here is create a doubly linked list. 
+ * Note that there is no `sentinel' or `head' node
+ * in this list.  It is acyclic and terminates in 
+ * NULL pointers.
+ */
+
 AST * 
 switchem(AST * root) 
 {
@@ -2520,10 +2631,11 @@ return root;
   return root;
 }
 
-/* For now, type_hash takes a tree (linked list) of type
-   declarations from the Decblock rule.  It will need to
-   get those from Intrinsic, External, Parameter, etc.
-   */
+/* 
+ * For now, type_hash takes a tree (linked list) of type
+ * declarations from the Decblock rule.  It will need to
+ * get those from Intrinsic, External, Parameter, etc.
+ */
 void 
 type_hash(AST * types)
 {
@@ -2534,8 +2646,9 @@ type_hash(AST * types)
   extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
    
    /* Outer for loop traverses typestmts, inner for()
-      loop traverses declists. Code for stuffing symbol table is
-      is in inner for() loop.  */
+    * loop traverses declists. Code for stuffing symbol table is
+    * is in inner for() loop.   
+    */
   for (temptypes = types; temptypes; temptypes = temptypes->nextstmt)
   {
       /* Long assignment, set up the for() loop here instead of
@@ -2581,17 +2694,18 @@ type_hash(AST * types)
         switch (temptypes->token)
         {
           case INTRINSIC:
-            type_insert(&(intrinsic_table->entry[index]), tempnames, return_type,
-               tempnames->astnode.ident.name);
+            type_insert(&(intrinsic_table->entry[index]), 
+               tempnames, return_type, tempnames->astnode.ident.name);
             break;
           case EXTERNAL:
-            type_insert(&(external_table->entry[index]), tempnames, return_type,
-               tempnames->astnode.ident.name);
+printf("inserting %s into external table\n",tempnames->astnode.ident.name);
+            type_insert(&(external_table->entry[index]), tempnames, 
+               return_type, tempnames->astnode.ident.name);
             break;
         } /* Close switch().  */
     }  /* Close inner for() loop.  */
   }    /* Close outer for() loop.  */
-}     /* Close type_hash().       */
+}      /* Close type_hash().       */
 
 
 /*  Since jasmin doesn't have any EXPONENTIAL data types, these

@@ -11,7 +11,7 @@ char * print_nodetype ( AST * );
 void elseif_check(AST *);
 void else_check (AST *);
 
-int checkdebug = 1;
+int checkdebug = FALSE;
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
@@ -85,6 +85,7 @@ typecheck (AST * root)
         for(temp = root->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
           if(type_lookup(chk_external_table,temp->astnode.ident.name) != NULL)
             cur_unit->astnode.source.needs_reflection = TRUE;
+
       }
       break;
     case End:
@@ -104,7 +105,8 @@ typecheck (AST * root)
         typecheck(root->nextstmt);
       break;
     case Equivalence:
-      printf("ignoring equivalence in typechecking\n");
+      if(checkdebug)
+        printf("ignoring equivalence in typechecking\n");
 
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
@@ -237,11 +239,16 @@ merge_equivalences(AST *root)
   int needsMerge = FALSE;
   void remove_duplicates(AST *);
 
-  printf("M_EQV  Equivalences:\n");
+  if(checkdebug)
+    printf("M_EQV  Equivalences:\n");
+
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
-    printf("M_EQV (%d)", temp->token);
+    if(checkdebug)
+      printf("M_EQV (%d)", temp->token);
+
     for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
-      printf(" %s, ", ctemp->astnode.ident.name);
+      if(checkdebug)
+        printf(" %s, ", ctemp->astnode.ident.name);
 
       for(temp2=root;temp2!=NULL;temp2=temp2->nextstmt) {
         for(ctemp2=temp2->astnode.equiv.clist;ctemp2!=NULL;ctemp2=ctemp2->nextstmt) {
@@ -253,7 +260,8 @@ merge_equivalences(AST *root)
         }
       }
     }
-    printf("\n");
+    if(checkdebug)
+      printf("\n");
   }
 
   /* if we dont need to merge anything, go ahead and return, skipping
@@ -590,14 +598,14 @@ subcall_check(AST *root)
       expr_check (temp);
     }
  
-   /* 
-     here we need to figure out if this is a function
-     call and if so, what the return type is.  this will
-     require keeping track of all the functions/subroutines
-     during parsing.  and there will still be some that
-     we can't figure out.  
-
-     for now, we'll just assign integer to every call
+  /* 
+   * here we need to figure out if this is a function
+   * call and if so, what the return type is.  this will
+   * require keeping track of all the functions/subroutines
+   * during parsing.  and there will still be some that
+   * we can't figure out.  
+   *
+   *  for now, we'll just assign integer to every call
    */ 
 
   root->vartype = Integer;
@@ -699,23 +707,30 @@ intrinsic_check(AST *root)
   if (!strcmp (tempname, "MAX"))
   {
 
-    printf("here we are in MAX.  arraylist is %s\n", 
-      (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
+    if(checkdebug)
+      printf("here we are in MAX.  arraylist is %s\n", 
+        (root->astnode.ident.arraylist == NULL) ? " NULL ": " non-NULL ");
 
     temp = root->astnode.ident.arraylist;
 
-    printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
+    if(checkdebug) {
+      printf("temp is %s\n", (temp == NULL) ? " NULL ": " non-NULL ");
 
-    printf("temp->next is %s\n",
-       (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
+      printf("temp->next is %s\n",
+         (temp->nextstmt == NULL) ? " NULL ": " non-NULL ");
+    }
 
-      if(temp == NULL)
-        fprintf(stderr,"MAX1: calling expr_check with null pointer!\n");
+    if(temp == NULL)
+      fprintf(stderr,"MAX1: calling expr_check with null pointer!\n");
+
     expr_check (temp);
-      if(temp->nextstmt == NULL)
-        fprintf(stderr,"MAX2: calling expr_check with null pointer!\n");
+
+    if(temp->nextstmt == NULL)
+      fprintf(stderr,"MAX2: calling expr_check with null pointer!\n");
+
     expr_check (temp->nextstmt);
     root->vartype = Double;
+
     return;
   }
 
@@ -854,7 +869,6 @@ expr_check (AST * root)
   {
     case Identifier:
       name_check (root);
-      printf("EXPR, root->vartype = %d\n", root->vartype);
       if (checkdebug)
         printf("hit case identifier (%s), now type is %s\n",
            root->astnode.ident.name,returnstring[root->vartype]);
@@ -1056,25 +1070,32 @@ call_check (AST * root)
   if(root->astnode.ident.arraylist == NULL)
     return;
 
-printf("the name of this function/subroutine is %s\n",
+  if(checkdebug)
+    printf("the name of this function/subroutine is %s\n",
          root->astnode.ident.name);
-if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
-{
-  printf("SETting type to %s\n", returnstring[ht->variable->vartype]);
-  root->vartype = ht->variable->vartype;
-}
+
+  if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
+  {
+    if(checkdebug)
+      printf("SETting type to %s\n", returnstring[ht->variable->vartype]);
+
+    root->vartype = ht->variable->vartype;
+  }
 
   temp = root->astnode.ident.arraylist;
   while (temp->nextstmt != NULL)
   {
-      if(temp == NULL)
-        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
+    if(temp == NULL)
+      fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
     expr_check (temp);
     temp = temp->nextstmt;
   }
-      if(temp == NULL)
-        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
+
+  if(temp == NULL)
+    fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
+
   expr_check (temp);
+
 }
 
 void
@@ -1086,10 +1107,7 @@ assign_check (AST * root)
   name_check (root->astnode.assignment.lhs);
       if(root->astnode.assignment.rhs == NULL)
         fprintf(stderr,"assign_check: calling expr_check with null pointer!\n");
+
   expr_check (root->astnode.assignment.rhs);
 
-  printf("## ## typecheck: ltype = %s\n",
-    returnstring[root->astnode.assignment.lhs->vartype]);
-  printf("## ## typecheck: rtype = %s\n",
-    returnstring[root->astnode.assignment.rhs->vartype]);
 }

@@ -25,7 +25,7 @@
    if((val) == 0)\
       fprintf(stderr,"Not expecting zero value (%s)\n", (str))
 
-int cp_debug = TRUE;    /* set to TRUE to generate deubugging output        */
+int cp_debug = FALSE;    /* set to TRUE to generate deubugging output        */
 
 char * constant_tags [NUM_CONSTANT_TAGS] = {
   "Unknown CONSTANT",

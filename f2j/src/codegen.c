@@ -7730,12 +7730,22 @@ format_name_emit(AST *node)
     
     }
     else
-*/
 
+    ..still unfinished, but the following hack is necessary to 
+    make the bytecode valid (since we're pushing an array, we should
+    use the descriptor with the Object argument).
+*/
     fprintf(curfp,"(");
     expr_emit(node);
-    c = newMethodref(cur_const_table, STRINGBUFFER, "append",
-          append_descriptor[node->vartype]);
+
+    if( (node->token == NAME) && 
+        (type_lookup(cur_array_table, node->astnode.ident.name) != NULL) &&
+        (node->astnode.ident.arraylist == NULL) )
+      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            append_descriptor[Object]);
+    else
+      c = newMethodref(cur_const_table, STRINGBUFFER, "append",
+            append_descriptor[node->vartype]);
     fprintf(curfp,")");
   }
   bytecode1(jvm_invokevirtual, c->index);

@@ -1,9 +1,0 @@
-      integer function testem(a,b,c)
-      integer i,u
-      if (d.le.g) ix = (-n+1)*incx+1
-      do 10 i = 1,n
-      dtemp = dtemp + dx(ix)*dy(iy)
-      tt = ((1+2)/(3-4))/(w*(5/6))
-      ix = ix + incx
- 10   continue
-      end

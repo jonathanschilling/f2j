@@ -409,8 +409,7 @@ struct _ident
   struct ast_node 
     *startDim[MAX_ARRAY_DIM],       /* start expression for each dimension   */
     *endDim[MAX_ARRAY_DIM],         /* ending expression for each dimension  */
-    *arraylist,                     /* expression representing array size    */
-    *lead_expr;                     /* leading dimension expression          */
+    *arraylist;                     /* expression representing array size    */
 
   char 
     *leaddim,                       /* leading dimension variable or const   */

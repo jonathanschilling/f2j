@@ -1492,21 +1492,25 @@ printf("reduced arraydeclaration... calling switchem\n");
 /*
 *                    $$->astnode.ident.lead_expr = NULL;
 */
+ 	            $$->astnode.ident.leaddim = NULL;
    
                     /* leaddim might be a constant, so check for that.  --keith */
+                    if($$->astnode.ident.arraylist->nodetype == Constant) 
+                    {
+ 	              $$->astnode.ident.leaddim = 
+                       strdup($$->astnode.ident.arraylist->astnode.constant.number);
+                    }
 /*
-*                   if($$->astnode.ident.arraylist->nodetype == Constant) 
-*                   {
-*	              $$->astnode.ident.leaddim = 
-*                      strdup($$->astnode.ident.arraylist->astnode.constant.number);
-*                   }
 *                   else if(($$->astnode.ident.arraylist->nodetype == Binaryop) ||
 *                           ($$->astnode.ident.arraylist->nodetype == ArrayIdxRange)) {
 *	              $$->astnode.ident.lead_expr = $$->astnode.ident.arraylist;
-*                   } else {
-*	              $$->astnode.ident.leaddim = 
-*                      strdup($$->astnode.ident.arraylist->astnode.ident.name);
 *                   }
+*/
+                    else {
+ 	              $$->astnode.ident.leaddim = 
+                       strdup($$->astnode.ident.arraylist->astnode.ident.name);
+                    }
+/*
 *
 *                   if(debug)
 *                   {
@@ -1566,7 +1570,6 @@ Star:  STAR
        {
          $$=addnode();
          $$->nodetype = Identifier;
-         $$->astnode.ident.lead_expr = NULL;
         *$$->astnode.ident.name = '*';
        }
 ;
@@ -1608,7 +1611,6 @@ Lhs:     Name
            $$ = addnode();
            $1->parent = $$; /* 9-4-97 - Keith */
            $$->nodetype = Identifier;
-           $$->astnode.ident.lead_expr = NULL;
            $$->prevstmt = NULL;
            $$->nextstmt = NULL;
 
@@ -1653,7 +1655,6 @@ Arrayindexlist:   Exp
                   { 
                     $1->parent = addnode();
                     $1->parent->nodetype = Identifier;
-                    $1->parent->astnode.ident.lead_expr = NULL;
 
                     $$ = $1;
                   }
@@ -2316,7 +2317,6 @@ Subroutinecall:   Name OP Explist CP
 
                     $$->nodetype = Identifier;
 
-                    $$->astnode.ident.lead_expr = NULL;
                     strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 
                     /*  This is in case we want to switch index order later.
@@ -2401,7 +2401,6 @@ Call:     CALL   Subroutinecall  NL
             $$ = addnode();
             $2->parent = $$;
             $$->nodetype = Identifier;
-            $$->astnode.ident.lead_expr = NULL;
             strcpy($$->astnode.ident.name, $2->astnode.ident.name);
             $$->astnode.ident.arraylist = addnode();
             $$->astnode.ident.arraylist->nodetype = EmptyArgList;
@@ -3055,6 +3054,8 @@ type_hash(AST * types)
 
     for (; tempnames; tempnames = tempnames->nextstmt)
     {
+      int i;
+
       /* ignore parameter assignment stmts */
       if((tempnames->nodetype == Assignment) ||
          (tempnames->nodetype == DataStmt))
@@ -3089,10 +3090,10 @@ type_hash(AST * types)
         node->astnode.ident.arraylist = tempnames->astnode.ident.arraylist;
         node->astnode.ident.dim = tempnames->astnode.ident.dim;
         node->astnode.ident.leaddim = tempnames->astnode.ident.leaddim;
-        node->astnode.ident.lead_expr = tempnames->astnode.ident.lead_expr;
-        node->astnode.ident.D[0] = tempnames->astnode.ident.D[0];
-        node->astnode.ident.D[1] = tempnames->astnode.ident.D[1];
-        node->astnode.ident.D[2] = tempnames->astnode.ident.D[2];
+        for(i=0;i<MAX_ARRAY_DIM;i++) {
+          node->astnode.ident.startDim[i] = tempnames->astnode.ident.startDim[i];
+          node->astnode.ident.endDim[i] = tempnames->astnode.ident.endDim[i];
+        }
       }
       else {
         /* check whether there is already an array declaration for this ident.
@@ -3109,10 +3110,10 @@ type_hash(AST * types)
           tempnames->astnode.ident.arraylist = var->astnode.ident.arraylist;
           tempnames->astnode.ident.dim = var->astnode.ident.dim;
           tempnames->astnode.ident.leaddim = var->astnode.ident.leaddim;
-          tempnames->astnode.ident.lead_expr = var->astnode.ident.lead_expr;
-          tempnames->astnode.ident.D[0] = var->astnode.ident.D[0];
-          tempnames->astnode.ident.D[1] = var->astnode.ident.D[1];
-          tempnames->astnode.ident.D[2] = var->astnode.ident.D[2];
+          for(i=0;i<MAX_ARRAY_DIM;i++) {
+            tempnames->astnode.ident.startDim[i] = var->astnode.ident.startDim[i];
+            tempnames->astnode.ident.endDim[i] = var->astnode.ident.endDim[i];
+          }
         }
 
         if((temptypes->token != INTRINSIC) && (temptypes->token != EXTERNAL))
@@ -3857,7 +3858,6 @@ initialize_name(char *id)
   tmp->nodetype = Identifier;
 
   tmp->astnode.ident.needs_declaration = FALSE;
-  tmp->astnode.ident.lead_expr = NULL;
 
   if(omitWrappers)
     tmp->astnode.ident.passByRef = FALSE;

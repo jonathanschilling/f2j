@@ -77,6 +77,9 @@ Dlist
   include_paths,           /* list of paths to search for included files     */
   file_stack;              /* file stack for handling include statements     */
 
+INCLUDED_FILE
+  *current_file_info;      /* lexer information about the current file       */
+
 /*****************************************************************************
  * Statement starting keywords. The only violation of this                   *
  * in fortran 77 is the keyword THEN following a closing                     *

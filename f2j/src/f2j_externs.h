@@ -59,6 +59,9 @@ extern Dlist
   include_paths,           /* list of paths to search for included files     */
   descriptor_table;        /* list of method descriptors from *.f2j files    */
 
+extern INCLUDED_FILE
+  *current_file_info;      /* lexer information about the current file       */
+
 #ifdef _WIN32
 #define FILE_DELIM "\\"
 #define PATH_DELIM ";"

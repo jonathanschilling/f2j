@@ -2995,7 +2995,16 @@ Intrinsic: INTRINSIC Namelist NL
 void 
 yyerror(char *s)
 {
-  printf("%d: %s\n", lineno, s);
+  extern Dlist file_stack;
+  INCLUDED_FILE *pfile;
+  Dlist tmp;
+
+  printf("%s:%d: %s\n", current_file_info->name, lineno, s);
+  dl_traverse_b(tmp, file_stack) {
+    pfile = (INCLUDED_FILE *)dl_val(tmp);
+
+    printf("\tincluded from: %s:%d\n", pfile->name, pfile->line_num);
+  }
 }
 
 /*****************************************************************************

@@ -80,11 +80,31 @@ struct var_info {
   BOOL is_arg;       /* is this variable an arg to the current prog unit?    */
 };
 
+/*****************************************************************************
+ * this structure holds information about a method reference, including the  *
+ * name of the class which contains the method, the name of the method, and  *
+ * the method descriptor.                                                    *
+ *****************************************************************************/
+
 typedef struct _methodref {
   char *classname,
        *methodname,
        *descriptor;
 } METHODREF;
+
+/*****************************************************************************
+ * This struct retains information about included files that are on the      *
+ * stack (so we can keep track of which line number we were on when we       *
+ * started the included file.                                                *
+ *****************************************************************************/
+
+typedef struct _include_file_info
+{
+  char *name;
+  int line_num;
+  FILE *fp;
+}
+INCLUDED_FILE;
 
 /*****************************************************************************
  * F2J_PATH_VAR defines the environment variable used to specify the search  *

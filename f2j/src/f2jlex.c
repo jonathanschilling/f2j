@@ -198,14 +198,31 @@ yylex ()
     token = prelex (&buffer);   /* No more tokens? Get another statement. */
 
     if(token == INCLUDE) {
+      INCLUDED_FILE *newfile;
       FILE *tempfp;
+      Dlist lp;
       int tmplen;
 
       buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
       buffer.text[0] = '\n'; buffer.text[1] = '\0';
 
+      /* check for cycle in the include stack */
+      dl_traverse(lp, file_stack) {
+        newfile = (INCLUDED_FILE *)dl_val(lp);
+        if( !strcmp(newfile->name, yylval.lexeme) ) {
+          fprintf(stderr,"Warning: loop in include (not including %s)\n",
+             yylval.lexeme);
+          strcpy(yylval.lexeme,"Include error\n");
+
+        }
+      }
+
       tempfp = open_included_file(yylval.lexeme);
 
+      /* add the newline since we will send a COMMENT token back
+       * to the parser, with yylval containing the file name.  the
+       * parser expects all comments to be terminated with \n\0.
+       */
       tmplen = strlen(yylval.lexeme);
       yylval.lexeme[ tmplen ] = '\n';
       yylval.lexeme[ tmplen + 1] = '\0';
@@ -216,8 +233,20 @@ yylex ()
         return COMMENT;
       }
 
-      dl_insert_b(file_stack, ifp);
+      current_file_info->line_num = lineno+1;
+
+      newfile = (INCLUDED_FILE *)f2jalloc(sizeof(INCLUDED_FILE));
+
+      /* for internal use, strip the newline from the file name */
+      newfile->name = strdup(yylval.lexeme);
+      newfile->name[strlen(newfile->name)-1] = '\0';
+      newfile->line_num = 0;
+      newfile->fp = tempfp;
+
+      dl_insert_b(file_stack, current_file_info);
       ifp = tempfp;
+      current_file_info = newfile;
+      lineno = 0;
 
       return COMMENT;
     }
@@ -729,7 +758,6 @@ open_included_file(char *filename)
 int
 prelex (BUFFER * bufstruct)
 {
-
   if(lexdebug)
     printf("entering prelex()\n");
 
@@ -845,8 +873,12 @@ prelex (BUFFER * bufstruct)
     if(lexdebug)
       printf ("EOF\n");
 
-    ifp = (FILE *)dl_pop(file_stack);
-  }while(ifp != NULL);
+    current_file_info = (INCLUDED_FILE *)dl_pop(file_stack);
+    if(current_file_info != NULL) {
+      ifp = current_file_info->fp;
+      lineno = current_file_info->line_num;
+    }
+  }while(current_file_info != NULL);
 
   bufstruct->stmt[0] = '\0';
   return 0;

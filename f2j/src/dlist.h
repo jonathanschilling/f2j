@@ -50,6 +50,8 @@ extern void dl_insert_list_b(Dlist, Dlist);
 
 #define dl_traverse(ptr, list) \
   for (ptr = dl_first(list); ptr != dl_nil(list); ptr = dl_next(ptr))
+#define dl_traverse_b(ptr, list) \
+  for (ptr = dl_last(list); ptr != dl_nil(list); ptr = dl_prev(ptr))
 #define dl_empty(list) (list->flink == list)
 
 #endif

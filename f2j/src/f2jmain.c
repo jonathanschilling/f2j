@@ -241,6 +241,11 @@ will most likely not work for other code.\n";
     exit(1);
   }
 
+  current_file_info = (INCLUDED_FILE *)f2jalloc(sizeof(INCLUDED_FILE));
+  current_file_info->name = strdup(inputfilename);
+  current_file_info->line_num = 0;
+  current_file_info->fp = ifp;
+
   truncfilename = strdup(inputfilename);
   truncfilename = strtok (truncfilename, ".");
   *truncfilename = toupper (*truncfilename);

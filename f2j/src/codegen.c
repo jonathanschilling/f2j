@@ -2765,14 +2765,14 @@ write_emit (AST * root)
           else
             fprintf (curfp, " + \" \" + ");
         }
-        else
+        else if(implied_loop)
           fprintf (curfp, ");\n");
       }
     }
   }
 
   if(implied_loop)
-    fprintf (curfp, "\nSystem.out.println(\"\\n\");\n");
+    fprintf (curfp, "\nSystem.out.println();\n");
   else
     fprintf (curfp, ");\n");
 }

@@ -22,6 +22,7 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -47,7 +48,7 @@ void
   vcg_expr_emit (AST *, int);
 
 int
-  vcg_name_emit (AST *, int);
+  vcg_name_emit (AST *);
 
 METHODTAB 
   * methodscan (METHODTAB *, char *);
@@ -62,7 +63,7 @@ int
 
 char 
   temp_buf[200],                /* temporary buffer for node titles          */
-  * returnname;                 /* return type of the current program unit   */
+  *vcg_returns;                 /* return type of the current program unit   */
 
 extern METHODTAB intrinsic_toks[];
 
@@ -263,7 +264,7 @@ emit_vcg (AST * root, int parent)
       print_vcg_node(vcgfp, node_num,"Subroutine");
       print_vcg_edge(vcgfp, parent, my_node);
 
-      returnname = NULL;	/* Subroutines return void. */
+      vcg_returns = NULL;	/* Subroutines return void. */
       break;
     case Function:
       if(vcg_debug)
@@ -273,7 +274,7 @@ emit_vcg (AST * root, int parent)
         root->astnode.source.name->astnode.ident.name);
       print_vcg_node(vcgfp, node_num,temp_buf);
       print_vcg_edge(vcgfp, parent, my_node);
-      returnname = root->astnode.source.name->astnode.ident.name;
+      vcg_returns = root->astnode.source.name->astnode.ident.name;
       break;
     case Typedec:
       if(vcg_debug)
@@ -359,8 +360,8 @@ emit_vcg (AST * root, int parent)
         emit_vcg (root->nextstmt, my_node);
       break;
     case Return:
-      if (returnname != NULL)
-        sprintf (temp_buf, "Return (%s)", returnname);
+      if (vcg_returns != NULL)
+        sprintf (temp_buf, "Return (%s)", vcg_returns);
       else
         sprintf (temp_buf, "Return");
 
@@ -422,8 +423,8 @@ vcg_typedec_emit (AST * root, int parent)
   AST *temp;
   enum returntype returns;
   int my_node = node_num;
-  int name_nodenum = 0;
-  int prev_node = 0;
+  int name_nodenum;
+  int prev_node;
 
   if(vcg_debug)
     printf("in vcg_typedec_emit\n");
@@ -456,7 +457,7 @@ vcg_typedec_emit (AST * root, int parent)
   for (; temp != NULL; temp = temp->nextstmt) {
     if(vcg_debug)
       printf("in the loop\n");
-    name_nodenum = vcg_name_emit (temp, parent);
+    name_nodenum = vcg_name_emit (temp);
     print_vcg_nearedge(vcgfp, prev_node,name_nodenum);
     prev_node = name_nodenum;
   }
@@ -473,7 +474,7 @@ vcg_typedec_emit (AST * root, int parent)
  *****************************************************************************/
 
 int
-vcg_name_emit (AST * root, int parent)
+vcg_name_emit (AST * root)
 {
   AST *temp;
   HASHNODE *hashtemp;
@@ -646,7 +647,7 @@ vcg_expr_emit (AST * root, int parent)
       print_vcg_node(vcgfp, my_node,"Ident");
       print_vcg_edge(vcgfp, parent,my_node);
 
-      temp_num = vcg_name_emit (root, my_node);
+      temp_num = vcg_name_emit (root);
 
       print_vcg_edge(vcgfp, my_node,temp_num);
       break;
@@ -929,7 +930,7 @@ vcg_spec_emit (AST * root, int parent)
       break;
 
     case Intrinsic:
-      temp_num = vcg_name_emit (root, parent);
+      temp_num = vcg_name_emit (root);
       print_vcg_edge(vcgfp, my_node, temp_num);
       break;
     case External:
@@ -952,7 +953,7 @@ vcg_assign_emit (AST * root, int parent)
 {
   int temp_num;
 
-  temp_num = vcg_name_emit (root->astnode.assignment.lhs, parent);
+  temp_num = vcg_name_emit (root->astnode.assignment.lhs);
   print_vcg_edge(vcgfp, parent,temp_num);
   vcg_expr_emit (root->astnode.assignment.rhs, parent);
 }

@@ -23,6 +23,7 @@
 #include"class.h"
 #include"constant_pool.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *
@@ -114,7 +115,7 @@ extern enum returntype default_implicit_table[];
 %token NOT AND OR
 %token  RELOP EQV NEQV
 %token <lexeme>  NAME DOUBLE INTEGER EXPONENTIAL 
-%token CONST TrUE FaLSE ICON RCON LCON CCON
+%token CONST_EXP TrUE FaLSE ICON RCON LCON CCON
 %token FLOAT CHARACTER LOGICAL COMPLEX NONE
 
 /* a zillion keywords */
@@ -3014,7 +3015,7 @@ yyerror(char *s)
 void
 add_decimal_point(char *str)
 {
-  BOOLEAN found_dec = FALSE;
+  BOOL found_dec = FALSE;
   char *p = str;
 
   while( *p != '\0' ) {
@@ -3459,7 +3460,7 @@ merge_common_blocks(AST *root)
   AST *Clist, *temp;
   int count;
   char ** name_array;
-  char *comvar = NULL, *var = NULL, und_var[80], 
+  char *comvar = NULL, *var, und_var[80], 
        var_und[80], und_var_und[80], *t;
 
   for(Clist = root; Clist != NULL; Clist = Clist->nextstmt)
@@ -3609,10 +3610,10 @@ eval_const_expr(AST *root)
          }
       }
       return 0;
-      break;
+      
     case Expression:
       if (root->astnode.expression.lhs != NULL)
-        result1 = eval_const_expr (root->astnode.expression.lhs);
+        eval_const_expr (root->astnode.expression.lhs);
 
       result2 = eval_const_expr (root->astnode.expression.rhs);
 
@@ -3623,14 +3624,14 @@ eval_const_expr(AST *root)
           root->astnode.expression.rhs->astnode.constant.number);
 
       return (result2);
-      break;
+    
     case Power:
       result1 = eval_const_expr (root->astnode.expression.lhs);
       result2 = eval_const_expr (root->astnode.expression.rhs);
       root->vartype = MIN(root->astnode.expression.lhs->vartype,
                           root->astnode.expression.rhs->vartype);
       return( mypow(result1,result2) );
-      break;
+  
     case Binaryop:
       result1 = eval_const_expr (root->astnode.expression.lhs);
       result2 = eval_const_expr (root->astnode.expression.rhs);
@@ -3647,7 +3648,7 @@ eval_const_expr(AST *root)
       else
         fprintf(stderr,"eval_const_expr: Bad optype!\n");
       return 0;
-      break;
+      
     case Unaryop:
       root->vartype = root->astnode.expression.rhs->vartype;
      /*
@@ -3676,10 +3677,10 @@ eval_const_expr(AST *root)
                           root->astnode.expression.rhs->vartype);
       return(  eval_const_expr(root->astnode.expression.rhs) - 
                eval_const_expr(root->astnode.expression.lhs) );
-      break;
+     
     case Logicalop:
       {
-        int lhs=0, rhs=0;
+        int lhs=0, rhs;
 
         root->nodetype = Constant;
         root->vartype = Logical;
@@ -3711,7 +3712,7 @@ eval_const_expr(AST *root)
         strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
         return root->token;
       }
-      break;
+      
     default:
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");
       return 0;
@@ -3752,7 +3753,7 @@ prepend_minus(char *num)
 {
   char * tempstr;
 
-  if( (tempstr = first_char_is_minus(num)) ) {
+  if( (tempstr = first_char_is_minus(num)) != NULL) {
     *tempstr = ' ';
     return;
   }

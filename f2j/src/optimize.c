@@ -36,6 +36,7 @@
 #include"f2j.h"
 #include"codegen.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * Set optdebug to TRUE to get debugging output from the optimization        *
@@ -632,8 +633,8 @@ expr_optimize (AST * root, AST *rptr)
 void
 forloop_optimize (AST * root, AST *rptr)
 {
-  char *indexname;
 /*
+ *  char *indexname;
  *  int *tmp_int;
  *
  *  tmp_int = (int*)f2jalloc(sizeof(int));
@@ -644,10 +645,10 @@ forloop_optimize (AST * root, AST *rptr)
    /*  
     *  Some point I will need to test whether this is really a name
     *  because it will crash if not.  
+    *
+    * indexname = 
+    *  root->astnode.forloop.start->astnode.assignment.lhs->astnode.ident.name;
     */
-
-  indexname = 
-      root->astnode.forloop.start->astnode.assignment.lhs->astnode.ident.name;
 
   if(root->astnode.forloop.incr != NULL)
     expr_optimize (root->astnode.forloop.incr, rptr);
@@ -1112,11 +1113,11 @@ args_optimize(AST *root, AST *rptr)
  * isPassByRef_desc                                                          *
  *                                                                           *
  * given the field descriptor for a method argument, determine whether this  *
- * arg is passed by reference.   returns BOOLEAN.                            *
+ * arg is passed by reference.   returns BOOL.                               *
  *                                                                           *
  *****************************************************************************/
 
-BOOLEAN
+BOOL
 isPassByRef_desc(char *desc)
 {
   char *desc_copy, *dptr;
@@ -1234,12 +1235,8 @@ assign_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
   SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
-  enum returntype ltype, rtype;
   HASHNODE *ht;
   AST *lhs;
-
-  ltype = root->astnode.assignment.lhs->vartype;
-  rtype = root->astnode.assignment.rhs->vartype;
 
   lhs = root->astnode.assignment.lhs;
 
@@ -1294,7 +1291,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
   enum returntype returns;
   HASHNODE *hashtemp;
   AST * tempnode;
-  int isArray = 0;
+  int isArray;
   char *ret_desc;
   char *p;
 

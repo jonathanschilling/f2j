@@ -23,7 +23,7 @@
  * Globals and Function prototypes:                                          *
  *****************************************************************************/
 
-#define symdebug FALSE          /* set TRUE for debugging output             */
+BOOL symdebug = FALSE;          /* set TRUE for debugging output             */
 
 /*  define which of three possible hashing functions to use.                 */
 
@@ -36,7 +36,7 @@ SYMTABLE * new_symtable (unsigned int);
 void type_insert (SYMTABLE *, AST *, enum returntype, char *);
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
-char *strdup(char *);
+char *strdup(const char *);
 
 /*****************************************************************************
  *                                                                           *

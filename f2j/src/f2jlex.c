@@ -27,6 +27,7 @@
 #include<ctype.h>
 #include"initialize.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * BIGBUFF is the maximum size in characters of an input line (including)    *
@@ -59,9 +60,9 @@ char yytext[YYTEXTLEN];          /* token text                               */
  * routine.                                                                  *
  *****************************************************************************/
 
-BOOLEAN letterseen;              /* we have seen a letter in this line       */
-BOOLEAN equalseen;               /* we have seen an equals in this line      */
-BOOLEAN commaseen;               /* we have seen a comma in this line        */
+BOOL letterseen;                 /* we have seen a letter in this line       */
+BOOL equalseen;                  /* we have seen an equals in this line      */
+BOOL commaseen;                  /* we have seen a comma in this line        */
 
 /*****************************************************************************
  * a couple of buffers for manipulating the text of the current line.        *
@@ -1436,8 +1437,8 @@ tok2str(int tok)
       return("INTEGER");
     case EXPONENTIAL:
       return("EXPONENTIAL");
-    case CONST:
-      return("CONST");
+    case CONST_EXP:
+      return("CONST_EXP");
     case TrUE:
       return("TrUE");
     case FaLSE:

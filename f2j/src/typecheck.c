@@ -20,6 +20,7 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -37,7 +38,7 @@ void
   remove_duplicates(AST *),
   typecheck (AST *),
   elseif_check(AST *),
-  func_array_check(AST *, HASHNODE *),
+  func_array_check(AST *),
   else_check (AST *),
   expr_check (AST *),
   assign_check (AST *),
@@ -57,7 +58,7 @@ void
   external_check(AST *),
   typedec_check(AST *),
   intrinsic_check(AST *),
-  array_check(AST *, HASHNODE *),
+  array_check(AST *),
   subcall_check(AST *);
 
 SYMTABLE 
@@ -71,7 +72,7 @@ extern METHODTAB intrinsic_toks[];
 
 int checkdebug = FALSE;              /* set to TRUE for debugging output     */
 
-AST *cur_unit;                       /* program unit currently being checked */
+AST *cur_check_unit;                 /* program unit currently being checked */
 
 SYMTABLE 
   * chk_type_table,                  /* ptr to this unit's symbol table      */
@@ -135,11 +136,11 @@ typecheck (AST * root)
       {
         AST *temp;
 
-        cur_unit = root;
+        cur_check_unit = root;
 
         for(temp = root->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
           if(type_lookup(chk_external_table,temp->astnode.ident.name) != NULL)
-            cur_unit->astnode.source.needs_reflection = TRUE;
+            cur_check_unit->astnode.source.needs_reflection = TRUE;
 
       }
       break;
@@ -241,15 +242,15 @@ typecheck (AST * root)
             ctemp = ctemp->nextstmt;
           }
 
-          ctemp = cur_unit->astnode.source.javadocComments;
+          ctemp = cur_check_unit->astnode.source.javadocComments;
 
           if(ctemp == NULL) {
             root->nodetype = MainComment;
-            cur_unit->astnode.source.javadocComments = root;
+            cur_check_unit->astnode.source.javadocComments = root;
           } else if(root->astnode.ident.len > ctemp->astnode.ident.len) {
             ctemp->nodetype = Comment;
             root->nodetype = MainComment;
-            cur_unit->astnode.source.javadocComments = root;
+            cur_check_unit->astnode.source.javadocComments = root;
           }
         }
       }
@@ -339,7 +340,7 @@ typecheck (AST * root)
       if (checkdebug)
         printf ("typecheck(): Read statement.\n");
 
-      cur_unit->astnode.source.needs_input = TRUE;
+      cur_check_unit->astnode.source.needs_input = TRUE;
 
       read_write_check (root);
       if (root->nextstmt != NULL)
@@ -814,17 +815,17 @@ name_check (AST * root)
             printf("@# Found!\n");
           root->vartype = ht->variable->vartype;
         }
-        else if( (cur_unit->nodetype == Function) &&
-                 !strcmp(cur_unit->astnode.source.name->astnode.ident.name,
+        else if( (cur_check_unit->nodetype == Function) &&
+                 !strcmp(cur_check_unit->astnode.source.name->astnode.ident.name,
                          root->astnode.ident.name))
         {
           if(checkdebug)
           {
             printf("@# this is the implicit function var\n");
             printf("@# ...setting vartype = %s\n", 
-               returnstring[cur_unit->astnode.source.returns]);
+               returnstring[cur_check_unit->astnode.source.returns]);
           }
-          root->vartype = cur_unit->astnode.source.returns;
+          root->vartype = cur_check_unit->astnode.source.returns;
         }
         else
         {
@@ -843,7 +844,7 @@ name_check (AST * root)
         if (root->astnode.ident.arraylist == NULL)
           ; /* nothin for now */
         else if (hashtemp != NULL)
-          array_check(root, hashtemp);
+          array_check(root);
         else if (root->nodetype == Substring)
           root->vartype = String;
         else
@@ -902,7 +903,7 @@ subcall_check(AST *root)
  *****************************************************************************/
 
 void
-func_array_check(AST *root, HASHNODE *hashtemp)
+func_array_check(AST *root)
 {
   AST *tmp;
 
@@ -937,7 +938,7 @@ func_array_check(AST *root, HASHNODE *hashtemp)
  *****************************************************************************/
 
 void
-array_check(AST *root, HASHNODE *hashtemp)
+array_check(AST *root)
 {
   AST *temp;
 
@@ -948,7 +949,7 @@ array_check(AST *root, HASHNODE *hashtemp)
 
   temp = root->astnode.ident.arraylist;
 
-  func_array_check(temp, hashtemp);
+  func_array_check(temp);
 }
 
 /*****************************************************************************
@@ -1014,7 +1015,7 @@ intrinsic_check(AST *root)
 {
   AST *temp;
   METHODTAB *entry;
-  char *tempname, *javaname;
+  char *tempname;
   enum _intrinsics id;
   enum returntype min_type = Integer;
 
@@ -1031,7 +1032,6 @@ intrinsic_check(AST *root)
     exit(-1);
   }
 
-  javaname = entry->java_method;
   id = entry->intrinsic;
 
   if(root->astnode.ident.arraylist == NULL)
@@ -1403,7 +1403,7 @@ call_check (AST * root)
    */
 
   if(type_lookup(blas_routine_table,root->astnode.ident.name))
-    cur_unit->astnode.source.needs_blas = TRUE;
+    cur_check_unit->astnode.source.needs_blas = TRUE;
 
   if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
   {

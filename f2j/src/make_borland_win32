@@ -1,0 +1,84 @@
+.PHONY: clean goto
+
+# defining DEBUG_MEM includes some code that will
+# trash any freed memory, thus helping to expose
+# some memory-related bugs in f2j.
+#
+#CFLAGS=
+
+CC=bcc32
+YFLAGS= --debug --defines --verbose 
+SRC=f2jparse.tab.c f2jlex.c f2jmain.c  symtab.c  \
+     codegen.c vcg_emitter.c typeassign.c opcode.c dlist.c typecheck.c \
+     optimize.c constant_pool.c class.c globals.c f2jmem.c getopt.c
+OBJS=$(SRC:.c=.obj)
+LIBS=
+YACC=bison -t
+GOTO_TRANS=..\goto_trans
+
+#  The main executable.
+..\bin\f2java: f2j.h f2jparse.y $(OBJS)
+	${CC} $(CFLAGS) -e$@ $(OBJS) $(LIBS)
+
+lexdebug:  f2jlex.c
+	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 
+
+f2jparse.tab.c f2jparse.tab.h:  f2jparse.y class.h constant_pool.h
+	$(YACC) $(YFLAGS) f2jparse.y
+
+f2jparse.tab.obj: f2jparse.tab.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h constant_pool.h f2jmem.h
+
+f2jlex.obj: f2jlex.c initialize.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h f2jmem.h constant_pool.h
+
+f2jmain.obj: f2jmain.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h constant_pool.h f2jmem.h
+
+symtab.obj: symtab.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jmem.h constant_pool.h
+
+codegen.obj: codegen.c codegen.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+vcg_emitter.obj: vcg_emitter.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h
+
+typeassign.obj: typeassign.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h
+
+opcode.obj: opcode.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h
+
+dlist.obj: dlist.c dlist.h f2j.h symtab.h class.h graph.h opcodes.h \
+ f2jmem.h constant_pool.h
+
+typecheck.obj: typecheck.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h f2jparse.tab.h f2jmem.h constant_pool.h
+
+optimize.obj: optimize.c f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h codegen.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+constant_pool.obj: constant_pool.c constant_pool.h class.h dlist.h f2j.h \
+ symtab.h graph.h opcodes.h f2jparse.tab.h f2jmem.h
+
+class.obj: class.c class.h dlist.h codegen.h f2j.h symtab.h graph.h \
+ opcodes.h f2jparse.tab.h constant_pool.h f2jmem.h
+
+globals.obj: globals.c f2j.h symtab.h dlist.h class.h graph.h opcodes.h \
+ f2jparse.tab.h
+
+f2jmem.obj: f2jmem.c f2jmem.h f2j.h symtab.h dlist.h class.h graph.h \
+ opcodes.h constant_pool.h
+
+getopt.obj: getopt.c
+
+clean:
+	rm -f *.obj *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
+              tmp f2j core a.out *.output *~  *.vcg
+
+goto:
+	cd $(GOTO_TRANS); $(MAKE) realclean
+
+realclean: clean goto
+	rm -f ..\bin\f2java ..\bin\puref2j

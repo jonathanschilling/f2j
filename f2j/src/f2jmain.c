@@ -26,6 +26,7 @@
 #include"dlist.h"
 #include"constant_pool.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 extern char *java_reserved_words[];
 extern char *jasmin_reserved_words[];
@@ -34,9 +35,15 @@ extern char *generic_intrinsics[];
 extern char *unit_name;
 extern char *optarg;
 
+#ifdef _WIN32
+  char null_file[] = "f2j.tmp";
+#else
+  char null_file[] = "/dev/null";
+#endif
+
 FILE *devnull;             /* pointer to the file /dev/null                  */
 
-BOOLEAN isBigEndian(void);
+BOOL isBigEndian(void);
 AST *addnode(void);
 char *strdup(const char *),
        * get_full_classname(char *);
@@ -274,10 +281,10 @@ will most likely not work for other code.\n";
 
   descriptor_table = build_method_table(f2jpath);
 
-  devnull = fopen("/dev/null","w");
+  devnull = fopen(null_file,"w");
 
   if(devnull == NULL) {
-    fprintf(stderr,"Cannot open /dev/null for writing\n");
+    fprintf(stderr,"Cannot open %s for writing\n", null_file);
     exit(-1);
   }
 
@@ -295,7 +302,15 @@ will most likely not work for other code.\n";
     fprintf(stderr,"Ignored %d format statement(s) with implied loops\n", 
        ignored_formatting);
 
-  exit (0);
+#ifdef _WIN32
+  fclose(null_file);
+  if(remove(null_file) < 0) {
+    fprintf(stderr,"couldn't remove temp file...\n");
+    perror("reason");
+  }
+#endif
+
+  return 0;
 }
 
 /*****************************************************************************
@@ -434,7 +449,7 @@ uppercase(char * name)
 void handle_segfault(int x)
 {
   fflush(stdout);
-  fprintf(stderr,"Segmentation Fault, stdout flushed.\n");
+  fprintf(stderr,"Segmentation Fault, stdout flushed. [%d]\n", x);
   if(unit_name != NULL)
     fprintf(stderr,"unit name is %s\n",unit_name);
   fflush(stderr);
@@ -453,7 +468,7 @@ void handle_segfault(int x)
  *                                                                           *
  *****************************************************************************/
 
-BOOLEAN
+BOOL
 isBigEndian()
 {
   int x = 1;
@@ -509,11 +524,11 @@ build_method_table(char *path)
     if((cur_dir = opendir(token)) == NULL)
       continue;
 
-    while((dir_entry = readdir(cur_dir))) {
+    while((dir_entry = readdir(cur_dir)) != NULL) {
       len = strlen(dir_entry->d_name);
       if((len > 4) && !strncmp(dir_entry->d_name+(len-4), ".f2j", 4)) {
 
-        if((len + strlen(token) +2) > size) {
+        if((len + strlen(token) +2) > (unsigned int)size) {
           size = (len + strlen(token)) * 2;  /* double for good measure */
           full_path = f2jrealloc(full_path, size);
         }

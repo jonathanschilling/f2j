@@ -36,7 +36,7 @@ typedef struct _code_graph_node {
   int branch_label,         /* f77 label to which this instruction branches  */
       stack_depth;          /* stack depth prior to execution of this opcode */
 
-  BOOLEAN visited;          /* for traversal - has this node been visited?   */
+  BOOL visited;             /* for traversal - has this node been visited?   */
 } CodeGraphNode;
 
 typedef struct _exception_table_entry {

@@ -23,10 +23,11 @@
 #include"f2j.h"
 #include<string.h>
 #include"f2jparse.tab.h"
+#include"f2j_externs.h"
 
 #define Mindent1 "   "		/* Indentation space macro.                  */
 
-AST *returnname;                /* return type of function                   */
+AST *op_returns;                /* return type of function                   */
 
 int 
   jas_gendebug = FALSE,         /* Set to TRUE for debugging output.         */
@@ -52,7 +53,7 @@ void method (AST *),
   jas_label_emit (AST *),
   jas_elseif_emit (AST *),
   jas_else_emit (AST *),
-  jas_return_emit (AST *),
+  jas_return_emit (void),
   jas_constant_emit (AST *),
   jas_name_emit (AST *),
   jas_expr_emit (AST *),
@@ -83,11 +84,11 @@ jas_emit (root->astnode.source.progtype);
 jas_emit (root->astnode.source.statements);
 break;
     case Subroutine:
-returnname = NULL;
+op_returns = NULL;
 method (root);
 break;
     case Function:
-returnname = root->astnode.source.name;
+op_returns = root->astnode.source.name;
 method (root);
 break;
     case Logicalif:
@@ -142,7 +143,7 @@ jas_emit (root->nextstmt);
 break;
 
     case Return:
-jas_return_emit (root);
+jas_return_emit ();
 if (root->nextstmt != NULL)
 jas_emit (root->nextstmt);
 break;
@@ -211,7 +212,7 @@ method (AST * root)
   }				/* End for() loop.  */
 
   /*  Returns...  */
-  if (returnname)
+  if (op_returns)
     fprintf (jasminfp, ")%s\n", jas_returnstring[root->astnode.source.returns]);
   else
     fprintf (jasminfp, ")V\n\n");
@@ -671,11 +672,11 @@ jas_label_emit (AST * root)
  *****************************************************************************/
 
 void
-jas_return_emit (AST * root)
+jas_return_emit ()
 {
-  if (returnname)
+  if (op_returns)
   {
-    jas_name_emit (returnname);
+    jas_name_emit (op_returns);
     fprintf (jasminfp, Mindent1 "ireturn\n\n");
   }
   else

@@ -19,6 +19,7 @@
 #include"f2j.h"
 #include<string.h>
 #include"f2jparse.tab.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  *   Global variables.                                                       *
@@ -54,7 +55,7 @@ void
   forloop_assign (AST *),
   logicalif_assign (AST *),
   blockif_assign (AST *),
-  return_assign (AST *),
+  return_assign (void),
   label_assign (AST *),
   jas_expr_emit (AST *),
   expr_assign (AST *),
@@ -154,7 +155,7 @@ assign (AST * root)
       break;
 
     case Return:
-      return_assign (root);
+      return_assign ();
       if (root->nextstmt != NULL)
         assign (root->nextstmt);
       break;
@@ -268,8 +269,10 @@ name_assign (AST * root)
     /* should this really be jas_expr_emit?? */
     jas_expr_emit(temp);
 
-    if (temp->nextstmt != NULL)
-      temp = temp->nextstmt;
+  /*
+   *if (temp->nextstmt != NULL)
+   *  temp = temp->nextstmt;
+   */
   }
 }
 
@@ -631,7 +634,7 @@ spec_assign (AST * root)
  *                                                                           *
  *****************************************************************************/
 void
-return_assign (AST * root)
+return_assign ()
 {
     ;
 }

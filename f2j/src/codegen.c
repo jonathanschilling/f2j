@@ -15,6 +15,7 @@
  *****************************************************************************/
 
 #include"codegen.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -73,7 +74,7 @@ AST
   *cur_equivList,       /* list of equivalences                              */
   *cur_unit;            /* program unit currently being translated.          */
 
-BOOLEAN 
+BOOL 
   import_reflection,    /* does this class need to import reflection         */
   import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE,    /* is bytecode generation currently enabled          */
@@ -318,7 +319,7 @@ emit (AST * root)
 
           f2jfree(methodname, strlen(methodname)+1);
 
-          emit_invocations(root->astnode.source.progtype);
+          emit_invocations();
 
           emit_adapters();
 
@@ -564,7 +565,7 @@ emit (AST * root)
       case End:
         if (gendebug)
           printf ("End.\n");
-        end_emit(root);
+        end_emit();
         break;
       case Save:
         if (gendebug)
@@ -905,7 +906,7 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
  *****************************************************************************/
 
 void
-end_emit(AST *root)
+end_emit()
 {
   CodeGraphNode *goto_node, *goto_node2;
   CPNODE *c;
@@ -1499,7 +1500,6 @@ common_emit(AST *root)
   char *common_classname=NULL, *filename=NULL;
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
-  int needs_dec = FALSE;
   Dlist save_const_table, save_exc_table;
   struct ClassFile *save_class_file;
   struct attribute_info *save_code;
@@ -1607,8 +1607,6 @@ common_emit(AST *root)
 
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
       {
-        needs_dec = FALSE;
-
         if(gendebug)
         {
           printf("Common block %s -- %s\n",Ctemp->astnode.common.name,
@@ -1640,9 +1638,6 @@ common_emit(AST *root)
             getCommonVarName(Ntemp));
 
         field_emit(temp);
-
-        if(temp->astnode.ident.needs_declaration)
-          needs_dec = TRUE;
 
         /* now emit the variable declaration as with any
          * other variable.
@@ -1800,9 +1795,9 @@ getFieldDescFromCommonDesc(char *desc, int idx)
 char *
 getCommonVarName(AST *root)
 {
-  HASHNODE *hashtemp, *ht2;
+  HASHNODE *ht2;
 
-  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+  if(type_lookup(cur_common_table,root->astnode.ident.name) != NULL) {
     ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
 
     return ht2->variable->astnode.ident.merged_name;
@@ -2014,16 +2009,16 @@ newarray_emit(enum returntype vtype)
 char *
 getMergedName(AST *root)
 {
-  HASHNODE *hashtemp, *ht2;
-  char *name = NULL;
+  HASHNODE *ht, *ht2;
+  char *name;
 
-  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+  if(type_lookup(cur_common_table,root->astnode.ident.name) != NULL) {
     ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
 
     name = ht2->variable->astnode.ident.merged_name;
   }
-  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name)))
-    name = hashtemp->variable->astnode.ident.merged_name;
+  else if((ht=type_lookup(cur_equiv_table,root->astnode.ident.name))!=NULL)
+    name = ht->variable->astnode.ident.merged_name;
   else
     name = root->astnode.ident.name;
 
@@ -2041,16 +2036,16 @@ getMergedName(AST *root)
 char *
 getMergedDescriptor(AST *root, enum returntype returns)
 {
-  HASHNODE *hashtemp, *ht2;
-  char *desc = NULL;
+  HASHNODE *ht, *ht2;
+  char *desc;
 
-  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+  if(type_lookup(cur_common_table,root->astnode.ident.name)!=NULL) {
     ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
 
     desc = ht2->variable->astnode.ident.descriptor;
   }
-  else if((hashtemp=type_lookup(cur_equiv_table,root->astnode.ident.name))) {
-    desc = hashtemp->variable->astnode.ident.descriptor;
+  else if((ht=type_lookup(cur_equiv_table,root->astnode.ident.name))!=NULL) {
+    desc = ht->variable->astnode.ident.descriptor;
   }
   else {
     ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
@@ -2084,7 +2079,7 @@ vardec_emit(AST *root, enum returntype returns)
 {
   char *prefix, *name, *desc;
   HASHNODE *hashtemp;
-  int count=0;
+  int count;
   AST *temp2;
   CPNODE *c;
 
@@ -2526,7 +2521,7 @@ data_implied_loop_emit(AST * root, AST *Clist)
 AST *
 data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 {
-  int length=1, is_array=FALSE, needs_dec = FALSE;
+  int length, is_array, needs_dec;
 
   if(gendebug)
     printf("VAR here we are emitting data for %s\n",
@@ -2593,7 +2588,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
     if(gendebug)
       printf("VAR going to data_array_emit\n");
 
-    Ctemp = data_array_emit(length, Ctemp, Ntemp, needs_dec);
+    Ctemp = data_array_emit(length, Ctemp, Ntemp);
   }
   else 
   {
@@ -2681,9 +2676,9 @@ determine_var_length(HASHNODE *var)
  *****************************************************************************/
 
 AST *
-data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
+data_array_emit(int length, AST *Ctemp, AST *Ntemp)
 {
-  unsigned int count = 1, size = 0;
+  unsigned int count, size = 0;
   HASHNODE *ht;
   CPNODE *c;
   int i;
@@ -3101,7 +3096,7 @@ name_emit (AST * root)
         if (root->astnode.ident.arraylist == NULL)
           scalar_emit(root, hashtemp);
         else if (hashtemp != NULL)
-          array_emit(root, hashtemp);
+          array_emit(root);
         else if (root->nodetype == Substring)
           substring_emit(root);
         else
@@ -3245,7 +3240,7 @@ subcall_emit(AST *root)
 int
 idxNeedsDecr(AST *alist)
 {
-  AST *startIdx = NULL;
+  AST *startIdx;
   int eval;
 
   if( (alist != NULL) && (alist->nodetype == ArrayIdxRange))
@@ -3286,10 +3281,10 @@ idxNeedsDecr(AST *alist)
  *****************************************************************************/
 
 void
-func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
+func_array_emit(AST *root, char *arrayname, int is_arg, 
   int is_ext)
 {
-  int needs_cast = FALSE;
+  int needs_cast;
 
   HASHNODE *ht;
 
@@ -3562,7 +3557,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
     return TRUE;
   }
 
-  return TRUE;
+  /* should not reach this point */
 }
 
 /*****************************************************************************
@@ -3577,7 +3572,7 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
  *****************************************************************************/
 
 void
-array_emit(AST *root, HASHNODE *hashtemp)
+array_emit(AST *root)
 {
   AST *temp;
   struct var_info *arrayinf;
@@ -3609,11 +3604,11 @@ array_emit(AST *root, HASHNODE *hashtemp)
       if(type_lookup(cur_external_table, root->parent->astnode.ident.name) 
        && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
       {
-        func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+        func_array_emit(temp, root->astnode.ident.name, 
            arrayinf->is_arg, TRUE);
       }
       else {
-        func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+        func_array_emit(temp, root->astnode.ident.name, 
            arrayinf->is_arg,FALSE);
         bytecode0(array_load_opcodes[root->vartype]);
       }
@@ -3623,7 +3618,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
             (root->parent->nodetype == DataStmt) ||
             (root->parent->nodetype == DataImpliedLoop))
     {
-      func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+      func_array_emit(temp, root->astnode.ident.name, 
          arrayinf->is_arg, FALSE);
     }
     else if((root->parent->nodetype == Typedec)) 
@@ -3633,7 +3628,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
         printf("I guess this is just an array declaration\n");
     }
     else {
-      func_array_emit(temp, hashtemp, root->astnode.ident.name, 
+      func_array_emit(temp, root->astnode.ident.name, 
          arrayinf->is_arg, FALSE);
       bytecode0(array_load_opcodes[root->vartype]);
     }
@@ -3699,7 +3694,7 @@ push_array_var(AST *root)
 struct var_info *
 get_var_info(AST *root)
 {
-  int is_arg=FALSE;
+  int is_arg;
   unsigned int varnum=0;
   char *com_prefix;
   char *name, *tmpclass, *desc;
@@ -3758,7 +3753,7 @@ get_var_info(AST *root)
    * always merged.
    */
 
-  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)) != NULL)
     name = ht->variable->astnode.ident.merged_name;
 
   if (name == NULL)
@@ -3996,8 +3991,8 @@ pushStringConst(char *str)
  *****************************************************************************/
 
 void
-pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name,
-   char *desc, unsigned int lv, BOOLEAN deref)
+pushVar(enum returntype vt, BOOL isArg, char *class, char *name,
+   char *desc, unsigned int lv, BOOL deref)
 {
   CPNODE *c;
 
@@ -4104,7 +4099,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
    * always merged.
    */
 
-  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name))!=NULL) {
     name = ht->variable->astnode.ident.merged_name;
 
     if(gendebug)
@@ -4744,7 +4739,7 @@ intrinsic_emit(AST *root)
       /* real AMAX0(integer) */
     case ifunc_AMAX0:
       fprintf(curfp,"(float)(");
-      max_intrinsic_emit(root, tempname, entry);
+      max_intrinsic_emit(root, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Integer][Float]);
       break;
@@ -4752,7 +4747,7 @@ intrinsic_emit(AST *root)
       /* integer MAX1(real) */
     case ifunc_MAX1:
       fprintf(curfp,"(int)(");
-      max_intrinsic_emit(root, tempname, entry);
+      max_intrinsic_emit(root, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Float][Integer]);
       break;
@@ -4762,13 +4757,13 @@ intrinsic_emit(AST *root)
     case ifunc_MAX0:
     case ifunc_AMAX1:
     case ifunc_DMAX1:
-      max_intrinsic_emit(root, tempname, entry);
+      max_intrinsic_emit(root, entry);
       break;
 
       /* real AMIN0(integer) */
     case ifunc_AMIN0: 
       fprintf(curfp,"(float)(");
-      min_intrinsic_emit(root, tempname, entry);
+      min_intrinsic_emit(root, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Integer][Float]);
       break;
@@ -4776,7 +4771,7 @@ intrinsic_emit(AST *root)
       /* integer MIN1(real) */
     case ifunc_MIN1:
       fprintf(curfp,"(int)(");
-      min_intrinsic_emit(root, tempname, entry);
+      min_intrinsic_emit(root, entry);
       fprintf(curfp,")");
       bytecode0(typeconv_matrix[Float][Integer]);
       break;
@@ -4786,7 +4781,7 @@ intrinsic_emit(AST *root)
     case ifunc_MIN0:
     case ifunc_AMIN1:
     case ifunc_DMIN1:
-      min_intrinsic_emit(root, tempname, entry);
+      min_intrinsic_emit(root, entry);
       break;
       
       /* length of a character entity */
@@ -5233,7 +5228,7 @@ intrinsic_arg_emit(AST *node, enum returntype this_type)
  *****************************************************************************/
 
 void
-max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
+max_intrinsic_emit(AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
@@ -5266,7 +5261,7 @@ max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
   else
     fprintf(stderr,"WARNING: bad intrinsic tag in max_intrinsic_emit()\n");
 
-  maxmin_intrinsic_emit(root,tempname,tmpentry,THREEARG_MAX_FUNC, desc);
+  maxmin_intrinsic_emit(root,tmpentry,THREEARG_MAX_FUNC, desc);
 }
 
 /*****************************************************************************
@@ -5279,7 +5274,7 @@ max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
  *****************************************************************************/
 
 void
-min_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
+min_intrinsic_emit(AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
@@ -5316,7 +5311,7 @@ min_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
     printf("MIN vartype = %s, %s %s %s\n", returnstring[root->vartype], 
          entry->class_name, entry->method_name, entry->descriptor);
 
-  maxmin_intrinsic_emit(root,tempname,tmpentry,THREEARG_MIN_FUNC, desc);
+  maxmin_intrinsic_emit(root,tmpentry,THREEARG_MIN_FUNC, desc);
 }
 
 /*****************************************************************************
@@ -5331,7 +5326,7 @@ min_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
  *****************************************************************************/
 
 void
-maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
+maxmin_intrinsic_emit(AST *root, METHODTAB *entry,
                       char *threearg, char *three_desc)
 {
   int ii, arg_count = 0;
@@ -5386,7 +5381,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
 
     ta_tmp = strdup(threearg);
 
-    method = strtok(ta_tmp,".");
+    strtok(ta_tmp,".");
     method = strtok(NULL,".");
     c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
 
@@ -5426,7 +5421,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
 
     ta_tmp = strdup(threearg);
 
-    method = strtok(ta_tmp,".");
+    strtok(ta_tmp,".");
     method = strtok(NULL,".");
     c = newMethodref(cur_const_table,UTIL_CLASS, method, three_desc);
 
@@ -5464,12 +5459,11 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
 enum returntype
 get_type(char *num)
 {
-  int idx;
+  unsigned int idx;
 
   for(idx = 0;idx < strlen(num);idx++) 
     if(num[idx] == '.') {
       return Double;
-      break;
     }
 
   if( !strcmp(num,"false") || !strcmp(num,"true"))
@@ -5539,7 +5533,7 @@ expr_emit (AST * root)
          *   be better to detect this elsewhere (e.g. in the code that emits
          *   array declarations).
          */
-        BOOLEAN gencast = (root->parent != NULL) 
+        BOOL gencast = (root->parent != NULL) 
                    && (root->parent->nodetype == ArrayDec);
 
         fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
@@ -5790,8 +5784,6 @@ expr_emit (AST * root)
           fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
           return;
         }
-
-        cur_vt = root->astnode.expression.lhs->vartype;
 
         c = newMethodref(cur_const_table,JL_STRING,
                "regionMatches", REGIONMATCHES_DESC);
@@ -6135,7 +6127,7 @@ constructor (AST * root)
   /* set global descriptor variable (method_desc) */
 
   if((hashtemp=type_lookup(function_table, 
-         root->astnode.source.name->astnode.ident.name)))
+         root->astnode.source.name->astnode.ident.name)) != NULL)
     method_desc = hashtemp->variable->astnode.source.descriptor;
   else
     method_desc = MAIN_DESCRIPTOR;
@@ -6376,7 +6368,7 @@ emit_interface(AST *root)
   char *classname;
   Dlist decs, rest, tmp;
   int i;
-  BOOLEAN skipped;
+  /* BOOL skipped; */
 
   decs = make_dl();
   rest = make_dl();
@@ -6441,7 +6433,7 @@ emit_interface(AST *root)
 
   for (; tempnode != NULL; tempnode = tempnode->nextstmt)
   {
-    skipped = FALSE;
+    /* skipped = FALSE; */
 
     hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
     if (hashtemp == NULL)
@@ -6483,7 +6475,7 @@ emit_interface(AST *root)
       if((prev != NULL) && (prev->astnode.ident.dim > 1) &&
          !strcmp(tempnode->astnode.ident.name,prev->astnode.ident.leaddim))
       {
-        skipped = TRUE;
+        /* skipped = TRUE; */
       }
       else 
       {
@@ -6605,11 +6597,10 @@ emit_interface(AST *root)
 void
 emit_methcall(FILE *intfp, AST *root)
 {
-  enum returntype returns;
   AST *tempnode, *prev;
   char *tempstring;
   HASHNODE *hashtemp;
-  BOOLEAN skipped;
+  /* BOOL skipped; */
 
   if (root->nodetype == Function)
     fprintf (intfp, "_retval = ");
@@ -6626,7 +6617,7 @@ emit_methcall(FILE *intfp, AST *root)
   /* for each argument */
   for (; tempnode != NULL; tempnode = tempnode->nextstmt)
   {
-    skipped = FALSE;
+    /* skipped = FALSE; */
 
     hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
     if (hashtemp == NULL)
@@ -6634,26 +6625,6 @@ emit_methcall(FILE *intfp, AST *root)
       fprintf (stderr,"Type table is screwed (codegen.c).\n");
       fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
       exit (-1);
-    }
-
-    if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
-      returns = OBJECT_TYPE;
-    else
-      returns = hashtemp->type;
-
-    if(omitWrappers) {
-      if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        cgPassByRef(tempnode->astnode.ident.name))
-          tempstring = wrapper_returns[returns];
-      else
-        tempstring = returnstring[returns];
-    }
-    else
-    {
-      if (hashtemp->variable->astnode.ident.arraylist == NULL)
-        tempstring = wrapper_returns[returns];
-      else
-        tempstring = returnstring[returns];
     }
 
     if (hashtemp->variable->astnode.ident.arraylist == NULL) {
@@ -6664,7 +6635,7 @@ emit_methcall(FILE *intfp, AST *root)
          * leading dimension to the numerical routine.
          */
 
-        skipped = TRUE;
+        /* skipped = TRUE; */
         fprintf(intfp, "%s.length" , prev->astnode.ident.name);
       }
       else 
@@ -6888,7 +6859,6 @@ void
 goto_emit (AST * root)
 {
   CodeGraphNode *goto_node;
-  AST *loop;
 
   /* for bytecode, maintain a list of the gotos so that we can come back
    * later and resolve the branch targets.
@@ -6901,7 +6871,7 @@ goto_emit (AST * root)
     printf("## setting branch_label of this node to %d\n",
       goto_node->branch_label);
 
-  if( (loop = label_search(doloop, root->astnode.go_to.label)) != NULL)
+  if(label_search(doloop, root->astnode.go_to.label) != NULL)
   {
     /*
      *  we are inside a do loop and we are looking at a goto
@@ -7517,7 +7487,7 @@ one_arg_write_emit(AST *root)
  *                                                                           *
  *****************************************************************************/
 
-BOOLEAN
+BOOL
 isArrayNoIdx(AST *var)
 {
   return( (var->token == NAME) && 
@@ -7538,7 +7508,7 @@ isArrayNoIdx(AST *var)
 void
 write_emit(AST * root)
 {
-  BOOLEAN implied_loop = FALSE;
+  BOOL implied_loop = FALSE;
   AST *nodeptr, *temp, *prev;
   HASHNODE *hnode;
   char tmp[100];
@@ -7797,7 +7767,7 @@ write_emit(AST * root)
  *****************************************************************************/
 
 void
-inline_format_emit(AST *root, BOOLEAN use_stringbuffer)
+inline_format_emit(AST *root, BOOL use_stringbuffer)
 {
   CPNODE *c;
 
@@ -8055,7 +8025,8 @@ gen_store_op(unsigned int lvnum, enum returntype rt)
   if(lvnum > 255) {
     node = bytecode0(jvm_wide); 
     bytecode1(store_opcodes[rt], lvnum);
-  } else if((lvnum >= 0) && (lvnum <= 3))
+  }
+  else if(lvnum <= 3)
     node = bytecode0(short_store_opcodes[rt][lvnum]);
   else
     node = bytecode1(store_opcodes[rt], lvnum);
@@ -8080,7 +8051,8 @@ gen_load_op(unsigned int lvnum, enum returntype rt)
   if(lvnum > 255) {
     node = bytecode0(jvm_wide); 
     bytecode1(load_opcodes[rt], lvnum);
-  } else if((lvnum >= 0) && (lvnum <= 3))
+  }
+  else if(lvnum <= 3)
     node = bytecode0(short_load_opcodes[rt][lvnum]);
   else
     node = bytecode1(load_opcodes[rt], lvnum);
@@ -8159,7 +8131,7 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
-      break;
+      
     case STRING:
       if(gendebug)
         printf("STring: %s\n",temp->astnode.constant.number);
@@ -8173,7 +8145,7 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
-      break;
+     
     case REPEAT:
       if(gendebug)
         printf("Repeat %d\n",temp->astnode.label.number);
@@ -8185,7 +8157,7 @@ format_item_emit(AST *temp, AST **nodeptr)
               fprintf(curfp," + ");
       }
       return(temp->nextstmt);
-      break;
+      
     case INTEGER:
       if(gendebug)
         printf("INteger %d\n",atoi(temp->astnode.constant.number));
@@ -8233,12 +8205,12 @@ format_item_emit(AST *temp, AST **nodeptr)
       }
 
       return(temp->nextstmt);
-      break;
+      
     case CM:
       if(gendebug)
         printf("Comma\n");
       return(temp->nextstmt);
-      break;
+     
     case DIV:
       if(gendebug)
         printf("Div\n");
@@ -8250,7 +8222,7 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
-      break;
+   
     case CAT:
       if(gendebug)
         printf("two divs\n");
@@ -8262,18 +8234,18 @@ format_item_emit(AST *temp, AST **nodeptr)
       if(temp->nextstmt != NULL)
         fprintf(curfp," + ");
       return(temp->nextstmt);
-      break;
+  
     case COLON:
       /* not supported */
       return(temp->nextstmt);
-      break;
+
     default:
       fprintf(stderr,"format_item_emit: Unknown token!!! %d (%s) - ",
          temp->token, tok2str(temp->token));
       if(gendebug)
         printf("this node type %s\n",print_nodetype(temp));
       return(temp->nextstmt);
-      break;
+
   }
 }
 
@@ -8583,9 +8555,9 @@ else_emit (AST * root)
  *****************************************************************************/
 
 int
-method_name_emit (AST *root, BOOLEAN adapter)
+method_name_emit (AST *root, BOOL adapter)
 {
-  char *tempname = NULL;
+  char *tempname;
   HASHNODE *ht;
   AST *temp;
   CPNODE *c;
@@ -8837,7 +8809,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
  *****************************************************************************/
 
 METHODREF *
-get_method_name(AST *root, BOOLEAN adapter)
+get_method_name(AST *root, BOOL adapter)
 {
   char *buf, *tempname;
   char *tmpdesc;
@@ -8953,8 +8925,8 @@ get_method_name(AST *root, BOOLEAN adapter)
 METHODREF *
 get_methodref(AST *node)
 {
-  METHODREF *new_mref = NULL, *srch_mref = NULL;
-  HASHNODE *ht = NULL;
+  METHODREF *new_mref, *srch_mref;
+  HASHNODE *ht;
   char *tempname = NULL;
 
   new_mref = (METHODREF *)f2jalloc(sizeof(METHODREF));
@@ -9037,7 +9009,7 @@ get_methodref(AST *node)
 void
 call_emit (AST * root)
 {
-  BOOLEAN adapter = FALSE;
+  BOOL adapter;
   METHODREF *mref;
   CPNODE *c;
 
@@ -9141,7 +9113,7 @@ call_emit (AST * root)
  *****************************************************************************/
 
 void
-emit_call_arguments(AST *root, BOOLEAN adapter)
+emit_call_arguments(AST *root, BOOL adapter)
 {
   METHODREF *mref;
 
@@ -9176,10 +9148,9 @@ emit_call_arguments(AST *root, BOOLEAN adapter)
  *****************************************************************************/
 
 void
-emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
+emit_call_args_known(AST *root, char *desc, BOOL adapter)
 {
   char *com_prefix, *dptr;
-  HASHNODE *ht;
   AST *temp;
 
   if(gendebug)
@@ -9201,9 +9172,9 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
 
     if((temp->nodetype == Identifier) && 
        (temp->astnode.ident.arraylist != NULL) && 
-       (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) )
+       (type_lookup(cur_array_table, temp->astnode.ident.name)!=NULL))
     {
-      arrayacc_arg_emit(temp, dptr, com_prefix, adapter);
+      arrayacc_arg_emit(temp, dptr, adapter);
     }
 
       /* 
@@ -9216,7 +9187,7 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
             (temp->astnode.ident.arraylist == NULL) && 
             type_lookup(cur_array_table, temp->astnode.ident.name) )
     {
-      arrayref_arg_emit(temp, dptr, com_prefix);
+      arrayref_arg_emit(temp, dptr);
     }
 
       /* 
@@ -9297,15 +9268,12 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
  *****************************************************************************/
 
 void
-arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
+arrayacc_arg_emit(AST *temp, char *dptr, BOOL adapter)
 {
-  HASHNODE *ht;
-  BOOLEAN isarg, isext;
+  BOOL isarg, isext;
   struct var_info *vtemp;
 
   isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
-
-  ht = type_lookup(cur_array_table, temp->astnode.ident.name);
 
   if(gendebug)
     printf("arrayacc_arg_emit() %s - %s\n", temp->astnode.ident.name, dptr);
@@ -9315,7 +9283,7 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
   if(dptr[0] == '[')     /* it is expecting an array */
   {
 
-    func_array_emit(temp->astnode.ident.arraylist,ht,
+    func_array_emit(temp->astnode.ident.arraylist,
        temp->astnode.ident.name, isarg, TRUE);
   }
   else                                /* it is not expecting an array */
@@ -9337,7 +9305,7 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
         isext = FALSE;
     }
 
-    func_array_emit (temp->astnode.ident.arraylist,ht, 
+    func_array_emit (temp->astnode.ident.arraylist, 
       temp->astnode.ident.name, isarg, isext);
 
     if(!isext)
@@ -9359,7 +9327,7 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
  *****************************************************************************/
 
 void
-arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
+arrayref_arg_emit(AST *temp, char *dptr)
 {
 
   if(dptr[0] == '[')     /* it is expecting an array */
@@ -9431,9 +9399,6 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 
     if(cgPassByRef(temp->astnode.ident.name)) {
       struct var_info *ainf;
-      BOOLEAN isarg;
-
-      isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
 
       if(dptr[0] == '[')
         fprintf(curfp,"%s%s",com_prefix,temp->astnode.ident.name);
@@ -9701,7 +9666,7 @@ needs_adapter(AST *root)
   HASHNODE *hashtemp;
   METHODREF *mtmp;
   AST *temp;
-  char *dptr, *current_descriptor = NULL;
+  char *dptr, *current_descriptor;
 
   /* first, check for a null parameter list.  if there are no parameters, 
    * we certainly wont need an adapter.
@@ -10282,7 +10247,6 @@ insert_adapter(AST *node)
   HASHNODE *ht;
   METHODREF *tmp;
   AST *ptr;
-  int found = FALSE;
   Dlist p;
 
   /* if there is not an adapter for this function call already in the list,
@@ -10300,8 +10264,6 @@ insert_adapter(AST *node)
 
     if( !strcmp(ptr->astnode.ident.name, node->astnode.ident.name) )
     {
-      found = TRUE;
-
       /* this function call is already in the list.  now we must determine
        * whether the prototypes of the adapters would be the same.  If so,
        * there's no need to insert this node in the adapter list.  If the
@@ -10354,13 +10316,13 @@ insert_adapter(AST *node)
  *                                                                           *
  *****************************************************************************/
 
-BOOLEAN
+BOOL
 adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
 {
   int this_arg_is_arrayacc, other_arg_is_arrayacc, i;
   int this_arg_is_scalar, other_arg_is_scalar;
   AST *this_call, *other_call;
-  BOOLEAN diff;
+  BOOL diff;
   char *dptr;
 
   if(gendebug)
@@ -11182,12 +11144,12 @@ get_desc_from_arglist(AST *list)
  *****************************************************************************/
 
 void
-emit_invocations(AST *root)
+emit_invocations()
 {
   struct method_info *inv_method;
   Dlist p, tmplist, exc_list;
-  int count = 0, obj_array_varnum=0;
-  char *cur_name=NULL, *cur_desc=NULL, *tmpdesc=NULL;
+  int count, obj_array_varnum;
+  char *cur_name=NULL, *cur_desc=NULL, *tmpdesc;
   CPNODE *c;
   AST *temp;
 
@@ -11299,7 +11261,7 @@ methcall_arglist_emit(AST *temp)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int count = 0, dim = 0;
+  int count, dim;
   AST *arg;
 
   for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
@@ -11379,7 +11341,7 @@ methcall_obj_array_emit(AST *temp, int lv)
 {
   enum returntype rtype;
   HASHNODE *ht;
-  int ai = 0, vi = 1, dim = 0;
+  int ai = 0, vi = 1, dim;
   AST *arg;
 
   for(arg=temp->astnode.ident.arraylist;arg!=NULL;arg=arg->nextstmt,ai++,vi++)
@@ -11478,7 +11440,7 @@ arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum,
  *****************************************************************************/
 
 void
-arg_assignment_emit(int array_vnum, int array_idx, int arg_vnum, BOOLEAN wrap,
+arg_assignment_emit(int array_vnum, int array_idx, int arg_vnum, BOOL wrap,
   enum returntype argtype)
 {
   CPNODE *c;
@@ -11772,7 +11734,7 @@ beginNewMethod(unsigned int flags)
 
   acc = (u2) flags;
 
-  if((int)acc != flags)
+  if((unsigned int)acc != flags)
     fprintf(stderr,"Warning: possible truncation in beginNewMethod.\n");
 
   tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
@@ -11830,7 +11792,7 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth,
 
   maxloc = (u2)mloc;
 
-  if((int)maxloc != mloc)
+  if((unsigned int)maxloc != mloc)
     fprintf(stderr,"Warning: possible truncation in endNewMethod.\n");
 
   fprintf(indexfp,"%s:%s:%s\n",cur_filename, name, desc);
@@ -11978,9 +11940,9 @@ nodeAtPC(int num)
 
   dl_traverse(tmp, cur_code->attr.Code->code) {
     nodeptr = (CodeGraphNode *)tmp->val;
-    if(nodeptr->pc == num)
+    if(nodeptr->pc == (unsigned int)num)
       return nodeptr;
-    if(nodeptr->pc > num)
+    if(nodeptr->pc > (unsigned int)num)
       return NULL;
   }
 
@@ -12158,7 +12120,7 @@ cfg_emit(Dlist cgraph, char *mname)
  *                                                                           *
  *****************************************************************************/
 
-BOOLEAN
+BOOL
 checkDistance(enum _opcode op, int dest, int src)
 {
   int distance;
@@ -12617,7 +12579,7 @@ calcStack(char *d)
   }
 
   tstr = strdup(d);
-  ptr = strtok(tstr,")");
+  strtok(tstr,")");
   ptr = strtok(NULL,")");
   if( (*ptr ==  'D') || (*ptr == 'J') )
     tmp->ret_len = 2;
@@ -12683,7 +12645,6 @@ skipToken(char *str)
   }
 
   /* should never reach here */
-  return NULL;
 }
 
 /*****************************************************************************

@@ -16,7 +16,13 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
+
+#ifdef _WIN32
+#include<dir.h>
+#else
 #include<unistd.h>
+#endif
+
 #include<sys/stat.h>
 #include<errno.h>
 #include"class.h"
@@ -24,6 +30,7 @@
 #include"constant_pool.h"
 #include"graph.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 u4 u4BigEndian(u4);
 u2 u2BigEndian(u2);
@@ -104,10 +111,10 @@ void
 report_position(char *prefix, FILE *stream)
 {
   fpos_t p;
-  int pos;
 
-  pos = fgetpos(stream, &p);
+  fgetpos(stream, &p);
 
+  printf("%s at position %ld\n", prefix, (long)p);
 }
 
 /*****************************************************************************
@@ -198,7 +205,11 @@ void
 write_interfaces(struct ClassFile *class, FILE *out)
 {
 
-  /* intentionally empty */
+  /* intentionally empty -- use the variables to avoid compiler warnings     */
+
+  if(class_debug)
+    printf("in write_interfaces %p %p\n",
+      class, out);
 
 }
 
@@ -565,7 +576,7 @@ fopen_fullpath(char *file, char *mode)
       return NULL;
     }
 
-  if( (f = fopen(full_file, mode)) ) {
+  if( (f = fopen(full_file, mode)) != NULL ) {
     f2jfree(buf, sizeof(struct stat));
     f2jfree(pwd, strlen(pwd)+1);
     f2jfree(full_file, strlen(full_file)+1);
@@ -581,7 +592,11 @@ fopen_fullpath(char *file, char *mode)
 
     if( stat(prev, buf) == -1) {
       if(errno == ENOENT) {
+#ifdef _WIN32
+        if(mkdir(prev) == -1) {
+#else
         if(mkdir(prev, 0755) == -1) {
+#endif
           chdir(pwd);
           f2jfree(pwd, strlen(pwd)+1);
           f2jfree(buf, sizeof(struct stat));
@@ -618,7 +633,7 @@ fopen_fullpath(char *file, char *mode)
     prev = segment;
   }
 
-  if( (f = fopen(prev, mode)) ) {
+  if( (f = fopen(prev, mode)) != NULL ) {
     chdir(pwd);
     f2jfree(pwd, strlen(pwd)+1);
     f2jfree(buf, sizeof(struct stat));

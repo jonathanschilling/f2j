@@ -155,10 +155,10 @@ METHODTAB
 
 void 
   external_emit(AST *),
-  maxmin_intrinsic_emit(AST *, char *, METHODTAB *, char *, char *),
-  max_intrinsic_emit (AST *, char *, METHODTAB *),
-  min_intrinsic_emit (AST *, char *, METHODTAB *),
-  arg_assignment_emit(int, int, int, BOOLEAN, enum returntype),
+  maxmin_intrinsic_emit(AST *, METHODTAB *, char *, char *),
+  max_intrinsic_emit (AST *, METHODTAB *),
+  min_intrinsic_emit (AST *, METHODTAB *),
+  arg_assignment_emit(int, int, int, BOOL, enum returntype),
   arg_array_assign_emit(int array_vnum, int array_idx, int arg_vnum, 
          enum returntype argtype),
   calcOffsets(Dlist, CodeGraphNode *),
@@ -170,9 +170,9 @@ void
   forloop_end_bytecode(AST *),
   substring_assign_emit(AST *),
   dint_intrinsic_emit(AST *, METHODTAB *),
-  emit_call_args_known(AST *, char *, BOOLEAN),
+  emit_call_args_known(AST *, char *, BOOL),
   emit_call_args_unknown(AST *),
-  emit_call_arguments(AST *, BOOLEAN),
+  emit_call_arguments(AST *, BOOL),
   aint_intrinsic_emit(AST *, METHODTAB *),
   intrinsic_arg_emit(AST *, enum returntype),
   intrinsic0_call_emit(AST *, METHODTAB *),
@@ -180,14 +180,14 @@ void
   intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
   intrinsic_lexical_compare_emit(AST *, METHODTAB *),
   intrinsic_emit(AST *),
-  implied_loop_emit(AST *, void (AST *), void (AST*)),
+  implied_loop_emit(AST *, void (*)(AST *), void (*)(AST*)),
   format_emit(AST *, AST **),
   read_implied_loop_bytecode_emit(AST *),
   read_implied_loop_sourcecode_emit(AST *),
   scalar_emit(AST *, HASHNODE *),
   write_implied_loop_bytecode_emit(AST *),
   write_implied_loop_sourcecode_emit(AST *),
-  array_emit(AST *, HASHNODE *),
+  array_emit(AST *),
   emit_interface(AST *),
   substring_emit(AST *),
   subcall_emit(AST *),
@@ -216,7 +216,7 @@ void
   write_emit (AST *),
   common_emit(AST *),
   read_emit (AST *),
-  emit_invocations(AST *),
+  emit_invocations(void),
   merge_equivalences(AST *),
   print_equivalences(AST *),
   emit_prolog_comments(AST *),
@@ -224,19 +224,19 @@ void
   insert_fields(AST *),
   assign_local_vars(AST *),
   return_emit(void),
-  end_emit(AST *),
+  end_emit(void),
   emit (AST *),
   pushConst(AST *),
   field_emit(AST *),
   pushIntConst(int),
   pushDoubleConst(double),
   pushStringConst(char *),
-  pushVar(enum returntype, BOOLEAN, char *, char *, char *, unsigned int, BOOLEAN),
+  pushVar(enum returntype, BOOL, char *, char *, char *, unsigned int, BOOL),
   dec_stack(int),
   iinc_emit(unsigned int, int),
   invoke_constructor(char *, AST *, char *),
   set_bytecode_status(int),
-  inline_format_emit(AST *, BOOLEAN),
+  inline_format_emit(AST *, BOOL),
   endNewMethod(struct ClassFile *, struct method_info *, char *, char *, unsigned int, Dlist),
   releaseLocal(enum returntype),
   assign_emit (AST *),
@@ -249,7 +249,7 @@ void
   reflect_declarations_emit(AST *),
   invocation_exception_handler_emit(ExceptionTableEntry *),
   data_scalar_emit(enum returntype, AST *, AST *, int),
-  func_array_emit(AST *, HASHNODE *, char *, int, int),
+  func_array_emit(AST *, char *, int, int),
   methcall_obj_array_emit(AST *, int),
   adapter_emit_from_descriptor(METHODREF *, AST *),
   adapter_args_emit_from_descriptor(AST *, char *),
@@ -259,12 +259,12 @@ void
   adapter_tmp_assign_emit(int, enum returntype),
   adapter_assign_emit(int, int, int, char *),
   adapter_array_assign_emit(int, int, int, char *),
-  arrayacc_arg_emit(AST *, char *, char *, BOOLEAN),
-  arrayref_arg_emit(AST *, char *, char *),
+  arrayacc_arg_emit(AST *, char *, BOOL),
+  arrayref_arg_emit(AST *, char *),
   scalar_arg_emit(AST *, char *, char *),
   wrapped_arg_emit(AST *, char *),
-  initialize_lists(),
-  free_lists(),
+  initialize_lists(void),
+  free_lists(void),
   inc_stack(int);
 
 int
@@ -275,7 +275,7 @@ int
   idxNeedsDecr(AST *),
   getStackIncrement(enum _opcode, u4),
   getStackDecrement(enum _opcode, u4),
-  method_name_emit (AST *, BOOLEAN),
+  method_name_emit (AST *, BOOL),
   data_repeat_emit(AST *, unsigned int),
   methcall_arglist_emit(AST *),
   num_locals_in_descriptor(char *),
@@ -318,7 +318,7 @@ AST
   * addnode(void),
   * data_var_emit(AST *, AST *, HASHNODE *),
   * data_implied_loop_emit(AST * , AST *),
-  * data_array_emit(int , AST *, AST *, int),
+  * data_array_emit(int , AST *, AST *),
   * format_item_emit(AST *, AST **);
 
 enum returntype
@@ -326,7 +326,7 @@ enum returntype
   get_type(char *);
 
 METHODREF
-  * get_method_name(AST *, BOOLEAN);
+  * get_method_name(AST *, BOOL);
 
 struct stack_info * calcStack(char *);
 
@@ -335,7 +335,7 @@ METHODREF
   * find_commonblock(char *, Dlist),
   * find_method(char *, Dlist);
 
-BOOLEAN
+BOOL
   adapter_insert_from_descriptor(AST *, AST *, char *),
   checkDistance(enum _opcode, int, int),
   isArrayNoIdx(AST *);

@@ -19,6 +19,7 @@
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 #define NUM_CONSTANT_TAGS 13
 
@@ -77,7 +78,7 @@ cp_lookup(Dlist list, enum _constant_tags tag, const void *value) {
 
 
         if(ctemp->tag == CONSTANT_Utf8) {
-          if(strlen((char*)value) == ctemp->cpnode.Utf8.length)
+          if(strlen((char*)value) == (unsigned int)ctemp->cpnode.Utf8.length)
             if(!strncmp((char*)ctemp->cpnode.Utf8.bytes, (char*)value, ctemp->cpnode.Utf8.length) )
               return temp->val;
         }
@@ -144,7 +145,7 @@ cp_lookup(Dlist list, enum _constant_tags tag, const void *value) {
             this_len = cp_entry_by_index(list, 
                 ctemp->cpnode.Class.name_index)->val->cpnode.Utf8.length;
 
-            if(this_len == strlen((char*) value))
+            if((unsigned int)this_len == strlen((char*) value))
               if(!strncmp( (char *) (cp_entry_by_index(list, 
                     ctemp->cpnode.Class.name_index)->val->cpnode.Utf8.bytes),
                     (char *)value, strlen((char*)value)))
@@ -389,7 +390,7 @@ cp_find_function_body(Dlist list, enum _constant_tags tag, const void *value) {
 
         return cp_insert(list,newnode,1);
       }
-      break;
+      
     case CONSTANT_NameAndType:
       {
         METHODREF *mref = (METHODREF *)value;
@@ -408,7 +409,7 @@ cp_find_function_body(Dlist list, enum _constant_tags tag, const void *value) {
  
         return cp_insert(list,newnode,1);
       }
-      break;
+     
     case CONSTANT_Utf8:
       newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
       newnode->tag = CONSTANT_Utf8;
@@ -417,10 +418,10 @@ cp_find_function_body(Dlist list, enum _constant_tags tag, const void *value) {
       strncpy((char*)newnode->cpnode.Utf8.bytes,value,newnode->cpnode.Utf8.length);
 
       return cp_insert(list, newnode, 1);
-      break;
+     
     case CONSTANT_Integer:
       return insert_constant(list, INTEGER,value);
-      break;
+    
     case CONSTANT_Float:
     case CONSTANT_Long:
       fprintf(stderr,"cp_find_or_insert():WARNING: should not hit float/long case!\n");
@@ -478,7 +479,7 @@ cp_entry_by_index(Dlist list, unsigned int idx)
 CPNODE *
 insert_constant(Dlist list, int tok, const void * tag)
 {
-  struct cp_info * newnode = NULL;
+  struct cp_info * newnode;
   int idx;
   CPNODE *c;
 
@@ -579,7 +580,6 @@ insert_constant(Dlist list, int tok, const void * tag)
 
       return cp_insert(list, newnode, 1);
 
-      break;
   }
  
   return NULL;

@@ -130,6 +130,7 @@ typedef struct ast_node
             ArrayDec,
             EmptyArgList,
             IoExplist,
+            ImpliedLoop,
 	    Unimplemented
 	}
       nodetype;

@@ -37,6 +37,7 @@ typecheck (AST * root)
   void blockif_check (AST *);
   void logicalif_check (AST *);
   void write_check (AST *);
+  void read_check (AST *);
 
   switch (root->nodetype)
   {
@@ -169,6 +170,13 @@ typecheck (AST * root)
       if (checkdebug)
         printf ("typecheck(): Write statement.\n");
       write_check (root);
+      if (root->nextstmt != NULL)
+        typecheck (root->nextstmt);
+      break;
+    case Read:
+      if (checkdebug)
+        printf ("typecheck(): Read statement.\n");
+      read_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
       break;
@@ -754,6 +762,21 @@ logicalif_check (AST * root)
 }
 
 void
+read_check (AST * root)
+{
+  AST *temp;
+  void expr_check (AST *);
+
+  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+  {
+      if(temp == NULL)
+        fprintf(stderr,"read_check: calling expr_check with null pointer!\n");
+    if(temp->nodetype != ImpliedLoop)
+      expr_check (temp);
+  }
+}
+
+void
 write_check (AST * root)
 {
   AST *temp;
@@ -763,7 +786,8 @@ write_check (AST * root)
   {
       if(temp == NULL)
         fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
-    expr_check (temp);
+    if(temp->nodetype != ImpliedLoop)
+      expr_check (temp);
   }
 }
 

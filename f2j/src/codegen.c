@@ -109,6 +109,7 @@ emit (AST * root)
     void label_emit (AST *);
     void write_emit (AST *);
     void common_emit(AST *);
+    void read_emit (AST *);
 
     switch (root->nodetype)
       {
@@ -307,6 +308,13 @@ emit (AST * root)
 	  if (gendebug)
 	      printf ("Write statement.\n");
 	  write_emit (root);
+	  if (root->nextstmt != NULL)
+	      emit (root->nextstmt);
+	  break;
+      case Read:
+	  if (gendebug)
+	      printf ("Read statement.\n");
+	  read_emit (root);
 	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
@@ -2647,6 +2655,12 @@ label_emit (AST * root)
   }
 }
 
+void
+read_emit (AST * root)
+{
+  fprintf(stderr,"READ not yet supported\n");
+}
+
 /*
  * This function handles WRITE statements.  It is FAR from complete,
  * but it is usually good enough to test the numerical routines.
@@ -2660,6 +2674,7 @@ write_emit (AST * root)
   AST *nodeptr;
   char tmp[100];
   void format_list_emit(AST *, AST **);
+  void write_implied_loop_emit(AST *);
   int implied_loop = FALSE;
 
   /* 
@@ -2671,7 +2686,7 @@ write_emit (AST * root)
    */
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-    if(temp->nodetype == Forloop)
+    if(temp->nodetype == ImpliedLoop)
     {
       implied_loop = TRUE;
       break;
@@ -2702,9 +2717,14 @@ write_emit (AST * root)
   if(gendebug)
     printf("***Looking for format statement number: %s\n",tmp);
 
-  /* if there's formatting information for this write statement, use it */
+  /* if there's formatting information for this write statement, use it
+   * unless the write statement has an implied do loop.  in that case,
+   * we dont know how to handle the formatting, so we ignore it.
+   */
 
-  if( (hnode = format_lookup(cur_format_table,tmp)) != NULL ) {
+  hnode = format_lookup(cur_format_table,tmp);
+
+  if(hnode != NULL && !implied_loop) {
     if(gendebug)
       printf("****FOUND****\n");
 
@@ -2716,22 +2736,69 @@ write_emit (AST * root)
     if(gendebug)
       printf("****NOT FOUND****\n");
 
+    if(hnode && implied_loop)
+      fprintf(stderr,"Warning: Ignoring formatting stmt for WRITE with implied loop\n");
+
     for( temp = root->astnode.io_stmt.arg_list; 
       temp != NULL; 
       temp = temp->nextstmt) 
     {
-      fprintf(curfp,"(");
-      expr_emit (temp);
-      fprintf(curfp,")");
-      if(temp->nextstmt != NULL)
-        fprintf (curfp, " + \"\" + ");
+      if(temp->nodetype == ImpliedLoop)
+      {
+        if( temp == root->astnode.io_stmt.arg_list )
+          fprintf(curfp,"\"\");\n");
+
+        write_implied_loop_emit(temp);
+        if(temp->nextstmt != NULL)
+          if(temp->nextstmt->nodetype != ImpliedLoop)
+            fprintf(curfp,"System.out.print(");
+      }
+      else
+      {
+        fprintf(curfp,"(");
+        expr_emit (temp);
+        fprintf(curfp,")");
+        if(temp->nextstmt != NULL) 
+        {
+          if(temp->nextstmt->nodetype == ImpliedLoop)
+            fprintf (curfp, " + \" \");\n");
+          else
+            fprintf (curfp, " + \" \" + ");
+        }
+        else
+          fprintf (curfp, ");\n");
+      }
     }
   }
 
   if(implied_loop)
-    fprintf (curfp, "\\n);\n");
+    fprintf (curfp, "\nSystem.out.println(\"\\n\");\n");
   else
     fprintf (curfp, ");\n");
+}
+
+void
+write_implied_loop_emit(AST *node)
+{
+  fprintf(curfp,"for(int _tmp_i = "); 
+  expr_emit(node->astnode.forloop.start);
+  fprintf(curfp," - 1; _tmp_i < "); 
+  expr_emit(node->astnode.forloop.stop);
+  if(node->astnode.forloop.incr == NULL)
+    fprintf(curfp,"; _tmp_i++)\n"); 
+  else
+  {
+    fprintf(curfp,"; _tmp_i += "); 
+    expr_emit(node->astnode.forloop.incr);
+    fprintf(curfp,")\n"); 
+  }
+
+  if(node->astnode.forloop.Label->nodetype != Identifier)
+    fprintf(stderr,"Cant handle this implied loop.");
+  else {
+    fprintf(curfp,"  System.out.print(%s[_tmp_i] + \" \");\n", 
+      node->astnode.forloop.Label->astnode.ident.name);
+  }
 }
 
 /*
@@ -3899,6 +3966,8 @@ print_nodetype (AST *root)
       return("EmptyArgList");
     case IoExplist:
       return("IoExplist");
+    case ImpliedLoop:
+      return("ImpliedLoop");
     case Unimplemented:
       return("Unimplemented");
     default:

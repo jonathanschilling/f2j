@@ -1570,18 +1570,10 @@ IoExp: Exp
        {
          $$ = $1;
        }
-     | OP IoExplist CM Name EQ Exp CM Exp CP /* implied do loop */
+     | OP Exp CM Name EQ Exp CM Exp CP /* implied do loop */
        {
-         AST *temp;
-
-         temp = addnode();
-         temp->nodetype = Forloop;
-         $2->parent = temp;
-
          $$ = addnode();
-         $6->parent = $$;
-         $8->parent = $$;
-         $$->nodetype = Forloop;
+         $$->nodetype = ImpliedLoop;
          $$->astnode.forloop.start = $6;
          $$->astnode.forloop.stop = $8;
          $$->astnode.forloop.incr = NULL;
@@ -1590,6 +1582,8 @@ IoExp: Exp
 
          $2->parent = $$;
          $4->parent = $$;
+         $6->parent = $$;
+         $8->parent = $$;
        }
 ;
 

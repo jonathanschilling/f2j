@@ -57,7 +57,7 @@ BOOLEAN letterseen;
 BOOLEAN equalseen;
 BOOLEAN commaseen;
 
-int lexdebug = 1;
+int lexdebug = 0;
 
 char *tok2str(int);
 char *strdup(const char *);

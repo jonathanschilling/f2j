@@ -6834,6 +6834,7 @@ struct ClassFile *
 newClassFile(char *name, char *srcFile)
 {
   struct attribute_info * attr_temp;
+  struct method_info * meth_tmp;
   struct cp_info *newnode;
   struct ClassFile * tmp;
   char *thisname;
@@ -6849,11 +6850,9 @@ newClassFile(char *name, char *srcFile)
   tmp->minor_version = JVM_MINOR_VER;
   tmp->major_version = JVM_MAJOR_VER;
 
-  /* we'll fill out the constant pool, fields, and methods later. */
+  /* we'll fill out the constant pool and fields later. */
   tmp->constant_pool_count = 0;
   tmp->constant_pool = NULL;
-  tmp->methods_count = 0;
-  tmp->methods = NULL;
   tmp->fields_count = 0;
   tmp->fields = make_dl();
 
@@ -6881,9 +6880,10 @@ newClassFile(char *name, char *srcFile)
   newnode->cpnode.Class.name_index = c->index;
 
   c = cp_insert(cur_const_table,newnode,1);
-
   tmp->this_class = c->index;
-  tmp->super_class = 0;   /* 0 means this class has no superclass */
+
+  c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/Object");
+  tmp->super_class = c->index;
 
   /* f2java generated code does not implement any interfaces */
   tmp->interfaces_count = 0;
@@ -6907,6 +6907,25 @@ newClassFile(char *name, char *srcFile)
   attr_temp->attr.SourceFile.sourcefile_index = c->index;
 
   dl_insert_b(tmp->attributes,attr_temp);
+
+  /* every f2java generated class will have a default constructor "<init>"
+   * which simply calls the constructor for java.lang.Object.  here we create
+   * a method entry for the default constructor.
+   */
+
+  tmp->methods_count = 1;
+  tmp->methods = make_dl();
+
+  meth_tmp = (struct method_info *)malloc(sizeof(struct method_info));
+  meth_tmp->access_flags = ACC_PUBLIC;
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"<init>");
+  meth_tmp->name_index = c->index;
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8,"()V");
+  meth_tmp->descriptor_index = c->index;
+  meth_tmp->attributes_count = 0;
+  meth_tmp->attributes = NULL;
+
+  dl_insert_b(tmp->methods, meth_tmp);
 
   return tmp;
 }

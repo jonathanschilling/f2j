@@ -68,7 +68,7 @@ struct ClassFile {
   u2 fields_count;             /* num fields, both class vars & instance vars */
   Dlist fields;                /* list of fields declared in this class       */
   u2 methods_count;            /* number of methods in this class             */
-  struct method_info *methods; /* list of methods                             */
+  Dlist methods;               /* list of methods                             */
   u2 attributes_count;         /* number of attributes for this class         */
   Dlist attributes;            /* only SourceFile & Deprecated allowed here   */
 };
@@ -144,20 +144,14 @@ struct method_info {
   u2 name_index;              /* cp index of methodname, <init>, or <clinit> */
   u2 descriptor_index;        /* cp index of valid method descriptor         */
   u2 attributes_count;        /* number of additional method attributes      */
-
-  struct attribute_info 
-     *attributes;             /* attributes of this method                   */
+  Dlist attributes;           /* attributes of this method                   */
 };
 
 struct ConstantValue_attribute {
-  u2 attribute_name_index;    /* cp index to name ("ConstantValue")          */
-  u4 attribute_length;        /* length must be 2 for ConstantValue          */
   u2 constantvalue_index;     /* cp index to the actual constant value       */
 };
 
 struct Code_attribute {
-  u2 attribute_name_index;    /* cp index to name ("Code")                   */
-  u4 attribute_length;        /* length of the attribute in bytes            */
   u2 max_stack;               /* max depth of operand stack for this method  */
   u2 max_locals;              /* max num of local variables including params */
   u4 code_length;             /* number of bytes in the code array           */
@@ -226,7 +220,7 @@ void   write_constant_pool(struct ClassFile *, FILE *);
 void   write_interfaces(struct ClassFile *, FILE *); 
 void   write_fields(struct ClassFile *, FILE *); 
 void   write_methods(struct ClassFile *, FILE *); 
-void   write_attributes(struct ClassFile *, FILE *); 
+void   write_attributes(Dlist, Dlist, FILE *);
 FILE * open_output_classfile(struct ClassFile *);
  
 #endif

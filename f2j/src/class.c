@@ -36,7 +36,7 @@ write_class(struct ClassFile *class)
   fwrite(&(class->methods_count), sizeof(class->methods_count), 1, cfp);
   write_methods(class,cfp);
   fwrite(&(class->attributes_count), sizeof(class->attributes_count), 1, cfp);
-  write_attributes(class,cfp);
+  write_attributes(class->attributes,class->constant_pool,cfp);
 
   fclose(cfp);
 }
@@ -176,7 +176,19 @@ write_fields(struct ClassFile *class, FILE *out)
 void
 write_methods(struct ClassFile *class, FILE *out)
 {
-fprintf(stderr,"WARNING: dont know how to write methods yet!\n");
+  struct method_info *tmpmeth;
+  Dlist tmpPtr;
+
+  dl_traverse(tmpPtr,class->methods) {
+    tmpmeth = (struct method_info *) tmpPtr->val;
+
+    fwrite(&(tmpmeth->access_flags),sizeof(tmpmeth->access_flags),1,out);
+    fwrite(&(tmpmeth->name_index),sizeof(tmpmeth->name_index),1,out);
+    fwrite(&(tmpmeth->descriptor_index),sizeof(tmpmeth->descriptor_index),1,out);
+    fwrite(&(tmpmeth->attributes_count),sizeof(tmpmeth->attributes_count),1,out);
+
+    write_attributes(tmpmeth->attributes,class->constant_pool,out);
+  }
 }
 
 /*****************************************************************************
@@ -188,17 +200,20 @@ fprintf(stderr,"WARNING: dont know how to write methods yet!\n");
  *****************************************************************************/
 
 void
-write_attributes(struct ClassFile *class, FILE *out)
+write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
 {
   struct attribute_info *tmpattr;
   char *attr_name;
   Dlist tmpPtr;
   CPNODE *c;
 
-  dl_traverse(tmpPtr,class->attributes) {
+  if((attr_list == NULL) || (const_pool == NULL))
+    return;
+
+  dl_traverse(tmpPtr,attr_list) {
     tmpattr = (struct attribute_info *) tmpPtr->val;
 
-    c = cp_entry_by_index(class->constant_pool, tmpattr->attribute_name_index);
+    c = cp_entry_by_index(const_pool, tmpattr->attribute_name_index);
  
     if(c==NULL) {
       fprintf(stderr,"WARNING: write_attributes() can't find attribute name\n");

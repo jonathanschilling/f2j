@@ -240,11 +240,12 @@ emit (AST * root)
           
           emit (root->astnode.source.typedecs);
           
-          /* check whether any clinit code was generated.  if so,
-           * finish initializing the method and insert it into this
+          /* check whether any class initialization code was generated.
+           * if so, finish initializing the method and insert it into this
            * class.
            */
           if(pc > 0) {
+            code_zero_op(jvm_return);
             endNewMethod(clinit_method, "<clinit>", "()V");
             cur_class_file->methods_count++;
             dl_insert_b(cur_class_file->methods, clinit_method);
@@ -625,6 +626,8 @@ field_emit(AST *root)
   }
   else
     desc = wrapped_field_descriptor[root->vartype][root->astnode.ident.dim];
+
+  ht->variable->astnode.ident.descriptor = desc;
 
   printf("going to emit field %s\n",name);
   printf("\ttype: %s (%d)\n",returnstring[root->vartype], root->vartype);
@@ -1185,10 +1188,11 @@ typedec_emit (AST * root)
 void
 vardec_emit(AST *root, enum returntype returns)
 {
-  HASHNODE *hashtemp;
-  char *prefix;
+  char *prefix, *name, *desc;
+  HASHNODE *hashtemp, *ht2;
   int count=0;
   AST *temp2;
+  CPNODE *c;
 
   void name_emit (AST *);
   void expr_emit (AST *);
@@ -1305,10 +1309,21 @@ vardec_emit(AST *root, enum returntype returns)
 
     /* the top of the stack now contains the array we just created.
      * now issue the putstatic instruction to store the array reference
-     * into the static variable.
+     * into the static variable.  if this ident is equivalenced, we
+     * need to get the name/descriptor from the merged variable.
      */
 
-    /* c = newMethodref(cur_const_table,"class", "field", "descriptor"); */
+    if((ht2 = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+      name = ht2->variable->astnode.ident.merged_name;
+      desc = ht2->variable->astnode.ident.descriptor;
+    }
+    else {
+      name = root->astnode.ident.name;
+      desc = hashtemp->variable->astnode.ident.name;
+    }
+
+    c = newFieldref(cur_const_table,cur_filename, name, desc); 
+    code_one_op_w(jvm_putstatic, c->index);
 
   } else {    /* this is not an array declaration */
 

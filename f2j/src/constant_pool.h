@@ -34,6 +34,7 @@ CPNODE * cp_entry_by_index(Dlist, int);
 CPNODE * cp_insert(Dlist, struct cp_info *, char);
 CPNODE * insert_constant(Dlist, int, char *);
 CPNODE * newMethodref(Dlist, char *, char *, char *);
+CPNODE * newFieldref(Dlist, char *, char *, char *);
 char   * null_term(u1 *, int);
 void     cp_dump(Dlist);
 void     cp_quickdump(Dlist);

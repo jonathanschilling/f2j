@@ -332,8 +332,9 @@ struct _ident
                                      * e.g., opcode = strdup("iload_1");     */
     *commonBlockName,               /* name of COMMON block this ident is in */
     name[80],                       /* this ident's name                     */
-    *merged_name;                   /* this ident's merged name (e.g. in     *
+    *merged_name,                   /* this ident's merged name (e.g. in     *
                                      * cases of equivalence or COMMON)       */
+    *descriptor;                    /* constant pool descriptor of the ident */
 };
 
 /*****************************************************************************

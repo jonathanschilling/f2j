@@ -789,3 +789,26 @@ newMethodref(Dlist list, char *cname, char *mname, char *dname)
 
   return cp_find_or_insert(list, CONSTANT_Methodref, methodref);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * newFieldref                                                               *
+ *                                                                           *
+ * This function creates a new field reference and inserts it into the       *
+ * constant pool if necessary.  The return value is a pointer to the         *
+ * constant pool node containing the field reference.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+CPNODE *
+newFieldref(Dlist list, char *cname, char *mname, char *dname)
+{
+  METHODREF *fieldref;
+
+  fieldref = (METHODREF *)f2jalloc(sizeof(METHODREF));
+  fieldref->classname = cname;
+  fieldref->methodname = mname;
+  fieldref->descriptor = dname;
+
+  return cp_find_or_insert(list, CONSTANT_Fieldref, fieldref);
+}

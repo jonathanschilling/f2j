@@ -127,6 +127,9 @@ extern enum returntype default_implicit_table[];
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
 
+%token OPEN_IOSTAT OPEN_ERR OPEN_FILE OPEN_STATUS OPEN_ACCESS 
+%token OPEN_FORM OPEN_UNIT OPEN_RECL OPEN_BLANK
+
 /* these are here to silence conflicts related to parsing comments */
 
 %nonassoc RELOP 
@@ -154,7 +157,7 @@ extern enum returntype default_implicit_table[];
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
 %type <ptnode> Label Lhs Logicalif
-%type <ptnode> Name Namelist LhsList
+%type <ptnode> Name Namelist LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
 %type <ptnode> Read IoExp IoExplist Return  Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
@@ -168,6 +171,7 @@ extern enum returntype default_implicit_table[];
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
 %type <ptnode> log_disjunct log_term log_factor log_primary
 %type <ptnode> arith_expr term factor char_expr primary
+%type <ptnode> Ios CharExp OlistItem Olist UnitSpec
 
 %%
 
@@ -1062,6 +1066,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Stop;
               }
+            | Open
+              {
+                $$ = $1;
+                $$->nodetype = Unimplemented;
+              }
             | Close
               {
                 $$ = $1;
@@ -1087,6 +1096,89 @@ Comment: COMMENT NL
            $$->astnode.ident.len = 0;
            strcpy($$->astnode.ident.name, yylval.lexeme);
          }
+;
+
+Open: OPEN OP Olist CP NL
+      {
+        fprintf(stderr,"Warning: OPEN not implemented.. skipping.\n");
+      }
+;
+
+Olist: Olist CM OlistItem
+        /* UNIMPLEMENTED */
+     | OlistItem
+        /* UNIMPLEMENTED */
+;
+
+OlistItem: OPEN_UNIT EQ UnitSpec
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_IOSTAT EQ Ios
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_ERR EQ Integer
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_FILE EQ CharExp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_STATUS EQ CharExp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_ACCESS EQ CharExp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_FORM EQ CharExp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_RECL EQ Exp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+         | OPEN_BLANK EQ CharExp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $3;
+           }
+;
+
+UnitSpec: Exp
+           {
+             /* UNIMPLEMENTED */
+             $$ = $1;
+           }
+        | STAR
+           {
+             /* UNIMPLEMENTED */
+             $$ = addnode();
+           }
+;
+
+CharExp: Name
+         /* UNIMPLEMENTED */
+       | String
+         /* UNIMPLEMENTED */
+;
+
+Ios: Name
+      /* UNIMPLEMENTED */
+   | Name OP Arrayindexlist CP
+      /* UNIMPLEMENTED */
 ;
 
 Close:  CLOSE OP Name CP NL

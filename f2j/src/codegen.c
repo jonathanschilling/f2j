@@ -4021,25 +4021,66 @@ forloop_emit (AST * root)
   {
     /* if there is an increment the code should use >= if the
      * increment is negative and <= if the increment is positive.
+     * If we determine that the increment is a constant, then
+     * we can simplify the code a little by generating the correct
+     * operator now.
      */
 
-    fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
-    name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf(curfp," >= ");
-    expr_emit (root->astnode.forloop.stop);
-    fprintf(curfp," : ");
-    name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf(curfp," <= ");
-    expr_emit (root->astnode.forloop.stop);
-    fprintf (curfp, "; ");
-    
-    name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf (curfp, " += _%s_inc",indexname);
+    if(root->astnode.forloop.incr->nodetype == Constant)
+    {
+      /* This must be a positive constant, since a negative constant
+       * would have a nodetype Unaryop.
+       */
+
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf(curfp," <= ");
+      expr_emit (root->astnode.forloop.stop);
+
+      fprintf (curfp, "; ");
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf (curfp, " += _%s_inc",indexname);
+    }
+    else if((root->astnode.forloop.incr->nodetype == Unaryop) &&
+            (root->astnode.forloop.incr->astnode.expression.rhs->nodetype == Constant))
+    {
+      /* We are looking at a Unary operation on a constant.  This includes,
+       * for example, "- 5" and "+ 5".
+       */
+ 
+      if(root->astnode.forloop.incr->astnode.expression.minus == '+') {
+        name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+        fprintf(curfp," <= ");
+        expr_emit (root->astnode.forloop.stop);
+      }
+      else {
+        name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+        fprintf(curfp," >= ");
+        expr_emit (root->astnode.forloop.stop);
+      }
+
+      fprintf (curfp, "; ");
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf (curfp, " += _%s_inc",indexname);
+    }
+    else {
+
+      fprintf(curfp,"(_%s_inc < 0) ? ",indexname);
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf(curfp," >= ");
+      expr_emit (root->astnode.forloop.stop);
+      fprintf(curfp," : ");
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf(curfp," <= ");
+      expr_emit (root->astnode.forloop.stop);
+      fprintf (curfp, "; ");
+
+      name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
+      fprintf (curfp, " += _%s_inc",indexname);
+    }
   }
 
   fprintf (curfp, ") {\n");
    /*  Done with loop parameters.  */
-
 }
 
 /*****************************************************************************

@@ -383,7 +383,6 @@ void
 vcg_typedec_emit (AST * root, int parent)
 {
   AST *temp;
-  HASHNODE *hashtemp;
   enum returntype returns;
   int my_node = node_num;
   int name_nodenum = 0;
@@ -399,9 +398,8 @@ vcg_typedec_emit (AST * root, int parent)
    * why I have had problems with this stuff.  
    */
 
-  hashtemp = type_lookup (external_table, temp->astnode.ident.name);
-
-  if (hashtemp) {
+  if(type_lookup (external_table, temp->astnode.ident.name))
+  {
     if(vcg_debug) {
       printf("returning from vcg_typedec_emit,");
       printf(" found something in hash table\n");
@@ -462,13 +460,13 @@ vcg_name_emit (AST * root, int parent)
    * loaded into the external table from the parser.   
    */
 
-  hashtemp = type_lookup (external_table, root->astnode.ident.name);
-
   /* If the name is in the external table, then check to see if
    * is an intrinsic function instead.  
    */
 
-  if (hashtemp != NULL) {
+  if(type_lookup (external_table, root->astnode.ident.name))
+  {
+
     /*  This block of code is only called if the identifier
      *  absolutely does not have an entry in any table,
      *  and corresponds to a method invocation of

@@ -64,6 +64,11 @@
 #define METHOD_CLASS "java/lang/reflect/Method"
 #define GETMETHODS_DESC "()[Ljava/lang/reflect/Method;"
 #define GETCLASS_DESC "()Ljava/lang/Class;"
+#define INVOKE_DESC "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
+#define THROWABLE_CLASS "java/lang/Throwable"
+#define GETMSG_DESC "()Ljava/lang/String;"
+#define INVOKE_EXCEPTION "java/lang/reflect/InvocationTargetException"
+#define ACCESS_EXCEPTION "java/lang/IllegalAccessException"
 
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"

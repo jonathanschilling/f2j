@@ -331,7 +331,7 @@ spec_optimize(AST *root, AST *rptr)
 {
   SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
   AST *temp;
-  HASHNODE *ht, *ht2;
+  HASHNODE *ht;
   void name_optimize(AST *, AST *);
 
   switch (root->astnode.typeunit.specification)
@@ -350,20 +350,19 @@ spec_optimize(AST *root, AST *rptr)
         if(optdebug)
           printf("external %s\n", temp->astnode.ident.name);
 
-        ht= type_lookup(opt_external_table,temp->astnode.ident.name);
-        if(ht)
+        if(type_lookup(opt_external_table,temp->astnode.ident.name))
         {
           if(optdebug)
             printf("going to optimize external %s\n",temp->astnode.ident.name);
 
-          ht2 = type_lookup(global_func_table,temp->astnode.ident.name);
-          if(!ht2) {
+          ht = type_lookup(global_func_table,temp->astnode.ident.name);
+          if(!ht) {
             fprintf(stderr,"Cant locate %s, not optimizing.\n",
                temp->astnode.ident.name);
             continue;
           }
 
-          optScalar(ht2->variable);
+          optScalar(ht->variable);
         }
       }
       break;

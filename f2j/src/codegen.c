@@ -175,6 +175,10 @@ struct method_info
 enum _opcode
   lastOp = jvm_nop;     /* the last opcode emitted (avoids dup return stmt)  */
 
+ExceptionTableEntry
+  * reflect_entry,      /* exception table entry for reflection exceptions.  */
+  * access_entry;       /* exception table entry for access exceptions.      */
+
 /*****************************************************************************
  *                                                                           *
  * emit                                                                      *
@@ -388,7 +392,7 @@ emit (AST * root)
            */
 
           if(import_reflection) {
-            reflect_delcarations_emit(
+            reflect_declarations_emit(
                root->astnode.source.progtype->astnode.source.args);
 
             /* The 'catch' corresponding to the following try is generated
@@ -396,6 +400,15 @@ emit (AST * root)
              */
 
             fprintf(curfp,"try {\n");
+
+            /* start the exception handler from the next opcode */
+            reflect_entry = (ExceptionTableEntry *) 
+                 f2jalloc(sizeof(ExceptionTableEntry));
+            reflect_entry->from = bytecode0(jvm_impdep1);
+
+            access_entry = (ExceptionTableEntry *) 
+                 f2jalloc(sizeof(ExceptionTableEntry));
+            access_entry->from = reflect_entry->from;
           }
 
           emit(root->astnode.source.statements);
@@ -421,11 +434,6 @@ emit (AST * root)
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
 
-/*
- *        cp_dump(cur_const_table);
- *        fields_dump(cur_class_file->fields, cur_const_table);
- */
- 
           cur_class_file->constant_pool_count = 
              (u2) ((CPNODE *)dl_val(dl_last(cur_const_table)))->index + 1;
           cur_class_file->constant_pool = cur_const_table;
@@ -783,10 +791,6 @@ reflect_declarations_emit(AST *root)
         exit(-1);
       }
 
-      if(hashtemp->variable == ht2->variable)
-        printf("ASDF  pointers are equal!!!\n");
-      printf("ASDF %s -> %d\n", tempnode->astnode.ident.name, ht2->variable->astnode.ident.localvnum);
-
       gen_load_op(ht2->variable->astnode.ident.localvnum, Object);
 
       c = newMethodref(cur_const_table, JL_OBJECT, "getClass",
@@ -806,6 +810,59 @@ reflect_declarations_emit(AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * invocation_exception_handler_emit                                         *
+ *                                                                           *
+ * this function emits the bytecode for the two exception handlers that are  *
+ * generated when the program unit invokes a method on a passed-in function. *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+invocation_exception_handler_emit(ExceptionTableEntry *et)
+{
+  CPNODE *c;
+  int vnum;
+
+  vnum = getNextLocal(Object);
+
+  /* emit handler for InvocationTargetException */
+  et->target = gen_store_op(vnum, Object);
+
+  c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
+  bytecode1(jvm_getstatic, c->index);
+
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+  bytecode1(jvm_new,c->index);
+  bytecode0(jvm_dup);
+
+  pushStringConst("Error Calling Method: ");
+
+  c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+  bytecode1(jvm_invokespecial, c->index);
+
+  gen_load_op(vnum,Object);
+
+  c = newMethodref(cur_const_table,THROWABLE_CLASS,
+           "getMessage", GETMSG_DESC);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  c = newMethodref(cur_const_table,STRINGBUFFER,
+           "append", append_descriptor[String]);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  c = newMethodref(cur_const_table,STRINGBUFFER,
+           "toString", TOSTRING_DESC);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+        println_descriptor[String]);
+  bytecode1(jvm_invokevirtual, c->index);
+
+  releaseLocal();
+}
+
+/*****************************************************************************
+ *                                                                           *
  * end_emit                                                                  *
  *                                                                           *
  * We only generate one real return statement.  The other return statements  *
@@ -819,9 +876,35 @@ reflect_declarations_emit(AST *root)
 void
 end_emit(AST *root)
 {
+  CodeGraphNode *goto_node, *goto_node2;
+  CPNODE *c;
+
   void return_emit();
 
   if(import_reflection) {
+    /* this goto skips the execption handlers under normal execution */
+    goto_node = bytecode0(jvm_goto);
+
+    /* set the end point for the exception handlers. */
+    reflect_entry->to = goto_node;
+    access_entry->to = goto_node;
+
+    invocation_exception_handler_emit(reflect_entry);
+    goto_node2 = bytecode0(jvm_goto);
+    invocation_exception_handler_emit(access_entry);
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, INVOKE_EXCEPTION);
+    reflect_entry->catch_type = c->index;
+
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, ACCESS_EXCEPTION);
+    access_entry->catch_type = c->index;
+
+    dl_insert_b(exc_table, reflect_entry);
+    dl_insert_b(exc_table, access_entry);
+
+    goto_node->branch_target = bytecode0(jvm_impdep1);
+    goto_node2->branch_target = bytecode0(jvm_impdep1);
+
     fprintf(curfp, "%s%s%s%s%s%s%s",
        "} catch (java.lang.reflect.InvocationTargetException _e) {\n",
        "   System.err.println(\"Error calling method.", 
@@ -5703,6 +5786,8 @@ constructor (AST * root)
     temp_desc = strAppend(temp_desc, ")V");
   }
 
+  /* set global descriptor variable (method_desc) */
+
   method_desc = temp_desc->val;
 }				/*  Close  constructor(). */
 
@@ -7850,7 +7935,9 @@ int
 method_name_emit (AST *root, BOOLEAN adapter)
 {
   char *tempname;
+  HASHNODE *ht;
   AST *temp;
+  CPNODE *c;
 
   /* shouldn't be necessary to lowercase the name
    *   lowercase (root->astnode.ident.name);
@@ -7877,12 +7964,48 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       /* no args.  either function or subroutine. */
 
-      if(root->nodetype == Call)
+      ht = type_lookup(cur_external_table, root->astnode.ident.name);
+      if(!ht) {
+        fprintf(stderr,"Error: expected to find '%s' in external table.\n",
+            root->astnode.ident.name);
+        exit(-1);
+      }
+ 
+      gen_load_op(ht->variable->astnode.ident.localvnum, Object);
+      bytecode0(jvm_aconst_null);
+      bytecode0(jvm_aconst_null);
+
+      c = newMethodref(cur_const_table, METHOD_CLASS, "invoke",
+            INVOKE_DESC);
+      bytecode1(jvm_invokevirtual, c->index);
+
+      if(root->nodetype == Call) {
+        /* already called invoke().  for CALL, ignore the return value. */
+        bytecode0(jvm_pop);
+
         fprintf(curfp,"_%s_meth.invoke(null,null);\n", root->astnode.ident.name);
-      else
-        fprintf(curfp,"((%s)_%s_meth.invoke(null,null)).%sValue()",
-          java_wrapper[root->vartype], root->astnode.ident.name, 
-          returnstring[root->vartype]);
+      }
+      else {
+
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+              numeric_wrapper[root->vartype]);
+        bytecode1(jvm_checkcast, c->index);
+
+        if((root->vartype == String) || (root->vartype == Character)) {
+          fprintf(curfp,"(%s)_%s_meth.invoke(null,null)",
+            java_wrapper[root->vartype], root->astnode.ident.name);
+        }
+        else {
+          fprintf(curfp,"((%s)_%s_meth.invoke(null,null)).%s()",
+            java_wrapper[root->vartype], root->astnode.ident.name, 
+            numericValue_method[root->vartype]);
+          
+          c = newMethodref(cur_const_table, numeric_wrapper[root->vartype],
+                numericValue_method[root->vartype], 
+                numericValue_descriptor[root->vartype]);
+          bytecode1(jvm_invokevirtual, c->index);
+        }
+      }
 
       return 1;
     }

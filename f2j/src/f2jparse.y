@@ -2826,18 +2826,29 @@ printf("found.\n");
       /* Now separate out the EXTERNAL from the INTRINSIC on the
          fortran side.  */
 
-      if(temptypes != NULL)
+      if(temptypes != NULL) {
+        AST *newnode;
+
+        /* create a new node to stick into the intrinsic/external table
+         * so that the type_table isn't pointing to the same node.
+         */
+        newnode = addnode();
+        strcpy(newnode->astnode.ident.name,tempnames->astnode.ident.name);
+        newnode->vartype = return_type;
+        newnode->nodetype = Identifier;
+
         switch (temptypes->token)
         {
           case INTRINSIC:
             type_insert(intrinsic_table, 
-                    tempnames, return_type, tempnames->astnode.ident.name);
+                    newnode, return_type, newnode->astnode.ident.name);
             break;
           case EXTERNAL:
             type_insert(external_table,
-                    tempnames, return_type, tempnames->astnode.ident.name);
+                    newnode, return_type, newnode->astnode.ident.name);
             break;
         } /* Close switch().  */
+      }
     }  /* Close inner for() loop.  */
   }    /* Close outer for() loop.  */
 }      /* Close type_hash().       */

@@ -82,7 +82,9 @@ CodeGraphNode
 AST
   * label_search(Dlist, int),
   * dl_astnode_examine(Dlist),
-  * find_label(Dlist, int);
+  * find_label(Dlist, int),
+  * addnode();
+
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -100,7 +102,8 @@ char
   *unit_name,           /* name of this function/subroutine                  */
   *returnname,          /* return type of this prog. unit                    */
   *cur_filename,        /* name of the class file currently writing          */
-  *method_desc = NULL;  /* descriptor for method representing this prog unit */
+  *method_desc = NULL,  /* descriptor for method representing this prog unit */
+  **funcname=input_func;/* input functions, EOF-detecting or non-detecting   */
 
 Dlist 
   doloop = NULL,        /* stack of do loop labels                           */
@@ -1718,7 +1721,7 @@ void
 print_string_initializer(AST *root)
 {
   char *src_initializer, *bytecode_initializer;
-  AST *tempnode, *addnode();
+  AST *tempnode;
   HASHNODE *ht;
 
   if(gendebug)
@@ -6541,11 +6544,11 @@ read_emit (AST * root)
   ExceptionTableEntry *et_entry;
   AST *assign_temp;
   AST *temp;
-  char **funcname;
   CPNODE *c;
 
-  void read_implied_loop_emit(AST *, char **);
-  AST *addnode();
+  void implied_loop_emit(AST *, void (AST *), void (AST*));
+  void read_implied_loop_bytecode_emit(AST *);
+  void read_implied_loop_sourcecode_emit(AST *);
 
   /* if the READ statement has no args, just read a line and
    * ignore it.
@@ -6580,7 +6583,8 @@ read_emit (AST * root)
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == IoImpliedLoop)
-      read_implied_loop_emit(temp, funcname);
+      implied_loop_emit(temp, read_implied_loop_bytecode_emit,
+            read_implied_loop_sourcecode_emit);
     else if(temp->nodetype == Identifier)
     {
       temp->parent = assign_temp;
@@ -6662,7 +6666,7 @@ read_emit (AST * root)
 
 /*****************************************************************************
  *                                                                           *
- * read_implied_loop_emit                                                    *
+ * read_implied_loop_bytecode_emit                                           *
  *                                                                           *
  * This function generates code for implied DO loops contained in READ       *
  * statements.  We dont handle any FORMAT statements.                        *
@@ -6670,44 +6674,53 @@ read_emit (AST * root)
  *****************************************************************************/
 
 void
-read_implied_loop_emit(AST *node, char **func)
+read_implied_loop_bytecode_emit(AST *node)
 {
-  char *loopvar = node->astnode.forloop.counter->astnode.ident.name;
-  char *valSuffix = ".val";
+  AST *assign_temp, *temp;
+  CPNODE *c;
 
-  if(omitWrappers) {
-    if( !isPassByRef(loopvar) )
-      valSuffix = "";
-
-    fprintf(curfp,"for(%s%s = ",loopvar, valSuffix); 
-    expr_emit(node->astnode.forloop.start);
-    fprintf(curfp,"; %s%s <= ",loopvar, valSuffix); 
-    expr_emit(node->astnode.forloop.stop);
-    if(node->astnode.forloop.incr == NULL)
-      fprintf(curfp,"; %s%s++)\n",loopvar, valSuffix); 
-    else
-    {
-      fprintf(curfp,"; %s%s += ",loopvar, valSuffix); 
-      expr_emit(node->astnode.forloop.incr);
-      fprintf(curfp,")\n"); 
-    }
+  if(node->astnode.forloop.Label->nodetype != Identifier) {
+    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+      unit_name,print_nodetype(node->astnode.forloop.Label));
+    fprintf(stderr," in implied loop (read stmt)\n");
   }
-  else
-  {
-    fprintf(curfp,"for(%s.val = ",loopvar); 
-    expr_emit(node->astnode.forloop.start);
-    fprintf(curfp,"; %s.val <= ",loopvar); 
-    expr_emit(node->astnode.forloop.stop);
-    if(node->astnode.forloop.incr == NULL)
-      fprintf(curfp,"; %s.val++)\n",loopvar); 
-    else
-    {
-      fprintf(curfp,"; %s.val += ",loopvar); 
-      expr_emit(node->astnode.forloop.incr);
-      fprintf(curfp,")\n"); 
-    }
-  }
+  else {
+    fprintf(curfp," = _f2j_stdin.%s();\n",
+       funcname[node->astnode.forloop.Label->vartype]);
+    assign_temp = addnode();
+    assign_temp->nodetype = Assignment;
 
+    temp = node->astnode.forloop.Label;
+    temp->parent = assign_temp;
+    assign_temp->astnode.assignment.lhs = temp;
+
+    name_emit(assign_temp->astnode.assignment.lhs);
+
+    gen_load_op(stdin_lvar, Object);
+
+    if( (temp->vartype == Character) || (temp->vartype == String) )
+      pushIntConst(temp->astnode.ident.len);
+
+    c = newMethodref(cur_const_table, EASYIN_CLASS, funcname[temp->vartype],
+          input_descriptors[temp->vartype]);
+    bytecode1(jvm_invokevirtual, c->index);
+
+    LHS_bytecode_emit(assign_temp);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * read_implied_loop_sourcecode_emit                                         *
+ *                                                                           *
+ * This function generates code for implied DO loops contained in READ       *
+ * statements.  We dont handle any FORMAT statements.                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+read_implied_loop_sourcecode_emit(AST *node)
+{
   if(node->astnode.forloop.Label->nodetype != Identifier) {
     fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
       unit_name,print_nodetype(node->astnode.forloop.Label));
@@ -6716,7 +6729,7 @@ read_implied_loop_emit(AST *node, char **func)
   else {
     name_emit(node->astnode.forloop.Label);
     fprintf(curfp," = _f2j_stdin.%s();\n",
-       func[node->astnode.forloop.Label->vartype]);
+       funcname[node->astnode.forloop.Label->vartype]);
   }
 }
 
@@ -6733,14 +6746,18 @@ one_arg_write_emit(AST *root)
 {
   CPNODE *c;
 
-  void write_implied_loop_emit(AST *);
+  void implied_loop_emit(AST *, void (AST *), void (AST *));
+  void write_implied_loop_bytecode_emit(AST *);
+  void write_implied_loop_sourcecode_emit(AST *);
 
   /* if the only arg is an implied loop, emit that and return...
    * nothing more to do here.
    */
   if((root->astnode.io_stmt.arg_list != NULL) &&
      (root->astnode.io_stmt.arg_list->nodetype == IoImpliedLoop)) {
-    write_implied_loop_emit(root->astnode.io_stmt.arg_list);
+    implied_loop_emit(root->astnode.io_stmt.arg_list, 
+         write_implied_loop_bytecode_emit,
+         write_implied_loop_sourcecode_emit);
     fprintf(curfp, "System.out.println();\n");
     c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
     bytecode1(jvm_getstatic, c->index);
@@ -6789,7 +6806,9 @@ write_emit(AST * root)
   CPNODE *c;
 
   void format_emit(AST *, AST **),
-       write_implied_loop_emit(AST *);
+       write_implied_loop_bytecode_emit(AST *),
+       write_implied_loop_sourcecode_emit(AST *),
+       implied_loop_emit(AST *, void (AST *), void (AST *));
 
   /* look for a format statement */
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
@@ -6908,7 +6927,8 @@ write_emit(AST * root)
         if( temp == root->astnode.io_stmt.arg_list )
           fprintf(curfp,"\"\");\n");
 
-        write_implied_loop_emit(temp);
+        implied_loop_emit(temp, write_implied_loop_bytecode_emit,
+                                write_implied_loop_sourcecode_emit);
         if(temp->nextstmt != NULL)
           if(temp->nextstmt->nodetype != IoImpliedLoop) {
             fprintf(curfp,"System.out.print(");
@@ -7055,22 +7075,20 @@ inline_format_emit(AST *root, BOOLEAN use_stringbuffer)
 
 /*****************************************************************************
  *                                                                           *
- * write_implied_loop_emit                                                   *
+ * implied_loop_emit                                                         *
  *                                                                           *
- * This function generates code for implied DO loops in WRITE statements.    *
+ * This function generates code for implied DO loops in I/O statements.      *
  * Dont worry about FORMAT statements.                                       *
  *                                                                           *
  *****************************************************************************/
 
 void
-write_implied_loop_emit(AST *node)
+implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
+                             void loop_body_sourcecode_emit(AST *) )
 {
   CodeGraphNode *if_node, *goto_node, *iload_node;
-  CPNODE *c;
   AST *temp;
   int icount;
-
-  AST *addnode();
 
   temp = addnode();
   temp->nodetype = Assignment;
@@ -7105,22 +7123,7 @@ write_implied_loop_emit(AST *node)
     fprintf(curfp,")\n"); 
   }
 
-  if(node->astnode.forloop.Label->nodetype == Identifier) {
-    fprintf(curfp,"  System.out.print(");
-    name_emit(node->astnode.forloop.Label);
-    fprintf(curfp," + \" \");\n");
-  }
-  else if(node->astnode.forloop.Label->nodetype == Constant) {
-    fprintf(curfp,"  System.out.print(\"%s \");\n", 
-      node->astnode.forloop.Label->astnode.constant.number);
-  }
-  else {
-    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
-      unit_name,print_nodetype(node->astnode.forloop.Label));
-    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
-    exit(-1);
-  }
-
+  loop_body_sourcecode_emit(node);
   set_bytecode_status(JVM_ONLY);
 
   /* the rest of this code is only generated as bytecode.
@@ -7139,6 +7142,72 @@ write_implied_loop_emit(AST *node)
   /* goto the end of the loop where we test for completion */
   goto_node = bytecode0(jvm_goto);
 
+  loop_body_bytecode_emit(node);
+
+  /* increment loop variable */
+  assign_emit(node->astnode.forloop.incr_expr);
+
+  /* decrement iteration count */
+  iinc_emit(icount, -1);
+
+  if(icount <= 3)
+    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
+  else
+    iload_node = bytecode1(jvm_iload, icount);
+
+  goto_node->branch_target = iload_node;
+
+  if_node = bytecode0(jvm_ifgt);
+  if_node->branch_target = goto_node->next;
+
+  releaseLocal(Integer);
+  set_bytecode_status(JAVA_AND_JVM);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * write_implied_loop_sourcecode_emit                                        *
+ *                                                                           *
+ * this function emits the body of an implied loop (basically just the       *
+ * StringBuffer.append() method invocations. (Java source only)              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_implied_loop_sourcecode_emit(AST *node)
+{
+  if(node->astnode.forloop.Label->nodetype == Identifier) {
+    fprintf(curfp,"  System.out.print(");
+    name_emit(node->astnode.forloop.Label);
+    fprintf(curfp," + \" \");\n");
+  }
+  else if(node->astnode.forloop.Label->nodetype == Constant) {
+    fprintf(curfp,"  System.out.print(\"%s \");\n", 
+      node->astnode.forloop.Label->astnode.constant.number);
+  }
+  else {
+    fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+      unit_name,print_nodetype(node->astnode.forloop.Label));
+    fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
+    exit(-1);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * write_implied_loop_bytecode_emit                                          *
+ *                                                                           *
+ * this function emits the body of an implied loop (basically just the       *
+ * StringBuffer.append() method invocations. (JVM bytecode only)             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+write_implied_loop_bytecode_emit(AST *node)
+{
+  CPNODE *c;
+
+  /* emit loop body */
   c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
   bytecode1(jvm_getstatic, c->index);
 
@@ -7146,7 +7215,6 @@ write_implied_loop_emit(AST *node)
   bytecode1(jvm_new,c->index);
   bytecode0(jvm_dup);
 
-  /* emit loop body */
   if(node->astnode.forloop.Label->nodetype == Identifier) {
     name_emit(node->astnode.forloop.Label);
   }
@@ -7184,25 +7252,6 @@ write_implied_loop_emit(AST *node)
   c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
         println_descriptor[String]);
   bytecode1(jvm_invokevirtual, c->index);
-
-  /* increment loop variable */
-  assign_emit(node->astnode.forloop.incr_expr);
-
-  /* decrement iteration count */
-  iinc_emit(icount, -1);
-
-  if(icount <= 3)
-    iload_node = bytecode0(short_load_opcodes[Integer][icount]);
-  else
-    iload_node = bytecode1(jvm_iload, icount);
-
-  goto_node->branch_target = iload_node;
-
-  if_node = bytecode0(jvm_ifgt);
-  if_node->branch_target = goto_node->next;
-
-  releaseLocal(Integer);
-  set_bytecode_status(JAVA_AND_JVM);
 }
 
 /*****************************************************************************

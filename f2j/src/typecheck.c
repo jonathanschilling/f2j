@@ -34,7 +34,8 @@ METHODTAB
 void 
   elseif_check(AST *),
   else_check (AST *),
-  expr_check (AST * root);
+  expr_check (AST *),
+  assign_check (AST *);
 
 /*****************************************************************************
  * Global variables.                                                         *
@@ -72,13 +73,11 @@ typecheck (AST * root)
 {
   void data_check(AST *);
   void common_check(AST *);
-  void assign_check (AST *);
   void call_check (AST *);
   void forloop_check (AST *);
   void blockif_check (AST *);
   void logicalif_check (AST *);
-  void write_check (AST *);
-  void read_check (AST *);
+  void read_write_check (AST *);
   void merge_equivalences(AST *);
   void check_equivalences(AST *);
   void insertEquivalences(AST *);
@@ -312,7 +311,7 @@ typecheck (AST * root)
     case Write:
       if (checkdebug)
         printf ("typecheck(): Write statement.\n");
-      write_check (root);
+      read_write_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
       break;
@@ -322,7 +321,7 @@ typecheck (AST * root)
 
       cur_unit->astnode.source.needs_input = TRUE;
 
-      read_check (root);
+      read_write_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
       break;
@@ -1245,14 +1244,14 @@ logicalif_check (AST * root)
 
 /*****************************************************************************
  *                                                                           *
- * read_check                                                                *
+ * read_write_check                                                          *
  *                                                                           *
- * Performs typechecking on a READ statement.                                *
+ * Performs typechecking on READ and WRITE statements.                       *
  *                                                                           *
  *****************************************************************************/
 
 void
-read_check (AST * root)
+read_write_check (AST * root)
 {
   AST *temp;
   void expr_check (AST *);
@@ -1278,42 +1277,9 @@ read_check (AST * root)
 void 
 check_implied_loop(AST *node)
 {
-  expr_check(node->astnode.forloop.start);
-  expr_check(node->astnode.forloop.stop);
-  if(node->astnode.forloop.incr != NULL)
-    expr_check(node->astnode.forloop.incr);
-
   expr_check(node->astnode.forloop.Label);
-}
-
-/*****************************************************************************
- *                                                                           *
- * write_check                                                               *
- *                                                                           *
- * Check a WRITE statement.                                                  *
- *                                                                           *
- *****************************************************************************/
-
-void
-write_check (AST * root)
-{
-  AST *temp;
-  void expr_check (AST *);
-  void assign_check (AST *);
-
-  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-  {
-    if(temp == NULL)
-      fprintf(stderr,"write_check: calling expr_check with null pointer!\n");
-
-    if(temp->nodetype != IoImpliedLoop)
-      expr_check (temp);
-    else {
-      expr_check (temp->astnode.forloop.Label);
-      expr_check (temp->astnode.forloop.iter_expr);
-      assign_check (temp->astnode.forloop.incr_expr);
-    }
-  }
+  expr_check(node->astnode.forloop.iter_expr);
+  assign_check(node->astnode.forloop.incr_expr);
 }
 
 /*****************************************************************************

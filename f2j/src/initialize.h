@@ -30,6 +30,7 @@
 KWDTAB tab_stmt[] =
 {
     {"CALL", CALL, 0},
+    {"CLOSE", CLOSE, 0},
     {"COMMON", COMMON, 0},
     {"CONTINUE", CONTINUE, 0},
     {"DATA", DATA, 0},

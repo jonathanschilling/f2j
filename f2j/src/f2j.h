@@ -157,6 +157,7 @@ typedef struct ast_node
                   SYMTABLE *common_table; 
                   SYMTABLE *parameter_table; 
                   struct ast_node *dataStmtList;
+                  int needs_input;
 	      }
 	    source;
 
@@ -255,7 +256,7 @@ typedef struct ast_node
 
             struct _io
               {
-                int io_type, file_desc, format_num;
+                int io_type, file_desc, format_num, end_num;
                 struct ast_node *fmt_list;
                 struct ast_node *arg_list;
               }

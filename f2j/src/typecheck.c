@@ -176,6 +176,9 @@ typecheck (AST * root)
     case Read:
       if (checkdebug)
         printf ("typecheck(): Read statement.\n");
+
+      cur_unit->astnode.source.needs_input = TRUE;
+
       read_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
@@ -766,14 +769,26 @@ read_check (AST * root)
 {
   AST *temp;
   void expr_check (AST *);
+  void check_implied_loop(AST *);
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
-      if(temp == NULL)
-        fprintf(stderr,"read_check: calling expr_check with null pointer!\n");
-    if(temp->nodetype != ImpliedLoop)
+    if(temp->nodetype == ImpliedLoop)
+      check_implied_loop(temp);
+    else
       expr_check (temp);
   }
+}
+
+void 
+check_implied_loop(AST *node)
+{
+  expr_check(node->astnode.forloop.start);
+  expr_check(node->astnode.forloop.stop);
+  if(node->astnode.forloop.incr != NULL)
+    expr_check(node->astnode.forloop.incr);
+
+  expr_check(node->astnode.forloop.Label);
 }
 
 void

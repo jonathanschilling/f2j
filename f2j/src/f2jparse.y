@@ -97,7 +97,7 @@ in alphabetic order. */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
 %type <ptnode> Arrayindexlist 
-%type <ptnode> Blockif Boolean
+%type <ptnode> Blockif Boolean Close
 %type <ptnode> Call /* Char Complex */ Constant  Constantlist Continue
 %type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
 %type <ptnode> DataLhs LoopBounds
@@ -216,6 +216,8 @@ Fprogram:   Program  Specstmts  Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
 
+                $$->astnode.source.needs_input = FALSE;
+
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
 	        $3->parent = $$; /* 9-4-97 - Keith */
@@ -268,6 +270,8 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
 
+                $$->astnode.source.needs_input = FALSE;
+
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
@@ -315,6 +319,8 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
+
+                $$->astnode.source.needs_input = FALSE;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -853,7 +859,19 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Stop;
               }
+            | Close
+              {
+                $$ = $1;
+                $$->nodetype = Unimplemented;
+              }
 ;           
+
+Close:  CLOSE OP Name CP NL
+        {
+          fprintf(stderr,"WArning: CLOSE not implemented.\n");
+          $$ = $3;
+        }
+;
 
 End:    END  NL 
         {
@@ -1535,12 +1553,24 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
+         $$->astnode.io_stmt.end_num = -1;
+
+         if($7 == NULL)
+           $$->astnode.io_stmt.arg_list = NULL;
+         else 
+           $$->astnode.io_stmt.arg_list = switchem($7);
       }
     | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
       {
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
+         $$->astnode.io_stmt.end_num = atoi($7->astnode.constant.number);
+
+         if($9 == NULL)
+           $$->astnode.io_stmt.arg_list = NULL;
+         else 
+           $$->astnode.io_stmt.arg_list = switchem($9);
       }
 ;
 

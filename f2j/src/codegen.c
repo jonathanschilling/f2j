@@ -80,6 +80,12 @@ char *wrapper_returns[] =
 char *init_vals[] =
 {"\" \"", "\" \"", "0", "0.0", "0.0", "0", "false"};
 
+char *input_func[] =
+{"readChars", "readChars", "readComplex", "readDouble", "readFloat", "readInt", "readBoolean"};
+
+char *input_func_eof[] =
+{"readchars", "readchars", "readcomplex", "readdouble", "readfloat", "readint", "readboolean"};
+
 /*
  * emit()
  *
@@ -2419,6 +2425,10 @@ constructor (AST * root)
       }
 
     fprintf (curfp, ")  {\n\n");
+    
+    if(root->astnode.source.needs_input)
+      fprintf(curfp,"  EasyIn _f2j_in = new EasyIn();\n");
+
     if(type_lookup(cur_external_table,"etime") != NULL)
       fprintf(curfp, "  Etime.etime();\n");
 }				/*  Close  constructor(). */
@@ -2658,7 +2668,77 @@ label_emit (AST * root)
 void
 read_emit (AST * root)
 {
-  fprintf(stderr,"READ not yet supported\n");
+  AST *temp;
+  void read_implied_loop_emit(AST *, char **);
+  char **funcname;
+
+  if(root->astnode.io_stmt.arg_list == NULL) {
+    fprintf(curfp,"_f2j_in.readString();  // skip a line\n");
+    return;
+  }
+
+  if(root->astnode.io_stmt.end_num > 0 )
+  {
+    fprintf(curfp,"try {\n");
+    funcname = input_func_eof;
+  }
+  else
+    funcname = input_func;
+
+  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+  {
+    if(temp->nodetype == ImpliedLoop)
+      read_implied_loop_emit(temp, funcname);
+    else if(temp->nodetype == Identifier)
+    {
+      name_emit(temp);
+      if( (temp->vartype == Character) || (temp->vartype == String) )
+        fprintf(curfp," = _f2j_in.%s(%d);\n",funcname[temp->vartype],
+           temp->astnode.ident.len);
+      else
+        fprintf(curfp," = _f2j_in.%s();\n",funcname[temp->vartype]);
+    }
+    else
+    {
+      fprintf(stderr,"Read list must consist of idents or implied loops\n");
+      fprintf(stderr,"   nodetype is %s\n", print_nodetype(temp));
+      continue;
+    }
+  }
+  fprintf(curfp,"_f2j_in.skipRemaining();\n");
+
+  if(root->astnode.io_stmt.end_num > 0 )
+  {
+    fprintf(curfp,"} catch (java.io.IOException e) {\n");
+    fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
+      root->astnode.io_stmt.end_num);
+    fprintf(curfp,"}\n");
+  }
+}
+
+void
+read_implied_loop_emit(AST *node, char **func)
+{
+  fprintf(curfp,"for(int _tmp_i = "); 
+  expr_emit(node->astnode.forloop.start);
+  fprintf(curfp," - 1; _tmp_i < "); 
+  expr_emit(node->astnode.forloop.stop);
+  if(node->astnode.forloop.incr == NULL)
+    fprintf(curfp,"; _tmp_i++)\n"); 
+  else
+  {
+    fprintf(curfp,"; _tmp_i += "); 
+    expr_emit(node->astnode.forloop.incr);
+    fprintf(curfp,")\n"); 
+  }
+
+  if(node->astnode.forloop.Label->nodetype != Identifier)
+    fprintf(stderr,"Cant handle this implied loop.");
+  else {
+    fprintf(curfp,"%s[_tmp_i] = _f2j_in.%s();\n",
+       node->astnode.forloop.Label->astnode.ident.name,
+       func[node->astnode.forloop.Label->vartype]);
+  }
 }
 
 /*

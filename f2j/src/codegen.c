@@ -7433,6 +7433,9 @@ needs_adapter(AST *root)
  * This function handles code generation for specification statements.       *
  * Actually, there isn't a whole lot to do for spec statements.              *
  *                                                                           *
+ * I really think this routine is obsolete and useless now.  it should       *
+ * probably be removed.  --keith                                             *
+ *                                                                           *
  *****************************************************************************/
 
 void

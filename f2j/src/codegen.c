@@ -9743,6 +9743,9 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
   BOOLEAN diff;
   char *dptr;
 
+  if(gendebug)
+    printf("adapter_insert_from_descriptor: desc = '%s'\n", desc);
+
   this_call = node->astnode.ident.arraylist;
   other_call = ptr->astnode.ident.arraylist;
 
@@ -9771,7 +9774,8 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
           (other_call->astnode.ident.arraylist != NULL) &&
           type_lookup(cur_array_table, other_call->astnode.ident.name);
 
-    if( (dptr[0] != '[') &&
+    /* if( (dptr[0] != '[') && */
+    if( (dptr[0] == 'L') &&
         (this_arg_is_arrayacc != other_arg_is_arrayacc ))
     {
       diff = TRUE;

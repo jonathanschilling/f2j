@@ -1258,28 +1258,12 @@ int byte_proc(void) {
   u4_int i, j;       /* wide counters */
   char *strdup(char *);
   char *strtok(char *, const char *);
-  char *tmp, *curtok, *prev;
   extern char * thisClassName;
-
-  prev = NULL;
 
   numChanges = 0;
 
-  tmp = strdup( (char *) 
+  thisClassName = strdup( (char *) 
     constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s);
-
-  curtok = strtok(tmp,"/");
-
-  while((curtok = strtok(NULL,"/")) != NULL)
-    prev = curtok;
-
-  if(prev != NULL)
-    thisClassName = strdup(prev);
-  else if(curtok != NULL) 
-    thisClassName = strdup(curtok);
-  else
-    thisClassName = strdup( (char *) 
-      constant_pool[constant_pool[this_class]->u.indices.index1]->u.utf8.s);
 
 #ifdef CHECK_TABLE
 

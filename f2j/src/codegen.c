@@ -1362,6 +1362,16 @@ common_emit(AST *root)
   save_stack = stacksize;
   save_pc = pc;
   save_exc_table = exc_table;
+
+  /* set stuff to NULL in case we decide not to reset them here and
+   * end up trying to free them later.  then we don't blow away the
+   * original memory.
+   */
+  cur_filename = NULL;
+  cur_class_file = NULL;
+  cur_const_table = NULL;
+  clinit_method = NULL;
+  cur_code = NULL;
   exc_table = NULL;
 
   /*
@@ -1385,7 +1395,11 @@ common_emit(AST *root)
       if(mtmp) {
         printf("common_emit.3: %s,%s,%s\n", mtmp->classname, mtmp->methodname,
            mtmp->descriptor);
+        f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
+        continue;
       }
+
+      f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
 
       /* common block filename will be a concatenation of
        * the original input filename and the name of this
@@ -1461,7 +1475,7 @@ printf("common_emit.1: set curfp = %p\n", curfp);
 
         temp = hashtemp->variable;
 
-        fprintf(indexfp,"%s",getVarDescriptor(temp));
+        fprintf(indexfp,"/%s,%s",getCommonVarName(Ntemp), getVarDescriptor(temp));
 
         field_emit(temp);
 
@@ -1506,10 +1520,10 @@ printf("common_emit.1: set curfp = %p\n", curfp);
 
   curfp = javafp;
 
-  f2jfree(prefix,strlen(prefix)+1);
-  f2jfree(common_classname,strlen(common_classname)+1);
-  f2jfree(filename,strlen(filename)+1);
-  f2jfree(cur_filename,strlen(cur_filename)+1);
+  if(prefix) f2jfree(prefix,strlen(prefix)+1);
+  if(common_classname) f2jfree(common_classname,strlen(common_classname)+1);
+  if(filename) f2jfree(filename,strlen(filename)+1);
+  if(cur_filename) f2jfree(cur_filename,strlen(cur_filename)+1);
 
   /* restore previously saved globals */
 
@@ -1522,6 +1536,30 @@ printf("common_emit.1: set curfp = %p\n", curfp);
   stacksize = save_stack;
   cur_code = save_code;
   pc = save_pc;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * getCommonVarName                                                          *
+ *                                                                           *
+ * Given a node, this function returns the merged name of this variable in   *
+ * the common block.  if the variable is not in a common block or if we      *
+ * can't find the variable in the symbol table, return "unknown".            *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getCommonVarName(AST *root)
+{
+  HASHNODE *hashtemp, *ht2;
+
+  if((hashtemp = type_lookup(cur_common_table,root->astnode.ident.name))) {
+    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+
+    return ht2->variable->astnode.ident.merged_name;
+  }
+
+  return "Unknown";
 }
 
 /*****************************************************************************

@@ -1261,29 +1261,42 @@ Name:    NAME
          {
            HASHNODE *hashtemp;
 
-           $$=addnode();
-	   $$->token = NAME;
-           $$->nodetype = Identifier;
-
-           $$->astnode.ident.needs_declaration = FALSE;
-           $$->astnode.ident.lead_expr = NULL;
-
-           if(omitWrappers)
-             $$->astnode.ident.passByRef = FALSE;
-
            lowercase(yylval.lexeme);
 
-           if(type_lookup(java_keyword_table,yylval.lexeme) ||
-              type_lookup(jasmin_keyword_table,yylval.lexeme))
-                 yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+           if((hashtemp = type_lookup(parameter_table,yylval.lexeme)) != NULL) {
+             /* the name we're looking at is defined as a parameter.
+              * instead of inserting an Identifier node here, we're just
+              * going to insert the Constant node that corresponds to
+              * the parameter.  normally the only time we'd worry about
+              * such a substitution would be when the ident was the lhs
+              * of some expression, but that should not happen with parameters.
+              */
 
-           strcpy($$->astnode.ident.name, yylval.lexeme);
+             $$ = hashtemp->variable; 
 
-           hashtemp = type_lookup(type_table, $$->astnode.ident.name);
-           if(hashtemp)
-           {
-             $$->vartype = hashtemp->variable->vartype;
-             $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+           } else {
+             $$=addnode();
+             $$->token = NAME;
+             $$->nodetype = Identifier;
+
+             $$->astnode.ident.needs_declaration = FALSE;
+             $$->astnode.ident.lead_expr = NULL;
+
+             if(omitWrappers)
+               $$->astnode.ident.passByRef = FALSE;
+
+             if(type_lookup(java_keyword_table,yylval.lexeme) ||
+                type_lookup(jasmin_keyword_table,yylval.lexeme))
+                   yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+
+             strcpy($$->astnode.ident.name, yylval.lexeme);
+
+             hashtemp = type_lookup(type_table, $$->astnode.ident.name);
+             if(hashtemp)
+             {
+               $$->vartype = hashtemp->variable->vartype;
+               $$->astnode.ident.len = hashtemp->variable->astnode.ident.len;
+             }
            }
          }
 ;
@@ -2554,17 +2567,11 @@ Intlist:   Integer
 
 Parameter:   PARAMETER OP Pdecs CP NL 
              {
-AST *dtmp;
 	       $$ = addnode();
                $3->parent = $$;   /* 9-4-97 - Keith */
 	       $$->nodetype = Specification;
 	       $$->astnode.typeunit.specification = Parameter;
                $$->astnode.typeunit.declist = switchem($3); 
-/*
-for(dtmp=$$->astnode.typeunit.declist;dtmp;dtmp=dtmp->nextstmt)
-  printf("evaluation of rhs = %d\n",(int)eval_const_expr(
-*/
-
              }
 ;
 
@@ -2601,14 +2608,17 @@ Pdec:     Assignment
               case Character:
                 printf("creating String constant...\n");
                 temp->token = STRING;
-                strcpy(temp->astnode.constant.number, $$->astnode.assignment.rhs->astnode.constant.number);
+                strcpy(temp->astnode.constant.number, 
+                       $$->astnode.assignment.rhs->astnode.constant.number);
                 break;
               case Complex:
                 fprintf(stderr,"Pdec: Complex not yet supported.\n");
                 break;
               case Logical:
-                printf("creating Logical constant...\n");
                 temp->token = $$->astnode.assignment.rhs->token;
+                printf("creating Logical constant (%s)...\n",tok2str(temp->token));
+                strcpy(temp->astnode.constant.number, 
+                       temp->token == TrUE ? "true" : "false");
                 break;
               case Float:
               case Double:
@@ -2624,15 +2634,14 @@ Pdec:     Assignment
               default:
                 fprintf(stderr,"Pdec: bad vartype!\n");
             }
-           
-printf("ok.. evaluation of parameter is %f\n",eval_const_expr($$->astnode.assignment.rhs));
 
             $$->astnode.assignment.rhs = temp;
                                                       
             type_insert(parameter_table, temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
 
-            insert_constant(constants_table, temp->token, temp->astnode.constant.number);
+            insert_constant(constants_table, temp->token, 
+               temp->astnode.constant.number);
 
             /*
              *  $$->astnode.typeunit.specification = Parameter; 

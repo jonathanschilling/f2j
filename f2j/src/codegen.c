@@ -1135,22 +1135,6 @@ vardec_emit(AST *root, enum returntype returns)
 
     HASHNODE *p;
 
-    if(omitWrappers) {
-      if(isPassByRef(root->astnode.ident.name))
-        fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-      else
-        fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
-    }
-    else
-    {
-      fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-    }
-
-    if (gendebug)
-      printf ("%s\n", returnstring[returns]);
-
-    name_emit (root);
-
     /* Check to see whether this variable is a PARAMETER */
 
     if (gendebug)
@@ -1165,27 +1149,50 @@ vardec_emit(AST *root, enum returntype returns)
        * statement.
        */
 
-      if(omitWrappers) {
-        if(isPassByRef(root->astnode.ident.name)) {
-          fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-          expr_emit(p->variable);
-          fprintf(curfp,");\n");
-        }
-        else {
-          fprintf(curfp,"= ");
-          expr_emit(p->variable);
-          fprintf(curfp,";\n");
-        }
-      }
-      else
-      {
-        fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-        expr_emit(p->variable);
-        fprintf(curfp,");\n");
-      }
+     
+      /*
+       * comment this code out since
+       * we no longer declare parameters...  --kgs 4/19/00
+       *
+       * if(omitWrappers) {
+       *   if(isPassByRef(root->astnode.ident.name)) {
+       *     fprintf(curfp,"= new %s(",wrapper_returns[returns]);
+       *     expr_emit(p->variable);
+       *     fprintf(curfp,");\n");
+       *   }
+       *   else {
+       *     fprintf(curfp,"= ");
+       *     expr_emit(p->variable);
+       *     fprintf(curfp,";\n");
+       *   }
+       * }
+       * else
+       * {
+       *   fprintf(curfp,"= new %s(",wrapper_returns[returns]);
+       *   expr_emit(p->variable);
+       *   fprintf(curfp,");\n");
+       * }
+       */
+
     }
     else
     {
+      if(omitWrappers) {
+        if(isPassByRef(root->astnode.ident.name))
+          fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+        else
+          fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
+      }
+      else
+      {
+        fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
+      }
+
+      if (gendebug)
+        printf ("%s\n", returnstring[returns]);
+
+      name_emit (root);
+
       /* this variable is not declared as a parameter, so
        * initialize it with an initial value depending on
        * its data type.

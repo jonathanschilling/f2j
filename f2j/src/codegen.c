@@ -9312,7 +9312,7 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
     }
     else if(omitWrappers && (temp->nodetype == Constant))
     {
-      if(isPassByRef_desc(dptr))
+      if(isPassByRef_desc(dptr) || (dptr[0] == '['))
       {
         CPNODE *c;
 
@@ -11052,15 +11052,16 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
         adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
     }
-      /* skip extra field desc to compensate for offset arg */
     else if(dptr[0] == '[') {
-      dptr = skipToken(dptr);
 
       if( !type_lookup(cur_array_table,arg->astnode.ident.name) )
       {
         adapter_array_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
       }
       
+      /* skip extra field desc to compensate for offset arg */
+
+      dptr = skipToken(dptr);
     }
 
     dptr = skipToken(dptr);
@@ -11114,7 +11115,10 @@ adapter_array_assign_emit(int i, int argvnum, int lv, char *dptr)
 
   fprintf(curfp,"arg%d.val = _f2j_tmp%d[0];\n",i,i);
 
+printf("#@@# calling get_type_from_field_desc(%s) = ", dptr);
+
   vt = get_type_from_field_desc(dptr);
+printf(" '%s'\n", returnstring[vt]);
 
   gen_load_op(argvnum, Object);
   gen_load_op(lv, Object);

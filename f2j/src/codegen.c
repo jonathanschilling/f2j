@@ -8215,7 +8215,7 @@ call_emit (AST * root)
 
   adapter = needs_adapter(root);
 
-  /* if method_name_emit() can completely generate the call, return now */
+  /* if method_name_emit() already completely generated the call, return now */
 
   if( method_name_emit(root, adapter) )
     return;

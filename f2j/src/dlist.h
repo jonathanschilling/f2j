@@ -20,15 +20,15 @@ typedef struct dlist {
 /* These are the routines for manipluating lists */
 
 extern Dlist make_dl();
-extern dl_insert_b(/* node, val */); /* Makes a new node, and inserts it before
+extern void dl_insert_b(/* node, val */); /* Makes a new node, and inserts it before
                                         the given node -- if that node is the 
                                         head of the list, the new node is 
                                         inserted at the end of the list */
 #define dl_insert_a(n, val) dl_insert_b(n->flink, val)
 
-extern dl_delete_node(/* node */);    /* Deletes and free's a node */
+extern void dl_delete_node(/* node */);    /* Deletes and free's a node */
 
-extern dl_delete_list(/* head_node */);  /* Deletes the entire list from
+extern void dl_delete_list(/* head_node */);  /* Deletes the entire list from
                                             existance */
 extern void *dl_val(/* node */);   /* Returns node->val (used to shut lint
 				      up) */

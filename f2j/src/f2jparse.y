@@ -1,5 +1,7 @@
 %{
 #include<stdio.h>
+#include<stdlib.h>
+#include<ctype.h>
 #include "f2j.h"
 #include<string.h>
 
@@ -11,6 +13,7 @@ extern enum contexts context;
 extern BOOLEAN typedecs;
 /* extern Dlist tokenstack; */
 
+int yylex();
 
 /* Some of these are probably not necessary.  Need to
    run gcc with -Wall to filter unused variables. */
@@ -41,6 +44,21 @@ int debug = 0;
 int len = 1;
 
 AST *dataStmtList = NULL;
+
+void assign_local_vars(AST *);
+void assign(AST *);
+void typecheck(AST *);
+int hash(char *);
+void type_insert (HASHNODE ** , AST * , int , char *);
+void type_hash(AST *);
+void merge_common_blocks(AST *);
+void arg_table_load(AST *);
+int eval_const_expr(AST *, int);
+char * print_nodetype (AST *);
+int hash_insert (SYMTABLE * , AST *);
+char * tok2str(int );
+void exp_to_double (char *, char *);
+SYMTABLE * new_symtable (int );
 
 %}
 
@@ -93,7 +111,7 @@ in alphabetic order. */
 %type <ptnode> Call /* Char */ Complex Constant  Constantlist Continue
 %type <ptnode> Data DataList DataConstant DataItem DataElement Do_incr Doloop 
 %type <ptnode> DataLhs LoopBounds
-%type <ptnode> Do_vals Do_statements Do_statement Double
+%type <ptnode> Do_vals Double
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
 %type <ptnode> Fprogram Ffunction Fsubroutine
@@ -105,7 +123,7 @@ in alphabetic order. */
 %type <ptnode> Relationalop Return 
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement Subroutinecall
-%type <ptnode> Sourcecodes  Sourcecode Star /* Startindex */  
+%type <ptnode> Sourcecodes  Sourcecode Star
 %type <ptnode> String  Subroutine Stop SubstringOp
 %type <ptnode> Typestmt Typevar Typevarlist
 %type <type>   Types Type 
@@ -230,7 +248,6 @@ Fsubroutine: Subroutine Specstmts Statements End
                 AST *temp;
                 char *hashid;
                 int index;
-                extern char * returnstring[];
 
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
@@ -275,7 +292,7 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 hashid = $1->astnode.source.name->astnode.ident.name;
                 index = hash(hashid) % function_table->num_entries;
-                type_insert(&(function_table->entry[index]), $1, NULL,
+                type_insert(&(function_table->entry[index]), $1, 0,
                    $1->astnode.source.name->astnode.ident.name);
               }
 ;
@@ -286,7 +303,6 @@ Ffunction:   Function Specstmts Statements  End
                 AST *temp;
                 char *hashid;
                 int index;
-                extern char * returnstring[];
 
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
@@ -330,7 +346,7 @@ Ffunction:   Function Specstmts Statements  End
 
                 hashid = $1->astnode.source.name->astnode.ident.name;
                 index = hash(hashid) % function_table->num_entries;
-                type_insert(&(function_table->entry[index]), $1, NULL,
+                type_insert(&(function_table->entry[index]), $1, 0,
                   $1->astnode.source.name->astnode.ident.name);
               }
 ;
@@ -672,10 +688,11 @@ DataItem:   LhsList DIV Constantlist DIV
 
                 if(temp->nodetype == Forloop) 
                 {
-                  idx = hash(temp->astnode.forloop.counter) % data_table->num_entries;
+                  idx = hash(temp->astnode.forloop.counter->astnode.ident.name)
+                          % data_table->num_entries;
 
                   type_insert(&(data_table->entry[idx]), temp, Float,
-                     temp->astnode.forloop.counter);
+                     temp->astnode.forloop.counter->astnode.ident.name);
                 }
                 else
                 {
@@ -1165,7 +1182,12 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
 Lhs:     Name {$$=$1;} 
       |  Name OP Arrayindexlist CP
          {
-	   HASHNODE * hashtemp;  /* In case we need to switch index order. */
+           /*   Use the following declaration in case we 
+                need to switch index order. 
+
+	      HASHNODE * hashtemp;  
+            */
+
 	   $$ = addnode();
 	   $1->parent = $$; /* 9-4-97 - Keith */
 	   $3->parent = $$; /* 9-4-97 - Keith */
@@ -1280,21 +1302,12 @@ Arrayindexop:  Arrayindex
 
 /*  New do loop productions.  Entails rewriting in codegen.c
     to emit java source code.  */
-Doloop:   Do_incr Do_vals Do_statements  Continue /* Integer CONTINUE  NL */
+
+Doloop:   Do_incr Do_vals
           {
             $$ = $2;
             $$->nodetype = Forloop;
-            $3 = switchem($3);
-            $$->astnode.forloop.stmts = $3;
             $$->astnode.forloop.Label = $1;
-            $$->astnode.forloop.Continue = $4;
-
-            if(atoi($1->astnode.constant.number) != $4->astnode.label.number)
-            {
-             fprintf(stderr,"Warning: continue (%d) on line %d ",
-                $4->astnode.label.number,lineno);
-             fprintf(stderr,"does not match for loop\n");
-            }
           }
 ;
 
@@ -1335,35 +1348,6 @@ Do_vals:  Assignment CM Exp   NL
            $$->astnode.forloop.incr = $5;
          }
 ;
-
-
-/*
-Startindex:  Exp {$$=$1;}
-;
-*/
-
-Do_statements:   Do_statement 
-                 { 
-                   $$=$1;
-                 }
-               | Do_statements  Do_statement 
-                 {
-                   $2->prevstmt = $1;
-                   $$ = $2;
-                 }
-;
-
-Do_statement:    Assignment NL {$$=$1; $$->nodetype = Assignment;}
-               | Call {$$=$1; $$->nodetype = Call;}
-               | Logicalif {$$=$1; $$->nodetype = Logicalif;}
-               | Blockif {$$=$1; $$->nodetype = Blockif;}
-               | Doloop {$$=$1; $$->nodetype = Forloop;}
-               | Return {$$=$1; $$->nodetype = Return;}
-               | Goto {$$=$1; $$->nodetype = Goto;}
-               | Label {$$=$1; $$->nodetype = Label;}
-               | Write {$$=$1; $$->nodetype = Write;}
-;           
-
 
 /* 
  * changed the Label production to allow any statement to have
@@ -1728,8 +1712,12 @@ Logicalifstmts:  Assignment NL {
    the arguments.  */
 Subroutinecall:   Name OP Explist CP
                   {
-                    HASHNODE * hashtemp;  /* In case we need to switch index order. */
-                    HASHNODE * ht;
+                    /* Use the following declarations in case we 
+                       need to switch index order.
+
+                       HASHNODE * hashtemp;  
+                       HASHNODE * ht;
+                     */
 
                     $$ = addnode();
                     $1->parent = $$;  /* 9-4-97 - Keith */
@@ -1748,8 +1736,8 @@ Subroutinecall:   Name OP Explist CP
  *                  if(type_lookup(array_table, $1->astnode.ident.name))
  *                    $$->nodetype = ArrayAccess;
  *                  else
+ *                    $$->nodetype = Identifier;
  */
-
                       $$->nodetype = Identifier;
 
                     $$->astnode.ident.lead_expr = NULL;
@@ -2211,7 +2199,7 @@ Pdec:     Assignment
 
             hashid = $$->astnode.assignment.lhs->astnode.ident.name;
             index = hash(hashid) % parameter_table->num_entries;
-            type_insert(&(parameter_table->entry[index]), temp, NULL,
+            type_insert(&(parameter_table->entry[index]), temp, 0,
                $$->astnode.assignment.lhs->astnode.ident.name);
 
             /*
@@ -2301,7 +2289,7 @@ return root;
    declarations from the Decblock rule.  It will need to
    get those from Intrinsic, External, Parameter, etc.
    */
-int 
+void 
 type_hash(AST * types)
 {
   HASHNODE *hash_entry;
@@ -2323,7 +2311,7 @@ type_hash(AST * types)
          the next for() loop.  */
     return_type = temptypes->astnode.typeunit.returns;
 
-    for (tempnames; tempnames; tempnames = tempnames->nextstmt)
+    for (; tempnames; tempnames = tempnames->nextstmt)
     {
       /* Stuff names and return types into the symbol table. */
       hashid = tempnames->astnode.ident.name;
@@ -2378,7 +2366,7 @@ type_hash(AST * types)
    string print.  Java does recognize numbers of the
    form 1.0e+1, so the `d' and `d' need to be replaced with
    `e'.  For now, leave as double for uniformity with jasmin.  */
-int 
+void 
 exp_to_double (char *lexeme, char *temp)
 {
     float tempnum;
@@ -2406,6 +2394,8 @@ exp_to_double (char *lexeme, char *temp)
    subroutine.  This table is later checked when variable
    types are declared so that variables are not declared
    twice.  */
+
+void
 arg_table_load(AST * arglist)
 {
    char * hashid;
@@ -2413,19 +2403,17 @@ arg_table_load(AST * arglist)
    AST * temp;
    extern SYMTABLE * args_table;
 
-   temp = arglist;
-
    /* We traverse down `prevstmt' because the arglist is
       built with right recursion, i.e. in reverse.  This
       procedure, 'arg_table_load()' is called when the non-
       terminal `functionargs' is reduced, before the
       argument list is reversed. Note that a NULL pointer
       at either end of the list terminates the for() loop. */
-   for(temp; temp; temp = temp->nextstmt)
+   for(temp = arglist; temp; temp = temp->nextstmt)
      {
        hashid = temp->astnode.ident.name;
        index = hash(hashid) % args_table->num_entries;
-       type_insert(&(args_table->entry[index]), temp, NULL,
+       type_insert(&(args_table->entry[index]), temp, 0,
              temp->astnode.ident.name);
        if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
      }
@@ -2448,7 +2436,7 @@ char * lowercase(char * name)
 
 /* Horribly kludged routines with massive loop of
    duplicated code.  */
-int
+void
 assign_local_vars(AST * root)
 {
   AST * locallist, * declist;
@@ -2461,10 +2449,10 @@ locallist = root;
 
 if (root->nodetype == Typedec || root->nodetype == Specification)
   {
-    for (locallist; locallist; locallist = locallist->nextstmt)
+    for (; locallist; locallist = locallist->nextstmt)
       {
 	declist = locallist->astnode.typeunit.declist;
-	for (declist; declist; declist = declist->nextstmt)
+	for (; declist; declist = declist->nextstmt)
 	  {
 	    if(debug)printf("dec list name: %s\n", declist->astnode.ident.name);
             hashtemp = type_lookup(type_table, declist->astnode.ident.name);
@@ -2509,7 +2497,7 @@ if (root->nodetype == Typedec || root->nodetype == Specification)
 	
 /*  This loop takes care of the stuff coming in from the
     argument list.  */
-  for (locallist; locallist; locallist = locallist->nextstmt)
+  for (; locallist; locallist = locallist->nextstmt)
     {
 
       if(debug)printf("arg list name: %s\n", locallist->astnode.ident.name);
@@ -2563,7 +2551,7 @@ store_array_var(AST * var)
 
   hashid = var->astnode.ident.name;
   index = hash(hashid) % array_table->num_entries;
-  type_insert(&(array_table->entry[index]), var, NULL,
+  type_insert(&(array_table->entry[index]), var, 0,
      var->astnode.ident.name);
 
   if(debug)
@@ -2613,7 +2601,7 @@ init_tables()
   dataStmtList    = NULL;
 }
 
-int
+void
 merge_common_blocks(AST *root)
 {
   HASHNODE *ht;
@@ -2742,4 +2730,5 @@ eval_const_expr(AST *root, int dims)
       fprintf(stderr,"eval_const_expr(): bad nodetype!\n");
       return 0;
   }
+  return 0;
 }

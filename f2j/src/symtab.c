@@ -1,4 +1,5 @@
 #include<stdio.h>
+#include<stdlib.h>
 #include "f2j.h"
 
 #define symdebug 0
@@ -38,10 +39,11 @@ new_symtable (int numentries)
 int
 hash_insert (SYMTABLE * table, AST * node)
 {
-
     int index;
     char tmp[100];
     char *hashid;
+    int hash(char *);
+    void type_insert (HASHNODE **, AST *, int, char *);
 
     if(node->nodetype == Format) {
       sprintf(tmp,"%d",node->astnode.label.number);
@@ -107,11 +109,14 @@ hash_insert (SYMTABLE * table, AST * node)
              table->entry[index] = newnode;
           }
           break;
+       default:
+          fprintf(stderr,"symtab:  Bad node in hash_insert.\n");
+          break;
       }				/* Close switch().  */
     return (1);
 }
 
-int
+void
 type_insert (HASHNODE ** list, AST * node_val, int returntype, char *tag)
 {
 
@@ -162,6 +167,7 @@ type_lookup (SYMTABLE * table, char *id)
 {
   int index;
   HASHNODE *hash_entry;
+  int hash (char *);
 
   if((table == NULL) || (id == NULL)) {
     return NULL;
@@ -194,7 +200,7 @@ search_hashlist (HASHNODE * list, char *id)
   if(id == NULL)
     return NULL;
 
-  for (list; list; list = list->next)
+  for (; list; list = list->next)
   {
     if(list->ident == NULL)
       continue;

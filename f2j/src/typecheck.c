@@ -29,6 +29,15 @@ AST *cur_unit;
 void
 typecheck (AST * root)
 {
+  void data_check(AST *);
+  void common_check(AST *);
+  void assign_check (AST *);
+  void call_check (AST *);
+  void forloop_check (AST *);
+  void blockif_check (AST *);
+  void logicalif_check (AST *);
+  void write_check (AST *);
+
   switch (root->nodetype)
   {
     case 0:
@@ -170,7 +179,7 @@ typecheck (AST * root)
   }				/* switch on nodetype.  */
 }
 
-int 
+void 
 data_check(AST * root)
 {
   HASHNODE *hashtemp;
@@ -194,13 +203,15 @@ data_check(AST * root)
   }
 }
 
-int
+void
 common_check(AST *root)
 {
   HASHNODE *ht;
   AST *Ctemp, *Ntemp;
   int i,idx;
   char **names;
+  int hash (char *);
+  void type_insert (HASHNODE **, AST *, int, char *);
 
   for(Ctemp=root;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
@@ -250,14 +261,17 @@ common_check(AST *root)
   }
 }
 
-int
+void
 name_check (AST * root)
 {
-  AST *temp;
   HASHNODE *hashtemp;
   HASHNODE *ht;
-  char *javaname, * tempname;
+  char * tempname;
   extern METHODTAB intrinsic_toks[];
+  void external_check(AST *);
+  void intrinsic_check(AST *);
+  void array_check(AST *, HASHNODE *);
+  void subcall_check(AST *);
 
   if (checkdebug)
     printf("here checking name %s\n",root->astnode.ident.name);
@@ -343,18 +357,19 @@ name_check (AST * root)
 
 /*  This function emits a subroutine call */
 
-int 
+void 
 subcall_check(AST *root)
 {
   AST *temp;
   char *tempstr;
+  void expr_check (AST *);
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
 
   temp = root->astnode.ident.arraylist;
 
-  for (temp; temp != NULL; temp = temp->nextstmt)
+  for (; temp != NULL; temp = temp->nextstmt)
     if (*temp->astnode.ident.name != '*')
     {
       if(temp == NULL)
@@ -375,9 +390,11 @@ subcall_check(AST *root)
   root->vartype = Integer;
 }
 
-int
+void
 func_array_check(AST *root, HASHNODE *hashtemp)
 {
+  void expr_check (AST *);
+
       if(root == NULL)
         fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
   expr_check (root);
@@ -393,12 +410,11 @@ func_array_check(AST *root, HASHNODE *hashtemp)
   }
 }
 
-int
+void
 array_check(AST *root, HASHNODE *hashtemp)
 {
-  extern METHODTAB intrinsic_toks[];
   AST *temp;
-  int is_arg=FALSE;
+  void func_array_check(AST *, HASHNODE *);
 
   if (checkdebug)
     printf ("typecheck(): Array... %s, My node type is %s\n", 
@@ -410,12 +426,15 @@ array_check(AST *root, HASHNODE *hashtemp)
   func_array_check(temp, hashtemp);
 }
 
-int
+void
 external_check(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
   char *tempname, *javaname;
   AST *temp;
+  void name_check (AST *);
+  void expr_check (AST *);
+  void call_check (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -451,12 +470,13 @@ external_check(AST *root)
   }
 }
 
-int
+void
 intrinsic_check(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
   AST *temp;
   char *tempname, *javaname;
+  void expr_check (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -607,15 +627,14 @@ intrinsic_check(AST *root)
   }
 }
 
-int
+void
 expr_check (AST * root)
 {
-  extern METHODTAB intrinsic_toks[];
-  char *tempname;
+  void name_check (AST *);
 
   if(root == NULL) {
     fprintf(stderr,"expr_check(): NULL root!\n");
-    return 0;
+    return;
   }
 
   switch (root->nodetype)
@@ -705,9 +724,12 @@ expr_check (AST * root)
   }
 }
 
-int
+void
 forloop_check (AST * root)
 {
+  void assign_check (AST *);
+  void expr_check (AST *);
+
   assign_check (root->astnode.forloop.start);
 
       if(root->astnode.forloop.stop == NULL)
@@ -717,22 +739,25 @@ forloop_check (AST * root)
   if (root->astnode.forloop.incr != NULL)
     expr_check (root->astnode.forloop.incr);
 
-  typecheck (root->astnode.forloop.stmts);
 }
 
 
+void
 logicalif_check (AST * root)
 {
+  void expr_check (AST *);
+
   if (root->astnode.logicalif.conds != NULL)
     expr_check (root->astnode.logicalif.conds);
 
   typecheck (root->astnode.logicalif.stmts);
 }
 
-int
+void
 write_check (AST * root)
 {
   AST *temp;
+  void expr_check (AST *);
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
@@ -742,9 +767,10 @@ write_check (AST * root)
   }
 }
 
-int
+void
 blockif_check (AST * root)
 {
+  void expr_check (AST *);
 
   if (root->astnode.blockif.conds != NULL)
     expr_check (root->astnode.blockif.conds);
@@ -761,6 +787,8 @@ blockif_check (AST * root)
 void
 elseif_check (AST * root)
 {
+  void expr_check (AST *);
+
   if (root->astnode.blockif.conds != NULL)
     expr_check (root->astnode.blockif.conds);
   typecheck (root->astnode.blockif.stmts);
@@ -772,11 +800,12 @@ else_check (AST * root)
   typecheck (root->astnode.blockif.stmts);
 }
 
-int
+void
 call_check (AST * root)
 {
   AST *temp;
   HASHNODE *ht;
+  void expr_check (AST *);
 
   assert (root != NULL);
   if(root->astnode.ident.arraylist == NULL)
@@ -803,12 +832,15 @@ if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
   expr_check (temp);
 }
 
-int
+void
 assign_check (AST * root)
 {
+  void name_check (AST *);
+  void expr_check (AST *);
+
   name_check (root->astnode.assignment.lhs);
       if(root->astnode.assignment.rhs == NULL)
-        fprintf(stderr,"call_check: calling expr_check with null pointer!\n");
+        fprintf(stderr,"assign_check: calling expr_check with null pointer!\n");
   expr_check (root->astnode.assignment.rhs);
 
   printf("## ## typecheck: ltype = %s\n",

@@ -8,6 +8,7 @@
 
 /* extern yydebug; */
 
+void
 main (int argc, char **argv)
 {
     /* I loath all these character arrays.  There has to be
@@ -34,6 +35,11 @@ main (int argc, char **argv)
     char vcgname[130];
 
     char *strdup(const char *);
+    SYMTABLE * new_symtable (int);
+    int hash (char *);
+    void type_insert (HASHNODE **, AST *, int, char *);
+    int yyparse (void);
+    extern int getopt(int, char *const *, const char *);
 
     extern char *optarg;
     extern int optind;
@@ -290,9 +296,9 @@ void
 initialize ()
 {
   extern int lineno;
-  extern int statmentno;
   int tablesize = 211;
   extern SYMTABLE *array_table; /* Variables of type array. */
+  SYMTABLE * new_symtable (int);
 
   lineno = 0;
   statementno = 0;

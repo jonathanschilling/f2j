@@ -183,8 +183,8 @@ typedef struct ast_node
 		  /* char indexname[30]; */
                   int startlabel, stoplabel;
 		  struct ast_node *counter;
-		  struct ast_node *Label, *Continue;
-		  struct ast_node *start, *stop, *stmts, *incr;
+		  struct ast_node *Label;
+		  struct ast_node *start, *stop, *incr;
 	      }
 	    forloop;
 

@@ -12,6 +12,7 @@
  */
 
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
 #include"f2j.h"
@@ -30,7 +31,6 @@ char * print_nodetype ( AST * );
 char * lowercase ( char * );
 HASHNODE * format_lookup(SYMTABLE *, char *);
 char * methodscan (METHODTAB * , char * );
-void format_name_emit(AST *);
 
 /*  
  *   Global variables, a necessary evil when working with
@@ -42,7 +42,6 @@ char *returnname;
 char *cur_filename;
 int gendebug = 1;
 int cur_idx = 0;
-int return_label = 0;
 Dlist doloop = NULL;
 Dlist while_list = NULL;
 Dlist adapter_list = NULL;
@@ -94,6 +93,23 @@ char *init_vals[] =
 void
 emit (AST * root)
 {
+    void open_output_file(AST *);
+    void emit_adapters();
+    void constructor (AST *);
+    void typedec_emit (AST *);
+    void data_emit(AST *);
+    void spec_emit (AST *);
+    void assign_emit (AST *);
+    void call_emit (AST *);
+    void forloop_emit (AST *);
+    void blockif_emit (AST *);
+    void logicalif_emit (AST *);
+    void goto_emit (AST *);
+    void computed_goto_emit (AST *);
+    void label_emit (AST *);
+    void write_emit (AST *);
+    void common_emit(AST *);
+
     switch (root->nodetype)
       {
       case 0:
@@ -102,8 +118,6 @@ emit (AST * root)
 	  emit (root->nextstmt);
       case Progunit:
         {
-          AST *tmp;
-
 	  if (gendebug)
 	      printf ("Source.\n");
 
@@ -263,8 +277,7 @@ emit (AST * root)
            * labels that already exist in the program.
            */
 
-          fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename,
-            return_label);
+          fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
 
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
 	      emit (root->nextstmt);
@@ -371,7 +384,7 @@ emit (AST * root)
  *  f2java attempts to merge the names into one.  --Keith
  */
 
-int
+void
 common_emit(AST *root)
 {
   extern char *returnstring[];
@@ -381,6 +394,7 @@ common_emit(AST *root)
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
   int needs_dec = FALSE;
+  void vardec_emit(AST *, enum returntype);
 
   /*
    * Ctemp loops through each common block name specified
@@ -469,15 +483,15 @@ common_emit(AST *root)
 /* Emit all the type declarations.  This procedure checks
    whether variables are typed in the argument list, and
    does not redeclare those arguments. */
-int
+void
 typedec_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
   AST *temp;
-  AST *temp2;
   HASHNODE *hashtemp, *ht;
   enum returntype returns;
   char *tempname;
+  void vardec_emit(AST *, enum returntype);
 
   temp = root->astnode.typeunit.declist;
 
@@ -487,7 +501,7 @@ typedec_emit (AST * root)
    */
   hashtemp = type_lookup (cur_external_table, temp->astnode.ident.name);
   if (hashtemp)
-    return 1;
+    return;
 
   returns = root->astnode.typeunit.returns;
 
@@ -497,7 +511,7 @@ typedec_emit (AST * root)
    * list for the method.  If so, it takes the type
    * in the argument list and is not retyped here. 
    */
-  for (temp; temp != NULL; temp = temp->nextstmt)
+  for (; temp != NULL; temp = temp->nextstmt)
   {
     /* 
      * If there is a corresponding data statement for this
@@ -583,7 +597,7 @@ typedec_emit (AST * root)
 /*
 int vardec_emit(AST *root, enum returntype returns, int only_static)
 */
-int
+void
 vardec_emit(AST *root, enum returntype returns)
 {
   HASHNODE *hashtemp;
@@ -591,6 +605,9 @@ vardec_emit(AST *root, enum returntype returns)
   char *prefix;
   int count;
   int only_static = STATIC_NODATA;
+  void name_emit (AST *);
+  void expr_emit (AST *);
+  void print_string_initializer(AST *);
 
   if(only_static)         /* true if only_static is either  */
     prefix = "static ";   /*   STATIC_WITHDATA or STATIC_NODATA */
@@ -717,7 +734,7 @@ vardec_emit(AST *root, enum returntype returns)
  * String object. 
  */
 
-int
+void
 print_string_initializer(AST *root)
 {
   HASHNODE *ht;
@@ -747,7 +764,7 @@ print_string_initializer(AST *root)
  * name, etc. and assign values in the same way.     10/3/97  --Keith
  */
 
-int
+void
 data_emit(AST *root)
 {
   enum returntype returnval;
@@ -829,6 +846,8 @@ data_implied_loop_emit(AST * root, AST *Clist)
 {
   AST * loop_var, * lhs;
   int start, stop, incr, i;
+  void name_emit (AST *);
+  void expr_emit (AST *);
  
   printf("/* \n");
   printf("* looking at an implied data loop...\n");
@@ -884,8 +903,10 @@ data_implied_loop_emit(AST * root, AST *Clist)
 AST *
 data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 {
-  int i, length=1, is_array=FALSE, needs_dec = FALSE;
+  int length=1, is_array=FALSE, needs_dec = FALSE;
   AST * data_array_emit(int , AST *, AST *, int );
+  int determine_var_length(HASHNODE *);
+  void data_scalar_emit(enum returntype, AST *, AST *, int);
 
   /* check to see whether we're going to be assigning to
    * an array element.  If so, the declaration for the array
@@ -893,6 +914,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
    * declaration here - just assign the value.  Otherwise,
    * we do need a declaration. 
    */
+
   if(Ntemp->astnode.ident.arraylist == NULL)
     needs_dec = FALSE;
   else
@@ -915,13 +937,13 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
     {
       fprintf(stderr,"Attempt to initialize dummy argument: %s\n",
         hashtemp->variable->astnode.ident.name);
-      return;
+      return Ctemp;
     }
     else if (type_lookup(cur_args_table,Ntemp->astnode.ident.name))
     {
       fprintf(stderr,"Attempt to initialize argument: %s\n",
         hashtemp->variable->astnode.ident.name);
-      return;
+      return Ctemp;
     }
 
     /* determine how many elements are in this array so that
@@ -1074,9 +1096,11 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
  * 
  */
 
-int
+void
 data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
+  void expr_emit (AST *);
+
   if(Ctemp->token == STRING) 
   {
     HASHNODE *ht;
@@ -1146,13 +1170,17 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
  *  Started cleaning up name_emit  10/10/97  --Keith
  */
 
-int
+void
 name_emit (AST * root)
 {
-  AST *temp;
   HASHNODE *hashtemp;
-  char *javaname, * tempname;
+  char * tempname;
   extern METHODTAB intrinsic_toks[];
+  void external_emit(AST *);
+  void intrinsic_emit(AST *);
+  void scalar_emit(AST *, HASHNODE *);
+  void array_emit(AST *, HASHNODE *);
+  void subcall_emit(AST *);
 
   printf("entering name_emit\n");
   /*  
@@ -1214,11 +1242,12 @@ name_emit (AST * root)
 
 /*  This function emits a function call */
 
-int 
+void 
 subcall_emit(AST *root)
 {
   AST *temp;
   char *tempstr;
+  void expr_emit (AST *);
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
@@ -1228,7 +1257,7 @@ subcall_emit(AST *root)
 
   fprintf (curfp, "(");
   if(temp->nodetype != EmptyArgList)
-    for (temp; temp != NULL; temp = temp->nextstmt)
+    for (; temp != NULL; temp = temp->nextstmt)
     {
       if(temp != root->astnode.ident.arraylist)
         fprintf (curfp, ",");  /* if not first iteration */
@@ -1246,13 +1275,15 @@ subcall_emit(AST *root)
  *  the array is being passed to an external function.
  */    
 
-int
+void
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, 
   int is_ext)
 {
-  HASHNODE *ht;
+  void expr_emit (AST *);
 
 #if ONED
+  HASHNODE *ht;
+
   if(is_ext)
     fprintf (curfp, ",");
   else
@@ -1269,8 +1300,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   }
   else if(ht->variable->astnode.ident.dim == 3)
   {
-    AST *temp;
-    int i, offset;
+    int offset;
 
     /* This section handles 3 dimensional array access.  we should already
      * know the dimensions of this array.
@@ -1363,10 +1393,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
  * 10/10/97 --Keith
  */
 
-int
+void
 array_emit(AST *root, HASHNODE *hashtemp)
 {
-  extern METHODTAB intrinsic_toks[];
   AST *temp;
   int is_arg=FALSE;
   char *get_common_prefix(char *);
@@ -1497,7 +1526,7 @@ get_common_prefix(char *varname)
  *   indices since they look like scalars to the parser)
  */
 
-int
+void
 scalar_emit(AST *root, HASHNODE *hashtemp)
 {
   extern METHODTAB intrinsic_toks[];
@@ -1649,12 +1678,14 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
  *
  */
 
-int
+void
 external_emit(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
   char *tempname, *javaname;
   AST *temp;
+  void call_emit (AST *);
+  void expr_emit (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -1732,12 +1763,13 @@ external_emit(AST *root)
  * commented-out loop below may not ever really work.
  */
 
-int
+void
 intrinsic_emit(AST *root)
 {
   extern METHODTAB intrinsic_toks[];
   AST *temp;
   char *tempname, *javaname;
+  void expr_emit (AST *);
 
   printf("entering intrinsic_emit\n");
   tempname = strdup(root->astnode.ident.name);
@@ -1833,7 +1865,7 @@ intrinsic_emit(AST *root)
       else
       {
         fprintf (curfp, " 1 ");
-        printf("LEN(%s) = 1\n");
+        printf("LEN(%s) = 1\n",temp->astnode.ident.name);
       }
     return;
   }
@@ -1933,8 +1965,6 @@ intrinsic_emit(AST *root)
 enum returntype
 get_type(char *num)
 {
-  int isfloat = 0;
-  int isbool = 0;
   int idx;
 
   for(idx = 0;idx < strlen(num);idx++) 
@@ -1955,16 +1985,17 @@ get_type(char *num)
  * a switch/case structure for this.
  */
 
-int
+void
 expr_emit (AST * root)
 {
   extern METHODTAB intrinsic_toks[];
   char *tempname;
+  void name_emit (AST *);
 
   if(root == NULL)
   {
     fprintf(stderr,"Warning: NULL root in expr_emit\n");
-    return 0;
+    return;
   }
 
   switch (root->nodetype)
@@ -2147,7 +2178,7 @@ if(root->astnode.expression.rhs->nodetype == Identifier)
  *
  */
 
-int
+void
 open_output_file(AST *root)
 {
   char * filename;
@@ -2184,14 +2215,18 @@ open_output_file(AST *root)
  * function or subroutine.
  */
 
-int
+void
 constructor (AST * root)
 {
     enum returntype returns;
     extern char *returnstring[];
-    AST *tempnode, *temp;
+    AST *tempnode;
     char *tempstring;
     HASHNODE *hashtemp;
+    void print_string_initializer(AST *);
+#if TWOD
+    AST *temp;
+#endif
 
     /* 
      * In fortran, functions return a value implicitly
@@ -2248,7 +2283,7 @@ constructor (AST * root)
 
     tempnode = root->astnode.source.args;
 
-    for (tempnode; tempnode != NULL; tempnode = tempnode->nextstmt)
+    for (; tempnode != NULL; tempnode = tempnode->nextstmt)
       {
 	  hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
 	  if (hashtemp == NULL)
@@ -2307,7 +2342,7 @@ constructor (AST * root)
 #endif      
 #if TWOD
 		temp = hashtemp->variable->astnode.ident.arraylist;
-		for (temp; temp != NULL; temp = temp->nextstmt)
+		for (; temp != NULL; temp = temp->nextstmt)
 		  {
 		      fprintf (curfp, "[]");
 		  }		/* Close for() loop. */
@@ -2342,17 +2377,19 @@ constructor (AST * root)
  * java 'break' or 'continue' statement.
  */
 
-int
+void
 forloop_emit (AST * root)
 {
   char *indexname;
   int *tmp_int;
+  void name_emit (AST *);
+  void assign_emit (AST *);
 
   tmp_int = (int*)malloc(sizeof(int));
 
   if(!tmp_int) { perror("malloc"); exit(1); }
 
-  *tmp_int = root->astnode.forloop.Continue->astnode.label.number;
+  *tmp_int = atoi(root->astnode.forloop.Label->astnode.constant.number);
 
   /* push this do loop's number on the stack */
   dl_insert_b(doloop, tmp_int);
@@ -2375,8 +2412,8 @@ forloop_emit (AST * root)
 
    /* print out a label for this for loop */
 
-  fprintf(curfp, "forloop%d:\n",
-     root->astnode.forloop.Continue->astnode.label.number);
+  fprintf(curfp, "forloop%s:\n",
+     root->astnode.forloop.Label->astnode.constant.number);
    
    /* This block writes out the loop parameters.  */
 
@@ -2407,7 +2444,7 @@ forloop_emit (AST * root)
     expr_emit (root->astnode.forloop.stop);
     fprintf(curfp," : ");
     name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
-    fprintf(curfp," <= ",indexname);
+    fprintf(curfp," <= ");
     expr_emit (root->astnode.forloop.stop);
     fprintf (curfp, "; ");
     
@@ -2418,19 +2455,6 @@ forloop_emit (AST * root)
   fprintf (curfp, ") {\n");
    /*  Done with loop parameters.  */
 
-   /* Statements in the body of the for() loop. */
-  emit (root->astnode.forloop.stmts);
-
-   /* 
-    * finally pop this loop's label number off the stack and 
-    * emit the label (for experimental goto resolution) 
-    */
-   
-  fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
-     *((int *) dl_pop(doloop)));
-
-  fprintf (curfp, "}              //  Close for() loop. \n");
-  fprintf(curfp, "}\n");
 }
 
 /* 
@@ -2445,8 +2469,12 @@ forloop_emit (AST * root)
  * just the ones identified as while statements.   10/3/97 -- Keith
  */
 
+void
 goto_emit (AST * root)
 {
+  int dl_int_search(Dlist, int);
+  int dl_int_examine(Dlist);
+
   if( (!dl_empty(doloop)) && dl_int_search(doloop, root->astnode.go_to.label) )
   {
      /*
@@ -2487,7 +2515,7 @@ goto_emit (AST * root)
  * to implement the computed goto.
  */
 
-int
+void
 computed_goto_emit (AST *root)
 {
   AST *temp;
@@ -2511,6 +2539,7 @@ computed_goto_emit (AST *root)
  * pretty similar if statements, so this one is simple.
  */
 
+void
 logicalif_emit (AST * root)
 {
   fprintf (curfp, "if (");
@@ -2525,25 +2554,49 @@ logicalif_emit (AST * root)
  * and a call to the Dummy.label() method for goto translation.
  */
 
-int
+void
 label_emit (AST * root)
 {
+  int dl_int_examine(Dlist);
+
   if (root->astnode.label.stmt != NULL) {
     if (root->astnode.label.stmt->nodetype != Format) {
-      fprintf(curfp,"{\n");
+/*      fprintf(curfp,"{\n"); */
       fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
         root->astnode.label.number);
       emit (root->astnode.label.stmt);
-      fprintf(curfp,"}\n");
+/*      fprintf(curfp,"}\n"); */
     }
   } 
   else {
+    /* since the stmt pointer is null, this node must be
+     * a CONTINUE statement.
+     */
     fprintf(curfp,"{\n");
     fprintf (curfp, "label%d:\n   ", root->astnode.label.number);
     fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
       root->astnode.label.number);
     fprintf(curfp,"}\n");
+
+    /* if this continue statement corresponds with the most
+     * recent DO loop, then this is the end of the loop - pop
+     * the label off the doloop list.
+     */
+    if(!dl_empty(doloop) && 
+       (dl_int_examine(doloop) == root->astnode.label.number))
+    {
+      /*
+       * finally pop this loop's label number off the stack and
+       * emit the label (for experimental goto resolution)
+       */
+
+      fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,
+        *((int *) dl_pop(doloop)));
+
+      fprintf (curfp, "}              //  Close for() loop. \n");
+      fprintf(curfp, "}\n");
+    }
   }
 }
 
@@ -2552,13 +2605,14 @@ label_emit (AST * root)
  * but it is usually good enough to test the numerical routines.
  */
 
-int
+void
 write_emit (AST * root)
 {
   HASHNODE *hnode;
   AST *temp;
   AST *nodeptr;
   char tmp[100];
+  void format_list_emit(AST *, AST **);
 
   fprintf (curfp, "System.out.println(");
 
@@ -2616,6 +2670,7 @@ write_emit (AST * root)
  * code to print the appropriate value(s).
  */
 
+void
 format_list_emit(AST *node, AST **nptr)
 {
   AST *temp = node;
@@ -2633,6 +2688,9 @@ AST *
 format_item_emit(AST *temp, AST **nodeptr)
 {
   int i;
+  void format_list_emit(AST *, AST **);
+  void format_name_emit(AST *);
+  char * tok2str(int);
 
   switch(temp->token) {
     case EDIT_DESC:
@@ -2779,7 +2837,7 @@ format_name_emit(AST *node)
  * simulated while loop using gotos.
  */
 
-int
+void
 blockif_emit (AST * root)
 {
   AST *prev = root->prevstmt;
@@ -2915,7 +2973,7 @@ else_emit (AST * root)
  *  the Blas and Lapack. 
  */
 
-int
+void
 call_emit (AST * root)
 {
   AST *temp;
@@ -2923,6 +2981,8 @@ call_emit (AST * root)
   HASHNODE *hashtemp;
   HASHNODE *ht;
   HASHNODE *ht2;
+  int needs_adapter(AST *);
+  void insert_adapter(AST *);
 
   assert (root != NULL);
 
@@ -3136,6 +3196,9 @@ needs_adapter(AST *root)
 
     for( ; temp != NULL; temp = temp->nextstmt)
     {
+       if(t2 == NULL)
+         break;
+
          /*
           * if the arg is an identifier  AND
           *    it is in the array table  AND
@@ -3159,10 +3222,10 @@ needs_adapter(AST *root)
  * Actually, there isn't a whole lot to do for spec statements.
  */
 
-int
+void
 spec_emit (AST * root)
 {
-  AST *assigntemp;
+  void name_emit (AST *);
 
   /* I am reaching every case in this switch.  */
 
@@ -3177,20 +3240,10 @@ spec_emit (AST * root)
      */
     case Parameter:
 
-/*************************************************************
-  now handling parameters as part of vardec_emit.  
-   11/3/97 --Keith
-
-      fprintf (curfp, "// Assignment from Fortran PARAMETER specification.\n");
-      assigntemp = root->astnode.typeunit.declist;
-      for (assigntemp; assigntemp; assigntemp = assigntemp->nextstmt)
-      {
-        if (gendebug)
-          printf ("Parameter stmt.\n");
-        assign_emit (assigntemp);
-        fprintf (curfp, ";\n");
-      }
-*************************************************************/
+     /*************************************************************
+      * now handling parameters as part of vardec_emit.  
+      * 11/3/97 --Keith
+      *************************************************************/
 
       break;
 
@@ -3204,6 +3257,9 @@ spec_emit (AST * root)
     case External:
       /*        printf ("External stmt.\n");   */
       break;
+    case Implicit:
+      /* do nothing for implicit */
+      break;
   }
 }
 
@@ -3214,10 +3270,12 @@ spec_emit (AST * root)
  * resulting code may need to be modified slightly.
  */
 
-int
+void
 assign_emit (AST * root)
 {
   enum returntype ltype, rtype;
+  void name_emit (AST *);
+  void substring_assign_emit(AST *);
 
   ltype = root->astnode.assignment.lhs->vartype;
   rtype = root->astnode.assignment.rhs->vartype;
@@ -3305,7 +3363,7 @@ assign_emit (AST * root)
  * helps out a lot.
  */
 
-int
+void
 substring_assign_emit(AST *root)
 {
   AST *lhs = root->astnode.assignment.lhs;
@@ -3407,7 +3465,7 @@ dl_name_search(Dlist l, char *name)
   return NULL;
 }
 
-int
+void
 insert_adapter(AST *node)
 {
   HASHNODE *hashtemp;
@@ -3454,6 +3512,9 @@ insert_adapter(AST *node)
 
         for(i=0 ; this_call != NULL; this_call = this_call->nextstmt, i++)
         {
+          if(t2 == NULL)
+            break;
+
           printf("** arg %d\n",i);
   
           if( other_call == NULL )
@@ -3461,7 +3522,7 @@ insert_adapter(AST *node)
             fprintf(stderr,"2:Function calls to %s in unit %s ", 
               node->astnode.ident.name, unit_name);
             fprintf(stderr,"don't have same number of params\n");
-            return -1;
+            return;
           }
 
           this_arg_is_arrayacc = (this_call->nodetype == Identifier) &&
@@ -3484,18 +3545,21 @@ insert_adapter(AST *node)
           printf("** blah\n");
 
           other_call = other_call->nextstmt;
+
+          if(t2 != NULL)
+            t2 = t2->nextstmt;
         }
   
         if(!diff) {
           printf("** found an equivalent adapter.  no need to insert.\n");
-          return 1;
+          return;
         }
       }
       else {
         printf("** cant find prototype...returning.\n");  
   
                       /* cant find the prototype.  normally, I dont think */
-        return -1;    /* this case will be reached.                       */
+        return;       /* this case will be reached.                       */
       }
     }
   }
@@ -3516,7 +3580,7 @@ insert_adapter(AST *node)
  * allow functions to pass array elements by reference.
  */
 
-int
+void
 emit_adapters()
 {
   HASHNODE *hashtemp;

@@ -2,6 +2,7 @@
    opcode emission.
  */
 #include<stdio.h>
+#include<stdlib.h>
 #include"f2j.h"
 #include<string.h>
 #include"f2jparse.tab.h"
@@ -20,23 +21,25 @@ typedef struct codetag_
   }
 CODES;
 
-/* Prototypes.  */
-
-void jas_elseif_emit (AST *);
-void jas_else_emit (AST *);
-int  jas_name_emit (AST *);
-int  jas_expr_emit (AST *);
-void jas_return_emit (AST *);
-void jas_logicalop_emit (AST *);
-
 char *jas_returnstring[] =
 {"Ljava/lang/String;", "complex", "D", "F", "I", "B"};
 
 char *typestring[] =
 {"Ljava/lang/String;", "complex", "d", "f", "i", "b"};
 
+void
 jas_emit (AST * root)
 {
+  void method (AST *);
+  void jas_logicalif_emit (AST *);
+  void jas_blockif_emit (AST *);
+  void jas_assign_emit (AST *);
+  void jas_forloop_emit (AST *);
+  void jas_goto_emit (AST *);
+  void jas_label_emit (AST *);
+  void jas_elseif_emit (AST *);
+  void jas_else_emit (AST *);
+  void jas_return_emit (AST *);
 
     switch (root->nodetype)
       {
@@ -125,6 +128,7 @@ jas_emit (AST * root)
 }
 
 
+void
 method (AST * root)
 {
     enum returntype returns;
@@ -147,7 +151,7 @@ method (AST * root)
 
     tempnode = root->astnode.source.args;
 
-    for (tempnode; tempnode != NULL; tempnode = tempnode->nextstmt)
+    for (; tempnode != NULL; tempnode = tempnode->nextstmt)
       {
 	  hashtemp = type_lookup (type_table, tempnode->astnode.ident.name);
 	  if (hashtemp == NULL)
@@ -163,7 +167,7 @@ method (AST * root)
 	  if (hashtemp->variable->astnode.ident.arraylist)
 	    {
 		temp = hashtemp->variable->astnode.ident.arraylist;
-		for (temp; temp; temp = temp->nextstmt)
+		for (; temp; temp = temp->nextstmt)
 		  {
 		      fprintf (jasminfp, "[");
 		  }
@@ -189,9 +193,11 @@ method (AST * root)
    to the program name.   This is in the jasmin_table.
    The first part has to done in expr, because that is the
    big action is.  */
-int
+void
 jas_logicalif_emit (AST * root)
 {
+   void jas_expr_emit (AST *);
+
     fprintf (jasminfp, "\n; Logical `if' statement.\n");
     if (root->astnode.logicalif.conds != NULL)
 	jas_expr_emit (root->astnode.logicalif.conds);
@@ -214,10 +220,12 @@ jas_logicalif_emit (AST * root)
 }
 
 
-int
+void
 jas_blockif_emit (AST * root)
 {
     extern int breaklabel;
+    void jas_expr_emit (AST *);
+
     breaklabel = root->astnode.blockif.break_label;
 
     fprintf (jasminfp, "\n; Block `if' statement.\n");
@@ -261,6 +269,7 @@ void
 jas_elseif_emit (AST * root)
 {
     extern int breaklabel;
+    void jas_expr_emit (AST *);
 
     if (root->astnode.blockif.conds != NULL)
 	jas_expr_emit (root->astnode.blockif.conds);
@@ -289,11 +298,15 @@ jas_else_emit (AST * root)
     jas_emit (root->astnode.blockif.stmts);
 }
 
-int
+void
 jas_expr_emit (AST * root)
 {
-
     CODES *codetags;
+    void jas_constant_emit (AST *);
+    void jas_name_emit (AST *);
+    void jas_constant_emit (AST *);
+    void jas_logicalop_emit (AST *);
+
     codetags = (CODES *) malloc (sizeof (CODES));
 
     switch (root->nodetype)
@@ -351,14 +364,15 @@ jas_expr_emit (AST * root)
 /* There is a really nasty segfault occurring in this routine,
    and it is screwing up a bunch of stuff.  I have no idea where
    it is or why it is occurring.  */
+
+void
 jas_name_emit (AST * root)
 {
     AST *temp;
 
     HASHNODE *hashtemp;
-    char *javaname;
-    extern METHODTAB intrinsic_toks[];
     extern SYMTABLE * array_table;
+    void jas_expr_emit (AST *);
 
 
 /* By the time I get to here, I should have tested whether
@@ -404,7 +418,12 @@ jas_name_emit (AST * root)
 		    {
 		      temp = temp->nextstmt;
 		      jas_expr_emit(temp);
-		      jas_expr_emit(root->astnode.ident.leaddim);
+		      /* changed this line.  not sure why it is passing
+                         leaddim and I'm not sure what it is supposed to pass.
+                         for now, we just pass root.
+                            jas_expr_emit(root->astnode.ident.leaddim); 
+                       */
+		      jas_expr_emit(root);
 		      fprintf(jasminfp, "imult\n");
 		      fprintf(jasminfp, "iadd\n");
 		    }
@@ -421,16 +440,12 @@ jas_name_emit (AST * root)
 }
 
 
-int
+void
 jas_assign_emit (AST * root)
 {
 
-    AST *temp;
     HASHNODE *hashtemp;
     char *javaname;
-    CODES *codetags;
-    char opstring[50] =
-    {0};
 
     javaname = root->astnode.assignment.lhs->astnode.ident.name;
     jas_expr_emit (root->astnode.assignment.rhs);
@@ -449,11 +464,9 @@ jas_assign_emit (AST * root)
 
 
 
-int
+void
 jas_constant_emit (AST * root)
 {
-    char *tempstring;
-
     /*  Need to check for arrays here also.  */
     switch (root->astnode.constant.type)
       {
@@ -468,10 +481,11 @@ jas_constant_emit (AST * root)
 }				/* Close constant_emit()  */
 
 
-int
+void
 jas_forloop_emit (AST * root)
 {
     extern labelno;
+    void jas_incr_emit (AST *);
 
     fprintf (jasminfp, "\n; do loop.\n; Initialize counter.\n");
     jas_assign_emit (root->astnode.forloop.start);
@@ -486,7 +500,14 @@ jas_forloop_emit (AST * root)
 	     root->astnode.forloop.startlabel);
 
     fprintf (jasminfp, "; Executable statements.\n");
-    jas_emit (root->astnode.forloop.stmts);
+
+/* stmts removed from forloop struct when I updated the
+   handling of do loops.  this routine needs to be updated
+   also.  -Keith 2/9/98
+   
+   jas_emit (root->astnode.forloop.stmts); 
+
+*/
 
     fprintf (jasminfp, "\n; Increment counter.\n");
     /*  Put the increment counter in here.  */
@@ -512,7 +533,7 @@ jas_forloop_emit (AST * root)
 /*    labelno++;   */
 }
 
-int
+void
 jas_incr_emit (AST * root)
 {
     HASHNODE *hashtemp;
@@ -533,11 +554,13 @@ jas_incr_emit (AST * root)
       }
 }
 
+void
 jas_goto_emit (AST * root)
 {
     fprintf (jasminfp, Mindent1 "goto S_label%d\n", root->astnode.go_to.label);
 }
 
+void
 jas_label_emit (AST * root)
 {
     fprintf (jasminfp, "\nS_label%d:\n", root->astnode.label.number);

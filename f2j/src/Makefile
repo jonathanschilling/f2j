@@ -3,7 +3,7 @@
 # $Source$
 # Revision:$
 
-CFLAGS= -g -ansi 
+CFLAGS= -g -ansi -Wall
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
@@ -70,12 +70,12 @@ typecheck.o: typecheck.c f2j.h
 lexdebug:  f2jlex.c
 	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 
 
-clean: goto
+clean:
 	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
               tmp f2j core a.out *.output *~  *.vcg
 
 goto:
 	cd $(GOTO_TRANS); $(MAKE) realclean
 
-realclean: clean
+realclean: clean goto
 	rm -f ../bin/f2java ../bin/puref2j

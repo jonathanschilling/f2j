@@ -8,6 +8,7 @@
 /* Jim Plank's dlist routines.  Contact plank@cs.utk.edu  */
 
 #include <stdio.h>    /* Basic includes and definitions */
+#include <stdlib.h>
 #include "dlist.h"
 
 #define boolean int
@@ -33,6 +34,7 @@ Dlist make_dl()
   return d;
 }
  
+void
 dl_insert_b(node, val)	/* Inserts to the end of a list */
 Dlist node;
 void *val;
@@ -50,6 +52,7 @@ void *val;
   new->flink = node;
 }
 
+void
 dl_insert_list_b(node, list_to_insert)
 Dlist node;
 Dlist list_to_insert;
@@ -71,6 +74,7 @@ Dlist list_to_insert;
   free(list_to_insert);
 }
 
+void
 dl_delete_node(item)		/* Deletes an arbitrary iterm */
 Dlist item;
 {
@@ -79,6 +83,7 @@ Dlist item;
   free(item);
 }
 
+void
 dl_delete_list(l)
 Dlist l;
 {
@@ -93,7 +98,8 @@ Dlist l;
   free(d);
 }
 
-void *dl_val(l)
+void *
+dl_val(l)
 Dlist l;
 {
   return l->val;

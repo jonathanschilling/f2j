@@ -58,7 +58,7 @@ KWDTAB tab_stmt[] =
     {"SUBROUTINE", SUBROUTINE, 0},
     {"THEN", THEN, 0},
     {"WRITE", WRITE, 0},
-    NULL  /* Ends a scanning loop.  See comment above. */
+    { NULL, 0, 0}  /* Ends a scanning loop.  See comment above. */
 };
 
 /* 
@@ -85,7 +85,7 @@ KWDTAB tab_type[] =
     {"COMPLEX", TYPE, Complex},
 
     {"CHARACTER", TYPE, String},
-    NULL  /* Ends a scanning loop.  See comment above. */
+    { NULL, 0, 0}  /* Ends a scanning loop.  See comment above. */
 };
 
 /* 
@@ -120,7 +120,7 @@ KWDTAB tab_toks[] =
     {".TRUE.", TrUE, 1},
     {".FALSE.", FaLSE, 0},
     {"FMT", FMT, 0},
-    NULL  /*  Ensures that the scanning loop ends if nothing is matched. */
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
 /* 
@@ -185,7 +185,7 @@ METHODTAB jasmin_intrinsic_toks[]=
   {"LSAME", Lsame}, 
   {"MAX", Mathmax},
   {"MIN", Mathmin},
-  NULL      /* Ends a scanning loop.  See comment above. */
+  { NULL, 0}      /* Ends a scanning loop.  See comment above. */
 };
 
 /* 
@@ -196,7 +196,7 @@ METHODTAB pass_by_refs[]=
 {
   {"WORK", "work.val"},
   {"INFO", "info.val"},
-  NULL      /* Ends a scanning loop.  See comment above. */
+  { NULL, NULL }      /* Ends a scanning loop.  See comment above. */
 };
 
 /* 

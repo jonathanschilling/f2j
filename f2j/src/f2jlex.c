@@ -21,7 +21,9 @@
 
 
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
+#include<ctype.h>
 #include"initialize.h"
 /* #include"f2jparse.tab.h"  */
 
@@ -47,6 +49,7 @@ BOOLEAN typedecs = FALSE;
    pass around in the lexer, the contexts will have to be 
    global for the parser to use.
  */
+
 /*  I am setting these in the `collapse_white_space()
     routine. */
 
@@ -68,7 +71,6 @@ BUFFER;
 
 int yylex ();
 void prelex (BUFFER *);
-void collapse_white_space (BUFFER *);
 void check_continued_lines (FILE *, char *);
 
 
@@ -123,6 +125,10 @@ yylex ()
     static int parencount = 0;
     static int format_stmt;    /* are we lexing a format statement */
     int token = 0;
+    int name_scan (BUFFER *);
+    int keyscan (register KWDTAB *, BUFFER *);
+    int number_scan (BUFFER *, int);
+    int string_or_char_scan (BUFFER *);
 
     /* yyparse() makes a call to yylex() each time it needs a
        token.  To get a statement to parse, yylex() calls
@@ -499,7 +505,7 @@ printf("firsttoken = %s\n",tok2str(firsttoken));
    Not sure why not.
  */
     if(lexdebug) {
-      printf ("Token (yylex): %d\n");
+      printf ("Token (yylex): %d\n",token);
       printf("(second): lexer returning 0\n");
     }
     return 0;
@@ -521,6 +527,7 @@ prelex (BUFFER * bufstruct)
     extern int lineno;
     extern int statementno;
     extern int func_stmt_num;
+    void collapse_white_space (BUFFER *);
 
     if(lexdebug)
       printf("entering prelex()\n");
@@ -581,11 +588,9 @@ collapse_white_space (BUFFER * bufstruct)
 {
   /* `cp' is character pointer, `tcp' is temporary cp and
      `yycp' points at the text buffer for some (what?) reason.
-     */
+   */
     register char *cp, *tcp, *yycp;
-    int colno = 1;                /* Column number. Not used? */
     char tempbuf[BIGBUFF];
-    int c;                        /* Not used? */
     int parens = 0;
     extern BOOLEAN  commaseen, equalseen, letterseen;
     commaseen = FALSE, equalseen = FALSE, letterseen = FALSE; 
@@ -619,7 +624,7 @@ collapse_white_space (BUFFER * bufstruct)
             tcp++;
             /* Hack... */
             *yycp = *cp;
-            *yycp++;
+            (*yycp)++;      /*  parens for -Wall  */
             cp++;
 
             while(!done) 
@@ -632,7 +637,7 @@ collapse_white_space (BUFFER * bufstruct)
 			   without using the toupper function.  The next
 			   two lines were left out originally. */
                 *yycp = *cp;
-                *yycp++;
+                (*yycp)++;      /*  parens for -Wall  */
                 cp++;
               }  /*  End while() for copying strings.  */
 
@@ -646,12 +651,12 @@ collapse_white_space (BUFFER * bufstruct)
                 *tcp = *cp;
                 tcp++;
                 *yycp = *cp;
-                *yycp++;
+                (*yycp)++;      /*  parens for -Wall  */
                 cp++;
                 *tcp = *cp;
                 tcp++;
                 *yycp = *cp;
-                *yycp++;
+                (*yycp)++;      /*  parens for -Wall  */
                 cp++;
               }
               else
@@ -908,6 +913,7 @@ number_scan (BUFFER * bufstruct, int fmt)
     int token;
     int tokenlength = 0;
     int type = INTEGER;  /* Default, in case we find nothing else. */
+    int keyscan (register KWDTAB *, BUFFER *);
 
     ncp = bufstruct->stmt; /*  Number character pointer. */
     tcp = bufstruct->text;  /* Literal text character pointer. */
@@ -1097,8 +1103,9 @@ string_or_char_scan (BUFFER * bufstruct)
 	      return STRING;
 	    }
       }
+    else
+      return 0;
 }				/* Close string_or_char_scan(). */
-
 
 char *
 tok2str(int tok)

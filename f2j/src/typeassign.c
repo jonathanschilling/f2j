@@ -2,6 +2,7 @@
    opcode emission.
  */
 #include<stdio.h>
+#include<ctype.h>
 #include"f2j.h"
 #include<string.h>
 #include"f2jparse.tab.h"
@@ -27,9 +28,18 @@ CODES;
 
 FILE *temp_javafp;
 
+void
 assign (AST * root)
 {
-
+    void name_assign (AST *);
+    void assign_assign (AST *);
+    void spec_assign (AST *);
+    void call_assign (AST *);
+    void forloop_assign (AST *);
+    void logicalif_assign (AST *);
+    void blockif_assign (AST *);
+    void return_assign (AST *);
+    void label_assign (AST *);
 
     switch (root->nodetype)
       {
@@ -140,9 +150,11 @@ assign (AST * root)
    to the program name.   This is in the jasmin_table.
    The first part has to done in expr, because that is the
    big action is.  */
-int
+void
 logicalif_assign (AST * root)
 {
+    void expr_assign (AST *);
+
     if (root->astnode.logicalif.conds != NULL)
 	expr_assign (root->astnode.logicalif.conds);
     assign (root->astnode.logicalif.stmts);
@@ -155,15 +167,16 @@ logicalif_assign (AST * root)
    local value, or associated with an object reference. 
    If we have gotten this far, we may safely assume that
    that the nodetype is `identifier'.  */
+
+void
 name_assign (AST * root)
 {
     AST *temp;
 
     HASHNODE *hashtemp;
-    char *javaname;
-    extern METHODTAB intrinsic_toks[];
     int stack = 0;
     extern int stacksize;
+    void jas_expr_emit (AST *);
 
     if (root->astnode.ident.arraylist == NULL)
 	{
@@ -210,18 +223,21 @@ name_assign (AST * root)
 	printf("Found an array in typeassign\n");
 	root->astnode.ident.opcode = strdup ("aload");
 	temp = root->astnode.ident.arraylist;
-	jas_expr_emit(temp);
+	/* should this really be jas_expr_emit?? */
+        jas_expr_emit(temp);
 	if (temp->nextstmt != NULL)
 	  temp = temp->nextstmt;
       }
 }
 
 
-int
+void
 assign_assign (AST * root)
 {
 
     char *javaname;
+    void name_assign (AST *);
+    void expr_assign (AST *);
 
     name_assign (root->astnode.assignment.lhs);
     expr_assign (root->astnode.assignment.rhs);
@@ -245,10 +261,9 @@ assign_assign (AST * root)
 /* Deal with pushing values onto the JVM stack.
    The opcode here is  going to be stuff like ldc, dconst, iconst,
    etc.  Short term, we deal with only 32 bit ints. */
-int
+void
 constant_assign (AST * root)
 {
-    char *tempstring;
 
     /*  Need to check for arrays here also.  */
     switch (root->astnode.constant.type)
@@ -267,12 +282,14 @@ constant_assign (AST * root)
    Needs to be extended for arrays, etc.  Consider using
    a switch/case structure for this.
  */
-int
+void
 expr_assign (AST * root)
 {
 
     extern int stacksize;
     int stack;
+    void name_assign (AST *);
+    void constant_assign (AST *);
 
     switch (root->nodetype)
       {
@@ -340,21 +357,27 @@ expr_assign (AST * root)
 	  expr_assign (root->astnode.expression.rhs);
 	  relationalop_assign (root);
 	  break;
+      default:
+          fprintf(stderr,"typeassign: Bad node in expr_assign\n");
       }
 }
 
 
-int
+void
 forloop_assign (AST * root)
 {
-
     extern int labelnumber;
+    void name_assign (AST *);
+    void assign_assign (AST *);
+    void expr_assign (AST *);
 
     assign_assign (root->astnode.forloop.start);
     root->astnode.forloop.startlabel = labelnumber++;
     if (root->astnode.forloop.incr)
 	expr_assign (root->astnode.forloop.incr);
-    assign (root->astnode.forloop.stmts);
+
+    /* assign (root->astnode.forloop.stmts); */
+
     /*  This has probably already been dealt with
        due to the way the pointers work.  */
     name_assign (root->astnode.forloop.counter);
@@ -363,9 +386,10 @@ forloop_assign (AST * root)
     expr_assign (root->astnode.forloop.stop);
 }
 
-int
+void
 blockif_assign (AST * root)
 {
+    void expr_assign (AST *);
 
     if (root->astnode.blockif.conds != NULL)
 	expr_assign (root->astnode.blockif.conds);
@@ -389,6 +413,7 @@ blockif_assign (AST * root)
 void
 elseif_assign (AST * root)
 {
+    void expr_assign (AST *);
 
     if (root->astnode.blockif.conds != NULL)
 	expr_assign (root->astnode.blockif.conds);
@@ -414,11 +439,13 @@ else_assign (AST * root)
    rewrite this routine completely.  The fortran subroutine
    calls (CALL) are critical to implement properly.  For now,
    they are translated to static method invocations.  */
-int
+void
 call_assign (AST * root)
 {
     AST *temp;
     char *tempname;
+    void expr_assign (AST *);
+    char * lowercase(char * );
 
     lowercase (root->astnode.ident.name);
     tempname = strdup (root->astnode.ident.name);
@@ -439,10 +466,12 @@ call_assign (AST * root)
     fprintf (temp_javafp, ");\n");
 }
 
-int
+void
 spec_assign (AST * root)
 {
     AST *assigntemp;
+    void name_assign (AST *);
+    void expr_assign (AST *);
 
     /* I am reaching every case in this switch.  */
     switch (root->astnode.typeunit.specification)
@@ -481,7 +510,7 @@ spec_assign (AST * root)
       }
 }
 
-int
+void
 return_assign (AST * root)
 {
     ;
@@ -489,7 +518,7 @@ return_assign (AST * root)
 
 /*  This could probably have been handled up top,
    but just for uniformity, handle it here. */
-int
+void
 label_assign (AST * root)
 {
     assign (root->astnode.label.stmt);

@@ -94,13 +94,21 @@ void print_vcg_nearedge(int source, int dest)
 {
   fprintf(vcgfp,"nearedge: { sourcename: \"%d\" targetname: \"%d\"\n",
       source, dest);
-  fprintf(vcgfp,"color: blue thickness: 6\n}\n\n", source, dest);
+  fprintf(vcgfp,"color: blue thickness: 6\n}\n\n");
 }
 
 void
 emit_vcg (AST * root, int parent)
 {
   int my_node = node_num;
+  void vcg_typedec_emit (AST *, int);
+  void vcg_spec_emit (AST *, int);
+  void vcg_assign_emit (AST *, int);
+  void vcg_call_emit (AST *, int);
+  void vcg_forloop_emit (AST *, int);
+  void vcg_blockif_emit (AST *, int);
+  void vcg_logicalif_emit (AST *, int);
+  void vcg_label_emit (AST *, int);
 
     switch (root->nodetype)
       {
@@ -270,7 +278,7 @@ emit_vcg (AST * root, int parent)
 /* Emit all the type declarations.  This procedure checks
    whether variables are typed in the argument list, and
    does not redeclare thoose arguments. */
-int
+void
 vcg_typedec_emit (AST * root, int parent)
 {
   AST *temp;
@@ -279,6 +287,7 @@ vcg_typedec_emit (AST * root, int parent)
   int my_node = node_num;
   int name_nodenum = 0;
   int prev_node = 0;
+  int vcg_name_emit (AST *, int);
 
   if(vcg_debug)
     printf("in vcg_typedec_emit\n");
@@ -297,7 +306,7 @@ vcg_typedec_emit (AST * root, int parent)
     }
     print_vcg_node(node_num,"External");
     print_vcg_edge(parent, my_node);
-    return 1;
+    return;
   } 
 
   returns = root->astnode.typeunit.returns;
@@ -308,7 +317,7 @@ vcg_typedec_emit (AST * root, int parent)
 
   prev_node = my_node;
 
-  for (temp; temp != NULL; temp = temp->nextstmt) {
+  for (; temp != NULL; temp = temp->nextstmt) {
     if(vcg_debug)
       printf("in the loop\n");
     name_nodenum = vcg_name_emit (temp, parent);
@@ -329,6 +338,9 @@ vcg_name_emit (AST * root, int parent)
   extern SYMTABLE *array_table;
   int my_node = node_num;
   int temp_num;
+  void vcg_call_emit (AST *, int);
+  char *methodscan (METHODTAB *, char *);
+  void vcg_expr_emit (AST *, int);
 
   if(vcg_debug)
     printf("in vcg_name_emit\n");
@@ -473,7 +485,7 @@ vcg_name_emit (AST * root, int parent)
         /*fprintf (javafp, "%s", root->astnode.ident.name); */
         temp = root->astnode.ident.arraylist;
 
-        for (temp; temp != NULL; temp = temp->nextstmt) {
+        for (; temp != NULL; temp = temp->nextstmt) {
           /*fprintf (javafp, "["); */
 
           if (*temp->astnode.ident.name != '*')
@@ -487,7 +499,7 @@ vcg_name_emit (AST * root, int parent)
   return my_node;
 }
 
-int
+void
 vcg_expr_emit (AST * root, int parent)
 {
    int my_node = node_num;
@@ -580,12 +592,17 @@ vcg_expr_emit (AST * root, int parent)
 	  vcg_expr_emit (root->astnode.expression.lhs, my_node);
 	  vcg_expr_emit (root->astnode.expression.rhs, my_node);
 	  break;
+      default:
+          fprintf(stderr,"vcg_emitter: Bad node in vcg_expr_emit\n");
       }
 }
 
-int
+void
 vcg_forloop_emit (AST * root, int parent)
 {
+  void vcg_assign_emit (AST *, int);
+  void vcg_expr_emit (AST *, int);
+
   vcg_assign_emit (root->astnode.forloop.start, parent);
   vcg_expr_emit (root->astnode.forloop.stop, parent);
 
@@ -593,18 +610,21 @@ vcg_forloop_emit (AST * root, int parent)
     vcg_expr_emit (root->astnode.forloop.incr, parent);
   }
 
-  emit_vcg (root->astnode.forloop.stmts, parent);
+/*  emit_vcg (root->astnode.forloop.stmts, parent); */
 }
 
+void
 vcg_logicalif_emit (AST * root, int parent)
 {
+  void vcg_expr_emit (AST *, int);
+
   if (root->astnode.logicalif.conds != NULL)
     vcg_expr_emit (root->astnode.logicalif.conds, parent);
 
   emit_vcg (root->astnode.logicalif.stmts,parent);
 }
 
-int
+void
 vcg_label_emit (AST * root, int parent)
 {
   int my_node = node_num;
@@ -618,9 +638,11 @@ vcg_label_emit (AST * root, int parent)
     emit_vcg (root->astnode.label.stmt,my_node);
 }
 
-int
+void
 vcg_blockif_emit (AST * root, int parent)
 {
+  void vcg_expr_emit (AST *, int);
+
   if (root->astnode.blockif.conds != NULL)
     vcg_expr_emit (root->astnode.blockif.conds, parent);
 
@@ -636,6 +658,8 @@ vcg_blockif_emit (AST * root, int parent)
 void
 vcg_elseif_emit (AST * root, int parent)
 {
+  void vcg_expr_emit (AST *, int);
+
   if (root->astnode.blockif.conds != NULL)
     vcg_expr_emit (root->astnode.blockif.conds, parent);
 
@@ -652,12 +676,14 @@ vcg_else_emit (AST * root, int parent)
    They are translated to static method invocations.
    This is not a portable solution, it is specific to
    the Blas and Lapack. */
-int
+void
 vcg_call_emit (AST * root, int parent)
 {
     AST *temp;
     char *tempname;
     int my_node = node_num;
+    void vcg_expr_emit (AST *, int);
+    char * lowercase ( char * );
 
     assert (root != NULL);
 
@@ -687,12 +713,13 @@ vcg_call_emit (AST * root, int parent)
     vcg_expr_emit (temp, parent);
 }
 
-int
+void
 vcg_spec_emit (AST * root, int parent)
 {
     AST *assigntemp;
     int my_node = node_num;
     int temp_num;
+    void vcg_assign_emit (AST *, int);
 
     if(vcg_debug)
       printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
@@ -712,7 +739,7 @@ vcg_spec_emit (AST * root, int parent)
       case Parameter:
 /*	  fprintf (javafp, "// Assignment from Fortran PARAMETER specification.\n"); */
 	  assigntemp = root->astnode.typeunit.declist;
-	  for (assigntemp; assigntemp; assigntemp = assigntemp->nextstmt)
+	  for (; assigntemp; assigntemp = assigntemp->nextstmt)
 	    {
 		/*  fprintf (javafp, "public static final "); */
 		vcg_assign_emit (assigntemp, parent);
@@ -729,15 +756,17 @@ vcg_spec_emit (AST * root, int parent)
       case External:
 	  /*        printf ("External stmt.\n");   */
 	  break;
+      case Implicit:
+          /* do nothing */
+          break;
       }
 }
 
-
-int
+void
 vcg_assign_emit (AST * root, int parent)
 {
-  int my_node = node_num;
   int temp_num;
+  void vcg_expr_emit (AST *, int);
 
   temp_num = vcg_name_emit (root->astnode.assignment.lhs, parent);
   print_vcg_edge(parent,temp_num);

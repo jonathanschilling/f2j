@@ -35,6 +35,7 @@ char * constant_tags [NUM_CONSTANT_TAGS] = {
 
 u4 u4BigEndian(u4);
 u2 u2BigEndian(u2);
+char *strdup(const char *);
 
 /*****************************************************************************
  *                                                                           *
@@ -711,6 +712,14 @@ cp_dump(Dlist list)
   }
 }
 
+/*****************************************************************************
+ *                                                                           *
+ * null_term                                                                 *
+ *                                                                           *
+ * this function null-terminates the given string, with the given length.    *
+ *                                                                           *
+ *****************************************************************************/
+
 char *
 null_term(u1 * str, unsigned int len)
 {
@@ -797,10 +806,12 @@ newMethodNode(char *cname, char *mname, char *dname)
 {
   METHODREF *methodref;
 
+  printf("%%%% new node '%s','%s','%s'\n", cname,mname,dname);
+
   methodref = (METHODREF *)f2jalloc(sizeof(METHODREF));
-  methodref->classname = cname;
-  methodref->methodname = mname;
-  methodref->descriptor = dname;
+  methodref->classname = strdup(cname);
+  methodref->methodname = strdup(mname);
+  methodref->descriptor = strdup(dname);
 
   return methodref;
 }
@@ -821,9 +832,9 @@ newFieldref(Dlist list, char *cname, char *mname, char *dname)
   METHODREF *fieldref;
 
   fieldref = (METHODREF *)f2jalloc(sizeof(METHODREF));
-  fieldref->classname = cname;
-  fieldref->methodname = mname;
-  fieldref->descriptor = dname;
+  fieldref->classname = strdup(cname);
+  fieldref->methodname = strdup(mname);
+  fieldref->descriptor = strdup(dname);
 
   return cp_find_or_insert(list, CONSTANT_Fieldref, fieldref);
 }

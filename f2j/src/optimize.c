@@ -34,7 +34,7 @@
 #include<string.h>
 #include<ctype.h>
 #include"f2j.h"
-#include"f2jparse.tab.h"
+#include"codegen.h"
 
 /*****************************************************************************
  * Set optdebug to TRUE to get debugging output from the optimization        *
@@ -74,7 +74,8 @@ void
   read_implied_loop_optimize(AST *, AST *),
   name_optimize (AST *, AST *),
   subcall_optimize(AST *, AST *),
-  while_optimize(AST *, AST *);
+  while_optimize(AST *, AST *),
+  set_passByRef(AST *, AST *);
 
 extern METHODTAB intrinsic_toks[];
 
@@ -965,12 +966,9 @@ call_optimize (AST * root, AST *rptr)
 void
 args_optimize(AST *root, AST *rptr)
 {
-  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
-  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
-  HASHNODE *ht, *ht2, *ht3;
   HASHNODE *hashtemp;
-  AST *temp, *temp2;
-  int cnt;
+  METHODREF *mref;
+  AST *temp;
 
   if((hashtemp=type_lookup(global_func_table, root->astnode.ident.name)) != NULL)
   {
@@ -1001,43 +999,7 @@ args_optimize(AST *root, AST *rptr)
              printf("call_optimize(): '%s' is pass by ref.\n",
                     temp->astnode.ident.name);
 
-           ht = type_lookup(opt_type_table,temp->astnode.ident.name);
-           if(ht) {
-             ht->variable->astnode.ident.passByRef = TRUE;
-
-             ht2 = type_lookup(opt_common_table,temp->astnode.ident.name);
-             if(ht2) {
-               ht3 = type_lookup(global_common_table,
-                       ht2->variable->astnode.ident.commonBlockName);
-   
-               if(ht3) {
- 
-                 /* special handling for COMMON variables */
-
-                 temp2 = ht3->variable->astnode.common.nlist;
-                 cnt = 0;
-
-                 while((cnt < ht2->variable->astnode.ident.position) &&
-                       (temp2 != NULL))
-                 {
-                   cnt++;
-                   temp2 = temp2->nextstmt;
-                 }
-
-                 if(temp2 != NULL) {
-                   temp2->astnode.ident.passByRef = TRUE;
-                 }
-                 else {
-                   fprintf(stderr, "optimize(): Common block length ");
-                   fprintf(stderr, "does not match position of ident\n");
-                 }
-               }
-               else {
-                 fprintf(stderr,"Cant find common block %s\n", 
-                   ht2->variable->astnode.ident.commonBlockName);
-               }
-             }
-           }
+           set_passByRef(temp, rptr);
          }
          else {
            if(optdebug)
@@ -1050,6 +1012,39 @@ args_optimize(AST *root, AST *rptr)
          t2 = t2->nextstmt;
     }
   }
+  else if((mref=find_method(root->astnode.ident.name, descriptor_table)) != NULL) {
+    char *p;
+
+    printf("call_optimize(): found %s in descriptor table.\n",
+        root->astnode.ident.name);
+    printf("call_optimize() - class: %s\n", mref->classname);
+    printf("call_optimize() - method: %s\n", mref->methodname);
+    printf("call_optimize() - desc: %s\n", mref->descriptor);
+
+    temp = root->astnode.ident.arraylist;
+    p = mref->descriptor;
+
+    for( ; temp != NULL; temp = temp->nextstmt)
+    {
+       expr_optimize(temp, rptr);
+
+       p = skipToken(p);
+
+       printf("call_optimize() - p = %s\n",p);
+
+       if(temp->nodetype == Identifier)
+       {
+         /* now we check whether the function/subroutine expects this 
+          * to be passed by reference.  in this case, we check the first
+          * character of the argument descriptor.  if it's 'L', then it
+          * must be an object reference.
+          */
+
+         if(p[0] == 'L')
+           set_passByRef(temp, rptr);
+       }
+    }
+  }
   else
   {
     if(optdebug)
@@ -1060,6 +1055,63 @@ args_optimize(AST *root, AST *rptr)
 
     for( ; temp != NULL; temp = temp->nextstmt)
       expr_optimize (temp, rptr);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * set_passByRef                                                             *
+ *                                                                           *
+ * this function sets the passByRef field of this ident & any corresponding  *
+ * COMMON block to TRUE.                                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+set_passByRef(AST *temp, AST *rptr)
+{
+  SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+  SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+  HASHNODE *ht, *ht2, *ht3;
+  AST *temp2;
+  int cnt;
+
+  ht = type_lookup(opt_type_table,temp->astnode.ident.name);
+  if(ht) {
+    ht->variable->astnode.ident.passByRef = TRUE;
+
+    ht2 = type_lookup(opt_common_table,temp->astnode.ident.name);
+    if(ht2) {
+      ht3 = type_lookup(global_common_table,
+              ht2->variable->astnode.ident.commonBlockName);
+
+      if(ht3) {
+
+        /* special handling for COMMON variables */
+
+        temp2 = ht3->variable->astnode.common.nlist;
+        cnt = 0;
+
+        while((cnt < ht2->variable->astnode.ident.position) &&
+              (temp2 != NULL))
+        {
+          cnt++;
+          temp2 = temp2->nextstmt;
+        }
+
+        if(temp2 != NULL) {
+          temp2->astnode.ident.passByRef = TRUE;
+        }
+        else {
+          fprintf(stderr, "optimize(): Common block length ");
+          fprintf(stderr, "does not match position of ident\n");
+        }
+      }
+      else {
+        fprintf(stderr,"Cant find common block %s\n", 
+          ht2->variable->astnode.ident.commonBlockName);
+      }
+    }
   }
 }
 

@@ -156,6 +156,10 @@ yylex ()
    stuff.  The global vars commaseen, letterseen and 
    equalseen are boolean flags set in the
    `collapse_white_space()' procedure. */
+
+/* This sectione of code has grown to the point where it needs
+   to broken into one or two smaller procedures.  It 
+   is getting difficult to follow.  -dmd 9/26/97 */
 #define SALES 1  
 #if SALES
     /*  Fortran statements begin with a keyword except under

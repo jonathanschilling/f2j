@@ -1,3 +1,8 @@
+# $Author$
+# $Date$
+# $Source$
+# Revision:$
+
 HOME=/shag/homes/doolin
 CFLAGS= -g -ansi #-p
 CC=gcc
@@ -62,7 +67,8 @@ lexdebug:  f2jlex.c
 #	${CC} -c ${CFLAGS} $<
 
 clean:
-	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h tmp f2j core a.out *.output *~ f2java
+	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.tab.h \
+              tmp f2j core a.out *.output *~  *.vcg
 
 realclean: clean
-	rm -f f2java
+	rm -f f2java 

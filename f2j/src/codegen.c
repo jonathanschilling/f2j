@@ -232,7 +232,7 @@ emit (AST * root)
           clinit_method = beginNewMethod((u2)(ACC_PUBLIC | ACC_STATIC)); 
           
           emit (root->astnode.source.typedecs);
-          
+ 
           emit (root->astnode.source.progtype);
 
           /* check whether any class initialization code was generated.
@@ -3916,8 +3916,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
       if(root->parent->nodetype == Call)
       {
-        if(type_lookup(cur_args_table, root->parent->astnode.ident.name)) {
-          /* if the parent is a function passed as an arg to this function,
+        if(type_lookup(cur_args_table, root->parent->astnode.ident.name) &&
+            !type_lookup(cur_type_table, root->parent->astnode.ident.name)) {
+          /* if the parent is a subroutine passed as an arg to this function,
            * then we do not append the offset.
            */
           fprintf (curfp, "%s%s", com_prefix, name);
@@ -10676,14 +10677,14 @@ methcall_obj_array_emit(AST *temp, int lv)
         fprintf(curfp," _funcargs[%d] = _arg%d;\n", i, i);
         fprintf(curfp," _funcargs[%d] = new Integer(_arg%d_offset);\n",i+1,i);
 
-        arg_assignment_emit(lv, i+1, i+1, FALSE, Object);
-        arg_assignment_emit(lv, i+2, i+2, TRUE, Integer);
+        arg_assignment_emit(lv, i, i+1, FALSE, Object);
+        arg_assignment_emit(lv, i+1, i+2, TRUE, Integer);
         i++;
       }
       else {
         fprintf(curfp," _funcargs[%d] = new %s(_arg%d);\n",
           i,java_wrapper[rtype], i);
-        arg_assignment_emit(lv, i+1, i+1, TRUE, rtype);
+        arg_assignment_emit(lv, i, i+1, TRUE, rtype);
       }
     }
     else
@@ -10691,14 +10692,14 @@ methcall_obj_array_emit(AST *temp, int lv)
       fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
 
       if(dim > 0) {
-        arg_assignment_emit(lv, i+1, i+1, FALSE, Object);
+        arg_assignment_emit(lv, i, i+1, FALSE, Object);
 
         fprintf(curfp," _funcargs[%d] = _arg%d_offset;\n",i+1,i);
-        arg_assignment_emit(lv, i+2, i+2, FALSE, Integer);
+        arg_assignment_emit(lv, i+1, i+2, FALSE, Integer);
         i++;
       }
       else {
-        arg_assignment_emit(lv, i+1, i+1, FALSE, rtype);
+        arg_assignment_emit(lv, i, i+1, FALSE, rtype);
       }
     }
 

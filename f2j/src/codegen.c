@@ -21,7 +21,7 @@
  *****************************************************************************/
 
 int
-  gendebug = TRUE;     /* set to TRUE to generate debugging output          */
+  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
 
 char 
   *unit_name,           /* name of this function/subroutine                  */
@@ -240,7 +240,8 @@ emit (AST * root)
            */
           if(pc > 0) {
             bytecode0(jvm_return);
-            endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
+            endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V",
+              1, NULL);
           }
           else {
             free_method_info(clinit_method);
@@ -250,9 +251,9 @@ emit (AST * root)
           main_method = beginNewMethod(F2J_NORMAL_ACC);
 
           /* If this program unit does any reading, we declare an instance of
-           * the EasyIn class.   grab a local var for this, but dont worry about
-           * releasing it, since we might need it throughout the life of the
-           * method.
+           * the EasyIn class.   grab a local var for this, but dont worry
+           * about releasing it, since we might need it throughout the life
+           * of the method.
            */
 
           if(root->astnode.source.progtype->astnode.source.needs_input) {
@@ -311,7 +312,8 @@ emit (AST * root)
            */
 
           if(pc > 0) {
-            endNewMethod(cur_class_file, main_method,methodname,method_desc,num_locals,NULL);
+            endNewMethod(cur_class_file, main_method,methodname,
+              method_desc,num_locals,NULL);
           }
 
           f2jfree(methodname, strlen(methodname)+1);
@@ -329,7 +331,8 @@ emit (AST * root)
 
           write_class(cur_class_file);
  
-          cp_dump(cur_const_table);
+          if(gendebug)
+            cp_dump(cur_const_table);
 
           free_class(cur_class_file);
           cur_class_file = NULL;
@@ -344,7 +347,7 @@ emit (AST * root)
         }
       case Subroutine:
         if (gendebug)
-	        printf ("Subroutine.\n");
+          printf ("Subroutine.\n");
 
         returnname = NULL;	/* Subroutines return void. */
         cur_unit = root;
@@ -1080,7 +1083,8 @@ addField(char *name, char *desc)
   struct field_info * tmpfield;
   CPNODE *c;
 
-  printf("addField() creating new field for %s - %s\n",name,desc);
+  if(gendebug)
+    printf("addField() creating new field for %s - %s\n",name,desc);
 
   tmpfield = (struct field_info *) f2jalloc(sizeof(struct field_info));
   tmpfield->access_flags = F2J_NORMAL_ACC;
@@ -1138,7 +1142,7 @@ insert_fields(AST *root)
     else if(temp->nodetype == Equivalence) {
       /* for each group of equivalenced variables... */
 
-      for(etmp = temp->astnode.equiv.nlist; etmp != NULL; etmp = etmp->nextstmt)
+      for(etmp = temp->astnode.equiv.nlist;etmp != NULL;etmp = etmp->nextstmt)
       {
         /* only generate a field entry for the first node. */
 
@@ -1172,6 +1176,7 @@ print_equivalences(AST *root)
   AST *temp;
 
   printf("M_EQV  Equivalences:\n");
+
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
     printf("M_EQV (%d)", temp->token);
     print_eqv_list(temp,stdout);
@@ -1339,7 +1344,10 @@ find_commonblock(char *cblk_name, Dlist dt)
 
   sprintf(temp_commonblockname, "%s%s", CB_PREFIX, cblk_name);
 
-printf("#@#@ looking for temp_commonblockname = '%s'\n",temp_commonblockname);
+  if(gendebug)
+    printf("#@#@ looking for temp_commonblockname = '%s'\n",
+      temp_commonblockname);
+
   mtmp = find_method(temp_commonblockname, dt);
 
   f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
@@ -1536,13 +1544,15 @@ common_emit(AST *root)
   {
     if(Ctemp->astnode.common.name != NULL) 
     {
-      printf("common_emit.2: lookin for common block '%s'\n", 
-         Ctemp->astnode.common.name);
+      if(gendebug)
+        printf("common_emit.2: lookin for common block '%s'\n", 
+          Ctemp->astnode.common.name);
 
       mtmp = find_commonblock(Ctemp->astnode.common.name, descriptor_table);
       if(mtmp) {
-        printf("common_emit.3: %s,%s,%s\n", mtmp->classname, mtmp->methodname,
-           mtmp->descriptor);
+        if(gendebug)
+          printf("common_emit.3: %s,%s,%s\n", mtmp->classname,
+            mtmp->methodname, mtmp->descriptor);
         
         assign_merged_names(Ctemp, mtmp);
         continue;
@@ -1558,7 +1568,6 @@ common_emit(AST *root)
 
       if(gendebug)
         printf("emitting common block '%s'\n",common_classname);
-
 
       cur_filename = get_full_classname(common_classname);
 
@@ -1593,7 +1602,8 @@ common_emit(AST *root)
         fprintf(curfp,"public class %s_%s\n{\n",prefix,
           Ctemp->astnode.common.name);
 
-      fprintf(indexfp,"%s:common_block/%s:",cur_filename, Ctemp->astnode.common.name);
+      fprintf(indexfp,"%s:common_block/%s:",cur_filename,
+        Ctemp->astnode.common.name);
 
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
       {
@@ -1603,14 +1613,16 @@ common_emit(AST *root)
         {
           printf("Common block %s -- %s\n",Ctemp->astnode.common.name,
             Ntemp->astnode.ident.name);
-          printf("Looking up %s in the type table\n",Ntemp->astnode.ident.name);
+          printf("Looking up %s in the type table\n",
+            Ntemp->astnode.ident.name);
         }
   
         /* each variable in the common block should have a type
          * declaration associated with it.
          */
 
-        if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))==NULL)
+        if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))
+          == NULL)
         {
           fprintf(stderr,"Error: can't find type for common %s\n",
             Ntemp->astnode.ident.name);
@@ -1651,7 +1663,8 @@ common_emit(AST *root)
        */
       if(pc > 0) {
         bytecode0(jvm_return);
-        endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V", 1, NULL);
+        endNewMethod(cur_class_file, clinit_method, "<clinit>", "()V",
+          1, NULL);
       }
       else {
         free_method_info(clinit_method);
@@ -1836,7 +1849,7 @@ typedec_emit (AST * root)
    * in the argument list and is not retyped here. 
    */
 
-  for(temp=root->astnode.typeunit.declist; temp != NULL; temp = temp->nextstmt)
+  for(temp=root->astnode.typeunit.declist;temp != NULL;temp = temp->nextstmt)
   {
 
     if(omitWrappers) {
@@ -1974,7 +1987,8 @@ newarray_emit(enum returntype vtype)
   switch(vtype) {
     case String:
     case Character:
-      c = cp_find_or_insert(cur_const_table, CONSTANT_Class, "java/lang/String");
+      c = cp_find_or_insert(cur_const_table, CONSTANT_Class,
+            "java/lang/String");
       bytecode1(jvm_anewarray, c->index);
       break;
     case Complex:
@@ -2035,7 +2049,7 @@ getMergedDescriptor(AST *root, enum returntype returns)
 
     desc = ht2->variable->astnode.ident.descriptor;
   }
-  else if((hashtemp = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
+  else if((hashtemp=type_lookup(cur_equiv_table,root->astnode.ident.name))) {
     desc = hashtemp->variable->astnode.ident.descriptor;
   }
   else {
@@ -2292,7 +2306,7 @@ print_string_initializer(AST *root)
       sprintf(src_initializer,"\"  \"");
     }
     else {
-      src_initializer = (char *)f2jalloc( ht->variable->astnode.ident.len + 3);
+      src_initializer = (char *)f2jalloc(ht->variable->astnode.ident.len+3);
 
       sprintf(src_initializer,"\"%*s\"",ht->variable->astnode.ident.len," ");
     }
@@ -2305,7 +2319,7 @@ print_string_initializer(AST *root)
    */
 
   bytecode_initializer = (char *)f2jalloc(strlen(src_initializer) - 1);
-  strncpy(bytecode_initializer, src_initializer + 1, strlen(src_initializer) -2);
+  strncpy(bytecode_initializer,src_initializer+1,strlen(src_initializer)-2);
   bytecode_initializer[strlen(src_initializer) - 2] = '\0';
 
   tempnode = addnode();
@@ -2347,7 +2361,7 @@ data_emit(AST *root)
   HASHNODE *hashtemp;
 
   /* foreach Data spec... */
-  for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt) 
+  for(Dtemp = root->astnode.label.stmt;Dtemp != NULL;Dtemp = Dtemp->prevstmt) 
   {
     Ctemp = Dtemp->astnode.data.clist;
 
@@ -2383,7 +2397,8 @@ data_emit(AST *root)
 
       if(type_lookup(cur_common_table, Ntemp->astnode.ident.name))
       {
-        fprintf(stderr,"Warning: can't handle COMMON vars w/DATA statements.\n");
+        fprintf(stderr,"Warning: can't handle COMMON varables");
+        fprintf(stderr," w/DATA statements.\n");
         continue;
       }
 
@@ -2760,7 +2775,8 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
   fprintf(curfp,"};\n");
 
   c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
-        field_descriptor[ht->variable->vartype][(ht->variable->astnode.ident.dim > 0)]);
+        field_descriptor[ht->variable->vartype]
+                        [(ht->variable->astnode.ident.dim > 0)]);
 
   bytecode1(jvm_putstatic, c->index);
 
@@ -2850,7 +2866,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
     /* find this string in the symbol table */
     ht = type_lookup(cur_type_table,Ntemp->astnode.ident.name);
 
-    /* determine the length of the string (as declared in the fortran source) */
+    /* determine the length of the string (as declared in the fortran src) */
     if(ht == NULL)
       len = 1;
     else {
@@ -2939,7 +2955,8 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
       else {
         fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
           wrapper_returns[ type], Ctemp->astnode.constant.number);
-        invoke_constructor(full_wrappername[type], Ctemp, wrapper_descriptor[type]);
+        invoke_constructor(full_wrappername[type], Ctemp,
+          wrapper_descriptor[type]);
         c = newFieldref(cur_const_table,cur_filename,Ntemp->astnode.ident.name,
               wrapped_field_descriptor[type][0]);
       }
@@ -3030,7 +3047,7 @@ name_emit (AST * root)
 
   if(root->nodetype == Identifier)
     if(root->token == STRING)
-      printf("** string literal (this case should NOT be reached)\n");
+      fprintf(stderr,"** string literal (this case should NOT be reached)\n");
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -3061,8 +3078,11 @@ name_emit (AST * root)
 
       case STRING:
       case CHAR:
-        if(gendebug)
-          printf("** emit String/char literal!  (should this case be reached?)\n");
+        if(gendebug) {
+          printf("** emit String/char literal!");
+          printf("  (should this case be reached?)\n");
+        }
+
         fprintf (curfp, "\"%s\"", root->astnode.constant.number);
         break;
       case INTRINSIC: 
@@ -3530,8 +3550,10 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
     }
   }
   else if(type_lookup(etable, name)) {
-    if(gendebug)
-      printf("isPassByRef(): '%s' not found in type table, but found in external table\n", name);
+    if(gendebug) {
+      printf("isPassByRef(): '%s' not found in type table,", name);
+      printf(" but found in external table\n");
+    }
 
     return FALSE;
   }
@@ -3581,8 +3603,6 @@ array_emit(AST *root, HASHNODE *hashtemp)
     if(gendebug)
       printf ("Array... %s, Parent node type... %s\n", 
         arrayinf->name, print_nodetype(root->parent));
-    printf ("Array... %s, Parent node type... %s\n", 
-      arrayinf->name, print_nodetype(root->parent));
 
     if((root->parent->nodetype == Call)) 
     {
@@ -3646,8 +3666,9 @@ push_array_var(AST *root)
    * so dereference with index arithmetic.  
    */
 
+  /* for typedec, generate no bytecode */
   if((root->parent != NULL) && (root->parent->nodetype == Typedec))
-    fprintf (curfp, "%s", ainf->name);   /* for typedec, generate no bytecode */
+    fprintf (curfp, "%s", ainf->name);
   else {
     char *com_prefix;
 
@@ -3794,10 +3815,13 @@ get_common_prefix(char *varname)
 
   ht = type_lookup(cur_common_table, varname);
 
-printf("in get_common_prefix, name = '%s'\n",varname);
+  if(gendebug)
+    printf("in get_common_prefix, name = '%s'\n",varname);
 
   if(ht) {
-printf("commonblockname = '%s'\n",ht->variable->astnode.ident.commonBlockName);
+    if(gendebug)
+      printf("commonblockname = '%s'\n",
+        ht->variable->astnode.ident.commonBlockName);
 
     if((mtmp = find_commonblock(ht->variable->astnode.ident.commonBlockName,
         descriptor_table)) != NULL)
@@ -3824,8 +3848,9 @@ printf("commonblockname = '%s'\n",ht->variable->astnode.ident.commonBlockName);
   while( (idx = strchr(cprefix, '/')) != NULL )
     *idx = '.';                                                              
 
-if(cprefix && strlen(cprefix) > 0)
- printf("get_common_prefix returning '%s'\n", cprefix);
+  if(gendebug)
+    if(cprefix && strlen(cprefix) > 0)
+       printf("get_common_prefix returning '%s'\n", cprefix);
 
   f2jfree(inf, strlen(inf)+1);
   return(cprefix);
@@ -3845,7 +3870,8 @@ getVarDescriptor(AST *root)
   if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
     return field_descriptor[root->vartype][(root->astnode.ident.dim > 0)];
   else
-    return wrapped_field_descriptor[root->vartype][(root->astnode.ident.dim > 0)];
+    return wrapped_field_descriptor[root->vartype]
+                                   [(root->astnode.ident.dim > 0)];
 }
 
 /*****************************************************************************
@@ -3970,8 +3996,8 @@ pushStringConst(char *str)
  *****************************************************************************/
 
 void
-pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc, 
-   unsigned int lv, BOOLEAN deref)
+pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name,
+   char *desc, unsigned int lv, BOOLEAN deref)
 {
   CPNODE *c;
 
@@ -4024,9 +4050,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   char *com_prefix, *desc, *name, *scalar_class;
   HASHNODE *ht, *isArg, *typenode;
 
-
   /* determine descriptor */
-  if((typenode = type_lookup(cur_type_table, root->astnode.ident.name)) != NULL)
+  if((typenode = type_lookup(cur_type_table,root->astnode.ident.name))!=NULL)
     desc = getVarDescriptor(typenode->variable);
   else {
     fprintf(stderr,"ERROR: can't find '%s' in hash table\n", 
@@ -4034,7 +4059,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     exit(-1);
   }
 
-  printf("in scalar_emit, name = %s, desc = %s\n",root->astnode.ident.name, desc);
+  if(gendebug)
+    printf("in scalar_emit, name = %s, desc = %s\n",
+      root->astnode.ident.name, desc);
 
   /* get the name of the common block class file, if applicable */
 
@@ -4079,7 +4106,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name))) {
     name = ht->variable->astnode.ident.merged_name;
-    printf("%s -> %s\n",root->astnode.ident.name,name);
+
+    if(gendebug)
+      printf("%s -> %s\n",root->astnode.ident.name,name);
   }
 
   if (name == NULL)
@@ -4130,7 +4159,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
          */
 
         if((methodscan (intrinsic_toks, tempname) == NULL) &&
-           (type_lookup(cur_array_table, root->parent->astnode.ident.name) == NULL))
+           (type_lookup(cur_array_table,
+               root->parent->astnode.ident.name) == NULL))
         {
           /* parent is not a call to an intrinsic and not an array access */
 
@@ -4291,7 +4321,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           fprintf (curfp, "%s%s,_%s_offset", com_prefix, name, name);
           pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
              typenode->variable->astnode.ident.localvnum, FALSE);
-          gen_load_op(typenode->variable->astnode.ident.localvnum + 1, Integer);
+          gen_load_op(typenode->variable->astnode.ident.localvnum+1,Integer);
         }
         else {
           fprintf (curfp, "%s%s,0", com_prefix, name);
@@ -4419,8 +4449,11 @@ external_emit(AST *root)
 
   javaname = entry->java_method;
 
-printf("javaname = %s\n",javaname);
-printf("args = %p\n", (void*)root->astnode.ident.arraylist);
+  if(gendebug)
+  {
+    printf("javaname = %s\n",javaname);
+    printf("args = %p\n", (void*)root->astnode.ident.arraylist);
+  }
 
   /* Ensure that the call has arguments */
 
@@ -4436,7 +4469,8 @@ printf("args = %p\n", (void*)root->astnode.ident.arraylist);
         return;
       } 
 
-      printf("emitting ETIME...\n");
+      if(gendebug)
+        printf("emitting ETIME...\n");
 
       fprintf (curfp, "Etime.etime(");
       expr_emit(temp);
@@ -5176,7 +5210,8 @@ dint_intrinsic_emit(AST *root, METHODTAB *entry)
 void
 intrinsic_arg_emit(AST *node, enum returntype this_type)
 {
-  printf("intrinsic_arg_emit, node type = %s, this type = %s\n",
+  if(gendebug)
+    printf("intrinsic_arg_emit, node type = %s, this type = %s\n",
          returnstring[node->vartype], returnstring[this_type]);
 
   if(node->vartype > this_type) {
@@ -5222,11 +5257,11 @@ max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
         break;
     }
   }
-  else if((entry->intrinsic == ifunc_MAX0) || (entry->intrinsic == ifunc_AMAX0))
+  else if((entry->intrinsic==ifunc_MAX0) || (entry->intrinsic==ifunc_AMAX0))
     desc = "(III)I";
-  else if((entry->intrinsic == ifunc_AMAX1) || (entry->intrinsic == ifunc_MAX1))
+  else if((entry->intrinsic==ifunc_AMAX1) || (entry->intrinsic==ifunc_MAX1))
     desc = "(FFF)F";
-  else if(entry->intrinsic == ifunc_DMAX1)
+  else if(entry->intrinsic==ifunc_DMAX1)
     desc = "(DDD)D";
   else
     fprintf(stderr,"WARNING: bad intrinsic tag in max_intrinsic_emit()\n");
@@ -5268,17 +5303,19 @@ min_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
         break;  /* ansi c */
     }
   }
-  else if((entry->intrinsic == ifunc_MIN0) || (entry->intrinsic == ifunc_AMIN0))
+  else if((entry->intrinsic==ifunc_MIN0) || (entry->intrinsic==ifunc_AMIN0))
     desc = "(III)I";
-  else if((entry->intrinsic == ifunc_AMIN1) || (entry->intrinsic == ifunc_MIN1))
+  else if((entry->intrinsic==ifunc_AMIN1) || (entry->intrinsic==ifunc_MIN1))
     desc = "(FFF)F";
-  else if(entry->intrinsic == ifunc_DMIN1)
+  else if(entry->intrinsic==ifunc_DMIN1)
     desc = "(DDD)D";
   else
     fprintf(stderr,"WARNING: bad intrinsic tag in min_intrinsic_emit()\n");
 
-  printf("MIN vartype = %s, %s %s %s\n", returnstring[root->vartype], 
+  if(gendebug)
+    printf("MIN vartype = %s, %s %s %s\n", returnstring[root->vartype], 
          entry->class_name, entry->method_name, entry->descriptor);
+
   maxmin_intrinsic_emit(root,tempname,tmpentry,THREEARG_MIN_FUNC, desc);
 }
 
@@ -5303,7 +5340,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
   AST *temp;
 
   /* figure out how many args we need to handle */
-  for(temp = root->astnode.ident.arraylist; temp != NULL; temp = temp->nextstmt)
+  for(temp = root->astnode.ident.arraylist;temp!=NULL;temp = temp->nextstmt)
     arg_count++;
 
   /* If we only have one arg, just emit that expression.  This should not
@@ -5333,7 +5370,7 @@ maxmin_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry,
     bytecode1(jvm_invokestatic, c->index);
   }
 
-  /* special handling of common situation in which MAX or MIN has three args. */
+  /* special handling of situation in which MAX or MIN has three args */
 
   else if(arg_count == 3) {
     char *ta_tmp;
@@ -5502,7 +5539,8 @@ expr_emit (AST * root)
          *   be better to detect this elsewhere (e.g. in the code that emits
          *   array declarations).
          */
-        BOOLEAN gencast = (root->parent != NULL) && (root->parent->nodetype == ArrayDec);
+        BOOLEAN gencast = (root->parent != NULL) 
+                   && (root->parent->nodetype == ArrayDec);
 
         fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
            
@@ -5511,11 +5549,13 @@ expr_emit (AST * root)
         expr_emit (root->astnode.expression.lhs);
 
         if(root->astnode.expression.lhs->vartype != Double)
-          bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype][Double]);
+          bytecode0(typeconv_matrix[root->astnode.expression.lhs->vartype]
+                                   [Double]);
         fprintf (curfp, ", ");
         expr_emit (root->astnode.expression.rhs);
         if(root->astnode.expression.rhs->vartype != Double)
-          bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype][Double]);
+          bytecode0(typeconv_matrix[root->astnode.expression.rhs->vartype]
+                                   [Double]);
         fprintf (curfp, ")");
 
         ct = newMethodref(cur_const_table,"java/lang/Math", "pow", "(DD)D");
@@ -5544,7 +5584,7 @@ expr_emit (AST * root)
         if((root->astnode.expression.lhs->vartype != String) &&
            (root->astnode.expression.lhs->vartype != Character) )
         {
-          fprintf(stderr,"WARNING, string cat with non-string types unsupported\n");
+          fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
         }
         ct = newMethodref(cur_const_table,STRINGBUFFER, "<init>", STRBUF_DESC);
 
@@ -5555,7 +5595,7 @@ expr_emit (AST * root)
         if((root->astnode.expression.rhs->vartype != String) &&
            (root->astnode.expression.rhs->vartype != Character) )
         {
-          fprintf(stderr,"WARNING, string cat with non-string types unsupported\n");
+          fprintf(stderr,"ERROR:str cat with non-string types unsupported\n");
         }
         ct = newMethodref(cur_const_table,STRINGBUFFER, "append", 
                           append_descriptor[String]);
@@ -5569,14 +5609,16 @@ expr_emit (AST * root)
 
         if(root->astnode.expression.lhs->vartype > root->vartype)
           bytecode0(
-            typeconv_matrix[root->astnode.expression.lhs->vartype][root->vartype]);
+            typeconv_matrix[root->astnode.expression.lhs->vartype]
+                           [root->vartype]);
 
         fprintf (curfp, "%c", root->astnode.expression.optype);
         expr_emit (root->astnode.expression.rhs);
 
         if(root->astnode.expression.rhs->vartype > root->vartype)
           bytecode0(
-            typeconv_matrix[root->astnode.expression.rhs->vartype][root->vartype]);
+            typeconv_matrix[root->astnode.expression.rhs->vartype]
+                           [root->vartype]);
 
         switch(root->astnode.expression.optype) {
           case '+':
@@ -5623,7 +5665,8 @@ expr_emit (AST * root)
 
       if( (root->parent != NULL) &&
           (root->parent->nodetype == Call) &&
-          (type_lookup(cur_array_table,root->parent->astnode.ident.name) == NULL) &&
+          (type_lookup(cur_array_table,root->parent->astnode.ident.name)
+              == NULL) &&
           (methodscan(intrinsic_toks, tempname) == NULL))
       {
         if(root->token == STRING) {
@@ -5638,7 +5681,8 @@ expr_emit (AST * root)
             invoke_constructor(full_wrappername[root->vartype], root, 
               wrapper_descriptor[root->vartype]);
 
-            fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
+            fprintf (curfp, "new StringW(\"%s\")",
+              root->astnode.constant.number);
           }
         }
         else {     /* non-string constant argument to a function call */
@@ -5743,7 +5787,7 @@ expr_emit (AST * root)
         int len;
 
         if((root->token != rel_eq) && (root->token != rel_ne)) {
-          fprintf(stderr,"WARNING: didn't expect this relop on a STring type!\n");
+          fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
           return;
         }
 
@@ -5939,9 +5983,9 @@ expr_emit (AST * root)
           {
             CodeGraphNode *cmp_node, *goto_node, *iconst_node, *next_node;
 
-            /* the only difference between dcmpg and dcmpl is the handling of NaN
-             * value.  for .lt. and .le. we use dcmpg, otherwise use dcmpl.
-             * this mirrors the behavior of javac.
+            /* the only difference between dcmpg and dcmpl is the handling
+             * of the NaN value.  for .lt. and .le. we use dcmpg, otherwise
+             * use dcmpl.  this mirrors the behavior of javac.
              */
             if((root->token == rel_lt) || (root->token == rel_le))
               bytecode0(jvm_dcmpg);
@@ -6120,9 +6164,11 @@ constructor (AST * root)
       desc = wrapped_field_descriptor[returns][0];
     }
 
-    printf("this is a Function, needs implicit variable\n");
-    printf("method name = %s\n", name);
-    printf("implicit var desc = %s\n", desc);
+    if(gendebug) {
+      printf("this is a Function, needs implicit variable\n");
+      printf("method name = %s\n", name);
+      printf("implicit var desc = %s\n", desc);
+    }
 
     /* Test code.... */
     if ((returns == String) || (returns == Character))
@@ -6474,8 +6520,8 @@ emit_interface(AST *root)
       /* Total             45 + (2 * strlen(name)) + strlen(tempstring)     */
 
       if(hashtemp->variable->astnode.ident.dim > 1) {
-        decstr = (char *) f2jalloc(45 + (2 * strlen(tempnode->astnode.ident.name)) 
-          + strlen(tempstring));
+        decstr = (char *) f2jalloc(45 + (2 * 
+          strlen(tempnode->astnode.ident.name)) + strlen(tempstring));
         sprintf(decstr,"%s [] _%s_copy = MatConv.%sTwoDtoOneD(%s);",
           tempstring, tempnode->astnode.ident.name, 
           returnstring[returns], tempnode->astnode.ident.name);
@@ -6483,7 +6529,9 @@ emit_interface(AST *root)
         dl_insert_b(decs, (void *) strdup(decstr));
 
         if(cgPassByRef(tempnode->astnode.ident.name)) {
-          /* decstr should already have enough storage for the following string.  */
+          /* decstr should already have enough storage for the
+           * following string.
+           */
 
           sprintf(decstr,"MatConv.copyOneDintoTwoD(%s,_%s_copy);",
             tempnode->astnode.ident.name, tempnode->astnode.ident.name);
@@ -6504,7 +6552,8 @@ emit_interface(AST *root)
       fprintf(intfp, " %s", tempnode->astnode.ident.name);
 
       if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
-        char * temp2 = (char *) f2jalloc(strlen(tempnode->astnode.ident.name) + 9);
+        char * temp2 = (char *) f2jalloc(
+           strlen(tempnode->astnode.ident.name) + 9);
                 
         strcpy( temp2, "_");
         strcat( temp2, tempnode->astnode.ident.name);
@@ -6568,7 +6617,8 @@ emit_methcall(FILE *intfp, AST *root)
   tempstring = strdup(root->astnode.source.name->astnode.ident.name);
   *tempstring = toupper(*tempstring);
 
-  fprintf(intfp,"%s.%s( ", tempstring, root->astnode.source.name->astnode.ident.name);
+  fprintf(intfp,"%s.%s( ", tempstring, 
+    root->astnode.source.name->astnode.ident.name);
 
   prev = NULL;
   tempnode = root->astnode.source.args;
@@ -6634,7 +6684,8 @@ emit_methcall(FILE *intfp, AST *root)
         fprintf(intfp, " _%s_copy", tempnode->astnode.ident.name);
 
       if(!noOffset && (hashtemp->variable->astnode.ident.dim == 1)) {
-        char * temp2 = (char *) f2jalloc(strlen(tempnode->astnode.ident.name) + 9);
+        char * temp2 = (char *) f2jalloc(
+           strlen(tempnode->astnode.ident.name) + 9);
                 
         strcpy( temp2, "_");
         strcat( temp2, tempnode->astnode.ident.name);
@@ -6743,7 +6794,7 @@ forloop_emit (AST * root)
 
     if(root->astnode.forloop.incr->nodetype == Constant)
     {
-      int increment =  atoi(root->astnode.forloop.incr->astnode.constant.number);
+      int increment=atoi(root->astnode.forloop.incr->astnode.constant.number);
 
       name_emit(root->astnode.forloop.start->astnode.assignment.lhs);
       if(increment > 0)
@@ -6752,7 +6803,7 @@ forloop_emit (AST * root)
         fprintf(curfp," >= ");
       else {
         fprintf(stderr,"WARNING: Zero increment in do loop\n");
-        fprintf(curfp," /* ERROR, zero increment..following op incorrect */ <= ");
+        fprintf(curfp," /* ERR:zero increment..next op incorrect */ <= ");
       }
 
       expr_emit (root->astnode.forloop.stop);
@@ -6846,7 +6897,9 @@ goto_emit (AST * root)
   goto_node->branch_target = NULL;
   goto_node->branch_label = root->astnode.go_to.label;
    
-printf("## setting branch_label of this node to %d\n", goto_node->branch_label);
+  if(gendebug)
+    printf("## setting branch_label of this node to %d\n",
+      goto_node->branch_label);
 
   if( (loop = label_search(doloop, root->astnode.go_to.label)) != NULL)
   {
@@ -6917,7 +6970,8 @@ computed_goto_emit (AST *root)
   if(root->astnode.computed_goto.name->vartype != Integer) {
     fprintf(curfp,"(int)( ");
     expr_emit(root->astnode.computed_goto.name);
-    bytecode0(typeconv_matrix[root->astnode.computed_goto.name->vartype][Integer]);
+    bytecode0(typeconv_matrix[root->astnode.computed_goto.name->vartype]
+                             [Integer]);
     fprintf(curfp,")");
   }
   else
@@ -6926,7 +6980,7 @@ computed_goto_emit (AST *root)
   gen_store_op(lvar, Integer);
   fprintf(curfp,";\n");
 
-  for(temp = root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
+  for(temp=root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp != root->astnode.computed_goto.intlist)
       fprintf(curfp,"else ");
@@ -7081,7 +7135,8 @@ label_emit (AST * root)
 
   num = root->astnode.label.number;
 
-  printf("looking at label %d, pc is %d\n", num, pc);
+  if(gendebug)
+    printf("looking at label %d, pc is %d\n", num, pc);
 
   /* if the last node was impdep1, then that node will be replaced with
    * whatever is the next generated opcode, so we set the PC appropriately.
@@ -7650,7 +7705,8 @@ write_emit(AST * root)
             }
           }
 
-          c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+          c = newMethodref(cur_const_table, STRINGBUFFER, "<init>",
+                STRBUF_DESC);
           bytecode1(jvm_invokespecial, c->index);
         }
         else {
@@ -7676,7 +7732,7 @@ write_emit(AST * root)
           bytecode1(jvm_invokevirtual, c->index);
 
           if(temp->nextstmt->nodetype == IoImpliedLoop) {
-            /* next item is an implied loop.  finish up this print statement. */
+            /* next item is implied loop.  finish up this print statement. */
             fprintf (curfp, " + \" \");\n");
 
             c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
@@ -7745,7 +7801,8 @@ inline_format_emit(AST *root, BOOLEAN use_stringbuffer)
 {
   CPNODE *c;
 
-  fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
+  fprintf(curfp, "\"%s\"", 
+    root->astnode.io_stmt.fmt_list->astnode.constant.number);
     
   if(use_stringbuffer) {
     c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
@@ -8141,7 +8198,8 @@ format_item_emit(AST *temp, AST **nodeptr)
             /* allocate enough space for the given repeat spec, plus
              * 2 quotes, plus a null terminator.
              */
-            tmpbuf = (char *)f2jalloc((unsigned int)atoi(temp->astnode.constant.number)+3);
+            tmpbuf = (char *)f2jalloc(
+               (unsigned int)atoi(temp->astnode.constant.number)+3);
 
             sprintf(tmpbuf,"\"%*s\"",atoi(temp->astnode.constant.number)," ");
 
@@ -8393,7 +8451,9 @@ blockif_emit (AST * root)
   next_node = bytecode0(jvm_impdep1);
   if_node->branch_target = next_node;
 
-  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
+  for(temp = root->astnode.blockif.elseifstmts; 
+      temp != NULL;
+      temp = temp->nextstmt)
   {
     goto_node = elseif_emit (temp);
     dl_insert_b(gotos, goto_node);
@@ -8575,7 +8635,8 @@ method_name_emit (AST *root, BOOLEAN adapter)
         /* already called invoke().  for CALL, ignore the return value. */
         bytecode0(jvm_pop);
 
-        fprintf(curfp,"_%s_meth.invoke(null,null);\n", root->astnode.ident.name);
+        fprintf(curfp,"_%s_meth.invoke(null,null);\n",
+           root->astnode.ident.name);
       }
       else {
 
@@ -8808,7 +8869,8 @@ get_method_name(AST *root, BOOLEAN adapter)
       tmpdesc = get_desc_from_arglist(root->astnode.ident.arraylist);
 
       newmeth->descriptor = (char*)f2jalloc(strlen(tmpdesc) + 
-        strlen(METHOD_CLASS) + strlen(field_descriptor[root->vartype][0]) + 10);
+        strlen(METHOD_CLASS) + 
+        strlen(field_descriptor[root->vartype][0]) + 10);
       strcpy(newmeth->descriptor, "(");
       strcat(newmeth->descriptor, "L");
       strcat(newmeth->descriptor, METHOD_CLASS);
@@ -8819,7 +8881,8 @@ get_method_name(AST *root, BOOLEAN adapter)
 
       f2jfree(tmpdesc, strlen(tmpdesc)+1);
 
-      printf("methcall descriptor = %s\n",newmeth->descriptor);
+      if(gendebug)
+        printf("methcall descriptor = %s\n",newmeth->descriptor);
     }
   }
   else if(adapter)
@@ -8861,7 +8924,9 @@ get_method_name(AST *root, BOOLEAN adapter)
       strcat(newmeth->descriptor, field_descriptor[root->vartype][0]);
 
     f2jfree(tmpdesc, strlen(tmpdesc)+1);
-    printf("get_method_name:  descriptor = '%s'\n",newmeth->descriptor);
+
+    if(gendebug)
+      printf("get_method_name:  descriptor = '%s'\n",newmeth->descriptor);
   }
   else
   {
@@ -8989,7 +9054,7 @@ call_emit (AST * root)
     return;
 
   if(gendebug)
-    printf("@##@ call_emit, %s not already emitted\n",root->astnode.ident.name);
+    printf("call_emit, %s not already emitted\n",root->astnode.ident.name);
 
   if((root->astnode.ident.arraylist == NULL) ||
      (root->astnode.ident.arraylist->nodetype == EmptyArgList))
@@ -8998,8 +9063,9 @@ call_emit (AST * root)
 
     mref = get_method_name(root, adapter);
 
-    printf("call_emit (type: %s), got class = '%s', name = '%s'\n", 
-      returnstring[root->vartype], mref->classname, mref->methodname);
+    if(gendebug)
+      printf("call_emit (type: %s), got class = '%s', name = '%s'\n", 
+        returnstring[root->vartype], mref->classname, mref->methodname);
 
     c = newMethodref(cur_const_table,mref->classname, mref->methodname,
                      mref->descriptor);
@@ -9180,8 +9246,8 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
         bytecode1(jvm_new,c->index);
         bytecode0(jvm_dup);
 
-        c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
-               wrapper_descriptor[temp->vartype]);
+        c = newMethodref(cur_const_table,full_wrappername[temp->vartype],
+               "<init>", wrapper_descriptor[temp->vartype]);
 
         expr_emit (temp);
         fprintf(curfp,")");
@@ -9353,10 +9419,12 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
 void
 scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 {
-  if(gendebug)
-    printf("scalar_arg_emit.. name = %s (pass by ref = %s), dptr = %s (pass by ref = %s)\n",
+  if(gendebug) {
+    printf("scalar_arg_emit: ");
+    printf("name = %s (pass by ref = %s), dptr = %s (pass by ref = %s)\n",
       temp->astnode.ident.name, cgPassByRef(temp->astnode.ident.name)?
       "yes" : "no", dptr, isPassByRef_desc(dptr) ? "yes" : "no");
+  }
 
   if(isPassByRef_desc(dptr) != cgPassByRef(temp->astnode.ident.name))
   {
@@ -9399,7 +9467,8 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 
     if( temp->vartype != get_type_from_field_desc(dptr) ) {
       fprintf(curfp,")");
-      bytecode0(typeconv_matrix[temp->vartype][get_type_from_field_desc(dptr)]);
+      bytecode0(typeconv_matrix[temp->vartype]
+                               [get_type_from_field_desc(dptr)]);
     }
   }
 }
@@ -9431,8 +9500,8 @@ wrapped_arg_emit(AST *temp, char *dptr)
       bytecode1(jvm_new,c->index);
       bytecode0(jvm_dup);
 
-      c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
-             wrapper_descriptor[temp->vartype]);
+      c = newMethodref(cur_const_table,full_wrappername[temp->vartype],
+             "<init>", wrapper_descriptor[temp->vartype]);
     }
   }
   else
@@ -9444,8 +9513,8 @@ wrapped_arg_emit(AST *temp, char *dptr)
     bytecode1(jvm_new,c->index);
     bytecode0(jvm_dup);
 
-    c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
-           wrapper_descriptor[temp->vartype]);
+    c = newMethodref(cur_const_table,full_wrappername[temp->vartype], 
+           "<init>", wrapper_descriptor[temp->vartype]);
   }
 
   if(gendebug) {
@@ -9647,7 +9716,7 @@ needs_adapter(AST *root)
 
   if((hashtemp=type_lookup(function_table, root->astnode.ident.name)) != NULL)
     current_descriptor = hashtemp->variable->astnode.source.descriptor;
-  else if((mtmp = find_method(root->astnode.ident.name, descriptor_table)) != NULL)
+  else if((mtmp=find_method(root->astnode.ident.name,descriptor_table))!=NULL)
     current_descriptor = mtmp->descriptor;
   else 
     return 0;
@@ -9701,7 +9770,9 @@ needs_adapter(AST *root)
     dptr = skipToken(dptr);
   }
 
+  if(gendebug)
     printf("needs_adapter:returning 0\n");
+
   return 0;
 }
 
@@ -9946,7 +10017,9 @@ LHS_bytecode_emit(AST *root)
   } 
 
 
-  printf("in assign_emit, class = %s, name = %s, desc = %s\n",class, name, desc);
+  if(gendebug)
+    printf("in assign_emit, class = %s, name = %s, desc = %s\n",
+      class, name, desc);
   
   if((root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) ||
      (root->astnode.assignment.lhs->nodetype == Substring))
@@ -9963,10 +10036,13 @@ LHS_bytecode_emit(AST *root)
        * would be pass by reference, given that it is the LHS of an
        * assignment.  thus, we generate a putstatic instruction.
        */
-      printf("generating LHS...\n");
-      printf("lhs descriptor = %s\n",desc);
-      printf("isArg = %s\n",isArg?"Yes":"No");
-      printf("local var #%d\n",root->astnode.assignment.lhs->astnode.ident.localvnum);
+      if(gendebug) {
+        printf("generating LHS...\n");
+        printf("lhs descriptor = %s\n",desc);
+        printf("isArg = %s\n",isArg?"Yes":"No");
+        printf("local var #%d\n",
+          root->astnode.assignment.lhs->astnode.ident.localvnum);
+      }
 
       c = newFieldref(cur_const_table, class, name, desc);
       bytecode1(jvm_putstatic, c->index);
@@ -10048,7 +10124,8 @@ substring_assign_emit(AST *root)
      *    bytecode1(jvm_new,c->index);
      *    bytecode0(jvm_dup);
      *
-     *    c = newMethodref(cur_const_table,"java/lang/Character", "<init>", "(C)V");
+     *    c = newMethodref(cur_const_table,"java/lang/Character",
+     *            "<init>", "(C)V");
      *
      *    fprintf(curfp,"new Character(");
      *    expr_emit(rhs);
@@ -10237,7 +10314,9 @@ insert_adapter(AST *node)
 
       if((ht=type_lookup(function_table, node->astnode.ident.name)) != NULL)
       {
-        if(!adapter_insert_from_descriptor(node,ptr,ht->variable->astnode.source.descriptor)) {
+        if(!adapter_insert_from_descriptor(node,ptr,
+               ht->variable->astnode.source.descriptor))
+        {
           if(gendebug)
             printf("** found an equivalent adapter.  no need to insert.\n");
 
@@ -10321,8 +10400,10 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
       diff = TRUE;
     }
 
-    this_arg_is_scalar = !type_lookup(cur_array_table, this_call->astnode.ident.name);
-    other_arg_is_scalar = !type_lookup(cur_array_table, other_call->astnode.ident.name);
+    this_arg_is_scalar = !type_lookup(cur_array_table, 
+        this_call->astnode.ident.name);
+    other_arg_is_scalar = !type_lookup(cur_array_table, 
+        other_call->astnode.ident.name);
 
     if( (dptr[0] == '[') && (this_arg_is_scalar != other_arg_is_scalar ))
     {
@@ -10378,7 +10459,8 @@ emit_adapters()
                      cval->astnode.ident.arraylist);
 
       if(hashtemp->variable->nodetype == Function)
-        ret_desc = field_descriptor[hashtemp->variable->astnode.source.returns][0];
+        ret_desc = 
+           field_descriptor[hashtemp->variable->astnode.source.returns][0];
       else
         ret_desc = "V";
 
@@ -10405,14 +10487,16 @@ emit_adapters()
       f2jfree(tempname, strlen(tempname)+1);
     }
     else {
-      printf("looking up descriptor for %s\n",cval->astnode.ident.name);
+      if(gendebug)
+        printf("looking up descriptor for %s\n",cval->astnode.ident.name);
 
       mref = find_method(cval->astnode.ident.name, descriptor_table);
 
       if(mref) {
         char *ret = get_return_type_from_descriptor(mref->descriptor);
 
-        printf("--- ret is '%s'\n", ret);
+        if(gendebug)
+          printf("--- ret is '%s'\n", ret);
 
         if(ret[0] == 'V')
           ret_desc = "V";
@@ -10420,7 +10504,8 @@ emit_adapters()
           ret_desc = field_descriptor[get_type_from_field_desc(ret)][0];
 
         /* tmpdesc = get_desc_from_arglist(cval->astnode.ident.arraylist); */
-        tmpdesc = get_adapter_desc(mref->descriptor,cval->astnode.ident.arraylist);
+        tmpdesc = get_adapter_desc(mref->descriptor,
+                       cval->astnode.ident.arraylist);
 
         cur_desc = (char *)f2jrealloc(cur_desc, strlen(tmpdesc) +
           strlen(ret_desc) + 10);
@@ -10568,7 +10653,9 @@ adapter_args_emit_from_descriptor(AST *arg, char *desc)
 
     ctype = get_type_from_field_desc(dptr);
 
-printf("adapter_args.. arg=%s dptr = '%s'\n",arg->astnode.ident.name,dptr);
+    if(gendebug)
+      printf("adapter_args.. arg=%s dptr = '%s'\n",
+        arg->astnode.ident.name,dptr);
 
     if(dptr[0] == '[') {
       if(type_lookup(cur_array_table,arg->astnode.ident.name)) {
@@ -10748,7 +10835,8 @@ adapter_temps_emit_from_descriptor(AST *arg, char *desc)
       if(! type_lookup(cur_array_table,arg->astnode.ident.name)) {
         enum returntype ctype = get_type_from_field_desc(dptr);
 
-        fprintf(curfp,"%s [] _f2j_tmp%d = { arg%d.val };\n", returnstring[ctype], i, i);
+        fprintf(curfp,"%s [] _f2j_tmp%d = { arg%d.val };\n",
+           returnstring[ctype], i, i);
 
         adapter_tmp_array_assign_emit(arg->astnode.ident.localvnum,
           ctype);
@@ -10845,7 +10933,8 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
   {
     if(omitWrappers && !isPassByRef_desc(dptr)) {
       fprintf(curfp,"arg%d",i);
-      gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
+      gen_load_op(arg->astnode.ident.localvnum,
+          get_type_from_field_desc(dptr));
     }
     else {
       fprintf(curfp,"_f2j_tmp%d",i);
@@ -10873,7 +10962,8 @@ adapter_methcall_arg_emit(AST *arg, int i, int lv, char *dptr)
     if(isPassByRef_desc(dptr))
       gen_load_op(arg->astnode.ident.localvnum, Object);
     else
-      gen_load_op(arg->astnode.ident.localvnum, get_type_from_field_desc(dptr));
+      gen_load_op(arg->astnode.ident.localvnum,
+            get_type_from_field_desc(dptr));
   }
 
   return lv;
@@ -10908,18 +10998,19 @@ adapter_assign_emit_from_descriptor(AST *arg, int lv_temp, char *desc)
     {
       if(omitWrappers) {
         if(isPassByRef_desc(dptr))
-          adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
+          adapter_assign_emit(i,arg->astnode.ident.localvnum,lv_temp++,dptr);
       }
       else
       {
-        adapter_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
+        adapter_assign_emit(i,arg->astnode.ident.localvnum,lv_temp++,dptr);
       }
     }
     else if(dptr[0] == '[') {
 
       if( !type_lookup(cur_array_table,arg->astnode.ident.name) )
       {
-        adapter_array_assign_emit(i, arg->astnode.ident.localvnum, lv_temp++, dptr);
+        adapter_array_assign_emit(i,arg->astnode.ident.localvnum,
+          lv_temp++,dptr);
       }
       
       /* skip extra field desc to compensate for offset arg */
@@ -10978,10 +11069,13 @@ adapter_array_assign_emit(int i, int argvnum, int lv, char *dptr)
 
   fprintf(curfp,"arg%d.val = _f2j_tmp%d[0];\n",i,i);
 
-printf("#@@# calling get_type_from_field_desc(%s) = ", dptr);
+  if(gendebug)
+    printf("#@@# calling get_type_from_field_desc(%s) = ", dptr);
 
   vt = get_type_from_field_desc(dptr);
-printf(" '%s'\n", returnstring[vt]);
+
+  if(gendebug)
+    printf(" '%s'\n", returnstring[vt]);
 
   gen_load_op(argvnum, Object);
   gen_load_op(lv, Object);
@@ -11022,12 +11116,14 @@ get_desc_from_arglist(AST *list)
         if(ht) {
           dim = ht->variable->astnode.ident.dim > 0;
 
-          temp_desc = strAppend(temp_desc, field_descriptor[ht->variable->vartype][dim]);
+          temp_desc = strAppend(temp_desc, 
+                          field_descriptor[ht->variable->vartype][dim]);
         }
         else {
           dim = arg->astnode.ident.dim > 0;
 
-          temp_desc = strAppend(temp_desc, field_descriptor[arg->vartype][dim]);
+          temp_desc = strAppend(temp_desc, 
+                          field_descriptor[arg->vartype][dim]);
         }
 
       }
@@ -11045,20 +11141,22 @@ get_desc_from_arglist(AST *list)
         if(ht) {
           dim = ht->variable->astnode.ident.dim > 0;
 
-          temp_desc = strAppend(temp_desc, wrapped_field_descriptor[ht->variable->vartype][dim]);
+          temp_desc = strAppend(temp_desc, 
+              wrapped_field_descriptor[ht->variable->vartype][dim]);
         }
         else {
           dim = arg->astnode.ident.dim > 0;
 
-          temp_desc = strAppend(temp_desc, wrapped_field_descriptor[arg->vartype][dim]);
+          temp_desc = strAppend(temp_desc,
+              wrapped_field_descriptor[arg->vartype][dim]);
         }
       }
       else if( arg->nodetype == Constant )
         temp_desc = strAppend(temp_desc,
-           wrapped_field_descriptor[get_type(arg->astnode.constant.number)][0]);
+          wrapped_field_descriptor[get_type(arg->astnode.constant.number)][0]);
       else
         temp_desc = strAppend(temp_desc,
-           wrapped_field_descriptor[arg->vartype][0]);
+          wrapped_field_descriptor[arg->vartype][0]);
     }
 
     if(dim)
@@ -11462,7 +11560,8 @@ newCodeAttribute()
   c = cp_find_or_insert(cur_const_table, CONSTANT_Utf8, "Code");
   tmp->attribute_name_index = c->index;
   tmp->attribute_length = 0;
-  tmp->attr.Code = (struct Code_attribute *)f2jalloc(sizeof(struct Code_attribute));
+  tmp->attr.Code = (struct Code_attribute *)
+        f2jalloc(sizeof(struct Code_attribute));
   tmp->attr.Code->max_stack = 0;
   tmp->attr.Code->max_locals = 0;
   tmp->attr.Code->code_length = 0;
@@ -11563,7 +11662,9 @@ newClassFile(char *name, char *srcFile)
    */
 
   fullclassname = get_full_classname(name);
-printf("##creating new entry, this -> %s\n",fullclassname);
+
+  if(gendebug)
+    printf("##creating new entry, this -> %s\n",fullclassname);
 
   newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Utf8;
@@ -11602,8 +11703,8 @@ printf("##creating new entry, this -> %s\n",fullclassname);
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, "SourceFile");
   attr_temp->attribute_name_index = c->index;
   attr_temp->attribute_length = 2;  /* SourceFile attr length always 2 */
-  attr_temp->attr.SourceFile = 
-    (struct SourceFile_attribute *) f2jalloc(sizeof(struct SourceFile_attribute));
+  attr_temp->attr.SourceFile = (struct SourceFile_attribute *) 
+       f2jalloc(sizeof(struct SourceFile_attribute));
   c = cp_find_or_insert(cur_const_table,CONSTANT_Utf8, srcFile);
   attr_temp->attr.SourceFile->sourcefile_index = c->index;
 
@@ -11677,7 +11778,8 @@ beginNewMethod(unsigned int flags)
   tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
   tmp->access_flags = acc;
 
-printf("access flags = %d\n", flags);
+  if(gendebug)
+    printf("access flags = %d\n", flags);
 
   tmp->attributes = make_dl();
   tmp->attributes_count = 1;
@@ -11765,18 +11867,22 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth,
   cur_code->attr.Code->exception_table_length = num_handlers;
 
   if(num_handlers > 0) {
-    cur_code->attr.Code->exception_table = 
-      (struct ExceptionTable *) f2jalloc(sizeof(struct ExceptionTable) * num_handlers);
+    cur_code->attr.Code->exception_table = (struct ExceptionTable *) 
+        f2jalloc(sizeof(struct ExceptionTable) * num_handlers);
 
-    printf("Code set exception_table_length = %d\n",num_handlers);
+    if(gendebug)
+      printf("Code set exception_table_length = %d\n",num_handlers);
+
     idx = 0;
     dl_traverse(tmp, exc_table) {
       et_entry = (ExceptionTableEntry *) tmp->val;
 
       cur_code->attr.Code->exception_table[idx].start_pc = et_entry->from->pc;
       cur_code->attr.Code->exception_table[idx].end_pc = et_entry->to->pc;
-      cur_code->attr.Code->exception_table[idx].handler_pc = et_entry->target->pc;
-      cur_code->attr.Code->exception_table[idx].catch_type = et_entry->catch_type;
+      cur_code->attr.Code->exception_table[idx].handler_pc = 
+         et_entry->target->pc;
+      cur_code->attr.Code->exception_table[idx].catch_type = 
+         et_entry->catch_type;
       idx++;
 
       f2jfree(et_entry, sizeof(ExceptionTableEntry));
@@ -11792,16 +11898,20 @@ endNewMethod(struct ClassFile *cclass, struct method_info * meth,
    *   code_length             =  4 bytes
    *   code                    = pc bytes
    *   exception_table_length  =  2 bytes
-   *   exception_table         =  exception_table_length * sizeof(exception table) bytes
+   *   exception_table         =  exc_table_len * sizeof(exc table) bytes
    *   attributes_count        =  2 bytes
    *   attributes              =  0 bytes  (no attributes generated)
    *  ---------------------------------
-   *   total                   =  12 + exception_table_length * sizeof(exception table) bytes
+   *   total (in bytes)        =  12 + exc_table_length * sizeof(exc table)
    */
-  cur_code->attribute_length = pc + 12 + num_handlers * sizeof(struct ExceptionTable);
+
+  cur_code->attribute_length = pc + 12 + num_handlers * 
+               sizeof(struct ExceptionTable);
   cur_code->attr.Code->max_locals = maxloc;
   cur_code->attr.Code->code_length = pc;
-  printf("Code: set code_length = %d\n",pc);
+
+  if(gendebug)
+    printf("Code: set code_length = %d\n",pc);
 
   dl_insert_b(meth->attributes, cur_code);
 
@@ -11962,19 +12072,21 @@ traverse_code(Dlist cgraph)
        pc, MAX_CODE_LEN);
 
   /* now print the instructions */
-  dl_traverse(tmp,cgraph) {
-    val = (CodeGraphNode *) tmp->val;
+  if(gendebug) {
+    dl_traverse(tmp,cgraph) {
+      val = (CodeGraphNode *) tmp->val;
   
-    if(!val->visited)
-      warn = "(UNVISITED!!)";
-    else
-      warn = "";
+      if(!val->visited)
+        warn = "(UNVISITED!!)";
+      else
+        warn = "";
 
-    if(opWidth(val->op) > 1)
-      printf("%d: %s %d %s\n", val->pc, jvm_opcode[val->op].op, 
-         val->operand, warn);
-    else
-      printf("%d: %s %s\n", val->pc, jvm_opcode[val->op].op, warn);
+      if(opWidth(val->op) > 1)
+        printf("%d: %s %d %s\n", val->pc, jvm_opcode[val->op].op, 
+           val->operand, warn);
+      else
+        printf("%d: %s %s\n", val->pc, jvm_opcode[val->op].op, warn);
+    }
   }
 
 }
@@ -12100,13 +12212,17 @@ void
 calcOffsets(Dlist cgraph, CodeGraphNode *val)
 {
   /* if we already visited this node, then do not visit again. */
-  printf("in calcoffsets, before op %d : %s, stack_Depth = %d\n",
+
+  if(gendebug)
+  {
+    printf("in calcoffsets, before op %d : %s, stack_Depth = %d\n",
          val->pc, jvm_opcode[val->op].op,val->stack_depth);
 
-if(val->next == NULL)
-  printf("next is NULL\n");
-else
-  printf("next is %s\n", jvm_opcode[val->next->op].op);
+    if(val->next == NULL)
+      printf("next is NULL\n");
+    else
+      printf("next is %s\n", jvm_opcode[val->next->op].op);
+  }
 
   if(val->visited)
     return;
@@ -12139,20 +12255,21 @@ if(stacksize < 0)
       CodeGraphNode *label_node;
       AST *label_ast;
 
-      printf("looking at GOTO %d\n", val->branch_label);
+      if(gendebug)
+        printf("looking at GOTO %d\n", val->branch_label);
       
       if( (label_ast = find_label(label_list, val->branch_label)) != NULL)
       {
         label_node = nodeAtPC(label_ast->astnode.label.pc);
 
         if(label_node != NULL) {
-          printf(" **found** target pc is %d\n", label_node->pc); 
+          if(gendebug)
+            printf(" **found** target pc is %d\n", label_node->pc); 
+
           if(label_node->stack_depth == -1)
             label_node->stack_depth = stacksize;
           else if(label_node->stack_depth != stacksize) {
             fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s)\n",
-                    label_node->pc, cur_filename);
-            printf("WARNING: hit pc %d with diff stack sizes (%s)\n",
                     label_node->pc, cur_filename);
           }
 
@@ -12177,14 +12294,13 @@ if(stacksize < 0)
         fprintf(stderr,"WARNING: cannot find label %d\n", val->branch_label);
     }
     else {
-      printf("goto branching to pc %d\n", val->branch_target->pc);
+      if(gendebug)
+        printf("goto branching to pc %d\n", val->branch_target->pc);
 
       if(val->branch_target->stack_depth == -1)
         val->branch_target->stack_depth = stacksize;
       else if (val->branch_target->stack_depth != stacksize) {
         fprintf(stderr,"WARNING: hit pc %d with diff stack sizes (%s).\n",
-                val->branch_target->pc, cur_filename);
-        printf("WARNING: hit pc %d with diff stack sizes (%s).\n",
                 val->branch_target->pc, cur_filename);
       }
 
@@ -12297,7 +12413,8 @@ getStackIncrement(enum _opcode op, u4 index)
                           c->val->cpnode.Methodref.name_and_type_index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, 
+                          c->val->cpnode.Utf8.length);
     stackinf = calcStack(this_desc);
     /* if the opcode is invokespecial or invokevirtual, then there is one
      * object reference + parameters on the stack.  if this is an invokestatic
@@ -12319,7 +12436,8 @@ getStackIncrement(enum _opcode op, u4 index)
                           c->val->cpnode.Methodref.name_and_type_index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes,
+                          c->val->cpnode.Utf8.length);
 
     if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
       tmpsize = 2;
@@ -12383,7 +12501,8 @@ getStackDecrement(enum _opcode op, u4 index)
                           c->val->cpnode.Methodref.name_and_type_index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes,
+                          c->val->cpnode.Utf8.length);
     stackinf = calcStack(this_desc);
     /* if the opcode is invokespecial or invokevirtual, then there is one
      * object reference + parameters on the stack.  if this is an invokestatic
@@ -12407,7 +12526,8 @@ getStackDecrement(enum _opcode op, u4 index)
                           c->val->cpnode.Methodref.name_and_type_index);
     c = cp_entry_by_index(cur_const_table,
                           c->val->cpnode.NameAndType.descriptor_index);
-    this_desc = null_term(c->val->cpnode.Utf8.bytes, c->val->cpnode.Utf8.length);
+    this_desc = null_term(c->val->cpnode.Utf8.bytes, 
+                          c->val->cpnode.Utf8.length);
 
     if((this_desc[0] == 'D') || (this_desc[0] == 'J'))
       tmpsize = 2;
@@ -12458,7 +12578,8 @@ calcStack(char *d)
   int len = strlen(d);
   char *ptr, *tstr;
 
-printf("in calcStack, the desc = '%s'\n", d);
+  if(gendebug)
+    printf("in calcStack, the desc = '%s'\n", d);
 
   tmp = (struct stack_info *)f2jalloc(sizeof(struct stack_info));
   tmp->arg_len = 1;
@@ -12506,7 +12627,11 @@ printf("in calcStack, the desc = '%s'\n", d);
     tmp->ret_len = 1;
 
   f2jfree(tstr, strlen(tstr)+1);
-printf("calcStack arg_len = %d, ret_len = %d\n",tmp->arg_len, tmp->ret_len);
+
+  if(gendebug)
+    printf("calcStack arg_len = %d, ret_len = %d\n",
+      tmp->arg_len, tmp->ret_len);
+
   return tmp;
 }
 
@@ -12535,7 +12660,7 @@ skipToken(char *str)
         p++;
 
       if(*p == '\0') {
-        fprintf(stderr,"WARNING: skipToken() incomplete classname in descriptor\n");
+        fprintf(stderr,"ERR:skipToken() incomplete classname in desc\n");
         return NULL;
       }
 
@@ -12619,8 +12744,8 @@ assign_local_vars(AST * root)
   for (locallist = root ; locallist; locallist = locallist->nextstmt)
   {
     if(gendebug)
-      printf("assign_local_vars(%s): arg list name: %s, local varnum: %d\n",cur_filename, 
-         locallist->astnode.ident.name, localnum);
+      printf("assign_local_vars(%s): arg list name: %s, local varnum: %d\n",
+         cur_filename, locallist->astnode.ident.name, localnum);
 
     hashtemp = type_lookup(cur_type_table, locallist->astnode.ident.name);
     if(hashtemp == NULL)
@@ -12628,7 +12753,9 @@ assign_local_vars(AST * root)
       ht2=type_lookup(cur_args_table, locallist->astnode.ident.name);
       if(ht2) {
         if(gendebug)
-          printf("assign_local_vars(%s): %s in args table, setting local varnum: %d\n",cur_filename, locallist->astnode.ident.name, localnum);
+          printf("assign_local_vars(%s):%s in args table, set lvnum: %d\n",
+            cur_filename, locallist->astnode.ident.name, localnum);
+
         ht2->variable->astnode.ident.localvnum = localnum;
         localnum++;
         continue;
@@ -12650,8 +12777,11 @@ assign_local_vars(AST * root)
      * also check whether this is pass by reference, because objects
      * always occupy 1 stack entry, even if the data type is double.
      */
-printf("assign_local_vars(%s): name: %s, pass by ref: %s\n", cur_filename,
- locallist->astnode.ident.name, hashtemp->variable->astnode.ident.passByRef ? "yes" : "no");
+
+    if(gendebug)
+      printf("assign_local_vars(%s): name: %s, pass by ref: %s\n",
+        cur_filename, locallist->astnode.ident.name,
+        hashtemp->variable->astnode.ident.passByRef ? "yes" : "no");
 
     if((hashtemp->type == Double ||
         hashtemp->variable->astnode.ident.arraylist != NULL) &&
@@ -12847,7 +12977,8 @@ bytecode1(enum _opcode op, u4 operand)
     return g;
   }
 
-  printf("bytecode: %s %d\n", jvm_opcode[op].op, operand);
+  if(gendebug)
+    printf("bytecode: %s %d\n", jvm_opcode[op].op, operand);
 
   lastOp = op;
 

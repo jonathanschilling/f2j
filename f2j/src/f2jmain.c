@@ -173,7 +173,7 @@ will most likely not work for other code.\n";
         errflg++;
         break;
       default:
-        printf("hit default case\n");
+        printf("Bad arg.\n");
         break;
     }
 

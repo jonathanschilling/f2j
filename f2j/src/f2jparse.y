@@ -1445,7 +1445,8 @@ Arraydeclaration: Name OP Arraynamelist CP
 		     */
 
 		    $$ = $1;
-printf("reduced arraydeclaration... calling switchem\n");
+                    if(debug)
+                      printf("reduced arraydeclaration... calling switchem\n");
 		    $$->astnode.ident.arraylist = switchem($3);
                   
                     count = 0;
@@ -2886,8 +2887,11 @@ Pdec:     Assignment
             $$->nodetype = Assignment;
 
             constant_eval = eval_const_expr($$->astnode.assignment.rhs);
-printf("### constant_eval is %.40g\n", constant_eval);
-printf("### constant_eval is %.40e\n", constant_eval);
+
+            if(debug) {
+              printf("### constant_eval is %.40g\n", constant_eval);
+              printf("### constant_eval is %.40e\n", constant_eval);
+            }
             
             temp = addnode();
             temp->nodetype = Constant;
@@ -2927,7 +2931,9 @@ printf("### constant_eval is %.40e\n", constant_eval);
             free_ast_node($$->astnode.assignment.rhs);
             $$->astnode.assignment.rhs = temp;
                                                       
-printf("### the constant is '%s'\n", temp->astnode.constant.number);
+            if(debug)
+              printf("### the constant is '%s'\n",
+                temp->astnode.constant.number);
 
             cur_id = strdup($$->astnode.assignment.lhs->astnode.ident.name);
 
@@ -3126,10 +3132,10 @@ type_hash(AST * types)
         continue;
         
       /* Stuff names and return types into the symbol table. */
-      if(debug)printf("Type hash: %s\n", tempnames->astnode.ident.name);
-      printf("Type hash: '%s' (%s)\n", tempnames->astnode.ident.name,
+      if(debug)
+        printf("Type hash: '%s' (%s)\n", tempnames->astnode.ident.name,
           print_nodetype(tempnames));
-
+ 
       if(temptypes->nodetype == Dimension) {
         /* looking at a Dimension spec.  check whether the ident is already
          * in the hash table.  if so, we want to assign the array dimensions
@@ -3316,8 +3322,8 @@ arg_table_load(AST * arglist)
    for(temp = arglist; temp; temp = temp->nextstmt)
    {
      type_insert(args_table, temp, 0, temp->astnode.ident.name);
-printf("#@Arglist var. name: %s\n", temp->astnode.ident.name);
-     if(debug)printf("Arglist var. name: %s\n", temp->astnode.ident.name);
+     if(debug)
+       printf("#@Arglist var. name: %s\n", temp->astnode.ident.name);
    }
 }
 
@@ -3651,7 +3657,9 @@ eval_const_expr(AST *root)
      */
       break;
     case Constant:
-printf("### its a constant.. %s\n", root->astnode.constant.number);
+      if(debug)
+        printf("### its a constant.. %s\n", root->astnode.constant.number);
+
       if(root->token == STRING) {
         if(!strcmp(root->astnode.ident.name,"*"))
           return 0;

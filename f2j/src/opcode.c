@@ -29,7 +29,7 @@
 AST *returnname;                /* return type of function                   */
 
 int 
-  jas_gendebug = 0,             /* Set to 1 for debugging output.            */
+  jas_gendebug = FALSE,         /* Set to TRUE for debugging output.         */
   labelno = 1,		        /* Matches output from D-Java.               */
   breaklabel;			/* Global to deal with if-then-else-endif.   */
 

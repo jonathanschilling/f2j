@@ -69,7 +69,7 @@ extern METHODTAB intrinsic_toks[];
  * Global variables.                                                         *
  *****************************************************************************/
 
-int checkdebug = TRUE;              /* set to TRUE for debugging output     */
+int checkdebug = FALSE;              /* set to TRUE for debugging output     */
 
 AST *cur_unit;                       /* program unit currently being checked */
 
@@ -1022,7 +1022,8 @@ intrinsic_check(AST *root)
   uppercase(tempname);
 
   entry = methodscan (intrinsic_toks, tempname);
-  printf("Tempname=%s\n", tempname);
+  if(checkdebug)
+    printf("Tempname=%s\n", tempname);
   f2jfree(tempname, strlen(tempname)+1);
 
   if(!entry) {
@@ -1049,10 +1050,12 @@ intrinsic_check(AST *root)
         min_type = temp->vartype;
 
 /*
-      printbits("This is the bitmask ", &bitfields[temp->vartype], 1);
-      printbits("This is the entry-args ", &entry->args, 1);
-*/
-      printf("temp->vartype=%s\n", returnstring[temp->vartype]); 
+ *    printbits("This is the bitmask ", &bitfields[temp->vartype], 1);
+ *    printbits("This is the entry-args ", &entry->args, 1);
+ */
+      if(checkdebug)
+        printf("temp->vartype=%s\n", returnstring[temp->vartype]); 
+
       if(! (bitfields[temp->vartype] & entry->args)) {
         fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
                 entry->fortran_name);

@@ -118,7 +118,7 @@ type_lookup (SYMTABLE * table, char *id)
   if (hash_entry == NULL)
   {
     if(symdebug)
-      printf ("Not in table.\n"); 
+      printf("Not in table.\n"); 
     return NULL;
   }
   else   /*  Attempt to return the value pointed to by "type". */

@@ -32,7 +32,7 @@ void write_code(Dlist, FILE *),
      write_exception_table(struct ExceptionTable *, int, FILE *);
 
 int
-  class_debug = TRUE;     /* set to TRUE to generate debugging output        */
+  class_debug = FALSE;    /* set to TRUE to generate debugging output        */
 
 /*****************************************************************************
  * write_class                                                               *
@@ -108,7 +108,6 @@ report_position(char *prefix, FILE *stream)
 
   pos = fgetpos(stream, &p);
 
-  /* printf("%s at position %ld\n",prefix, (long)p); */
 }
 
 /*****************************************************************************
@@ -504,7 +503,7 @@ open_output_classfile(struct ClassFile *class)
   filename[c->val->cpnode.Utf8.length] = '\0';
   strcat(filename,".class");
 
-printf("going to write class file: '%s'\n", filename);
+  if(class_debug) printf("going to write class file: '%s'\n", filename);
 
   if( (newfp = fopen_fullpath(filename,"wb")) == NULL ) {
     fprintf(stderr,"Cannot open output file '%s'\n",filename);
@@ -556,7 +555,7 @@ fopen_fullpath(char *file, char *mode)
   else
     full_file = strdup(file);
 
-printf("full_file = '%s'\n", full_file);
+  if(class_debug) printf("full_file = '%s'\n", full_file);
 
   if( stat(full_file, buf) == 0)
     if(! S_ISREG(buf->st_mode) ) {

@@ -370,10 +370,6 @@ free_ast_node(AST *n)
   if( n == NULL )
     return;
 
-/*  fprintf(stderr,"free_ast_node() free %s node at %p.\n", 
- *       print_nodetype(n), n);
- */
-
   switch(n->nodetype) {
     case Identifier:
     case Constant:

@@ -44,7 +44,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = TRUE;
+int lexdebug = FALSE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -498,7 +498,7 @@ yylex ()
 
     if((firsttoken == INTEGER) && (format_stmt)) {
       if(lexdebug)
-      printf("****the spec is '%s'\n", yylval.lexeme);
+        printf("****the spec is '%s'\n", yylval.lexeme);
 
       if((yylval.lexeme[0] == 'X') || (yylval.lexeme[0] == 'P') ||
          (yylval.lexeme[0] == 'x') || (yylval.lexeme[0] == 'p'))
@@ -691,8 +691,8 @@ prelex (BUFFER * bufstruct)
       return COMMENT;
     }
 
-    if(lexdebug)printf ("First char in buffer: %c\n", 
-      bufstruct->stmt[0]);
+    if(lexdebug)
+      printf ("First char in buffer: %c\n", bufstruct->stmt[0]);
 
     /* Ok, we have a line that is not a comment and that 
      * does not start and end with a newline, i.e. blank.

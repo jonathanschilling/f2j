@@ -547,7 +547,9 @@ insert_constant(Dlist list, int tok, const void * tag)
          * Note that we only malloc enough for the string itself
          * since the Utf8 string should not be null-terminated.
          */
-printf("inserting a string... '%s'\n",(char *)tag);
+
+      if(cp_debug)
+        printf("inserting a string... '%s'\n",(char *)tag);
 
       c = cp_lookup(list, CONSTANT_Utf8, tag);
 
@@ -561,7 +563,6 @@ printf("inserting a string... '%s'\n",(char *)tag);
       {
         if(cp_debug)
           printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
-printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
 
         newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_Utf8;
@@ -874,7 +875,8 @@ newMethodNode(char *cname, char *mname, char *dname)
 {
   METHODREF *methodref;
 
-  printf("%%%% new node '%s','%s','%s'\n", cname,mname,dname);
+  if(cp_debug)
+    printf("%%%% new node '%s','%s','%s'\n", cname,mname,dname);
 
   methodref = (METHODREF *)f2jalloc(sizeof(METHODREF));
   methodref->classname = strdup(cname);

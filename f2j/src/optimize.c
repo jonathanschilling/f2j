@@ -42,7 +42,7 @@
  * routines.                                                                 *
  *****************************************************************************/
 
-int optdebug = TRUE;
+int optdebug = FALSE;
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -1051,11 +1051,13 @@ args_optimize(AST *root, AST *rptr)
   {
     char *p;
 
-    printf("call_optimize(): found %s in descriptor table.\n",
+    if(optdebug) {
+      printf("call_optimize(): found %s in descriptor table.\n",
         root->astnode.ident.name);
-    printf("call_optimize() - class: %s\n", mref->classname);
-    printf("call_optimize() - method: %s\n", mref->methodname);
-    printf("call_optimize() - desc: %s\n", mref->descriptor);
+      printf("call_optimize() - class: %s\n", mref->classname);
+      printf("call_optimize() - method: %s\n", mref->methodname);
+      printf("call_optimize() - desc: %s\n", mref->descriptor);
+    }
 
     temp = root->astnode.ident.arraylist;
     p = mref->descriptor;
@@ -1066,7 +1068,8 @@ args_optimize(AST *root, AST *rptr)
 
        p = skipToken(p);
 
-       printf("call_optimize() - p = %s\n",p);
+       if(optdebug)
+         printf("call_optimize() - p = %s\n",p);
 
        if(temp->nodetype == Identifier)
        {
@@ -1118,13 +1121,15 @@ isPassByRef_desc(char *desc)
 {
   char *desc_copy, *dptr;
 
-  printf("isPassByRef_desc, desc = %s\n", desc);
+  if(optdebug)
+    printf("isPassByRef_desc, desc = %s\n", desc);
 
   /* quick check.. if the first char is not L then this can't be
    * pass by reference.
    */
   if(desc[0] != 'L')  {
-    printf("returning FALSE\n");
+    if(optdebug)
+      printf("returning FALSE\n");
     return FALSE;
   }
 
@@ -1140,7 +1145,8 @@ isPassByRef_desc(char *desc)
   if(!strcmp(desc_copy,"Ljava/lang/String;") ||
      !strcmp(desc_copy,"Ljava/lang/Object;"))
   {
-    printf("returning FALSE\n");
+    if(optdebug)
+      printf("returning FALSE\n");
     f2jfree(desc_copy, strlen(desc_copy)+1);
     return FALSE;
   }
@@ -1346,9 +1352,10 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
     if (returns > MAX_RETURNS)
       fprintf (stderr,"Bad return value, check types.\n");
 
-printf("@#OPTIMIZE(%s) - arg = '%s'\n", 
-root->astnode.source.name->astnode.ident.name,
-tempnode->astnode.ident.name);
+    if(optdebug)
+      printf("@#OPTIMIZE(%s) - arg = '%s'\n", 
+         root->astnode.source.name->astnode.ident.name,
+         tempnode->astnode.ident.name);
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&

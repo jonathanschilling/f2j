@@ -5749,9 +5749,9 @@ read_implied_loop_emit(AST *node, char **func)
  *****************************************************************************/
 
 void
-write_emit (AST * root)
+write_emit(AST * root)
 {
-  BOOLEAN implied_loop = FALSE, use_stringbuffer = FALSE;
+  BOOLEAN implied_loop = FALSE;
   extern int ignored_formatting;
   AST *nodeptr, *temp;
   HASHNODE *hnode;
@@ -5759,10 +5759,21 @@ write_emit (AST * root)
   CPNODE *c;
 
   void format_list_emit(AST *, AST **),
-       write_implied_loop_emit(AST *);
+       write_implied_loop_emit(AST *),
+       inline_format_emit(AST *);
 
   c = newFieldref(cur_const_table, JL_SYSTEM, "out", OUT_DESC);
   code_one_op_w(jvm_getstatic, c->index);
+
+  /* check if there are no args to this WRITE statement */
+  if((root->astnode.io_stmt.arg_list == NULL) &&
+     (root->astnode.io_stmt.fmt_list == NULL))
+  {
+    fprintf(curfp,"System.out.println();\n");
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+    code_one_op_w(jvm_invokevirtual, c->index);
+    return;
+  }
 
   /* 
    * Check to see if there are any implied DO loops in this WRITE
@@ -5779,28 +5790,36 @@ write_emit (AST * root)
       break;
     }
       
-  /* if there are multiple items to print, then we should create a
-   * new StringBuffer and append all the items to it before printing.
-   * note that if we encounter an implied loop, assume that it represents
-   * multiple items (actually unknown until runtime).
+  /* check if this WRITE statement has only one arg.  treat this as
+   * a special case because we do not need to generate a StringBuffer
+   * if there's only one arg.  note that implied loops are assumed
+   * to contain multiple items.
    */
 
-  if(  ((root->astnode.io_stmt.fmt_list != NULL) &&
-        (root->astnode.io_stmt.arg_list != NULL)) 
-     || 
-       ((root->astnode.io_stmt.arg_list != NULL) &&
-        (root->astnode.io_stmt.arg_list->nextstmt != NULL))
-     || 
-       implied_loop)
+  if( !implied_loop 
+      &&
+       (((root->astnode.io_stmt.arg_list != NULL) &&
+        (root->astnode.io_stmt.arg_list->nextstmt == NULL) &&
+        (root->astnode.io_stmt.fmt_list == NULL))
+      ||
+       ((root->astnode.io_stmt.arg_list == NULL) &&
+        (root->astnode.io_stmt.fmt_list != NULL)))
+    )
   {
-    /* either there is an inline FORMAT + at least one arg,
-     * or there are multiple args, or there is an implied loop.
-     */
-    use_stringbuffer = TRUE;
-
-    c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
-    code_one_op_w(jvm_new,c->index);
-    code_zero_op(jvm_dup);
+    fprintf(curfp, "System.out.println(");
+    if(root->astnode.io_stmt.arg_list) {
+      expr_emit(root->astnode.io_stmt.arg_list);
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+            println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
+    }
+    else {
+      inline_format_emit(root);
+      c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+                  println_descriptor[String]);
+    }
+    fprintf(curfp, ");\n");
+    code_one_op_w(jvm_invokevirtual, c->index);
+    return;
   }
 
   if(implied_loop)
@@ -5808,30 +5827,16 @@ write_emit (AST * root)
   else
     fprintf (curfp, "System.out.println(");
 
-  /* 
-   * The following is a cheesy workaround to handle the following type of
-   * statement:
-   *         write(*, FMT = '( '' Matrix types:'' )' ) 
-   * eventually, we should handle any kind of format spec within the
-   * quotes, but for now we just treat the whole thing as a string.  
-   * 12/4/97 --Keith
+  /* if we reach this point, then we know that there are at least 2
+   * items to print.  thus, we create a StringBuffer to which we append
+   * all the items.
    */
+  c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
+  code_one_op_w(jvm_new,c->index);
+  code_zero_op(jvm_dup);
 
   if(root->astnode.io_stmt.fmt_list != NULL)
-  {
-    fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
-    
-    pushStringConst(root->astnode.io_stmt.fmt_list->astnode.constant.number);
-
-    if(use_stringbuffer) {
-      c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
-
-      code_one_op_w(jvm_invokespecial, c->index);
-    }
-
-    if(root->astnode.io_stmt.arg_list != NULL)
-      fprintf(curfp, " + ");
-  }
+    inline_format_emit(root);
 
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
   if(gendebug)
@@ -5927,7 +5932,7 @@ write_emit (AST * root)
                   TOSTRING_DESC);
             code_one_op_w(jvm_invokevirtual, c->index);
 
-            c = newMethodref(cur_const_table, JL_STRING, "print", 
+            c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
                   println_descriptor[String]);
             code_one_op_w(jvm_invokevirtual, c->index);
           }
@@ -5937,7 +5942,7 @@ write_emit (AST * root)
         }
         else if(implied_loop) {
           fprintf (curfp, ");\n");
-          c = newMethodref(cur_const_table, JL_STRING, "print", 
+          c = newMethodref(cur_const_table, PRINTSTREAM, "print", 
                 println_descriptor[String]);
           code_one_op_w(jvm_invokevirtual, c->index);
         }
@@ -5945,10 +5950,52 @@ write_emit (AST * root)
     }
   }
 
-  if(implied_loop)
+  if(implied_loop) {
     fprintf (curfp, "\nSystem.out.println();\n");
-  else
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println", "()V");
+    code_one_op_w(jvm_invokevirtual, c->index);
+  }
+  else {
     fprintf (curfp, ");\n");
+    c = newMethodref(cur_const_table, STRINGBUFFER, "toString", 
+          TOSTRING_DESC);
+    code_one_op_w(jvm_invokevirtual, c->index);
+
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println", 
+           println_descriptor[String]);
+    code_one_op_w(jvm_invokevirtual, c->index);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * inline_format_emit                                                        *
+ *                                                                           *
+ * The following is a cheesy workaround to handle the following type of      * 
+ * statement:                                                                *
+ *         write(*, FMT = '( '' Matrix types:'' )' )                         * 
+ * eventually, we should handle any kind of format spec within the           * 
+ * quotes, but for now we just treat the whole thing as a string.            * 
+ * 12/4/97 --Keith                                                           * 
+ *                                                                           * 
+ *****************************************************************************/
+
+void
+inline_format_emit(AST *root)
+{
+  CPNODE *c;
+
+  fprintf(curfp, "\"%s\"", root->astnode.io_stmt.fmt_list->astnode.constant.number);
+    
+  pushStringConst(root->astnode.io_stmt.fmt_list->astnode.constant.number);
+
+  if(root->astnode.io_stmt.arg_list != NULL)
+  {
+    c = newMethodref(cur_const_table, STRINGBUFFER, "<init>", STRBUF_DESC);
+    code_one_op_w(jvm_invokespecial, c->index);
+
+    fprintf(curfp, " + ");
+  }
 }
 
 /*****************************************************************************
@@ -5963,40 +6010,27 @@ write_emit (AST * root)
 void
 write_implied_loop_emit(AST *node)
 {
-  char *loopvar = node->astnode.forloop.counter->astnode.ident.name;
-  char *valSuffix = ".val";
+  fprintf(curfp,"for("); 
+  expr_emit(node->astnode.forloop.counter);
+  fprintf(curfp,"="); 
+  expr_emit(node->astnode.forloop.start);
+  fprintf(curfp,"; ");
+  expr_emit(node->astnode.forloop.counter);
+  fprintf(curfp," <= "); 
+  expr_emit(node->astnode.forloop.stop);
 
-  if(omitWrappers) {
-    if( !isPassByRef(loopvar) )
-      valSuffix = "";
-
-    fprintf(curfp,"for(%s%s = ",loopvar,valSuffix); 
-    expr_emit(node->astnode.forloop.start);
-    fprintf(curfp,"; %s%s <= ",loopvar,valSuffix); 
-    expr_emit(node->astnode.forloop.stop);
-    if(node->astnode.forloop.incr == NULL)
-      fprintf(curfp,"; %s%s++)\n",loopvar,valSuffix); 
-    else
-    {
-      fprintf(curfp,"; %s%s += ",loopvar,valSuffix); 
-      expr_emit(node->astnode.forloop.incr);
-      fprintf(curfp,")\n"); 
-    }
+  if(node->astnode.forloop.incr == NULL) {
+    fprintf(curfp,"; "); 
+    expr_emit(node->astnode.forloop.counter);
+    fprintf(curfp,"++)\n"); 
   }
   else
   {
-    fprintf(curfp,"for(%s.val = ",loopvar); 
-    expr_emit(node->astnode.forloop.start);
-    fprintf(curfp,"; %s.val <= ",loopvar); 
-    expr_emit(node->astnode.forloop.stop);
-    if(node->astnode.forloop.incr == NULL)
-      fprintf(curfp,"; %s.val++)\n",loopvar); 
-    else
-    {
-      fprintf(curfp,"; %s.val += ",loopvar); 
-      expr_emit(node->astnode.forloop.incr);
-      fprintf(curfp,")\n"); 
-    }
+    fprintf(curfp,"; "); 
+    expr_emit(node->astnode.forloop.counter);
+    fprintf(curfp," += "); 
+    expr_emit(node->astnode.forloop.incr);
+    fprintf(curfp,")\n"); 
   }
 
   if(node->astnode.forloop.Label->nodetype == Identifier) {

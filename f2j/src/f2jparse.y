@@ -1870,6 +1870,22 @@ IoExp: Exp
          $6->parent = $$;
          $8->parent = $$;
        }
+     | OP Exp CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
+       {
+         $$ = addnode();
+         $$->nodetype = ImpliedLoop;
+         $$->astnode.forloop.start = $6;
+         $$->astnode.forloop.stop = $8;
+         $$->astnode.forloop.incr = $10;
+         $$->astnode.forloop.counter = $4;
+         $$->astnode.forloop.Label = $2;
+
+         $2->parent = $$;
+         $4->parent = $$;
+         $6->parent = $$;
+         $8->parent = $$;
+         $10->parent = $$;
+       }
 ;
 
 

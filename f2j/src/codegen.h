@@ -49,7 +49,7 @@
 #define JL_SYSTEM "java/lang/System"
 #define PRINTSTREAM "java/io/PrintStream"
 #define OUT_DESC "Ljava/io/PrintStream;"
-#define STRINGBUFFER "java/io/StringBuffer"
+#define STRINGBUFFER "java/lang/StringBuffer"
 #define STRBUF_DESC "(Ljava/lang/String;)V"
 #define TOSTRING_DESC "()Ljava/lang/String;"
 

@@ -40,6 +40,7 @@ SYMTABLE *format_table;
 SYMTABLE *data_table; 
 SYMTABLE *save_table; 
 SYMTABLE *common_table; 
+SYMTABLE *parameter_table; 
 SYMTABLE *function_table; 
 SYMTABLE *java_keyword_table; 
 
@@ -147,6 +148,7 @@ typedef struct ast_node
                   SYMTABLE *data_table; 
                   SYMTABLE *save_table; 
                   SYMTABLE *common_table; 
+                  SYMTABLE *parameter_table; 
 	      }
 	    source;
 
@@ -205,6 +207,7 @@ typedef struct ast_node
 	      {
 		  struct ast_node *arraylist;
 		  char  * leaddim;
+                  int dim;
 		  char *opcode;	/* e.g., opcode = strdup("iload_1"); */
 		  /*  A string records the appropriate method
 		     to invoke on the stack when opcode is

@@ -20,6 +20,8 @@ SYMTABLE *chk_type_table;
 SYMTABLE *chk_external_table;
 SYMTABLE *chk_array_table;
 
+char *methodscan (METHODTAB *, char *);
+
 extern char *returnstring[]; 
 
 void

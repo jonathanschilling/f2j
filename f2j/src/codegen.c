@@ -31,6 +31,7 @@ char * strdup ( const char * );
 char * print_nodetype ( AST * ); 
 char * lowercase ( char * );
 HASHNODE * format_lookup(SYMTABLE *, char *);
+char * methodscan (METHODTAB * , char * );
 void format_name_emit(AST *);
 
 char *progname;
@@ -54,6 +55,7 @@ SYMTABLE *cur_format_table;
 SYMTABLE *cur_data_table; 
 SYMTABLE *cur_save_table; 
 SYMTABLE *cur_common_table; 
+SYMTABLE *cur_param_table; 
 
 /*  
  *   Global variables, a necessary evil when working with
@@ -100,6 +102,7 @@ emit (AST * root)
           cur_data_table = root->astnode.source.data_table;
           cur_save_table = root->astnode.source.save_table;
           cur_common_table = root->astnode.source.common_table;
+          cur_param_table = root->astnode.source.parameter_table;
 
           open_output_file(root->astnode.source.progtype);
           
@@ -921,32 +924,106 @@ subcall_emit(AST *root)
 int
 func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg, int is_ext)
 {
+  HASHNODE *ht;
+
 #if ONED
   if(is_ext)
     fprintf (javafp, ",");
   else
     fprintf (javafp, "[");
 
-  fprintf (javafp, "(");
-  expr_emit (root);
-  fprintf (javafp, ")- 1");
-  if (hashtemp->variable->astnode.ident.leaddim[0] != '*' && root->nextstmt != NULL)
+printf("~looking up %s in the array table\n", arrayname);
+
+  ht = type_lookup(cur_array_table, arrayname);
+  if(ht == NULL)
   {
-    root = root->nextstmt;
-    fprintf (javafp, "+");
+      printf("~Could not find!\n");
+  }
+  else if(ht->variable->astnode.ident.dim == 3)
+  {
+    HASHNODE *p;
+    AST *temp;
+    int D[3], i, offset;
+
+    printf("~found %s, has dim %d\n",ht->variable->astnode.ident.name,
+       ht->variable->astnode.ident.dim);
+
+    for(temp = ht->variable->astnode.ident.arraylist, i = 0;
+        temp != NULL;
+        temp = temp->nextstmt, i++)
+    {
+      if(temp->nodetype == Identifier)
+      {
+printf("looking for %s in parameter table\n",temp->astnode.ident.name);
+
+        p = type_lookup(cur_param_table, temp->astnode.ident.name);
+
+        if(p == NULL)
+          fprintf(stderr,"Cant find %s in parameter table!\n",
+            temp->astnode.ident.name);
+        else 
+        {
+printf("FOUND %s in parameter table\n",temp->astnode.ident.name);
+           
+           if(p->variable->nodetype == Constant)
+             D[i]=atoi(p->variable->astnode.constant.number); 
+           else
+             fprintf(stderr,"Cant determine array dimensions!\n");        
+        }
+      }
+      else if(temp->nodetype == Constant)
+      {
+        D[i] = atoi(temp->astnode.constant.number);
+      }
+      else
+        fprintf(stderr,"Error: unsupported nodetype in 3D array dec.\n");
+    }
+    printf("Ok, the dims are %d,%d,%d\n",D[0],D[1],D[2]);
+
+    offset = 1 + ( (1 + D[1]) * D[0]);
+
+    fprintf (javafp, "(");
+    expr_emit(root);
+    fprintf (javafp, ")");
+    
+    fprintf (javafp, "+((");
+
+    fprintf (javafp, "(");
+    expr_emit(root->nextstmt);
+    fprintf (javafp, ")");
+    
+    fprintf (javafp, "+(");
+
+    fprintf (javafp, "(");
+    expr_emit(root->nextstmt->nextstmt);
+    fprintf (javafp, ")");
+    
+    fprintf (javafp, " * %d)) *%d) - %d",D[1],D[0],offset);
+  }
+  else 
+  {
     fprintf (javafp, "(");
     expr_emit (root);
-    fprintf (javafp, "- 1)");
-    fprintf (javafp, "*");
+    fprintf (javafp, ")- 1");
+
+    if (hashtemp->variable->astnode.ident.leaddim[0] != '*' && root->nextstmt != NULL)
+    {
+      root = root->nextstmt;
+      fprintf (javafp, "+");
+      fprintf (javafp, "(");
+      expr_emit (root);
+      fprintf (javafp, "- 1)");
+      fprintf (javafp, "*");
 #ifdef WRAPPER
-    if(isalpha(hashtemp->variable->astnode.ident.leaddim[0]))
-      fprintf(javafp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
-    else
-      fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+      if(isalpha(hashtemp->variable->astnode.ident.leaddim[0]))
+        fprintf(javafp,  "%s.val", hashtemp->variable->astnode.ident.leaddim);
+      else
+        fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
 #else
-    fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
+      fprintf(javafp,  "%s", hashtemp->variable->astnode.ident.leaddim);
 #endif
-  }  /* Multi dimension.  */
+    }  /* Multi dimension.  */
+  }
 
   if(is_arg)
     fprintf(javafp,  "+ _%s_offset",arrayname);
@@ -1131,15 +1208,26 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
      * name followed by ",0" to signify that the offset into this array
      * is 0.   10/10/97  --Keith 
      */
+
+
     if(root->parent == NULL) 
     {
       fprintf(stderr,"name_emit(): NO PARENT!\n");
     } 
     else 
     {
+ printf("CRAP here we are emitting a scalar: %s,",root->astnode.ident.name);
+ printf("The parent node is : %s\n",print_nodetype(root->parent));
+
       if((root->parent->nodetype == Call) && 
          (type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL))
-        fprintf (javafp, "%s,0", root->astnode.ident.name);
+      {
+        if( type_lookup(cur_args_table,root->astnode.ident.name) != NULL )
+          fprintf (javafp, "%s,_%s_offset", root->astnode.ident.name,
+             root->astnode.ident.name);
+        else
+          fprintf (javafp, "%s,0", root->astnode.ident.name);
+      }
       else 
         fprintf (javafp, "%s", root->astnode.ident.name);
     }

@@ -199,6 +199,7 @@ Fprogram:   Program  Specstmts  Statements End
                 $$->astnode.source.data_table = data_table; 
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
+                $$->astnode.source.parameter_table = parameter_table; 
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -247,6 +248,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.data_table = data_table; 
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
+                $$->astnode.source.parameter_table = parameter_table; 
 
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
@@ -291,6 +293,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.data_table = data_table; 
                 $$->astnode.source.save_table = save_table; 
                 $$->astnode.source.common_table = common_table; 
+                $$->astnode.source.parameter_table = parameter_table; 
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
@@ -856,14 +859,25 @@ String:  STRING
 
 Arraydeclaration: Name OP Arraynamelist CP 
                   {
+                    AST *temp;
+                    int count;
+
 		    /*
-                    $$ = addnode();
-		    $$->nodetype = Identifier;
-		    strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-		    */
+                     *  $$ = addnode();
+                     *  $$->nodetype = Identifier;
+                     *  strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+		     */
+
 		    $$ = $1;
 		    $$->astnode.ident.arraylist = switchem($3);
                   
+                    for(temp = $$->astnode.ident.arraylist, count = 0;
+                        temp != NULL; 
+                        temp=temp->nextstmt)
+                      count++;
+                       
+                    $$->astnode.ident.dim = count;
+   
                     /* leaddim might be a constant, so check for that.  --keith */
                     if($$->astnode.ident.arraylist->nodetype == Constant) {
 		      $$->astnode.ident.leaddim = 
@@ -1157,6 +1171,16 @@ Label: Integer Doloop
 	 $$->nodetype = Write;
 	 $$->astnode.label.number = atoi($1->astnode.constant.number);
          $2->nodetype = Write;
+	 $$->astnode.label.stmt = $2;
+       }
+      | Integer Call
+       {
+         $$ = addnode();
+	 $1->parent = $$; /* 9-4-97 - Keith */
+	 $2->parent = $$; /* 9-4-97 - Keith */
+	 $$->nodetype = Call;
+	 $$->astnode.label.number = atoi($1->astnode.constant.number);
+         $2->nodetype = Call;
 	 $$->astnode.label.stmt = $2;
        }
 ;
@@ -1817,11 +1841,10 @@ Constant:
 Integer :     INTEGER 
              {
                $$ = addnode();
-	       $$->token = INTEGER;
+               $$->token = INTEGER;
                $$->nodetype = Constant;
                strcpy($$->astnode.constant.number, yylval.lexeme);
-	       /*              $$->astnode.constant.type = INTEGER; */
-	       $$->astnode.constant.type = Integer;
+               $$->astnode.constant.type = Integer;
                $$->astnode.constant.sign = 0;
 #ifdef TYPECHECK 
                $$->vartype = Integer;
@@ -1936,15 +1959,30 @@ Pdecs:    Pdec
 
 Pdec:     Assignment
           {
-	    if(debug)
+            AST *temp;
+            int index;
+            char *hashid;
+
+            if(debug)
               printf("Parameter...\n");
-	    $$ = $1;
-	    $$->nodetype = Assignment;
-	    /*
-	    $$->astnode.typeunit.specification = Parameter; */
-	    /* Attach the Assignment node to a list... Hack. */
-	    /*	    $$->astnode.typeunit.declist = $1;  */
-	  }
+
+            $$ = $1;
+            $$->nodetype = Assignment;
+
+            temp = $$->astnode.assignment.rhs;
+
+            hashid = $$->astnode.assignment.lhs->astnode.ident.name;
+            index = hash(hashid) % parameter_table->num_entries;
+            type_insert(&(parameter_table->entry[index]), temp, NULL,
+               $$->astnode.assignment.lhs->astnode.ident.name);
+
+            /*
+             *  $$->astnode.typeunit.specification = Parameter; 
+             *
+             * Attach the Assignment node to a list... Hack.
+             *  $$->astnode.typeunit.declist = $1;  
+             */
+          }
 ;
 
 External:  EXTERNAL Namelist NL
@@ -2296,6 +2334,7 @@ init_tables()
   data_table      = (SYMTABLE *) new_symtable(211);
   save_table      = (SYMTABLE *) new_symtable(211);
   common_table    = (SYMTABLE *) new_symtable(211);
+  parameter_table = (SYMTABLE *) new_symtable(211);
   type_table      = (SYMTABLE *) new_symtable(211);
   intrinsic_table = (SYMTABLE *) new_symtable(211);
   external_table  = (SYMTABLE *) new_symtable(211);

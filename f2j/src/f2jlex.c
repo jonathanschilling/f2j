@@ -43,6 +43,7 @@ BOOLEAN commaseen;
 int lexdebug = 0;
 
 char *tok2str(int);
+char *strdup(const char *);
 
 typedef struct _buffer
   {

@@ -306,6 +306,7 @@ initialize ()
   save_table = (SYMTABLE *) new_symtable (tablesize);
   common_table = (SYMTABLE *) new_symtable (tablesize);
   function_table = (SYMTABLE *) new_symtable (tablesize);
+  parameter_table = (SYMTABLE *) new_symtable (tablesize);
 }
 
 

@@ -245,6 +245,7 @@ void
   inc_stack(int);
 
 int
+  cgPassByRef(char *),
   dl_int_examine(Dlist),
   opWidth(enum _opcode),
   getNextLocal(enum returntype),

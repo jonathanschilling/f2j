@@ -95,6 +95,7 @@ optScalar(AST *root)
   AST *temp;
   HASHNODE *ht;
   SYMTABLE *opt_type_table = root->astnode.source.type_table;
+  SYMTABLE *opt_common_table = root->astnode.source.common_table;
   SYMTABLE *opt_external_table = root->astnode.source.external_table;
 
   /* look up this function name */
@@ -159,7 +160,7 @@ optScalar(AST *root)
   if(ht) {
     ht->variable->astnode.source.descriptor = strdup(
         get_method_descriptor(root->astnode.source.progtype, 
-           opt_type_table, opt_external_table));
+           opt_type_table, opt_common_table, opt_external_table));
   }
 }
 
@@ -1175,7 +1176,8 @@ assign_optimize (AST * root, AST *rptr)
  *****************************************************************************/
 
 char *
-get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
+get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable, 
+  SYMTABLE *etable)
 {
   struct _str * temp_desc = NULL;
   enum returntype returns;
@@ -1240,7 +1242,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *etable)
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-           isPassByRef(tempnode->astnode.ident.name,ttable))
+           isPassByRef(tempnode->astnode.ident.name,ttable,ctable,etable))
         temp_desc = strAppend(temp_desc,
                       wrapped_field_descriptor[returns][isArray]);
       else

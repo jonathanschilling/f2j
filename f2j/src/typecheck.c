@@ -1285,7 +1285,7 @@ blockif_check (AST * root)
     typecheck (root->astnode.blockif.stmts);
 
   for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
-    elseif_check (root->astnode.blockif.elseifstmts);
+    elseif_check (temp);
 
   if (root->astnode.blockif.elsestmts != NULL)
     else_check (root->astnode.blockif.elsestmts);

@@ -652,12 +652,12 @@ Dlist
   build_method_table(char *);
 
 char *
-  get_method_descriptor(AST *, SYMTABLE *, SYMTABLE *);
+  get_method_descriptor(AST *, SYMTABLE *, SYMTABLE *, SYMTABLE *);
 
 struct _str
   * strAppend(struct _str *, char *);
 
 int
-  isPassByRef(char *, SYMTABLE *);
+  isPassByRef(char *, SYMTABLE *, SYMTABLE *, SYMTABLE *);
 
 #endif

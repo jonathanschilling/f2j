@@ -835,7 +835,7 @@ end_emit(AST *root)
   fprintf(curfp,"Dummy.label(\"%s\",999999);\n",cur_filename); 
 
   if (returnname != NULL) {
-    if(omitWrappers && !isPassByRef(returnname,cur_type_table))
+    if(omitWrappers && !cgPassByRef(returnname))
       fprintf (curfp, "return %s;\n", returnname);
     else
       fprintf (curfp, "return %s.val;\n", returnname);
@@ -890,7 +890,7 @@ return_emit()
    */
 
   if(returnname) {
-    if(omitWrappers && !isPassByRef(returnname,cur_type_table))
+    if(omitWrappers && !cgPassByRef(returnname))
       pushVar(cur_unit->vartype, FALSE, cur_filename,
               returnname, field_descriptor[cur_unit->vartype][0],
               0, FALSE);
@@ -1711,7 +1711,7 @@ vardec_emit(AST *root, enum returntype returns)
 
     if(!type_lookup(cur_param_table, root->astnode.ident.name))
     {
-      if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table))
+      if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
         fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
       else
         fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
@@ -1742,7 +1742,7 @@ vardec_emit(AST *root, enum returntype returns)
         bytecode1(jvm_putstatic, c->index);
       }
       else {
-        if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table)) {
+        if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
             fprintf(curfp,"= %s;\n", init_vals[returns]);
         }
         else
@@ -1834,7 +1834,7 @@ print_string_initializer(AST *root)
   tempnode->token = STRING;
   strcpy(tempnode->astnode.constant.number, bytecode_initializer);
 
-  if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table)) {
+  if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
     fprintf(curfp,"= new String(%s)", src_initializer);
     invoke_constructor(JL_STRING, tempnode, STR_CONST_DESC);
   }
@@ -2102,7 +2102,7 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   {
     if(!needs_dec)
     {
-      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name,cur_type_table))
+      if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name))
         fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
       else
         fprintf(curfp,"static %s ", wrapper_returns[ hashtemp->type]);
@@ -2391,7 +2391,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
        * you cannot use the DATA statement to initialize an argument.
        */
 
-      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name,cur_type_table)) {
+      if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = new String(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
           Ctemp->astnode.constant.number);
@@ -2443,7 +2443,7 @@ data_scalar_emit(enum returntype type, AST *Ctemp, AST *Ntemp, int needs_dec)
        * onto the stack.  otherwise, call invoke_constructor() to
        * create the appropriate wrapper object.
        */
-      if(omitWrappers && !isPassByRef(Ntemp->astnode.ident.name,cur_type_table)) {
+      if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = %s;\n",Ntemp->astnode.ident.name,
           Ctemp->astnode.constant.number);
         pushConst(Ctemp);
@@ -2659,6 +2659,12 @@ subcall_emit(AST *root)
 {
   AST *temp;
   char *tempstr;
+  char *desc;
+  CPNODE *c;
+
+  fprintf(stderr,"WARNING: undeclared function call: %s",
+    root->astnode.ident.name);
+  fprintf(stderr," (likely to be emitted wrong)\n");
 
   /* captialize the first letter of the subroutine name to get the 
    * class name. 
@@ -2674,8 +2680,9 @@ subcall_emit(AST *root)
       printf("@@ calling passed-in func %s\n",root->astnode.ident.name);
   }
 
-  fprintf (curfp, "%s.%s", tempstr,root->astnode.ident.name);
+  fprintf(curfp, "%s.%s", tempstr,root->astnode.ident.name);
   temp = root->astnode.ident.arraylist;
+  desc = get_desc_from_arglist(temp);
 
   /* Loop through the argument list and emit each one. */
 
@@ -2689,6 +2696,12 @@ subcall_emit(AST *root)
       if (*temp->astnode.ident.name != '*')
         expr_emit (temp);
     }
+
+  c = newMethodref(cur_const_table, get_full_classname(tempstr),
+                   root->astnode.ident.name, desc);
+
+  bytecode1(jvm_invokestatic, c->index);
+
   fprintf (curfp, ")");
 }
 
@@ -2987,7 +3000,7 @@ printf("done emitting lead_exp...\n");
           exit(-1);
         }
 
-        if(omitWrappers && !isPassByRef(hashtemp->variable->astnode.ident.leaddim,cur_type_table)) {
+        if(omitWrappers && !cgPassByRef(hashtemp->variable->astnode.ident.leaddim)) {
           fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
           pushVar(ht->variable->vartype,is_arg,cur_filename,
                   hashtemp->variable->astnode.ident.leaddim,
@@ -3029,6 +3042,23 @@ printf("done emitting lead_exp...\n");
 
 /*****************************************************************************
  *                                                                           *
+ * cgPassByRef                                                               *
+ *                                                                           *
+ * wrapper around isPassByRef() for codegen routines.   this is just to      *
+ * make the code a bit more compact.  we could have used a #define but they  *
+ * can be annoying sometimes.                                                *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+cgPassByRef(char *name)
+{
+  return isPassByRef(name, cur_type_table, cur_common_table, 
+    cur_external_table);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * isPassByRef                                                               *
  *                                                                           *
  * Given the name of a variable, this function returns                       *
@@ -3039,7 +3069,7 @@ printf("done emitting lead_exp...\n");
  *****************************************************************************/
 
 int
-isPassByRef(char *name, SYMTABLE *ttable)
+isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
 {
   HASHNODE *ht, *ht2, *ht3;
   char *blockName;
@@ -3067,7 +3097,7 @@ isPassByRef(char *name, SYMTABLE *ttable)
        * COMMON variables.
        */
 
-      ht2 = type_lookup(cur_common_table,name);
+      ht2 = type_lookup(ctable,name);
       if(ht2) {
 
         /* since different declarations of the same common block
@@ -3110,6 +3140,9 @@ isPassByRef(char *name, SYMTABLE *ttable)
         return FALSE;
       }
     }
+  }
+  else if(type_lookup(etable, name)) {
+    return FALSE;
   }
   else {
     fprintf(stderr,"isPassByRef(): variable %s not found.\n", name);
@@ -3695,7 +3728,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             printf("found %s in intrinsics or array table\n",
                root->parent->astnode.ident.name);
 
-          if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table)) {
+          if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix,name);
             pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
@@ -3741,7 +3774,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
          * Nothing needs to be done here for bytecode generation.
          */
 
-        if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table))
+        if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
           fprintf (curfp, "%s%s", com_prefix, name);
         else
           fprintf (curfp, "%s%s.val", com_prefix, name);
@@ -3758,7 +3791,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
             !strcmp(global_sub.name, name))
           fprintf (curfp, " %d ", global_sub.val);
         else {
-          if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table))
+          if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
             fprintf (curfp, "%s%s", com_prefix, name);
           else {
             fprintf (curfp, "%s%s.val", com_prefix, name);
@@ -3784,7 +3817,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           pushIntConst(global_sub.val);
         }
         else {
-          if(omitWrappers && !isPassByRef(root->astnode.ident.name,cur_type_table)) {
+          if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
             fprintf (curfp, "%s%s", com_prefix, name);
             pushVar(root->vartype, isArg!=NULL, scalar_class, name, desc,
                typenode->variable->astnode.ident.localvnum, FALSE);
@@ -3893,6 +3926,8 @@ external_emit(AST *root)
   if( (root->parent->nodetype == Call) && 
       (root->astnode.ident.arraylist == NULL))
   {
+    HASHNODE *ht;
+
     if(gendebug)
       printf("unit %s: EXTERNAL has parent CALL\n", unit_name);
    
@@ -3905,10 +3940,32 @@ external_emit(AST *root)
      * instance of whatever class we want to pass.
      */
 
-    if(type_lookup(cur_args_table,root->astnode.ident.name))
+    if(type_lookup(cur_args_table,root->astnode.ident.name)) {
+
+      ht=type_lookup(cur_type_table,root->astnode.ident.name);
+
+      if(ht)
+        gen_load_op(ht->variable->astnode.ident.localvnum, Object);
+      else
+        gen_load_op(0, Object);
+
       fprintf(curfp,"%s", root->astnode.ident.name);
-    else
+    }
+    else {
+      CPNODE *c;
+      char *fc;
+
       fprintf(curfp," new %s() ",tempname);
+
+      fc = get_full_classname(tempname);
+
+      c = cp_find_or_insert(cur_const_table,CONSTANT_Class, fc);
+      bytecode1(jvm_new,c->index);
+      bytecode0(jvm_dup);
+
+      c = newMethodref(cur_const_table,fc, "<init>", "()V");
+      bytecode1(jvm_invokespecial, c->index);
+    }
 
     return;
   }
@@ -5447,7 +5504,7 @@ constructor (AST * root)
     returns = root->astnode.source.returns;
     name = root->astnode.source.name->astnode.ident.name;
 
-    if(omitWrappers && !isPassByRef(name,cur_type_table)) {
+    if(omitWrappers && !cgPassByRef(name)) {
       addField( name, field_descriptor[returns][0]);
       desc = field_descriptor[returns][0];
     }
@@ -5476,7 +5533,7 @@ constructor (AST * root)
     else
     {
       if(omitWrappers && 
-        !isPassByRef(root->astnode.source.name->astnode.ident.name,cur_type_table))
+        !cgPassByRef(root->astnode.source.name->astnode.ident.name))
       {
           fprintf (curfp, "static %s %s = %s;\n\n", 
             returnstring[returns],
@@ -5579,7 +5636,7 @@ constructor (AST * root)
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        isPassByRef(tempnode->astnode.ident.name,cur_type_table))
+        cgPassByRef(tempnode->astnode.ident.name))
         tempstring = wrapper_returns[returns];
       else
         tempstring = returnstring[returns];
@@ -5755,7 +5812,7 @@ emit_interface(AST *root)
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        isPassByRef(tempnode->astnode.ident.name,cur_type_table))
+        cgPassByRef(tempnode->astnode.ident.name))
           tempstring = wrapper_returns[returns];
       else
         tempstring = returnstring[returns];
@@ -5817,7 +5874,7 @@ emit_interface(AST *root)
 
         dl_insert_b(decs, (void *) strdup(decstr));
 
-        if(isPassByRef(tempnode->astnode.ident.name,cur_type_table)) {
+        if(cgPassByRef(tempnode->astnode.ident.name)) {
           /* decstr should already have enough storage for the following string.  */
 
           sprintf(decstr,"MatConv.copyOneDintoTwoD(%s,_%s_copy);",
@@ -5928,7 +5985,7 @@ emit_methcall(FILE *intfp, AST *root)
 
     if(omitWrappers) {
       if((hashtemp->variable->astnode.ident.arraylist == NULL) &&
-        isPassByRef(tempnode->astnode.ident.name,cur_type_table))
+        cgPassByRef(tempnode->astnode.ident.name))
           tempstring = wrapper_returns[returns];
       else
         tempstring = returnstring[returns];
@@ -8036,7 +8093,7 @@ get_method_name(AST *root, BOOLEAN adapter)
 METHODREF *
 get_methodref(AST *node)
 {
-  METHODREF *new_mref = NULL;
+  METHODREF *new_mref = NULL, *srch_mref;
   HASHNODE *ht;
   char *tempname;
 
@@ -8063,8 +8120,8 @@ get_methodref(AST *node)
      * files.
      */
 
-    new_mref = find_method(node->astnode.ident.name, descriptor_table);
-    if(!new_mref)
+    srch_mref = find_method(node->astnode.ident.name, descriptor_table);
+    if(!srch_mref)
     {
       /* if we reach this, then we cannot find this method anywhere.
        * try to guess at the descriptor.
@@ -8074,9 +8131,17 @@ get_methodref(AST *node)
 
       new_mref->classname  = get_full_classname(tempname);
       new_mref->methodname = strdup(node->astnode.ident.name);
-      new_mref->descriptor = 
-         get_desc_from_arglist(node->astnode.ident.arraylist);
+
+      tempname = get_desc_from_arglist(node->astnode.ident.arraylist);
+
+      new_mref->descriptor = (char *)f2jalloc(strlen(tempname) + 10);
+
+      strcpy(new_mref->descriptor,"(");
+      strcat(new_mref->descriptor,tempname);
+      strcat(new_mref->descriptor,")V");  /* assume void return type */
     }
+    else
+      new_mref = srch_mref;
   }
 
   return new_mref;
@@ -8280,14 +8345,27 @@ emit_call_args_known(AST *root, char *desc, BOOLEAN adapter)
     else if(omitWrappers && (temp->nodetype == Constant))
     {
       if(dptr[0] == 'L') {
+        CPNODE *c;
+
         fprintf(curfp,"new %s(", 
            wrapper_returns[get_type_from_field_desc(dptr)]);
-        expr_emit(temp);
-        fprintf(curfp,")"); 
+
+        c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+              full_wrappername[temp->vartype]);
+
+        bytecode1(jvm_new,c->index);
+        bytecode0(jvm_dup);
+
+        c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
+               wrapper_descriptor[temp->vartype]);
+
+        expr_emit (temp);
+        fprintf(curfp,")");
+
+        bytecode1(jvm_invokespecial, c->index);
       }
       else
         expr_emit(temp);
-
     }
     else if(
       ((temp->nodetype == Identifier) &&
@@ -8448,10 +8526,10 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 printf("scalar_arg_emit.. %s\n",temp->astnode.ident.name);
 
   if((dptr[0] == 'L') != 
-     isPassByRef(temp->astnode.ident.name,cur_type_table))
+     cgPassByRef(temp->astnode.ident.name))
   {
 
-    if(isPassByRef(temp->astnode.ident.name,cur_type_table)) {
+    if(cgPassByRef(temp->astnode.ident.name)) {
       struct var_info *ainf;
       BOOLEAN isarg;
 
@@ -8463,6 +8541,9 @@ printf("scalar_arg_emit.. %s\n",temp->astnode.ident.name);
 
       pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
         ainf->desc, ainf->localvar, TRUE);
+    }
+    else if(type_lookup(cur_external_table, temp->astnode.ident.name)) {
+      external_emit(temp);
     }
     else
       fprintf(stderr,"Internal error: %s should not be primitive\n",
@@ -8495,17 +8576,35 @@ void
 wrapped_arg_emit(AST *temp, char *dptr)
 {
   enum returntype vtype = get_type_from_field_desc(dptr);
+  CPNODE *c;
 
   /* 
    * Otherwise, use wrappers.
    */
   if(omitWrappers) {
-    if(dptr[0] == 'L')
+    if(dptr[0] == 'L') {
       fprintf(curfp,"new %s(", wrapper_returns[vtype]);
+      c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+            full_wrappername[temp->vartype]);
+
+      bytecode1(jvm_new,c->index);
+      bytecode0(jvm_dup);
+
+      c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
+             wrapper_descriptor[temp->vartype]);
+    }
   }
   else
   {
     fprintf(curfp,"new %s(", wrapper_returns[vtype]);
+    c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+          full_wrappername[temp->vartype]);
+
+    bytecode1(jvm_new,c->index);
+    bytecode0(jvm_dup);
+
+    c = newMethodref(cur_const_table,full_wrappername[temp->vartype], "<init>",
+           wrapper_descriptor[temp->vartype]);
   }
 
   if(gendebug) {
@@ -8521,16 +8620,21 @@ wrapped_arg_emit(AST *temp, char *dptr)
 
   expr_emit(temp);
 
-  if( temp->vartype != vtype )
+  if( temp->vartype != vtype ) {
     fprintf(curfp,")");
+    bytecode0(typeconv_matrix[temp->vartype][vtype]);
+  }
 
   if(omitWrappers) {
-    if(dptr[0] == 'L')
+    if(dptr[0] == 'L') {
       fprintf(curfp,")");
+      bytecode1(jvm_invokespecial, c->index);
+    }
   }
   else
   {
     fprintf(curfp,")");
+    bytecode1(jvm_invokespecial, c->index);
   }
 }
 
@@ -9024,7 +9128,7 @@ LHS_bytecode_emit(AST *root)
      * on whether the variable is wrapped or not.
      */
     if(omitWrappers && 
-       !isPassByRef(root->astnode.assignment.lhs->astnode.ident.name,cur_type_table)) 
+       !cgPassByRef(root->astnode.assignment.lhs->astnode.ident.name)) 
     {
       /* we know that this cannot be a local variable because otherwise it
        * would be pass by reference, given that it is the LHS of an

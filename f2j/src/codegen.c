@@ -1341,11 +1341,133 @@ find_commonblock(char *cblk_name, Dlist dt)
 
   sprintf(temp_commonblockname, "%s%s", CB_PREFIX, cblk_name);
 
+printf("#@#@ looking for temp_commonblockname = '%s'\n",temp_commonblockname);
   mtmp = find_method(temp_commonblockname, dt);
 
   f2jfree(temp_commonblockname, strlen(temp_commonblockname)+1);
 
   return mtmp;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ *  skipCommonVarEntry                                                       *
+ *                                                                           *
+ *  This function returns a pointer to the next common block variable in     *
+ *  the common block entry of an .f2j file.                                  *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+skipCommonVarEntry(char *p)
+{
+  if(!p || (*p == '\0')) return NULL;
+ 
+  p++;  /* skip over CB_DELIMITER */
+ 
+  while(*p != CB_DELIMITER)
+    if(*p == '\0')
+      return NULL;
+    else
+      p++;
+ 
+  return p;
+}
+ 
+/*****************************************************************************
+ *                                                                           *
+ *  getVarDescFromCommonEntry                                                *
+ *                                                                           *
+ *  This function returns the descriptor from a common block entry obtained  *
+ *  an .f2j file.                                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getVarDescFromCommonEntry(const char *p)
+{
+  char *newdesc = (char *) f2jalloc(strlen(p) + 1);  /* upper bound on len */
+  char *np = newdesc;
+ 
+  p++;  /* skip over CB_DELIMITER */
+ 
+  while((*p != '\0') && (*p != CB_SEPARATOR))
+    *np++ = *p++;
+ 
+  *np = '\0';
+ 
+  return newdesc;
+}
+ 
+/*****************************************************************************
+ *                                                                           *
+ *  getVarNameFromCommonEntry                                                *
+ *                                                                           *
+ *  This function returns the name from a common block entry obtained from   *
+ *  an .f2j file.                                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+getVarNameFromCommonEntry(const char *p)
+{
+  char *newdesc = (char *) f2jalloc(strlen(p) + 1);  /* upper bound on len */
+  char *np = newdesc;
+ 
+  while((*p != '\0') && (*p++ != CB_SEPARATOR))
+    /* spin */ ;
+ 
+  while((*p != '\0') && (*p != CB_DELIMITER))
+    *np++ = *p++;
+ 
+  *np = '\0';
+ 
+  return newdesc;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ *  assign_merged_names                                                      *
+ *                                                                           *
+ *  This function loops through all the variables in a given COMMON block    *
+ *  declaration and assigns the 'merged_name' and 'descriptor' fields to     *
+ *  the values found in the .f2j files.  This allows having a COMMON block   *
+ *  split across multiple Java packages.  Our current need for this feature  *
+ *  stems from the fact that to allow for a user-specifiable XERBLA error    *
+ *  reporting routine, we had to put it in another package.  Since the       *
+ *  LAPACK testers use their own XERBLA which contains a COMMON block that   *
+ *  is shared with the rest of the tester source, we needed this feature     *
+ *  in order to run the "error-exits" tests.     3/14/01 --keith             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_merged_names(AST *Ctemp, METHODREF *mtmp)
+{
+  HASHNODE *hashtemp;
+  AST *Ntemp;
+  char *dp;
+
+  dp = mtmp->descriptor;
+
+  if(!dp) return;
+
+  for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
+  {
+    if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))==NULL)
+    {
+      if(gendebug)
+        printf("assign_merged_names: Var Not Found\n");
+      continue;
+    }
+
+    hashtemp->variable->astnode.ident.merged_name = 
+      getVarNameFromCommonEntry(dp);
+    hashtemp->variable->astnode.ident.descriptor = 
+      getVarDescFromCommonEntry(dp);
+    
+    dp = skipCommonVarEntry(dp);
+  }
 }
 
 /*****************************************************************************
@@ -1423,6 +1545,8 @@ common_emit(AST *root)
       if(mtmp) {
         printf("common_emit.3: %s,%s,%s\n", mtmp->classname, mtmp->methodname,
            mtmp->descriptor);
+        
+        assign_merged_names(Ctemp, mtmp);
         continue;
       }
 
@@ -3810,18 +3934,26 @@ get_common_prefix(char *varname)
 
   ht = type_lookup(cur_common_table, varname);
 
+printf("in get_common_prefix, name = '%s'\n",varname);
+
   if(ht) {
-    cprefix = (char *) f2jalloc(
-       strlen(ht->variable->astnode.ident.commonBlockName) +
-       strlen(prefix) + 3);
+printf("commonblockname = '%s'\n",ht->variable->astnode.ident.commonBlockName);
 
-    sprintf(cprefix,"%s_%s.", prefix,
-      ht->variable->astnode.ident.commonBlockName);
-  }
-  else if((mtmp = find_commonblock(varname, descriptor_table)) != NULL) {
-    cprefix = (char *) f2jalloc( strlen(mtmp->classname) + 3);
+    if((mtmp = find_commonblock(ht->variable->astnode.ident.commonBlockName,
+        descriptor_table)) != NULL)
+    {
+      cprefix = (char *) f2jalloc( strlen(mtmp->classname) + 3);
 
-    sprintf(cprefix,"%s.", mtmp->classname);
+      sprintf(cprefix,"%s.", mtmp->classname);
+    }
+    else {
+      cprefix = (char *) f2jalloc(
+         strlen(ht->variable->astnode.ident.commonBlockName) +
+         strlen(prefix) + 3);
+
+      sprintf(cprefix,"%s_%s.", prefix,
+        ht->variable->astnode.ident.commonBlockName);
+    }
   }
   else
     cprefix = strdup("");  /* dup so we can free() later */

@@ -326,11 +326,8 @@ javaheader (FILE * fp, char *reflect)
   fprintf(fp," *  numerical software repository.\n *\n");
   fprintf(fp," *  Original authorship for the BLAS and LAPACK numerical\n");
   fprintf(fp," *  routines may be found in the Fortran source, available at\n");
-  fprintf(fp," *  www.netlib.org.\n *\n");
+  fprintf(fp," *  http://www.netlib.org.\n *\n");
   fprintf(fp," *  Fortran input file: %s\n *\n", inputfilename);
-  fprintf(fp," *  The f2j compiler code was written by\n");
-  fprintf(fp," *  David M. Doolin (doolin@cs.utk.edu) and\n");
-  fprintf(fp," *  Keith  Seymour (seymour@cs.utk.edu)\n");
   fprintf(fp," */\n\n");
 
   if(package_name != NULL)

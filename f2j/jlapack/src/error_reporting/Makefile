@@ -9,6 +9,10 @@ $(ROOT)/$(ERR_IDX): err.f
 	$(F2J) $(F2JFLAGS) $? > /dev/null
 	cd $(OUTDIR); $(JAR) cvf ../$(ERR_JAR) `find . -name "*.class"`
 
+nojar: err.f
+	$(F2J) $(F2JFLAGS) $? > /dev/null
+
+
 javasrc:
 	$(MAKE) -f Makefile_javasrc
 

@@ -4,7 +4,7 @@ ROOT=../..
 include $(ROOT)/make.def
 
 $(ROOT)/$(ERR_IDX): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) err.f
-	$(MAKE)
+	$(MAKE) nojar
 	/bin/rm -f `find . -name "*.class"`
 	mkdir -p $(JAVASRC_OUTDIR)
 	$(JAVAC) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(ERR_PDIR)/*.java

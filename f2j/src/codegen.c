@@ -7477,6 +7477,8 @@ skipToken(char *str)
  * Horribly kludged routines with massive loop of                            *
  * duplicated code.                                                          *
  *                                                                           *
+ * ...cleaned this routine up somewhat.  --kgs 5/5/00                        *
+ *                                                                           *
  *****************************************************************************/
 
 void
@@ -7507,12 +7509,14 @@ assign_local_vars(AST * root)
       exit(-1);
     }
 
-    /* Check to see if it is a double, but make sure it isn't
-     * an array of doubles. 
+    /* Check to see if it is a double or if it is an array declaration.
+     * Doubles take up two stack entries, so we increment by 2.  Arrays
+     * only take up one stack entry, but we add an integer offset 
+     * parameter which takes up an additional entry.
      */
 
-    if (hashtemp->type == Double &&
-        hashtemp->variable->astnode.ident.arraylist == NULL)
+    if (hashtemp->type == Double ||
+        hashtemp->variable->astnode.ident.arraylist != NULL)
     {
       hashtemp->variable->astnode.ident.localvnum = localnum;
       if(gendebug)

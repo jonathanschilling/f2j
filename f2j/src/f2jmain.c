@@ -15,12 +15,16 @@ main (int argc, char **argv)
        a better way to do this using char *.  */
     char classname[130];
     extern char *inputfilename;
+    extern char *java_reserved_words[];
     extern FILE *ifp;
     extern FILE *jasminfp;
 /*    extern FILE *javafp;  9-11-97, Keith*/
+    AST *addnode();
     extern FILE *vcgfp;
     extern int lineno;
     extern int statementno;
+    int i, index;
+    AST *temp;
 
     char *truncfilename;
     char sourcename[130];
@@ -158,6 +162,18 @@ main (int argc, char **argv)
       exit(1);
     }
 #endif
+
+    /* the Java keywords are stored in a list of strings.  Store them 
+       all in a hash table for quick lookup. */
+
+    java_keyword_table  = (SYMTABLE *) new_symtable (211);
+    temp = addnode();
+ 
+    for(i=0;java_reserved_words[i] != NULL; i++) {
+      index = hash(java_reserved_words[i]) % java_keyword_table->num_entries;
+      type_insert(&(java_keyword_table->entry[index]),temp,0,
+        java_reserved_words[i]);
+    }
 
     yyparse ();
 

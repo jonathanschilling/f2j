@@ -136,6 +136,7 @@ METHODTAB intrinsic_toks[]=
   {"SQRT", "Math.sqrt"},
   {"DSQRT", "Math.sqrt"},
   {"MOD", "(int) Math.IEEEremainder"},
+  {"DBLE", "(double)"},
   {NULL , NULL}    /*  Ends a scanning loop.  See comment above. */
 };
 
@@ -170,4 +171,20 @@ METHODTAB pass_by_refs[]=
   {"WORK", "work.val"},
   {"INFO", "info.val"},
   NULL      /* Ends a scanning loop.  See comment above. */
+};
+
+char *java_reserved_words[] = 
+{
+     "abstract" ,    "boolean" ,   "break" ,     "byte" ,   "byvalue" ,
+         "cast" ,      "catch" ,    "char" ,    "class" ,     "const" ,  
+      "default" ,         "do" ,  "double" ,     "else" ,   "extends" ,    
+        "final" ,    "finally" ,   "float" ,      "for" ,    "future" ,   
+         "goto" , "implements",       "if" ,   "import" ,     "inner" ,
+          "int" ,  "interface" ,    "long" ,   "native" ,       "new" ,      
+     "operator" ,      "outer" , "package" ,  "private" , "protected" ,    
+         "rest" ,     "return" ,   "short" ,   "static" ,     "super" ,    
+ "synchronized" ,       "this" ,   "throw" ,"transient" ,      "true" ,       
+          "var" ,       "void" ,"volatile" ,    "while" ,      "null" ,
+     "continue" ,      "false" ,    "case" ,  "generic" ,"instanceof" ,
+       "public" ,     "switch" ,     "try" ,     0
 };

@@ -329,7 +329,8 @@ yylex ()
         if((firsttoken == INTEGER) && (format_stmt)) {
           if(lexdebug)
             printf("****the spec is '%s'\n", yylval.lexeme);
-          if(yylval.lexeme[0] == 'X') {
+          if((yylval.lexeme[0] == 'X') ||
+             (yylval.lexeme[0] == 'P')) {
             char *tmp;
 
             token = EDIT_DESC;

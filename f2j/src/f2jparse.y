@@ -15,6 +15,7 @@ extern BOOLEAN typedecs;
 /* Some of these are probably not necessary.  Need to
    run gcc with -Wall to filter unused variables. */
 char *strdup(const char *);
+char *strcat(char *, const char*);
 void yyerror(char *);
 AST * addnode();
 AST * switchem();
@@ -26,6 +27,7 @@ char * lowercase(char * );
 void start_vcg();
 void emit();
 void jas_emit();
+void init_tables();
 AST * tempnode;
 AST * headnode;
 AST * localvarlist; 
@@ -115,10 +117,33 @@ in alphabetic order. */
 /*  The new stuff is here.  */
 F2java:   Sourcecodes
           {
+            AST *temp;
+
             if(debug)
               printf("F2java -> Sourcecodes\n");
 	    $$ = addnode();
 	    $$ = switchem($1);
+
+#if VCG
+            if(emittem) start_vcg($$);
+#endif
+
+            for(temp=$$;temp!=NULL;temp=temp->nextstmt)
+            {
+              if(JAS) {
+                assign_local_vars(localvarlist); 
+                assign_local_vars( $1->astnode.source.typedecs );
+                assign(temp); 
+                if(emittem) jas_emit(temp);
+              }else {
+                if(emittem) {
+#ifdef TYPECHECK
+                  typecheck(temp);
+#endif
+                  emit(temp);
+                }
+              }
+            }
           }
 ;
 
@@ -144,31 +169,16 @@ Sourcecode :    Fprogram
                 { 
                   if(debug)
                     printf("Sourcecode -> Fprogram\n"); 
-                  array_table  = (SYMTABLE *) new_symtable (211);
-                  format_table = (SYMTABLE *) new_symtable (211);
-                  data_table   = (SYMTABLE *) new_symtable (211);
-                  save_table   = (SYMTABLE *) new_symtable (211);
-                  common_table = (SYMTABLE *) new_symtable (211);
                 }
               | Fsubroutine
                 { 
                   if(debug)
                     printf("Sourcecode -> Fsubroutine\n"); 
-                  array_table  = (SYMTABLE *) new_symtable (211);
-                  format_table = (SYMTABLE *) new_symtable (211);
-                  data_table   = (SYMTABLE *) new_symtable (211);
-                  save_table   = (SYMTABLE *) new_symtable (211);
-                  common_table = (SYMTABLE *) new_symtable (211);
                 }
               | Ffunction
                 { 
                   if(debug)
                     printf("Sourcecode -> Ffunction\n"); 
-                  array_table  = (SYMTABLE *) new_symtable (211);
-                  format_table = (SYMTABLE *) new_symtable (211);
-                  data_table   = (SYMTABLE *) new_symtable (211);
-                  save_table   = (SYMTABLE *) new_symtable (211);
-                  common_table = (SYMTABLE *) new_symtable (211);
                 }
 ;
 
@@ -179,6 +189,17 @@ Fprogram:   Program  Specstmts  Statements End
 		$2 = switchem($2);
         	type_hash($2); 
                 $$ = addnode();
+
+                $$->astnode.source.type_table = type_table;
+                $$->astnode.source.external_table = external_table;
+                $$->astnode.source.intrinsic_table = intrinsic_table;
+                $$->astnode.source.args_table = args_table;
+                $$->astnode.source.array_table = array_table; 
+                $$->astnode.source.format_table = format_table; 
+                $$->astnode.source.data_table = data_table; 
+                $$->astnode.source.save_table = save_table; 
+                $$->astnode.source.common_table = common_table; 
+
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
 	        $3->parent = $$; /* 9-4-97 - Keith */
@@ -192,30 +213,18 @@ Fprogram:   Program  Specstmts  Statements End
                 /* a PROGRAM has no args, so set the symbol table
                    to NULL */
                 args_table = NULL;  
-
-#if VCG
-                if(emittem) start_vcg($$);
-#endif
-
-                if(JAS) {
-		  assign_local_vars(localvarlist); 
-		  assign_local_vars($2); 
-                  assign($$); 
-                  if(emittem) jas_emit($$);
-                }else {
-                  if(emittem) {
-#ifdef TYPECHECK
-                    typecheck($$);
-#endif
-                    emit($$);
-                  }
-                }
               }
 ;
 
 
 Fsubroutine: Subroutine Specstmts Statements End 
               {
+                HASHNODE *ht;
+                AST *temp;
+                char *hashid;
+                int index;
+                extern char * returnstring[];
+
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
                 $$ = addnode();
@@ -227,35 +236,62 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.progtype = $1;
 		$2 = switchem($2);
         	type_hash($2); 
+
+
+                $$->astnode.source.type_table = type_table;
+                $$->astnode.source.external_table = external_table;
+                $$->astnode.source.intrinsic_table = intrinsic_table;
+                $$->astnode.source.args_table = args_table;
+                $$->astnode.source.array_table = array_table; 
+                $$->astnode.source.format_table = format_table; 
+                $$->astnode.source.data_table = data_table; 
+                $$->astnode.source.save_table = save_table; 
+                $$->astnode.source.common_table = common_table; 
+
                 $$->astnode.source.typedecs = $2;
                 $4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
-#if VCG
-                if(emittem) start_vcg($$);
-#endif
-                if(JAS) {
-		  assign_local_vars(localvarlist);
-		  assign_local_vars($2);
-                  assign($$);
-                  if(emittem) jas_emit($$);
-                }else {
-                  if(emittem) {
-#ifdef TYPECHECK
-                    typecheck($$);
-#endif
-                    emit($$);
+
+                for(temp=$1->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
+                {
+                  if((ht=type_lookup(type_table,temp->astnode.ident.name)) != NULL)
+                  {
+                    temp->vartype=ht->variable->vartype;
+                    temp->astnode.ident.arraylist=ht->variable->astnode.ident.arraylist;
                   }
                 }
+
+                hashid = $1->astnode.source.name->astnode.ident.name;
+                index = hash(hashid) % function_table->num_entries;
+                type_insert(&(function_table->entry[index]), $1, NULL,
+                   $1->astnode.source.name->astnode.ident.name);
               }
 ;
 
 Ffunction:   Function Specstmts Statements  End
               {
+                HASHNODE *ht;
+                AST *temp;
+                char *hashid;
+                int index;
+                extern char * returnstring[];
+
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
                 $2 = switchem($2);
 		type_hash($2);
                 $$ = addnode();
+
+                $$->astnode.source.type_table = type_table;
+                $$->astnode.source.external_table = external_table;
+                $$->astnode.source.intrinsic_table = intrinsic_table;
+                $$->astnode.source.args_table = args_table;
+                $$->astnode.source.array_table = array_table; 
+                $$->astnode.source.format_table = format_table; 
+                $$->astnode.source.data_table = data_table; 
+                $$->astnode.source.save_table = save_table; 
+                $$->astnode.source.common_table = common_table; 
+
 	        $1->parent = $$; /* 9-4-97 - Keith */
 	        $2->parent = $$; /* 9-4-97 - Keith */
 	        $3->parent = $$; /* 9-4-97 - Keith */
@@ -266,22 +302,19 @@ Ffunction:   Function Specstmts Statements  End
 		$4->prevstmt = $3;
                 $$->astnode.source.statements = switchem($4);
 
-#if VCG
-                if(emittem) start_vcg($$);
-#endif
-                if(JAS) {
-		  assign_local_vars(localvarlist);
-		  assign_local_vars($2);
-                  assign($$);
-                  if(emittem) jas_emit($$);
-                }else {
-                  if(emittem) {
-#ifdef TYPECHECK
-                    typecheck($$);
-#endif
-                    emit($$);
+                for(temp=$1->astnode.source.args;temp!=NULL;temp=temp->nextstmt)
+                {
+                  if((ht=type_lookup(type_table,temp->astnode.ident.name)) != NULL)
+                  {
+                    temp->vartype=ht->variable->vartype;
+                    temp->astnode.ident.arraylist=ht->variable->astnode.ident.arraylist;
                   }
                 }
+
+                hashid = $1->astnode.source.name->astnode.ident.name;
+                index = hash(hashid) % function_table->num_entries;
+                type_insert(&(function_table->entry[index]), $1, NULL,
+                  $1->astnode.source.name->astnode.ident.name);
               }
 ;
 
@@ -296,6 +329,7 @@ Program:      PROGRAM Name NL
                  $$->nodetype = Program;
                  $$->token = PROGRAM;
                  $$->astnode.source.args = NULL;
+                 init_tables();
               }
 ;
 
@@ -315,10 +349,6 @@ Subroutine:   SUBROUTINE Name Functionargs NL
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
                  $$->astnode.source.args = switchem($3);
-                 hashid = $$->astnode.source.name->astnode.ident.name;
-                 index = hash(hashid) % function_table->num_entries;
-                 type_insert(&(function_table->entry[index]), $$, NULL,
-                    $$->astnode.source.name->astnode.ident.name);
               }
 ;
 
@@ -341,11 +371,6 @@ Function:  Type FUNCTION Name Functionargs NL
              $$->vartype = $1;
 #endif
              $$->astnode.source.args = switchem($4);
-
-             hashid = $$->astnode.source.name->astnode.ident.name;
-             index = hash(hashid) % function_table->num_entries;
-             type_insert(&(function_table->entry[index]), $$, NULL,
-               $$->astnode.source.name->astnode.ident.name);
            }
 ; 
 
@@ -667,7 +692,8 @@ Functionargs:   OP Namelist CP
                   if(JAS)
   		    localvarlist = switchem($2);
                   else
-		    $2 = switchem($2);  
+	 	    $2 = switchem($2);  
+                  init_tables();
 		  arg_table_load($2);
                   $$ = $2;
                 }
@@ -762,19 +788,33 @@ Name:    NAME
            $$=addnode();
 	   $$->token = NAME;
            $$->nodetype = Identifier;
-           strcpy($$->astnode.ident.name, strdup(lowercase(yylval.lexeme)));
+
+           if(type_lookup(java_keyword_table,lowercase(yylval.lexeme)))
+           {
+             char tmp[strlen(yylval.lexeme) + 2];
+  
+             tmp[0] = tolower(yylval.lexeme[0]);
+             strcpy(tmp+1,lowercase(yylval.lexeme));
+
+             strcpy($$->astnode.ident.name, tmp);
+           }
+           else
+             strcpy($$->astnode.ident.name, strdup(lowercase(yylval.lexeme)));
+
 #ifdef TYPECHECK
-    hashtemp = type_lookup(type_table, $$->astnode.ident.name);
-    if(hashtemp)
-      $$->vartype = hashtemp->variable->vartype;
-    else
-      $$->vartype = -1;
+           hashtemp = type_lookup(type_table, $$->astnode.ident.name);
+           if(hashtemp)
+             $$->vartype = hashtemp->variable->vartype;
+           else
+             $$->vartype = -1;
 #endif
          }
+
 /*
        | Char {$$ = $1;}
        | String {$$ = $1;}
 */
+
 ;
 
 /*
@@ -827,10 +867,10 @@ Arraydeclaration: Name OP Arraynamelist CP
                     /* leaddim might be a constant, so check for that.  --keith */
                     if($$->astnode.ident.arraylist->nodetype == Constant) {
 		      $$->astnode.ident.leaddim = 
-                        strdup ($$->astnode.ident.arraylist->astnode.constant.number);
+                       strdup ($$->astnode.ident.arraylist->astnode.constant.number);
                     } else {
 		      $$->astnode.ident.leaddim = 
-                          strdup ($$->astnode.ident.arraylist->astnode.ident.name);
+                       strdup ($$->astnode.ident.arraylist->astnode.ident.name);
                     }
 		    store_array_var($$);
                   }
@@ -840,7 +880,7 @@ Arraynamelist:    Arrayname
                     AST *temp;
 
                     temp = addnode();
-                    temp->nodetype = Typedec;
+                    temp->nodetype = ArrayDec;
                     $1->parent = temp;
 
                     $$=$1;
@@ -938,7 +978,12 @@ Arrayindex:    Name {$$=$1;}
 Arrayindexop:  Arrayindex
              | OP Arrayindexop CP 
                { 
-                  $$=$2;
+                  $$ = addnode(); 
+                  $2->parent = $$;
+                  $$->nodetype = Expression;
+                  $$->astnode.expression.parens = TRUE;
+                  $$->astnode.expression.rhs = $2;
+                  $$->astnode.expression.lhs = 0;
                }       
              | Arrayindexop PLUS Arrayindexop
                {
@@ -1486,6 +1531,8 @@ SubstringOp: Name OP Exp COLON Exp CP
                 printf("SubString!\n");
               $$ = addnode();
               $1->parent = $$;
+              $3->parent = $$;
+              $5->parent = $$;
               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
               $$->nodetype = Substring;
               $$->astnode.ident.arraylist = $3;
@@ -1559,14 +1606,14 @@ Logicalop:  Exp AND Exp
 Relationalop: Exp RELOP {temptok = yylval.tok;} Exp
               {
                 $$=addnode();
-		  $1->expr_side = left;
-		  $4->expr_side = right;
-		  $1->parent = $$;
-		  $4->parent = $$;
+                $1->expr_side = left;
+                $4->expr_side = right;
+                $1->parent = $$;
+                $4->parent = $$;
                 $$->nodetype = Relationalop;
                 $$->token = temptok;
-		  $$->astnode.expression.lhs = $1;
-		  $$->astnode.expression.rhs = $4;
+                $$->astnode.expression.lhs = $1;
+                $$->astnode.expression.rhs = $4;
               }
 ;
 
@@ -1985,9 +2032,6 @@ type_hash(AST * types)
   int return_type, index;
   char * hashid;
   extern SYMTABLE * type_table, * intrinsic_table, * external_table; 
-  type_table = (SYMTABLE*)new_symtable(211);
-  intrinsic_table = (SYMTABLE*)new_symtable(211);
-  external_table = (SYMTABLE*)new_symtable(211);
    
    /* Outer for loop traverses typestmts, inner for()
       loop traverses declists. Code for stuffing symbol table is
@@ -2086,8 +2130,6 @@ arg_table_load(AST * arglist)
    int index;
    AST * temp;
    extern SYMTABLE * args_table;
-
-   args_table = (SYMTABLE*)new_symtable(211);
 
    temp = arglist;
 
@@ -2244,4 +2286,18 @@ store_array_var(AST * var)
 
   if(debug)
     printf("Array name: %s\n", var->astnode.ident.name);
+}
+
+void
+init_tables()
+{
+  array_table     = (SYMTABLE *) new_symtable(211);
+  format_table    = (SYMTABLE *) new_symtable(211);
+  data_table      = (SYMTABLE *) new_symtable(211);
+  save_table      = (SYMTABLE *) new_symtable(211);
+  common_table    = (SYMTABLE *) new_symtable(211);
+  type_table      = (SYMTABLE *) new_symtable(211);
+  intrinsic_table = (SYMTABLE *) new_symtable(211);
+  external_table  = (SYMTABLE *) new_symtable(211);
+  args_table      = (SYMTABLE *) new_symtable(211);
 }

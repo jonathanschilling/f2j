@@ -160,28 +160,26 @@ localvarnum++;
 HASHNODE *
 type_lookup (SYMTABLE * table, char *id)
 {
-    int index;
-    HASHNODE *hash_entry;
+  int index;
+  HASHNODE *hash_entry;
 
-    if(table == NULL) {
+  if(table == NULL) {
+    return NULL;
+  }
+
+  index = hash (id) % table->num_entries;
+
+  hash_entry = search_hashlist (table->entry[index], id);
+  if (hash_entry == NULL)
+  {
+    if(symdebug)printf ("Not in table.\n"); 
       return NULL;
-    }
-
-    index = hash (id) % table->num_entries;
-
-    hash_entry = search_hashlist (table->entry[index], id);
-    if (hash_entry == NULL)
-      {
-	  if(symdebug)printf ("Not in table.\n"); 
-	  return NULL;
-      }
-    /*  Attempt to return the value pointed top by 
-       "type". */
-    else
-      {
-      	if(symdebug)printf("In table.\n");
-	return (hash_entry);
-      }
+  }
+  else   /*  Attempt to return the value pointed to by "type". */
+  {
+    if(symdebug)printf("In table.\n");
+      return (hash_entry);
+  }
 }
 
 HASHNODE * format_lookup(SYMTABLE *table, char *label)

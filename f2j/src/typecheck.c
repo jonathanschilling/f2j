@@ -12,9 +12,13 @@ char * print_nodetype ( AST * );
 void elseif_check(AST *);
 void else_check (AST *);
 
-int checkdebug = 0;
+int checkdebug = 1;
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
+
+SYMTABLE *chk_type_table;
+SYMTABLE *chk_external_table;
+SYMTABLE *chk_array_table;
 
 extern char *returnstring[]; 
 
@@ -31,6 +35,10 @@ typecheck (AST * root)
     case Progunit:
       if (checkdebug)
         printf ("typecheck(): Source.\n");
+
+      chk_type_table = root->astnode.source.type_table;
+      chk_external_table = root->astnode.source.external_table;
+      chk_array_table = root->astnode.source.array_table;
 
       typecheck (root->astnode.source.progtype);
       typecheck (root->astnode.source.typedecs);
@@ -146,9 +154,9 @@ name_check (AST * root)
 {
   AST *temp;
   HASHNODE *hashtemp;
+  HASHNODE *ht;
   char *javaname, * tempname;
   extern METHODTAB intrinsic_toks[];
-  extern SYMTABLE *array_table;
 
   if (checkdebug)
     printf("here checking name %s\n",root->astnode.ident.name);
@@ -159,7 +167,7 @@ name_check (AST * root)
   /* If the name is in the external table, then check to see if
      it is an intrinsic function instead (e.g. SQRT, ABS, etc).  */
 
-  if (type_lookup (external_table, root->astnode.ident.name) != NULL)
+  if (type_lookup (chk_external_table, root->astnode.ident.name) != NULL)
     external_check(root);  /* handles LSAME, LSAMEN */
   else if( methodscan (intrinsic_toks, tempname) != NULL) 
     intrinsic_check(root);
@@ -176,15 +184,19 @@ name_check (AST * root)
         break;
       case NAME:
       default:
-        hashtemp = type_lookup (array_table, root->astnode.ident.name);
+        hashtemp = type_lookup (chk_array_table, root->astnode.ident.name);
 
+        printf("@# looking for %s in the type table\n", root->astnode.ident.name);
+        if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL )
+        {
+          printf("@# Found!\n");
+          root->vartype = ht->variable->vartype;
+        }
+        else
+          printf("@# NOt Found!\n");
 
         if (root->astnode.ident.arraylist == NULL)
-        {
-          HASHNODE *ht;
-          if( (ht = type_lookup(type_table,root->astnode.ident.name)) != NULL )
-            root->vartype = ht->variable->vartype;
-        }
+          ; /* nothin for now */
         else if (hashtemp != NULL)
           array_check(root, hashtemp);
         else

@@ -41,6 +41,7 @@ SYMTABLE *data_table;
 SYMTABLE *save_table; 
 SYMTABLE *common_table; 
 SYMTABLE *function_table; 
+SYMTABLE *java_keyword_table; 
 
 int locals;
 int stacksize;
@@ -121,6 +122,7 @@ typedef struct ast_node
             Stop,
             ComputedGoto,
             ArrayAccess,
+            ArrayDec,
 	    Unimplemented
 	}
       nodetype;
@@ -136,6 +138,15 @@ typedef struct ast_node
 		  struct ast_node *statements;
 		  struct s_table *nametable;
 		  struct ast_node *args;
+                  SYMTABLE *type_table;
+                  SYMTABLE *external_table;
+                  SYMTABLE *intrinsic_table;
+                  SYMTABLE *args_table;
+                  SYMTABLE *array_table; 
+                  SYMTABLE *format_table; 
+                  SYMTABLE *data_table; 
+                  SYMTABLE *save_table; 
+                  SYMTABLE *common_table; 
 	      }
 	    source;
 

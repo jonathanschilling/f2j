@@ -116,6 +116,7 @@ KWDTAB tab_stmt[] =
     {"REWIND", REWIND, 0},
     {"SAVE", SAVE, 0},
     {"STOP", STOP, 0},
+    {"PAUSE", PAUSE, 0},
     {"SUBROUTINE", SUBROUTINE, 0},
     {"THEN", THEN, 0},
     {"WRITE", WRITE, 0},

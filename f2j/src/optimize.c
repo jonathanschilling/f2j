@@ -308,6 +308,7 @@ optimize (AST * root, AST * rptr)
       break;
     case Format:
     case Stop:
+    case Pause:
     case Save:
     case CommonList:
     case ComputedGoto:

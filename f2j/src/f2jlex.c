@@ -45,7 +45,7 @@
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
-int lexdebug = FALSE;
+int lexdebug = TRUE;
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -1279,7 +1279,7 @@ name_scan (BUFFER * bufstruct)
    * it was alphabetic. 
    */
 
-  while (isalnum ((int) *ncp))
+  while (isalnum ((int) *ncp) || (*ncp == '_'))
   {
     ncp++;
     tokenlength++;
@@ -1679,6 +1679,8 @@ tok2str(int tok)
       return("CONTINUE");
     case STOP:
       return("STOP");
+    case PAUSE:
+      return("PAUSE");
     case RDWR:
       return("RDWR");
     case END:

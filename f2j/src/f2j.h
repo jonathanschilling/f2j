@@ -62,6 +62,8 @@ typedef int BOOL;
 #define STR_INIT  50
 #define STR_CHUNK 20
 
+#define MAX_CONST_LEN 80
+
 struct _str {
   unsigned int size;
   char *val;
@@ -215,6 +217,7 @@ enum _nodetype
   Write,
   Read,
   Stop,
+  Pause,
   ComputedGoto,
   ArrayAccess,
   ArrayDec,
@@ -341,7 +344,7 @@ struct _constant
 
   char 
     *opcode,                        /* e.g., iconst_1, bipush 121.23         */
-    number[80];                     /* the constant                          */
+    number[MAX_CONST_LEN];          /* the constant                          */
 };
 
 /*****************************************************************************
@@ -386,7 +389,7 @@ struct _ident
                                      * opcode is emitted.                    * 
                                      * e.g., opcode = strdup("iload_1");     */
     *commonBlockName,               /* name of COMMON block this ident is in */
-    name[80],                       /* this ident's name                     */
+    name[MAX_CONST_LEN],            /* this ident's name                     */
     *merged_name,                   /* this ident's merged name (e.g. in     *
                                      * cases of equivalence or COMMON)       */
     *descriptor;                    /* constant pool descriptor of the ident */

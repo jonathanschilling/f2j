@@ -79,6 +79,9 @@
 #define THROWABLE_CLASS "java/lang/Throwable"
 #define GETMSG_DESC "()Ljava/lang/String;"
 #define TOLOWER_DESC "()Ljava/lang/String;"
+#define EXIT_DESC "(I)V"
+#define PAUSE_DESC "(Ljava/lang/String;)V"
+#define PAUSE_NOARG_DESC "()V"
 #define INVOKE_EXCEPTION "java/lang/reflect/InvocationTargetException"
 #define ACCESS_EXCEPTION "java/lang/IllegalAccessException"
 
@@ -154,6 +157,8 @@ METHODTAB
   * methodscan (METHODTAB * , char * );
 
 void 
+  stop_emit(AST *),
+  pause_emit(AST *),
   external_emit(AST *),
   maxmin_intrinsic_emit(AST *, METHODTAB *, char *, char *),
   max_intrinsic_emit (AST *, METHODTAB *),

@@ -557,7 +557,16 @@ emit (AST * root)
         if (gendebug)
           printf ("Stop.\n");
 
-        fprintf (curfp, "System.exit(0);\n");
+        stop_emit(root);
+
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
+      case Pause:
+        if (gendebug)
+          printf ("Pause.\n");
+
+        pause_emit(root);
 
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
@@ -891,6 +900,79 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
   et->target->stack_depth = 1;
 
   releaseLocal(Object);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * pause_emit                                                                *
+ *                                                                           *
+ * Generate the code for a PAUSE statement.  If the statement has an         *
+ * argument, print it to stderr before querying the user about continuing.   *
+ * The PAUSE statement pauses the program and asks the user whether or not   *
+ * to continue.                                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+pause_emit(AST *root)
+{
+  CPNODE *c;
+
+  if(root->astnode.constant.number[0] != 0) {
+    fprintf(curfp,"org.netlib.util.Util.pause(\"%s\");\n",
+       root->astnode.constant.number);
+
+    pushStringConst(root->astnode.constant.number);
+    c = newMethodref(cur_const_table, UTIL_CLASS, "pause",
+       PAUSE_DESC);
+    bytecode1(jvm_invokestatic, c->index);
+  }
+  else {
+    fprintf(curfp,"org.netlib.util.Util.pause();\n");
+
+    c = newMethodref(cur_const_table, UTIL_CLASS, "pause",
+       PAUSE_NOARG_DESC);
+    bytecode1(jvm_invokestatic, c->index);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * stop_emit                                                                 *
+ *                                                                           *
+ * Generate the code for a STOP statement.  If the statement has an argument *
+ * print it to stderr before exiting.                                        *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+stop_emit(AST *root)
+{
+  CPNODE *c;
+
+  if(root->astnode.constant.number[0] != 0) {
+    char stop_msg[MAX_CONST_LEN + 6];
+
+    strcpy(stop_msg, "STOP: ");
+    strncat(stop_msg, root->astnode.constant.number, MAX_CONST_LEN);
+
+    c = newFieldref(cur_const_table, JL_SYSTEM, "err", OUT_DESC);
+    bytecode1(jvm_getstatic, c->index);
+
+    pushStringConst(stop_msg);
+    c = newMethodref(cur_const_table, PRINTSTREAM, "println",
+          println_descriptor[String]);
+    bytecode1(jvm_invokevirtual, c->index);
+
+    fprintf(curfp, "System.err.println(\"STOP: %s\");\n",
+       root->astnode.constant.number);
+  }
+
+  fprintf (curfp, "System.exit(0);\n");
+  bytecode0(jvm_iconst_0);
+  c = newMethodref(cur_const_table, JL_SYSTEM, "exit",
+       EXIT_DESC);
+  bytecode1(jvm_invokestatic, c->index);
 }
 
 /*****************************************************************************
@@ -13000,6 +13082,8 @@ print_nodetype (AST *root)
       return("Write");
     case Stop:
       return("Stop");
+    case Pause:
+      return("Pause");
     case ComputedGoto:
       return("ComputedGoto");
     case ArrayAccess:

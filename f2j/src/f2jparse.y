@@ -121,7 +121,7 @@ extern enum returntype default_implicit_table[];
 /* a zillion keywords */
 
 %token IF THEN ELSE ELSEIF ENDIF DO GOTO ASSIGN TO CONTINUE STOP
-%token RDWR END  STRING CHAR
+%token RDWR END  STRING CHAR  PAUSE
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
 %token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
 %token <type> TYPE  
@@ -166,7 +166,7 @@ extern enum returntype default_implicit_table[];
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
-%type <ptnode> String  Subroutine Stop SubstringOp
+%type <ptnode> String  Subroutine Stop SubstringOp Pause
 %type <ptnode> Typestmt Typevar Typevarlist
 %type <type>   Types Type 
 %type <ptnode> Write WriteFileDesc FormatSpec EndSpec
@@ -1087,6 +1087,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               {
                 $$ = $1;
                 $$->nodetype = Stop;
+              }
+            | Pause
+              {
+                $$ = $1;
+                $$->nodetype = Pause;
               }
             | Open
               {
@@ -2803,10 +2808,29 @@ Return:      RETURN NL
              }
 ;
 
+Pause:  PAUSE NL
+        {
+          $$ = addnode();
+          $$->nodetype = Pause;
+          $$->astnode.constant.number[0] = 0;
+        }
+      | PAUSE String NL
+        {
+           $$ = $2;
+           $$->nodetype = Pause;
+        }
+;
+
 Stop:   STOP NL
         {
           $$ = addnode();
           $$->nodetype = Stop;
+          $$->astnode.constant.number[0] = 0;
+        }
+      | STOP String NL
+        {
+           $$ = $2;
+           $$->nodetype = Stop;
         }
 ;
 

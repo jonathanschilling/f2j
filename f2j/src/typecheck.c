@@ -197,6 +197,7 @@ typecheck (AST * root)
     case Goto:
     case Format:
     case Stop:
+    case Pause:
     case Save:
     case MainComment:
     case Unimplemented:

@@ -558,6 +558,7 @@ jas_constant_emit (AST * root)
       fprintf (jasminfp, "\t; %s\n", root->astnode.constant.number);
       break;
     default:
+      break;   /* unnecessary break for ANSI compliance */
   }
 }				/* Close constant_emit()  */
 

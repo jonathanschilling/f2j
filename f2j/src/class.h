@@ -13,7 +13,7 @@
 
 enum _constant_tags {
   CONSTANT_Utf8 = 1,              /*   1  */
-   /* note missing number 2 */
+                   /* note missing tag 2  */
   CONSTANT_Integer = 3,           /*   3  */
   CONSTANT_Float,                 /*   4  */
   CONSTANT_Long,                  /*   5  */
@@ -26,7 +26,9 @@ enum _constant_tags {
   CONSTANT_NameAndType            /*  12  */
 };
 
-static char * constant_tags [] = {
+#define NUM_CONSTANT_TAGS 13
+
+static char * constant_tags [NUM_CONSTANT_TAGS] = {
   "Unknown CONSTANT",
   "CONSTANT_Utf8",
   "Unknown CONSTANT",
@@ -102,13 +104,8 @@ struct CONSTANT_Long_info {
 };
 
 struct CONSTANT_Double_info {
-  union {
-    struct _hilo {
-      u4 high_bytes;              /* the high bytes of the double value          */
-      u4 low_bytes;               /* the low bytes of the double value           */
-    } hilo;
-    double dblbytes;
-  } bytes;
+  u4 high_bytes;              /* the high bytes of the double value          */
+  u4 low_bytes;               /* the low bytes of the double value           */
 };
 
 struct CONSTANT_NameAndType_info {

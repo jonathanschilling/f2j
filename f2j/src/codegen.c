@@ -1252,7 +1252,9 @@ print_string_initializer(AST *root)
      * assuming it has not been declared with a DATA statement.
      */
 
-    char buf[ ht->variable->astnode.ident.len ];
+    char * buf;
+
+    buf = (char *)malloc( ht->variable->astnode.ident.len );
 
     sprintf(buf,"\"%*s\"",ht->variable->astnode.ident.len," ");
 

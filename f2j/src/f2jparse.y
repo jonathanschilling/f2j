@@ -3277,6 +3277,25 @@ eval_const_expr(AST *root, int dims)
   return 0;
 }
 
+void
+printbits(char *header, void *var, int len)
+{
+  int i;
+
+  printf("%s: ", header);
+  for(i=0;i<len;i++) {
+      printf("%1x", ((unsigned char *)var)[i] >> 7 );
+      printf("%1x", ((unsigned char *)var)[i] >> 6 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] >> 5 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] >> 4 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] >> 3 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] >> 2 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] >> 1 & 1 );
+      printf("%1x", ((unsigned char *)var)[i] & 1 );
+  }
+  printf("\n");
+}
+
 /*****************************************************************************
  *                                                                           *
  * insert_constant                                                           *
@@ -3294,9 +3313,6 @@ insert_constant(AST * nodeToInsert, char * key)
   struct cp_info * newnode = NULL;
   char *tag;
   int idx;
-
-  int      cp_insert(Dlist, struct cp_info *, char *, char);
-  CPNODE * cp_lookup(Dlist, char *);
 
   if(nodeToInsert == NULL)
     return;
@@ -3330,11 +3346,15 @@ insert_constant(AST * nodeToInsert, char * key)
            * need to create a constant pool entry.
            */
           double doubleVal = atof(tag);
+          unsigned int tmp1, tmp2;
 
           if( doubleVal != 0.0 && doubleVal != 1.0 ) {
             newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
             newnode->tag = CONSTANT_Double; 
-            newnode->cpnode.Double.bytes.dblbytes = doubleVal;
+            memcpy(&tmp1,&doubleVal,sizeof(tmp1));
+            memcpy(&tmp2,(char*)&doubleVal+4,sizeof(tmp2));
+            newnode->cpnode.Double.high_bytes = tmp1;
+            newnode->cpnode.Double.low_bytes = tmp2;
 
             cp_insert(constants_table, newnode, tag, 2);
           }
@@ -3359,13 +3379,13 @@ insert_constant(AST * nodeToInsert, char * key)
         newnode->tag = CONSTANT_Utf8; 
         newnode->cpnode.Utf8.length = strlen(tag);
         newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
-        strncpy(newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
+        strncpy((char *)newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
 
         idx = cp_insert(constants_table, newnode, NULL, 1);
 
         newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_String; 
-        newnode->cpnode.String.string_index = idx + 1;
+        newnode->cpnode.String.string_index = idx;
 
         cp_insert(constants_table, newnode, tag, 1);
 

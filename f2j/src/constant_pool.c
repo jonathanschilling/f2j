@@ -74,9 +74,10 @@ cp_insert(Dlist list, struct cp_info *node, char *tag, char width) {
 void
 cp_dump(Dlist list)
 {
-  extern char *constant_tags[];
+  extern char *constant_tags[NUM_CONSTANT_TAGS];
   CPNODE * tmpconst;
   Dlist tmpPtr;
+  double x;
 
   dl_traverse(tmpPtr,list) {
     tmpconst = (CPNODE *) tmpPtr->val;
@@ -94,21 +95,14 @@ cp_dump(Dlist list)
         printf("\tfloat: %f\n",(float)tmpconst->val->cpnode.Float.bytes);
         break;
       case CONSTANT_Long:
-        printf("\tlong: %lld\n",((long long)tmpconst->val->cpnode.Long.high_bytes<<32)+
-           tmpconst->val->cpnode.Long.low_bytes);
+        printf("\tlong: no long value, shouldn't hit this case!\n");
         break;
       case CONSTANT_Double:
-        printf("\tdouble high bytes: %d\n",
-          tmpconst->val->cpnode.Double.bytes.hilo.high_bytes);
-        printf("\tdouble  low bytes: %d\n",
-          tmpconst->val->cpnode.Double.bytes.hilo.low_bytes);
-        printf("\tdouble: %f\n",tmpconst->val->cpnode.Double.bytes.dblbytes);
-         {
-           double x;
-           memcpy(&x,&tmpconst->val->cpnode.Double.bytes.hilo.high_bytes,4);
-           memcpy(&x+4,&tmpconst->val->cpnode.Double.bytes.hilo.low_bytes,4);
-           printf("x = %f\n",x);
-         }
+        memcpy(&x,&tmpconst->val->cpnode.Double.high_bytes,sizeof(u4));
+        memcpy((char*)&x+4,&tmpconst->val->cpnode.Double.low_bytes,sizeof(u4));
+        printf("\tdouble: %f (high: %d, low: %d)\n",x,
+           tmpconst->val->cpnode.Double.high_bytes, 
+           tmpconst->val->cpnode.Double.low_bytes);
         break;
       case CONSTANT_Class:
         printf("\tclass index: %d\n",tmpconst->val->cpnode.Class.name_index);
@@ -140,6 +134,8 @@ cp_dump(Dlist list)
            tmpconst->val->cpnode.NameAndType.descriptor_index);
         break;
       default:
+        fprintf(stderr,"cp_dump(): Unknown tag!\n");
+        break;    /* unnecessary break for ANSI compliance */
     }
   }
 }
@@ -180,7 +176,7 @@ cp_initialize(AST *root, Dlist list)
   newnode->tag = CONSTANT_Utf8;
   newnode->cpnode.Utf8.length = strlen(thisname);
   newnode->cpnode.Utf8.bytes = (u1 *)malloc(newnode->cpnode.Utf8.length);
-  strncpy(newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
+  strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
 
   idx = cp_insert(list,newnode,NULL,1);
 

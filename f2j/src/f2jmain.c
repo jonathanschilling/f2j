@@ -67,42 +67,32 @@ main (int argc, char **argv)
   void type_insert (SYMTABLE *, AST *, int, char *);
   void handle_segfault();
 
-  char f2java_help[] = "The program is used as follows:
-
-To compile a program into Java source code:
-    f2java -java filename
-
-To compile a program into Jasmin assembly code:
-    f2java -jas filename
-
-If no language is specified (e.g. \"f2java filename\"),
-the default behavior is to generate Java source code.
-
-The -p option may also be used to specify the name
-of the package.  For example:
-
-    f2java -java -p org.netlib.blas filename
-
-The -w option forces all scalars to be generated as
-wrapped objects.  The default behavior is to only
-wrap those scalars that must be passed by reference.
-
-The -i option causes f2j to generate a high-level
-interface to each subroutine and function.
-
-The -h option displays this helpful information.
-
-The -s option causes f2j to simplify the interfaces
-by removing the offset parameter and using a zero offset.
-It isn't necessary to specify the -i flag in addition
-to the -s.
-
-The -d options causes f2j to generate comments in
-a format suitable for javadoc.  It is a bit of a LAPACK-
-specfic hack...the longest comment in the program unit
-is placed in the javadoc comment.  It works fine for
-BLAS/LAPACK code (or any other code where the longest
-comment is the one that describes the function), but
+  char f2java_help[] = "The program is used as follows:\n\n\
+To compile a program into Java source code:\n\
+    f2java -java filename\n\n\
+To compile a program into Jasmin assembly code:\n\
+    f2java -jas filename\n\n\
+If no language is specified (e.g. \"f2java filename\"),\n\
+the default behavior is to generate Java source code.\n\n\
+The -p option may also be used to specify the name\n\
+of the package.  For example:\n\n\
+    f2java -java -p org.netlib.blas filename\n\n\
+The -w option forces all scalars to be generated as\n\
+wrapped objects.  The default behavior is to only\n\
+wrap those scalars that must be passed by reference.\n\n\
+The -i option causes f2j to generate a high-level\n\
+interface to each subroutine and function.\n\n\
+The -h option displays this helpful information.\n\n\
+The -s option causes f2j to simplify the interfaces\n\
+by removing the offset parameter and using a zero offset.\n\
+It isn't necessary to specify the -i flag in addition\n\
+to the -s.\n\n\
+The -d options causes f2j to generate comments in\n\
+a format suitable for javadoc.  It is a bit of a LAPACK-\n\
+specfic hack...the longest comment in the program unit\n\
+is placed in the javadoc comment.  It works fine for\n\
+BLAS/LAPACK code (or any other code where the longest\n\
+comment is the one that describes the function), but\n\
 will most likely not work for other code.\n";
 
   signal(SIGSEGV,handle_segfault);

@@ -6,6 +6,9 @@
  *                                                                           *
  *****************************************************************************/
 
+#ifndef _CONSTANT_POOL_H
+#define _CONSTANT_POOL_H
+
 #include"class.h"
 #include"f2j.h"
 
@@ -24,3 +27,5 @@ CPNODE * cp_lookup(Dlist, char *);
 int      cp_insert(Dlist, struct cp_info *, char *, char);
 void     cp_dump(Dlist);
 void     cp_initialize(AST *, Dlist);
+
+#endif

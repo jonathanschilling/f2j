@@ -324,6 +324,7 @@ constant_assign (AST * root)
       root->astnode.constant.opcode = strdup ("ldc");
       break;
     default:
+      break;  /* last break for ANSI compliance */
   }
 }				/* Close constant_assign()  */
 

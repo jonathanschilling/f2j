@@ -3,7 +3,7 @@
 # $Source$
 # Revision:$
 
-CFLAGS= -g -ansi -Wall
+CFLAGS= -g -ansi -Wall -pedantic
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 

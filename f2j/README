@@ -1,7 +1,10 @@
 JLAPACK --- java numerical linear algebra library 
             automatically translated from FORTRAN.
 
-VERSION 0.?  :  February 19, 1999
+VERSION 0.1  :  April 1, 1998
+VERSION 0.2  :  April 15, 1998
+VERSION 0.3  :  May 22, 1998
+VERSION 0.3a :  June 5, 1998
 
 
 The original LAPACK README file follows:

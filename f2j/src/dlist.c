@@ -54,9 +54,7 @@ void *val;
 }
 
 void
-dl_insert_list_b(node, list_to_insert)
-Dlist node;
-Dlist list_to_insert;
+dl_insert_list_b(Dlist node, Dlist list_to_insert)
 {
   Dlist last_node, f, l;
 

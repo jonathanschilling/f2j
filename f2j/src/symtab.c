@@ -28,9 +28,12 @@
 
 #define HASH(x) hash(x)
 
-unsigned long ElfHash (const unsigned char *);
 unsigned int  HashPJW (const char *);
 unsigned int  hash (const char *);
+
+SYMTABLE * new_symtable (unsigned int);
+void type_insert (SYMTABLE *, AST *, enum returntype, char *);
+HASHNODE * format_lookup(SYMTABLE *, char *);
 
 char *strdup(char *);
 
@@ -44,7 +47,7 @@ char *strdup(char *);
  *****************************************************************************/
 
 SYMTABLE *
-new_symtable (int numentries)
+new_symtable (unsigned int numentries)
 {
   SYMTABLE *newtable;
   newtable = (SYMTABLE *) f2jalloc (sizeof (SYMTABLE));
@@ -69,7 +72,7 @@ new_symtable (int numentries)
  *****************************************************************************/
 
 void
-type_insert (SYMTABLE * table, AST * node_val, int returntype, char *tag)
+type_insert (SYMTABLE * table, AST * node_val, enum returntype rt, char *tag)
 {
   HASHNODE *newnode;
   int idx;
@@ -79,7 +82,7 @@ type_insert (SYMTABLE * table, AST * node_val, int returntype, char *tag)
   newnode = (HASHNODE *) f2jalloc (sizeof (HASHNODE));
 
   newnode->ident = tag;
-  newnode->type = returntype;
+  newnode->type = rt;
   newnode->variable = node_val;
   newnode->next = table->entry[idx];
   table->entry[idx] = newnode;  
@@ -192,29 +195,6 @@ hash (const char *str)
       sum += *str++;
 
     return sum;
-}
-
-/*****************************************************************************
- *                                                                           *
- * ElfHash                                                                   *
- *                                                                           *
- *  The published hash algorithm used in the UNIX ELF format                 *
- *  for object files. Accepts a pointer to a string to be hashed             *
- *  and returns an unsigned long.                                            *
- *                                                                           *
- *****************************************************************************/
-
-unsigned long ElfHash ( const unsigned char *name )
-{
-  unsigned long   h = 0, g;
-  while ( *name )
-  {
-    h = ( h << 4 ) + *name++;
-    if ( (g = h & 0xF0000000) )
-      h ^= g >> 24;
-    h &= ~g;
-  }
-  return h;
 }
 
 /*****************************************************************************

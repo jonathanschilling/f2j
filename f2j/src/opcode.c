@@ -42,6 +42,23 @@ char *typestring[] =
   {"Ljava/lang/String;", "complex", "d", "f", "i", "b"};
 
 
+void method (AST *),
+  jas_emit (AST *),
+  jas_logicalif_emit (AST *),
+  jas_blockif_emit (AST *),
+  jas_assign_emit (AST *),
+  jas_forloop_emit (AST *),
+  jas_goto_emit (AST *),
+  jas_label_emit (AST *),
+  jas_elseif_emit (AST *),
+  jas_else_emit (AST *),
+  jas_return_emit (AST *),
+  jas_constant_emit (AST *),
+  jas_name_emit (AST *),
+  jas_expr_emit (AST *),
+  jas_incr_emit (AST *),
+  jas_logicalop_emit (AST *);
+
 /*****************************************************************************
  *                                                                           *
  * jas_emit                                                                  *
@@ -55,16 +72,6 @@ char *typestring[] =
 void
 jas_emit (AST * root)
 {
-  void method (AST *);
-  void jas_logicalif_emit (AST *);
-  void jas_blockif_emit (AST *);
-  void jas_assign_emit (AST *);
-  void jas_forloop_emit (AST *);
-  void jas_goto_emit (AST *);
-  void jas_label_emit (AST *);
-  void jas_elseif_emit (AST *);
-  void jas_else_emit (AST *);
-  void jas_return_emit (AST *);
 
   switch (root->nodetype)
   {
@@ -170,7 +177,6 @@ method (AST * root)
 {
   enum returntype returns;
   AST *tempnode, *temp;
-  extern SYMTABLE *type_table;
   char *tempstring;
   HASHNODE *hashtemp;
 
@@ -232,13 +238,10 @@ method (AST * root)
 void
 jas_logicalif_emit (AST * root)
 {
-  void jas_expr_emit (AST *);
-
   fprintf (jasminfp, "\n; Logical `if' statement.\n");
 
   if (root->astnode.logicalif.conds != NULL)
     jas_expr_emit (root->astnode.logicalif.conds);
-
 
   /*  Big test.  All the rest works great... */
 
@@ -266,9 +269,6 @@ jas_logicalif_emit (AST * root)
 void
 jas_blockif_emit (AST * root)
 {
-  extern int breaklabel;
-  void jas_expr_emit (AST *);
-
   breaklabel = root->astnode.blockif.break_label;
 
   fprintf (jasminfp, "\n; Block `if' statement.\n");
@@ -310,9 +310,6 @@ jas_blockif_emit (AST * root)
 void
 jas_elseif_emit (AST * root)
 {
-  extern int breaklabel;
-  void jas_expr_emit (AST *);
-
   if (root->astnode.blockif.conds != NULL)
     jas_expr_emit (root->astnode.blockif.conds);
 
@@ -356,10 +353,6 @@ jas_else_emit (AST * root)
 void
 jas_expr_emit (AST * root)
 {
-  void jas_constant_emit (AST *);
-  void jas_name_emit (AST *);
-  void jas_constant_emit (AST *);
-  void jas_logicalop_emit (AST *);
 
   switch (root->nodetype)
   {
@@ -432,9 +425,6 @@ jas_name_emit (AST * root)
   AST *temp;
 
   HASHNODE *hashtemp;
-  /* extern SYMTABLE * array_table;   3/23/00 kgs */
-  void jas_expr_emit (AST *);
-
 
   /* By the time I get to here, I should have tested whether
    * the name is in the static or virtual tables, etc.  
@@ -575,9 +565,6 @@ jas_constant_emit (AST * root)
 void
 jas_forloop_emit (AST * root)
 {
-  /* extern labelno;  3/23/00 kgs */
-  void jas_incr_emit (AST *);
-
   fprintf (jasminfp, "\n; do loop.\n; Initialize counter.\n");
   jas_assign_emit (root->astnode.forloop.start);
 

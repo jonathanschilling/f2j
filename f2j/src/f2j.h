@@ -137,13 +137,6 @@ enum spectype
   External, Intrinsic, Implicit, Parameter
 };
 
-/* Enumeration of the different return types */
-
-enum returntype
-{
-  String, Character, Complex, Double, Float, Integer, Logical, Object
-};
-
 /* Represents whether an expression is on the lhs or rhs. */
 
 enum _expr_side
@@ -293,7 +286,7 @@ struct _typeunit
 
 struct _forloop
 {
-  int 
+  unsigned int 
     startlabel,                     /* label of beginning of loop (Jasmin)   */
     stoplabel,                      /* label of end of loop (Jasmin)         */
     localvar;                       /* local var holding iteration count     */
@@ -348,8 +341,10 @@ struct _ident
   int 
     dim,                            /* number of dimensions (for arrays)     */
     D[3],                           /* num elements in each dim (up to 3)    */
+    position;                       /* ident's position in COMMON block      */
+
+  unsigned int
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
-    position,                       /* ident's position in COMMON block      */
     localvnum;                      /* local variable number (for Jasmin)    */ 
 
   BOOLEAN
@@ -604,7 +599,7 @@ enum relops
 
 typedef struct {
   char *name;                       /* variable name                         */
-  int val;                          /* value                                 */
+  unsigned int val;                 /* value                                 */
 } SUBSTITUTION;
 
 
@@ -615,7 +610,7 @@ typedef struct {
 void 
   jasminheader (FILE *, char *),
   javaheader (FILE *, char *),
-  initialize(),
+  initialize(void),
   uppercase(char *),
   alloc_error(size_t),
   * f2jalloc(size_t),

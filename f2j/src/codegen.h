@@ -9,16 +9,17 @@
 #ifndef _CODEGEN_H
 #define _CODEGEN_H
 
-/*****************************************************************************
- * MAX_RETURNS represents the number of elements in the returnstring         *
- * array (see below).  OBJECT_TYPE identifies the type 'Object'.             *
- * CPIDX_MAX is the maximum value for a 1-byte constant pool index.          *
- *****************************************************************************/
-
-#define MAX_RETURNS 7
-#define MAX_DIMS    3
-#define OBJECT_TYPE 7
-#define CPIDX_MAX 255
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<ctype.h>
+#include"f2j.h"
+#include"class.h"
+#include"f2jparse.tab.h"
+#include"constant_pool.h"
+#include"codegen.h"
+#include"opcodes.h"
+#include"graph.h"
 
 /*****************************************************************************
  * Following are some fully-qualified class names and method descriptors     *
@@ -86,7 +87,7 @@
 #define STR_CHUNK 20
 
 struct _str {
-  int size;
+  unsigned int size;
   char *val;
 };
 
@@ -100,219 +101,6 @@ struct _str {
 #define JAVA_AND_JVM  3
 
 /*****************************************************************************
- * enumeration of all the java opcodes.                                      *
- *****************************************************************************/
-
-enum _opcode {
-  jvm_nop = 0x0,
-  jvm_aconst_null,
-  jvm_iconst_m1,
-  jvm_iconst_0,
-  jvm_iconst_1,
-  jvm_iconst_2,
-  jvm_iconst_3,
-  jvm_iconst_4,
-  jvm_iconst_5,
-  jvm_lconst_0,
-  jvm_lconst_1,
-  jvm_fconst_0,
-  jvm_fconst_1,
-  jvm_fconst_2,
-  jvm_dconst_0,
-  jvm_dconst_1,
-  jvm_bipush,
-  jvm_sipush,
-  jvm_ldc,
-  jvm_ldc_w,
-  jvm_ldc2_w,
-  jvm_iload,
-  jvm_lload,
-  jvm_fload,
-  jvm_dload,
-  jvm_aload,
-  jvm_iload_0,
-  jvm_iload_1,
-  jvm_iload_2,
-  jvm_iload_3,
-  jvm_lload_0,
-  jvm_lload_1,
-  jvm_lload_2,
-  jvm_lload_3,
-  jvm_fload_0,
-  jvm_fload_1,
-  jvm_fload_2,
-  jvm_fload_3,
-  jvm_dload_0,
-  jvm_dload_1,
-  jvm_dload_2,
-  jvm_dload_3,
-  jvm_aload_0,
-  jvm_aload_1,
-  jvm_aload_2,
-  jvm_aload_3,
-  jvm_iaload,
-  jvm_laload,
-  jvm_faload,
-  jvm_daload,
-  jvm_aaload,
-  jvm_baload,
-  jvm_caload,
-  jvm_saload,
-  jvm_istore,
-  jvm_lstore,
-  jvm_fstore,
-  jvm_dstore,
-  jvm_astore,
-  jvm_istore_0,
-  jvm_istore_1,
-  jvm_istore_2,
-  jvm_istore_3,
-  jvm_lstore_0,
-  jvm_lstore_1,
-  jvm_lstore_2,
-  jvm_lstore_3,
-  jvm_fstore_0,
-  jvm_fstore_1,
-  jvm_fstore_2,
-  jvm_fstore_3,
-  jvm_dstore_0,
-  jvm_dstore_1,
-  jvm_dstore_2,
-  jvm_dstore_3,
-  jvm_astore_0,
-  jvm_astore_1,
-  jvm_astore_2,
-  jvm_astore_3,
-  jvm_iastore,
-  jvm_lastore,
-  jvm_fastore,
-  jvm_dastore,
-  jvm_aastore,
-  jvm_bastore,
-  jvm_castore,
-  jvm_sastore,
-  jvm_pop,
-  jvm_pop2,
-  jvm_dup,
-  jvm_dup_x1,
-  jvm_dup_x2,
-  jvm_dup2,
-  jvm_dup2_x1,
-  jvm_dup2_x2,
-  jvm_swap,
-  jvm_iadd,
-  jvm_ladd,
-  jvm_fadd,
-  jvm_dadd,
-  jvm_isub,
-  jvm_lsub,
-  jvm_fsub,
-  jvm_dsub,
-  jvm_imul,
-  jvm_lmul,
-  jvm_fmul,
-  jvm_dmul,
-  jvm_idiv,
-  jvm_ldiv,
-  jvm_fdiv,
-  jvm_ddiv,
-  jvm_irem,
-  jvm_lrem,
-  jvm_frem,
-  jvm_drem,
-  jvm_ineg,
-  jvm_lneg,
-  jvm_fneg,
-  jvm_dneg,
-  jvm_ishl,
-  jvm_lshl,
-  jvm_ishr,
-  jvm_lshr,
-  jvm_iushr,
-  jvm_lushr,
-  jvm_iand,
-  jvm_land,
-  jvm_ior,
-  jvm_lor,
-  jvm_ixor,
-  jvm_lxor,
-  jvm_iinc,
-  jvm_i2l,
-  jvm_i2f,
-  jvm_i2d,
-  jvm_l2i,
-  jvm_l2f,
-  jvm_l2d,
-  jvm_f2i,
-  jvm_f2l,
-  jvm_f2d,
-  jvm_d2i,
-  jvm_d2l,
-  jvm_d2f,
-  jvm_i2b,
-  jvm_i2c,
-  jvm_i2s,
-  jvm_lcmp,
-  jvm_fcmpl,
-  jvm_fcmpg,
-  jvm_dcmpl,
-  jvm_dcmpg,
-  jvm_ifeq,
-  jvm_ifne,
-  jvm_iflt,
-  jvm_ifge,
-  jvm_ifgt,
-  jvm_ifle,
-  jvm_if_icmpeq,
-  jvm_if_icmpne,
-  jvm_if_icmplt,
-  jvm_if_icmpge,
-  jvm_if_icmpgt,
-  jvm_if_icmple,
-  jvm_if_acmpeq,
-  jvm_if_acmpne,
-  jvm_goto,
-  jvm_jsr,
-  jvm_ret,
-  jvm_tableswitch,
-  jvm_lookupswitch,
-  jvm_ireturn,
-  jvm_lreturn,
-  jvm_freturn,
-  jvm_dreturn,
-  jvm_areturn,
-  jvm_return,
-  jvm_getstatic,
-  jvm_putstatic,
-  jvm_getfield,
-  jvm_putfield,
-  jvm_invokevirtual,
-  jvm_invokespecial,
-  jvm_invokestatic,
-  jvm_invokeinterface,
-  jvm_xxxunusedxxx,      /* opcode 186 not used */
-  jvm_new,
-  jvm_newarray,
-  jvm_anewarray,
-  jvm_arraylength,
-  jvm_athrow,
-  jvm_checkcast,
-  jvm_instanceof,
-  jvm_monitorenter,
-  jvm_monitorexit,
-  jvm_wide,
-  jvm_multianewarray,
-  jvm_ifnull,
-  jvm_ifnonnull,
-  jvm_goto_w,
-  jvm_jsr_w,
-  jvm_breakpoint,
-  /* skip 203 - 253 */
-  jvm_impdep1 = 254,
-  jvm_impdep2
-};
-
-/*****************************************************************************
  * this structure holds information about the state of the stack before and  *
  * after a method call.  to correctly calculate the maximum stack depth, we  *
  * need to know how many arguments an invoke[static,virtual,etc] instruction *
@@ -320,9 +108,182 @@ enum _opcode {
  * can occupy zero, one, or two stack entries depending on the return type   *
  * of the method.                                                            *
  *****************************************************************************/
+
 struct stack_info {
   int arg_len,       /* depth of stack when this method is invoked           */
       ret_len;       /* depth of stack when this method returns              */
 };
+
+/*****************************************************************************
+ * Function prototypes:                                                      *
+ *****************************************************************************/
+
+char 
+  * tok2str(int),
+  * strdup ( const char * ),
+  * print_nodetype ( AST * ),
+  * lowercase ( char * ),
+  * skipToken(char *),
+  * get_common_prefix(char *),
+  * getVarDescriptor(AST *),
+  * char_substitution(char *, int, int),
+  * get_full_classname(char *);
+
+METHODTAB
+  * methodscan (METHODTAB * , char * );
+
+void 
+  external_emit(AST *),
+  maxmin_intrinsic_emit(AST *, char *, METHODTAB *, char *, char *),
+  max_intrinsic_emit (AST *, char *, METHODTAB *),
+  min_intrinsic_emit (AST *, char *, METHODTAB *),
+  calcOffsets(CodeGraphNode *),
+  traverse_code(Dlist),
+  while_emit(AST *),
+  format_name_emit(AST *),
+  format_list_emit(AST *, AST **),
+  one_arg_write_emit(AST *),
+  forloop_end_bytecode(AST *),
+  substring_assign_emit(AST *),
+  dint_intrinsic_emit(AST *, METHODTAB *),
+  emit_call_args_known(AST *, HASHNODE *, BOOLEAN),
+  emit_call_args_unknown(AST *),
+  emit_call_arguments(AST *, BOOLEAN),
+  aint_intrinsic_emit(AST *, METHODTAB *),
+  intrinsic_arg_emit(AST *, enum returntype),
+  intrinsic_call_emit(AST *, METHODTAB *, enum returntype),
+  intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
+  intrinsic_lexical_compare_emit(AST *, METHODTAB *),
+  intrinsic_emit(AST *),
+  implied_loop_emit(AST *, void (AST *), void (AST*)),
+  format_emit(AST *, AST **),
+  read_implied_loop_bytecode_emit(AST *),
+  read_implied_loop_sourcecode_emit(AST *),
+  scalar_emit(AST *, HASHNODE *),
+  write_implied_loop_bytecode_emit(AST *),
+  write_implied_loop_sourcecode_emit(AST *),
+  array_emit(AST *, HASHNODE *),
+  emit_interface(AST *),
+  substring_emit(AST *),
+  subcall_emit(AST *),
+  emit_methcall(FILE *, AST *),
+  name_emit (AST *),
+  print_eqv_list(AST *, FILE *),
+  addField(char *, char *),
+  open_output_file(AST *, char *),
+  print_string_initializer(AST *),
+  vardec_emit(AST *, enum returntype),
+  emit_adapters(void),
+  newarray_emit(AST *),
+  constructor (AST *),
+  typedec_emit (AST *),
+  data_emit(AST *),
+  spec_emit (AST *),
+  equiv_emit (AST *),
+  call_emit (AST *),
+  forloop_emit (AST *),
+  blockif_emit (AST *),
+  logicalif_emit (AST *),
+  arithmeticif_emit (AST *),
+  goto_emit (AST *),
+  computed_goto_emit (AST *),
+  label_emit (AST *),
+  write_emit (AST *),
+  common_emit(AST *),
+  read_emit (AST *),
+  emit_invocations(AST *),
+  merge_equivalences(AST *),
+  print_equivalences(AST *),
+  emit_prolog_comments(AST *),
+  emit_javadoc_comments(AST *),
+  insert_fields(AST *),
+  assign_local_vars(AST *),
+  return_emit(void),
+  end_emit(AST *),
+  emit (AST *),
+  pushConst(AST *),
+  field_emit(AST *),
+  pushIntConst(int),
+  pushDoubleConst(double),
+  pushStringConst(char *),
+  pushVar(enum returntype, BOOLEAN, char *, char *, char *, unsigned int, BOOLEAN),
+  dec_stack(int),
+  iinc_emit(unsigned int, int),
+  invoke_constructor(char *, AST *, char *),
+  set_bytecode_status(int),
+  inline_format_emit(AST *, BOOLEAN),
+  endNewMethod(struct method_info *, char *, char *, unsigned int),
+  releaseLocal(enum returntype),
+  assign_emit (AST *),
+  expr_emit(AST *),
+  forloop_bytecode_emit(AST *),
+  else_emit (AST *),
+  LHS_bytecode_emit(AST *),
+  insert_adapter(AST *),
+  insert_methcall(Dlist, AST *),
+  reflect_declarations_emit(AST *),
+  invocation_exception_handler_emit(ExceptionTableEntry *),
+  data_scalar_emit(enum returntype, AST *, AST *, int),
+  func_array_emit(AST *, HASHNODE *, char *, int, int),
+  inc_stack(int);
+
+int
+  isPassByRef(char *),
+  dl_int_examine(Dlist),
+  opWidth(enum _opcode),
+  getNextLocal(enum returntype),
+  needs_adapter(AST *),
+  idxNeedsDecr(AST *),
+  getStackIncrement(enum _opcode, u4),
+  getStackDecrement(enum _opcode, u4),
+  method_name_emit (AST *, BOOLEAN),
+  data_repeat_emit(AST *, unsigned int),
+  determine_var_length(HASHNODE *);
+
+double
+  eval_const_expr(AST *);
+
+HASHNODE 
+  * format_lookup(SYMTABLE *, char *);
+
+struct ClassFile 
+  * newClassFile(char *,char *);
+
+struct attribute_info
+  * newCodeAttribute(void);
+
+struct method_info 
+  * beginNewMethod(unsigned int);
+
+CodeGraphNode
+  * bytecode0(enum _opcode),
+  * bytecode1(enum _opcode, u4),
+  * nodeAtPC(int),
+  * gen_store_op(unsigned int, enum returntype),
+  * gen_load_op(unsigned int, enum returntype),
+  * newGraphNode(enum _opcode, u4),
+  * elseif_emit (AST *);
+
+AST
+  * label_search(Dlist, int),
+  * dl_astnode_examine(Dlist),
+  * dl_name_search(Dlist, char *),
+  * find_label(Dlist, int),
+  * addnode(void),
+  * data_var_emit(AST *, AST *, HASHNODE *),
+  * data_implied_loop_emit(AST * , AST *),
+  * data_array_emit(int , AST *, AST *, int),
+  * format_item_emit(AST *, AST **);
+
+enum returntype
+  get_type(char *);
+
+struct _str
+  * strAppend(struct _str *, char *);
+
+METHODREF
+  * get_method_name(AST *, BOOLEAN);
+
+struct stack_info * calcStack(char *);
 
 #endif

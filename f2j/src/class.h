@@ -9,6 +9,7 @@
 #ifndef _CLASS_H
 #define _CLASS_H
 
+#include<stdio.h>
 #include "dlist.h"
 
 /*
@@ -40,7 +41,7 @@
 #define T_INT    10
 #define T_LONG   11
 
-#define JVM_MAGIC 0xCAFEBABE
+#define JVM_MAGIC 0xCAFEBABEu
 #define JVM_MINOR_VER 3
 #define JVM_MAJOR_VER 45
 

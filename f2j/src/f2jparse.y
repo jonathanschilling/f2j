@@ -48,58 +48,56 @@ AST
 CPNODE
   * lastConstant;                 /* last constant inserted into the c.pool  */
 
-extern SYMTABLE 
-  * type_table,                   /* externally declared symbol tables.      */
-  * intrinsic_table,
-  * external_table,
-  * args_table,
-  * array_table;
-
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
 
 int 
-  yylex();
+  yylex(void);
 
 double
-  eval_const_expr(AST *);
+  eval_const_expr(AST *),
+  mypow(double, double);
 
 char 
   * strdup(const char *),
-  * strcat(char *, const char*),
   * lowercase(char * ),
   * print_nodetype (AST *),
   * tok2str(int );
 
 void 
   yyerror(char *),
-  start_vcg(),
-  emit(),
-  jas_emit(),
-  init_tables(),
+  start_vcg(AST *),
+  emit(AST *),
+  jas_emit(AST *),
+  init_tables(void),
   addEquiv(AST *),
   assign(AST *),
   typecheck(AST *),
   optScalar(AST *),
-  type_insert (SYMTABLE * , AST * , int , char *),
+  type_insert (SYMTABLE * , AST * , enum returntype , char *),
   type_hash(AST *),
   merge_common_blocks(AST *),
   arg_table_load(AST *),
   exp_to_double (char *, char *),
   prepend_minus(char *),
-  insert_name(SYMTABLE *, AST *, enum returntype);
+  insert_name(SYMTABLE *, AST *, enum returntype),
+  store_array_var(AST *),
+  printbits(char *, void *, int);
+
 
 AST 
   * dl_astnode_examine(Dlist l),
-  * addnode(),
-  * switchem(),
+  * addnode(void),
+  * switchem(AST *),
   * gen_incr_expr(AST *, AST *),
   * gen_iter_expr(AST *, AST *, AST *),
   * initialize_name(char *);
 
 SYMTABLE 
   * new_symtable (int );
+
+extern enum returntype default_implicit_table[];
 
 %}
 
@@ -1296,8 +1294,6 @@ Arraydeclaration: Name OP Arraynamelist CP
                   {
                     AST *temp;
                     int count, i;
-
-                    void store_array_var(AST *);
 
 		    /*
                      *  $$ = addnode();
@@ -2803,7 +2799,6 @@ printf("looking at node type %s\n",print_nodetype(temptypes));
          * to that node.  if not, we will create a new node and assign the
          * dimensions to it.
          */
-        extern enum returntype default_implicit_table[];
         AST *node;
 
 printf("DIMENSION stmt.  looking for '%s' in hash table.\n",

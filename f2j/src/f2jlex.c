@@ -80,14 +80,25 @@ BUFFER;
  *****************************************************************************/
 
 int 
-  yylex (),
+  yylex (void),
   prelex (BUFFER *);
 
 char 
   *tok2str(int),
   *strdup(const char *);
 
-void check_continued_lines (FILE *, char *);
+int
+  name_scan (BUFFER *),
+  keyscan (register KWDTAB *, BUFFER *),
+  number_scan (BUFFER *, int),
+  string_or_char_scan (BUFFER *);
+
+void
+  check_continued_lines (FILE *, char *),
+  collapse_white_space (BUFFER *);
+
+METHODTAB
+  * methodscan (METHODTAB *, char *);
 
 /*****************************************************************************
  * STANDALONE is defined in the makefile when compiling the                  *
@@ -152,10 +163,6 @@ yylex ()
   static int parencount = 0;
   static int format_stmt;    /* are we lexing a format statement */
   int token = 0;
-  int name_scan (BUFFER *);
-  int keyscan (register KWDTAB *, BUFFER *);
-  int number_scan (BUFFER *, int);
-  int string_or_char_scan (BUFFER *);
 
   /* yyparse() makes a call to yylex() each time it needs a
    * token.  To get a statement to parse, yylex() calls
@@ -633,11 +640,12 @@ yylex ()
 int
 prelex (BUFFER * bufstruct)
 {
+  /*
   extern FILE *ifp;
   extern int lineno;
   extern int statementno;
   extern int func_stmt_num;
-  void collapse_white_space (BUFFER *);
+  */
 
   if(lexdebug)
     printf("entering prelex()\n");
@@ -721,7 +729,7 @@ collapse_white_space (BUFFER * bufstruct)
   register char *cp, *tcp, *yycp;
   char tempbuf[BIGBUFF];
   int parens = 0;
-  extern BOOLEAN  commaseen, equalseen, letterseen;
+
   commaseen = FALSE, equalseen = FALSE, letterseen = FALSE; 
 
   tcp = tempbuf;
@@ -883,7 +891,7 @@ collapse_white_space (BUFFER * bufstruct)
  *****************************************************************************/
 
 void
-check_continued_lines (FILE * ifp, char *current_line)
+check_continued_lines (FILE * fp, char *current_line)
 {
   int items;
   char next_line[100];
@@ -896,7 +904,7 @@ check_continued_lines (FILE * ifp, char *current_line)
   while (1)
   {
     next_line[0] = '\0';
-    items = fread (next_line, 1, 6, ifp);
+    items = fread (next_line, 1, 6, fp);
 
     /* If we are NOT at the end of file, reset the 
      * pointer to the start of the line so that 
@@ -908,7 +916,7 @@ check_continued_lines (FILE * ifp, char *current_line)
 
     if (next_line[0] != ' ')
     {
-      fseek (ifp, -6, 1);
+      fseek (fp, -6, 1);
       return;
     }
 
@@ -936,7 +944,7 @@ check_continued_lines (FILE * ifp, char *current_line)
        * pointer to the start of the line, and return. 
        */
 
-      fseek (ifp, -6, 1);
+      fseek (fp, -6, 1);
       return;
     }
     else
@@ -948,7 +956,7 @@ check_continued_lines (FILE * ifp, char *current_line)
       if(lexdebug)
         printf ("char 6, next_line: %c\n", next_line[5]);
 
-      fgets (next_line, 100, ifp);
+      fgets (next_line, 100, fp);
       next_line[strlen(next_line)-1] = '\0';
       strcat (current_line, next_line);
       lineno++;
@@ -967,7 +975,7 @@ check_continued_lines (FILE * ifp, char *current_line)
 int 
 keyscan (register KWDTAB * tab, BUFFER * bufstruct)
 {
-  int tokenlength;
+  unsigned int tokenlength;
   char *scp, *yycp;  
   scp = bufstruct->stmt;
   yycp = bufstruct->text;
@@ -1064,11 +1072,12 @@ methodscan (METHODTAB * tab, char * name)
  *                                                                           *
  * Scan a card image for a named identifier.                                 *
  *****************************************************************************/
+
 int
 name_scan (BUFFER * bufstruct)
 {
   char *ncp, *tcp;
-  int tokenlength = 0;
+  unsigned int tokenlength = 0;
   ncp = bufstruct->stmt;
   tcp = bufstruct->text;
 
@@ -1113,14 +1122,11 @@ name_scan (BUFFER * bufstruct)
 int
 number_scan (BUFFER * bufstruct, int fmt)
 {
-  extern KWDTAB tab_toks[];
-  
   char *ncp, *tcp;
   BUFFER tempbuf;
   int token;
-  int tokenlength = 0;
+  unsigned int tokenlength = 0;
   int type = INTEGER;  /* Default, in case we find nothing else. */
-  int keyscan (register KWDTAB *, BUFFER *);
 
   ncp = bufstruct->stmt; /*  Number character pointer. */
   tcp = bufstruct->text;  /* Literal text character pointer. */
@@ -1272,7 +1278,7 @@ number_scan (BUFFER * bufstruct, int fmt)
 int
 string_or_char_scan (BUFFER * bufstruct)
 {
-  int tokenlength = 0;
+  unsigned int tokenlength = 0;
   char *scp, *textcp;
   scp = bufstruct->stmt;
   textcp = bufstruct->text;

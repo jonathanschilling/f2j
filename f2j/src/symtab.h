@@ -17,6 +17,13 @@
 
 #include "dlist.h"
 
+/* Enumeration of the different return types */
+
+enum returntype
+{
+  String, Character, Complex, Double, Float, Integer, Logical, Object
+};
+
 /*****************************************************************************
  * Structure of a hash table node.                                           *
  *****************************************************************************/
@@ -25,7 +32,7 @@ typedef struct hash_node
 {
   struct ast_node *variable;     /* The variable corresponding to this entry */
   char *ident;                   /* String tag                               */
-  int type;                      /* The variable's data type                 */
+  enum returntype type;          /* The variable's data type                 */
   struct hash_node *next;        /* Next node                                */
 }
 HASHNODE;

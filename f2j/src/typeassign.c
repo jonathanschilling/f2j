@@ -38,9 +38,29 @@ FILE *temp_javafp;            /* this was FILE *javafp, but I'm moving       *
  * Function prototypes:                                                      *
  *****************************************************************************/
 
-char * strdup(const char *);
-void elseif_assign (AST *),
-     else_assign (AST *);
+char
+  * strdup(const char *),
+  * lowercase(char * );
+
+void
+  logicalop_assign (AST *),
+  assign (AST *),
+  elseif_assign (AST *),
+  else_assign (AST *),
+  name_assign (AST *),
+  assign_assign (AST *),
+  spec_assign (AST *),
+  call_assign (AST *),
+  forloop_assign (AST *),
+  logicalif_assign (AST *),
+  blockif_assign (AST *),
+  return_assign (AST *),
+  label_assign (AST *),
+  jas_expr_emit (AST *),
+  expr_assign (AST *),
+  constant_assign (AST *),
+  relationalop_assign (AST *);
+
 
 /*****************************************************************************
  *                                                                           *
@@ -54,16 +74,6 @@ void elseif_assign (AST *),
 void
 assign (AST * root)
 {
-  void name_assign (AST *);
-  void assign_assign (AST *);
-  void spec_assign (AST *);
-  void call_assign (AST *);
-  void forloop_assign (AST *);
-  void logicalif_assign (AST *);
-  void blockif_assign (AST *);
-  void return_assign (AST *);
-  void label_assign (AST *);
-
   switch (root->nodetype)
   {
     case 0:
@@ -181,8 +191,6 @@ assign (AST * root)
 void
 logicalif_assign (AST * root)
 {
-  void expr_assign (AST *);
-
   if (root->astnode.logicalif.conds != NULL)
     expr_assign (root->astnode.logicalif.conds);
 
@@ -210,8 +218,6 @@ name_assign (AST * root)
 
   HASHNODE *hashtemp;
   int stack = 0;
-  extern int stacksize;
-  void jas_expr_emit (AST *);
 
   if (root->astnode.ident.arraylist == NULL)
   {
@@ -280,8 +286,6 @@ void
 assign_assign (AST * root)
 {
   char *javaname;
-  void name_assign (AST *);
-  void expr_assign (AST *);
 
   name_assign (root->astnode.assignment.lhs);
   expr_assign (root->astnode.assignment.rhs);
@@ -343,12 +347,7 @@ constant_assign (AST * root)
 void
 expr_assign (AST * root)
 {
-  extern int stacksize;
   int stack;
-
-  void name_assign (AST *),
-       constant_assign (AST *),
-       relationalop_assign (AST *);
 
   switch (root->nodetype)
   {
@@ -439,11 +438,6 @@ expr_assign (AST * root)
 void
 forloop_assign (AST * root)
 {
-  extern int labelnumber;
-  void name_assign (AST *);
-  void assign_assign (AST *);
-  void expr_assign (AST *);
-
   assign_assign (root->astnode.forloop.start);
   root->astnode.forloop.startlabel = labelnumber++;
 
@@ -473,8 +467,6 @@ forloop_assign (AST * root)
 void
 blockif_assign (AST * root)
 {
-  void expr_assign (AST *);
-
   if (root->astnode.blockif.conds != NULL)
     expr_assign (root->astnode.blockif.conds);
 
@@ -508,8 +500,6 @@ blockif_assign (AST * root)
 void
 elseif_assign (AST * root)
 {
-  void expr_assign (AST *);
-
   if (root->astnode.blockif.conds != NULL)
     expr_assign (root->astnode.blockif.conds);
 
@@ -551,8 +541,6 @@ call_assign (AST * root)
 {
   AST *temp;
   char *tempname;
-  void expr_assign (AST *);
-  char * lowercase(char * );
 
   lowercase (root->astnode.ident.name);
   tempname = strdup (root->astnode.ident.name);
@@ -588,8 +576,6 @@ void
 spec_assign (AST * root)
 {
   AST *assigntemp;
-  void name_assign (AST *);
-  void expr_assign (AST *);
 
   /* I am reaching every case in this switch.  */
   switch (root->astnode.typeunit.specification)

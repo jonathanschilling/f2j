@@ -21,6 +21,35 @@
 #include"f2j.h"
 #include"f2jparse.tab.h"
 
+/*
+extern char *inputfilename;
+extern char *package_name;
+extern FILE *ifp;
+extern BOOLEAN bigEndian;
+extern int lineno;
+extern SYMTABLE *array_table;
+*/
+extern char *java_reserved_words[];
+extern char *jasmin_reserved_words[];
+extern char *blas_routines[];
+extern char *generic_intrinsics[];
+
+extern char * unit_name;
+
+
+extern char *optarg;
+
+BOOLEAN isBigEndian(void);
+AST *addnode(void);
+char *strdup(const char *),
+       * get_full_classname(char *);
+SYMTABLE * new_symtable (int);
+int yyparse (void);
+extern int getopt(int, char *const *, const char *);
+void type_insert (SYMTABLE *, AST *, enum returntype, char *);
+void handle_segfault(int);
+
+
 /*****************************************************************************
  * main                                                                      *
  *                                                                           *
@@ -32,18 +61,6 @@
 int
 main (int argc, char **argv)
 {
-  extern char *inputfilename;
-  extern char *package_name;
-  extern char *java_reserved_words[];
-  extern char *jasmin_reserved_words[];
-  extern char *blas_routines[];
-  extern char *optarg;
-  extern char *generic_intrinsics[];
-
-  extern FILE *ifp;
-
-  extern BOOLEAN bigEndian;
-  BOOLEAN isBigEndian();
 
   char classname[130];
   char *truncfilename;
@@ -56,15 +73,6 @@ main (int argc, char **argv)
   int errflg = 0;
   int c;
   int i;
-
-  AST *addnode();
-  char *strdup(const char *),
-       * get_full_classname(char *);
-  SYMTABLE * new_symtable (int);
-  int yyparse (void);
-  extern int getopt(int, char *const *, const char *);
-  void type_insert (SYMTABLE *, AST *, int, char *);
-  void handle_segfault();
 
   char f2java_help[] = "The program is used as follows:\n\n\
 To compile a program into Java source code:\n\
@@ -324,10 +332,7 @@ javaheader (FILE * fp, char *reflect)
 void
 initialize ()
 {
-  extern int lineno;
   int tablesize = 211;
-  extern SYMTABLE *array_table; /* Variables of type array. */
-  SYMTABLE * new_symtable (int);
 
   lineno = 0;
   statementno = 0;
@@ -375,10 +380,8 @@ uppercase(char * name)
  *                                                                           *
  *****************************************************************************/
 
-void handle_segfault()
+void handle_segfault(int x)
 {
-  extern char * unit_name;
-
   fflush(stdout);
   fprintf(stderr,"Segmentation Fault, stdout flushed.\n");
   if(unit_name != NULL)
@@ -399,7 +402,8 @@ void handle_segfault()
  *                                                                           *
  *****************************************************************************/
 
-char isBigEndian()
+BOOLEAN
+isBigEndian()
 {
   int x = 1;
 

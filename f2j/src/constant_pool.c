@@ -33,6 +33,9 @@ char * constant_tags [NUM_CONSTANT_TAGS] = {
   "CONSTANT_NameAndType"
 };
 
+u4 u4BigEndian(u4);
+u2 u2BigEndian(u2);
+
 /*****************************************************************************
  *                                                                           *
  * cp_lookup                                                                 *
@@ -45,8 +48,6 @@ char * constant_tags [NUM_CONSTANT_TAGS] = {
 CPNODE *
 cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
   Dlist temp;
-  extern BOOLEAN bigEndian;
-  u4 u4BigEndian(u4);
   struct cp_info * ctemp;
 
   if(cp_debug)
@@ -396,7 +397,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
  *****************************************************************************/
 
 CPNODE *
-cp_entry_by_index(Dlist list, int idx)
+cp_entry_by_index(Dlist list, unsigned int idx)
 {
   Dlist temp;
 
@@ -427,8 +428,6 @@ insert_constant(Dlist list, int tok, void * tag)
 {
   struct cp_info * newnode = NULL;
   int idx;
-  extern BOOLEAN bigEndian;
-  u4 u4BigEndian(u4);
   CPNODE *c;
 
   switch(tok) {
@@ -445,7 +444,7 @@ insert_constant(Dlist list, int tok, void * tag)
         {
             newnode = (struct cp_info *)f2jalloc(sizeof(struct cp_info));
             newnode->tag = CONSTANT_Integer;
-            newnode->cpnode.Integer.bytes = u4BigEndian(intVal);
+            newnode->cpnode.Integer.bytes = u4BigEndian((u4)intVal);
 
             return cp_insert(list, newnode, 1);
         }
@@ -543,8 +542,7 @@ printf("&& in insert_constant, inserting '%s'\n",(char *)tag);
  *****************************************************************************/
 
 CPNODE *
-cp_insert(Dlist list, struct cp_info *node, char width) {
-  char *strdup(const char *);
+cp_insert(Dlist list, struct cp_info *node, unsigned int width) {
   CPNODE * n;
 
   if(cp_debug)
@@ -625,12 +623,9 @@ cp_quickdump(Dlist list)
 void
 cp_dump(Dlist list)
 {
-  extern char *constant_tags[NUM_CONSTANT_TAGS];
   CPNODE * tmpconst, * tmpconst2;
   Dlist tmpPtr;
   double x;
-  u4 u4BigEndian(u4);
-  extern BOOLEAN bigEndian;
 
   dl_traverse(tmpPtr,list) {
     tmpconst = (CPNODE *) tmpPtr->val;
@@ -717,7 +712,7 @@ cp_dump(Dlist list)
 }
 
 char *
-null_term(u1 * str, int len)
+null_term(u1 * str, unsigned int len)
 {
   char * temp = (char *)f2jalloc(len + 1);
 
@@ -740,8 +735,6 @@ null_term(u1 * str, int len)
 u2
 u2BigEndian(u2 num)
 {
-  extern BOOLEAN bigEndian;
-
   if(bigEndian)
     return num;
   else
@@ -761,8 +754,6 @@ u2BigEndian(u2 num)
 u4
 u4BigEndian(u4 num)
 {
-  extern BOOLEAN bigEndian;
-
   if(bigEndian)
     return num;
   else

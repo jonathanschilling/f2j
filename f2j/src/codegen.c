@@ -14,84 +14,7 @@
  *                                                                           *
  *****************************************************************************/
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<ctype.h>
-#include"f2j.h"
-#include"f2jparse.tab.h"
-#include"class.h"
-#include"constant_pool.h"
 #include"codegen.h"
-#include"opcodes.h"
-#include"graph.h"
-
-/*****************************************************************************
- * Function prototypes:                                                      *
- *****************************************************************************/
-
-char 
-  * strdup ( const char * ),
-  * print_nodetype ( AST * ),
-  * lowercase ( char * ),
-  * get_common_prefix(char *),
-  * getVarDescriptor(AST *),
-  * char_substitution(char *, int, int),
-  * get_full_classname(char *);
-
-METHODTAB
-  * methodscan (METHODTAB * , char * );
-
-void 
-  pushConst(AST *),
-  pushIntConst(int),
-  pushDoubleConst(double),
-  pushStringConst(char *),
-  pushVar(enum returntype, BOOLEAN, char *, char *, char *, int, int),
-  dec_stack(int),
-  iinc_emit(int, int),
-  invoke_constructor(char *, AST *, char *),
-  set_bytecode_status(int),
-  inline_format_emit(AST *, BOOLEAN),
-  endNewMethod(struct method_info *, char *, char *, u2),
-  releaseLocal(),
-  assign_emit (AST *),
-  expr_emit(AST *),
-  forloop_bytecode_emit(AST *),
-  else_emit (AST *),
-  LHS_bytecode_emit(AST *),
-  insert_adapter(AST *),
-  insert_methcall(Dlist, AST *),
-  reflect_declarations_emit(AST *);
-
-int
-  isPassByRef(char *),
-  getNextLocal(enum returntype),
-  needs_adapter(AST *);
-
-HASHNODE 
-  * format_lookup(SYMTABLE *, char *);
-
-struct ClassFile 
-  * newClassFile(char *,char *);
-
-struct method_info 
-  * beginNewMethod(u2);
-
-CodeGraphNode
-  * bytecode0(enum _opcode),
-  * bytecode1(enum _opcode, u4),
-  * nodeAtPC(int),
-  * gen_store_op(int, enum returntype),
-  * gen_load_op(int, enum returntype),
-  * elseif_emit (AST *);
-
-AST
-  * label_search(Dlist, int),
-  * dl_astnode_examine(Dlist),
-  * find_label(Dlist, int),
-  * addnode();
-
 
 /*****************************************************************************
  *   Global variables, a necessary evil when working with yacc.              *
@@ -99,11 +22,6 @@ AST
 
 int
   gendebug = TRUE;     /* set to TRUE to generate debugging output          */
-
-extern int 
-  ignored_formatting,   /* number of FORMAT statements ignored               */
-  bad_format_count,     /* number of bad FORMAT statements encountered       */
-  stacksize;            /* current stacksize at some point in execution      */
 
 char 
   *unit_name,           /* name of this function/subroutine                  */
@@ -123,8 +41,8 @@ Dlist
 SUBSTITUTION 
   global_sub={NULL,0};  /* substitution used for implied loops               */
 
-extern char 
-  *inputfilename;       /* name of the fortran input file                    */
+/*extern char 
+  *inputfilename; */      /* name of the fortran input file                    */
 
 FILE 
   *javafp,              /* the class file currently generating               */
@@ -132,8 +50,8 @@ FILE
   *savefp,              /* temp var for saving the current file pointer      */
   *devnull;             /* pointer to the file /dev/null                     */
 
-extern FILE
-  *indexfp;             /* index of methods & descriptors for all prog units */
+/*extern FILE
+  *indexfp;  */           /* index of methods & descriptors for all prog units */
 
 SYMTABLE                /* Symbol tables containing...                       */
   *cur_type_table,      /* type information                                  */
@@ -166,7 +84,7 @@ BOOLEAN
   import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE;    /* is bytecode generation currently enabled          */
 
-int 
+unsigned int 
   pc,                   /* current program counter                           */
   cur_local,            /* current local variable number                     */
   num_locals,           /* number of locals needed for this method           */
@@ -184,6 +102,9 @@ ExceptionTableEntry
   * reflect_entry,      /* exception table entry for reflection exceptions.  */
   * access_entry;       /* exception table entry for access exceptions.      */
 
+/*extern int locals; */
+extern METHODTAB intrinsic_toks[];
+
 /*****************************************************************************
  *                                                                           *
  * emit                                                                      *
@@ -198,38 +119,6 @@ ExceptionTableEntry
 void
 emit (AST * root)
 {
-    void 
-       open_output_file(AST *, char *),
-       emit_adapters(),
-       constructor (AST *),
-       typedec_emit (AST *),
-       data_emit(AST *),
-       spec_emit (AST *),
-       equiv_emit (AST *),
-       call_emit (AST *),
-       forloop_emit (AST *),
-       blockif_emit (AST *),
-       logicalif_emit (AST *),
-       arithmeticif_emit (AST *),
-       goto_emit (AST *),
-       computed_goto_emit (AST *),
-       label_emit (AST *),
-       write_emit (AST *),
-       common_emit(AST *),
-       read_emit (AST *),
-       emit_invocations(AST *),
-       merge_equivalences(AST *),
-       print_equivalences(AST *),
-       emit_prolog_comments(AST *),
-       emit_javadoc_comments(AST *),
-       insert_fields(AST *),
-       assign_local_vars(AST *),
-       return_emit(),
-       end_emit(AST *);
-
-    struct attribute_info * newCodeAttribute();
-    char * tok2str(int);
-    extern int locals;
     CPNODE *c;
 
     switch (root->nodetype)
@@ -346,7 +235,7 @@ emit (AST * root)
            * nothing.
            */
 
-          clinit_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
+          clinit_method = beginNewMethod((u2)(ACC_PUBLIC | ACC_STATIC)); 
           
           emit (root->astnode.source.typedecs);
           
@@ -742,7 +631,6 @@ emit (AST * root)
 char *
 get_full_classname(char *thisclass)
 {
-  extern char *package_name;
   char * pname;
 
   if(package_name != NULL) {
@@ -861,7 +749,7 @@ void
 invocation_exception_handler_emit(ExceptionTableEntry *et)
 {
   CPNODE *c;
-  int vnum;
+  unsigned int vnum;
 
   vnum = getNextLocal(Object);
 
@@ -903,7 +791,7 @@ invocation_exception_handler_emit(ExceptionTableEntry *et)
    */
   et->target->stack_depth = 1;
 
-  releaseLocal();
+  releaseLocal(Object);
 }
 
 /*****************************************************************************
@@ -923,8 +811,6 @@ end_emit(AST *root)
 {
   CodeGraphNode *goto_node, *goto_node2;
   CPNODE *c;
-
-  void return_emit();
 
   if(import_reflection) {
     /* this goto skips the execption handlers under normal execution */
@@ -1044,7 +930,6 @@ return_emit()
 void
 field_emit(AST *root)
 {
-  void addField(char *, char *);
   char * desc, * name;
   HASHNODE *ht;
 
@@ -1188,7 +1073,6 @@ void
 print_equivalences(AST *root)
 {
   AST *temp;
-  void print_eqv_list(AST *, FILE *);
 
   printf("M_EQV  Equivalences:\n");
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
@@ -1303,7 +1187,6 @@ equiv_emit (AST *root)
   HASHNODE *ht;
   AST *temp;
   enum returntype curType;
-  void vardec_emit(AST *, enum returntype);
 
   /* for each group of equivalenced variables... */
 
@@ -1363,12 +1246,11 @@ common_emit(AST *root)
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
   int needs_dec = FALSE;
-  void vardec_emit(AST *, enum returntype);
   Dlist save_const_table;
   struct ClassFile *save_class_file;
   struct attribute_info *save_code;
   int save_stack, save_pc;
-  char *get_common_prefix(char *), *save_filename;
+  char *save_filename;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1524,13 +1406,10 @@ common_emit(AST *root)
 void
 typedec_emit (AST * root)
 {
-  extern METHODTAB intrinsic_toks[];
   AST *temp;
   HASHNODE *hashtemp, *ht;
   enum returntype returns;
   char *tempname;
-  void vardec_emit(AST *, enum returntype),
-       newarray_emit(AST *);
 
   /* 
    *  This may have to be moved into the looop also.  Could be
@@ -1722,9 +1601,6 @@ vardec_emit(AST *root, enum returntype returns)
   int count=0;
   AST *temp2;
   CPNODE *c;
-
-  void name_emit (AST *);
-  void print_string_initializer(AST *);
 
   prefix = "static ";
 
@@ -1923,7 +1799,6 @@ vardec_emit(AST *root, enum returntype returns)
  *                                                                           *
  *****************************************************************************/
 
-
 void
 print_string_initializer(AST *root)
 {
@@ -2003,8 +1878,6 @@ void
 data_emit(AST *root)
 {
   AST * Dtemp, *Ntemp, *Ctemp;
-  AST * data_var_emit(AST *, AST *, HASHNODE *);
-  AST * data_implied_loop_emit(AST * , AST *);
   HASHNODE *hashtemp;
 
   /* foreach Data spec... */
@@ -2083,7 +1956,6 @@ data_implied_loop_emit(AST * root, AST *Clist)
   int start, stop, incr, i;
   HASHNODE *ht;
 
-  void name_emit (AST *);
  
   if(gendebug) {
     printf("/* \n");
@@ -2174,10 +2046,6 @@ AST *
 data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 {
   int length=1, is_array=FALSE, needs_dec = FALSE;
-
-  AST * data_array_emit(int , AST *, AST *, int );
-  void data_scalar_emit(enum returntype, AST *, AST *, int);
-  int determine_var_length(HASHNODE *);
 
   if(gendebug)
     printf("VAR here we are emitting data for %s\n",
@@ -2284,9 +2152,6 @@ determine_var_length(HASHNODE *var)
   int length = 1;
   int dims = var->variable->astnode.ident.dim;
 
-  double eval_const_expr(AST *);
-  int idxNeedsDecr(AST *);
-
   if(gendebug) {
     printf("determining length of %s\n", var->variable->astnode.ident.name);
     printf("dim = %d\n", dims);
@@ -2337,11 +2202,10 @@ determine_var_length(HASHNODE *var)
 AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
-  int i, count=1, size=0;
+  unsigned int count = 1, size = 0;
   HASHNODE *ht;
   CPNODE *c;
-
-  int data_repeat_emit(AST *, int);
+  int i;
 
   if(gendebug)
     printf("VAR here we are in data_array_emit, length = %d\n",length);
@@ -2451,7 +2315,7 @@ data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
  *****************************************************************************/
 
 int
-data_repeat_emit(AST *root, int idx)
+data_repeat_emit(AST *root, unsigned int idx)
 {
   int j, repeat;
   char *ditem;
@@ -2685,13 +2549,6 @@ name_emit (AST * root)
 {
   HASHNODE *hashtemp;
   char * tempname;
-  extern METHODTAB intrinsic_toks[];
-  void external_emit(AST *);
-  void intrinsic_emit(AST *);
-  void scalar_emit(AST *, HASHNODE *);
-  void array_emit(AST *, HASHNODE *);
-  void substring_emit(AST *);
-  void subcall_emit(AST *);
 
   if(gendebug)
     printf("entering name_emit\n");
@@ -2777,7 +2634,6 @@ name_emit (AST * root)
 void
 substring_emit(AST *root)
 {
-  void scalar_emit(AST *, HASHNODE *);
   HASHNODE *hashtemp;
 
   hashtemp = type_lookup (cur_array_table, root->astnode.ident.name);
@@ -2870,7 +2726,6 @@ int
 idxNeedsDecr(AST *alist)
 {
   AST *startIdx = NULL;
-  double eval_const_expr(AST *);
   int eval;
 
   if( (alist != NULL) && (alist->nodetype == ArrayIdxRange))
@@ -2946,8 +2801,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
   }
   else if(ht->variable->astnode.ident.dim == 3)
   {
-    int offset;
-    int d1, d0;
+    unsigned int d1, d0, offset;
 
     /* This section handles 3 dimensional array access.  we should already
      * know the dimensions of this array.
@@ -3093,7 +2947,9 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       else {
         AST * lead_exp = hashtemp->variable->astnode.ident.lead_expr;
 
+printf("going to emit lead_exp...\n");
         expr_emit(lead_exp);
+printf("done emitting lead_exp...\n");
         if(lead_exp->vartype != Integer)
           bytecode0(typeconv_matrix[lead_exp->vartype][Integer]);
       }
@@ -3164,10 +3020,7 @@ func_array_emit(AST *root, HASHNODE *hashtemp, char *arrayname, int is_arg,
       }
       else {
         fprintf(curfp,  "%s", hashtemp->variable->astnode.ident.leaddim);
-        pushVar(hashtemp->variable->vartype,is_arg,cur_filename,
-                hashtemp->variable->astnode.ident.leaddim,
-                field_descriptor[hashtemp->variable->vartype][0],
-                hashtemp->variable->astnode.ident.localvnum, FALSE);
+        pushIntConst(atoi(hashtemp->variable->astnode.ident.leaddim));
       }
       bytecode0(jvm_imul);
       bytecode0(jvm_iadd);
@@ -3297,8 +3150,8 @@ void
 array_emit(AST *root, HASHNODE *hashtemp)
 {
   AST *temp;
-  int is_arg=FALSE, varnum=0;
-  char *get_common_prefix(char *);
+  int is_arg=FALSE;
+  unsigned int varnum=0;
   char *com_prefix;
   char *name, *tmpclass, *desc;
   HASHNODE *ht;
@@ -3623,7 +3476,7 @@ pushStringConst(char *str)
 
 void
 pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc, 
-   int lv, int deref)
+   unsigned int lv, BOOLEAN deref)
 {
   CPNODE *c;
 
@@ -3680,7 +3533,6 @@ pushVar(enum returntype vt, BOOLEAN isArg, char *class, char *name, char *desc,
 void
 scalar_emit(AST *root, HASHNODE *hashtemp)
 {
-  extern METHODTAB intrinsic_toks[];
   char *com_prefix, *desc, *name, *scalar_class;
   HASHNODE *ht, *isArg, *typenode;
 
@@ -3983,12 +3835,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 void
 external_emit(AST *root)
 {
-  extern METHODTAB intrinsic_toks[];
   char *tempname, *javaname;
   METHODTAB *entry;
   AST *temp;
-
-  void call_emit (AST *);
 
   if(gendebug) {
     printf("here we are in external_emit\n");
@@ -4124,22 +3973,12 @@ external_emit(AST *root)
 void
 intrinsic_emit(AST *root)
 {
-  extern METHODTAB intrinsic_toks[];
   AST *temp;
   HASHNODE *ht;
   CPNODE *c;
   METHODTAB *entry;
   char *tempname, *javaname;
   enum _intrinsics id;
-
-  void max_intrinsic_emit (AST *, char *, METHODTAB *),
-    min_intrinsic_emit (AST *, char *, METHODTAB *),
-    dint_intrinsic_emit(AST *, METHODTAB *),
-    aint_intrinsic_emit(AST *, METHODTAB *),
-    intrinsic_arg_emit(AST *, enum returntype),
-    intrinsic_call_emit(AST *, METHODTAB *, enum returntype),
-    intrinsic2_call_emit(AST *, METHODTAB *, enum returntype),
-    intrinsic_lexical_compare_emit(AST *, METHODTAB *);
 
   if(gendebug)
     printf("entering intrinsic_emit\n");
@@ -4665,8 +4504,6 @@ intrinsic_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
 {
   CPNODE *c;
 
-  void intrinsic_arg_emit(AST *, enum returntype);
-
   /* entry->ret should represent the return type of the equivalent JAva
    * function, while root->vartype should represent the return type of
    * the fortran intrinsic.  e.g. fortan's EXP may return Real but JAva's
@@ -4701,8 +4538,6 @@ intrinsic2_call_emit(AST *root, METHODTAB *entry, enum returntype argtype)
 {
   AST * temp = root->astnode.ident.arraylist;
   CPNODE *c;
-
-  void intrinsic_arg_emit(AST *, enum returntype);
 
   fprintf (curfp, "%s(", entry->java_method);
   intrinsic_arg_emit (temp, argtype);
@@ -4796,11 +4631,8 @@ intrinsic_arg_emit(AST *node, enum returntype this_type)
 void
 max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
 {
-  extern METHODTAB intrinsic_toks[];
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
-
-  void maxmin_intrinsic_emit(AST *, char *, METHODTAB *, char *, char *);
 
   if(entry->intrinsic == ifunc_MAX) {
     switch(root->vartype) {
@@ -4845,11 +4677,8 @@ max_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
 void
 min_intrinsic_emit(AST *root, char *tempname, METHODTAB *entry)
 {
-  extern METHODTAB intrinsic_toks[];
   METHODTAB *tmpentry = entry;
   char *desc = "(DDD)D";
-
-  void maxmin_intrinsic_emit(AST *, char *, METHODTAB *, char *, char *);
 
   if(entry->intrinsic == ifunc_MIN) {
     switch(root->vartype) {
@@ -5041,12 +4870,9 @@ get_type(char *num)
 void
 expr_emit (AST * root)
 {
-  extern METHODTAB intrinsic_toks[];
   char *tempname;
   CPNODE * ct;
   int cur_vt;
-
-  void name_emit (AST *);
 
   if(root == NULL)
   {
@@ -5590,12 +5416,9 @@ void
 constructor (AST * root)
 {
   enum returntype returns;
-  extern char *returnstring[];
   AST *tempnode;
   char *tempstring, *ret_desc;
   HASHNODE *hashtemp;
-  void print_string_initializer(AST *);
-  void emit_interface(AST *);
   struct _str * temp_desc = NULL;
   int isArray = 0;
 
@@ -5863,7 +5686,6 @@ void
 emit_interface(AST *root)
 {
   enum returntype returns;
-  extern char *returnstring[];
   AST *tempnode, *prev;
   char *tempstring;
   HASHNODE *hashtemp;
@@ -5873,7 +5695,6 @@ emit_interface(AST *root)
   Dlist decs, rest, tmp;
   int i;
   BOOLEAN skipped;
-  void emit_methcall(FILE *, AST *);
 
   decs = make_dl();
   rest = make_dl();
@@ -6099,7 +5920,6 @@ void
 emit_methcall(FILE *intfp, AST *root)
 {
   enum returntype returns;
-  extern char *returnstring[];
   AST *tempnode, *prev;
   char *tempstring;
   HASHNODE *hashtemp;
@@ -6221,7 +6041,6 @@ void
 forloop_emit (AST * root)
 {
   char *indexname;
-  void name_emit (AST *);
 
   forloop_bytecode_emit(root);
 
@@ -6376,7 +6195,6 @@ void
 goto_emit (AST * root)
 {
   CodeGraphNode *goto_node;
-  int dl_int_examine(Dlist);
   AST *loop;
 
   /* for bytecode, maintain a list of the gotos so that we can come back
@@ -6447,8 +6265,7 @@ computed_goto_emit (AST *root)
 {
   CodeGraphNode *if_node, *goto_node;
   AST *temp;
-  int count = 1;
-  int lvar;
+  unsigned int lvar, count = 1;
 
   lvar = getNextLocal(Integer);
 
@@ -6536,7 +6353,7 @@ void
 arithmeticif_emit (AST * root)
 {
   CodeGraphNode *if_node, *goto_node;
-  int lvar;
+  unsigned int lvar;
 
   lvar = getNextLocal(root->astnode.arithmeticif.cond->vartype);
 
@@ -6620,9 +6437,6 @@ label_emit (AST * root)
   AST *loop;
   int num;
 
-  void forloop_end_bytecode(AST *);
-  int dl_int_examine(Dlist);
-
   num = root->astnode.label.number;
 
   printf("looking at label %d, pc is %d\n", num, pc);
@@ -6693,7 +6507,7 @@ void
 forloop_end_bytecode(AST *root)
 {
   CodeGraphNode *if_node, *iload_node;
-  int icount;
+  unsigned int icount;
    
   icount = root->astnode.forloop.localvar;
 
@@ -6738,10 +6552,6 @@ read_emit (AST * root)
   AST *assign_temp;
   AST *temp;
   CPNODE *c;
-
-  void implied_loop_emit(AST *, void (AST *), void (AST*));
-  void read_implied_loop_bytecode_emit(AST *);
-  void read_implied_loop_sourcecode_emit(AST *);
 
   /* if the READ statement has no args, just read a line and
    * ignore it.
@@ -6939,10 +6749,6 @@ one_arg_write_emit(AST *root)
 {
   CPNODE *c;
 
-  void implied_loop_emit(AST *, void (AST *), void (AST *));
-  void write_implied_loop_bytecode_emit(AST *);
-  void write_implied_loop_sourcecode_emit(AST *);
-
   /* if the only arg is an implied loop, emit that and return...
    * nothing more to do here.
    */
@@ -6992,16 +6798,10 @@ void
 write_emit(AST * root)
 {
   BOOLEAN implied_loop = FALSE;
-  extern int ignored_formatting;
   AST *nodeptr, *temp, *prev;
   HASHNODE *hnode;
   char tmp[100];
   CPNODE *c;
-
-  void format_emit(AST *, AST **),
-       write_implied_loop_bytecode_emit(AST *),
-       write_implied_loop_sourcecode_emit(AST *),
-       implied_loop_emit(AST *, void (AST *), void (AST *));
 
   /* look for a format statement */
   sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
@@ -7281,7 +7081,7 @@ implied_loop_emit(AST *node, void loop_body_bytecode_emit(AST *),
 {
   CodeGraphNode *if_node, *goto_node, *iload_node;
   AST *temp;
-  int icount;
+  unsigned int icount;
 
   temp = addnode();
   temp->nodetype = Assignment;
@@ -7457,9 +7257,9 @@ write_implied_loop_bytecode_emit(AST *node)
  *****************************************************************************/
 
 void
-iinc_emit(int idx, int inc_const)
+iinc_emit(unsigned int idx, int inc_const)
 {
-  int operand;
+  unsigned int operand;
 
   operand = ((idx & 0xFF) << 8) | (inc_const & 0xFF);
  
@@ -7476,7 +7276,7 @@ iinc_emit(int idx, int inc_const)
  *****************************************************************************/
 
 CodeGraphNode *
-gen_store_op(int lvnum, enum returntype rt)
+gen_store_op(unsigned int lvnum, enum returntype rt)
 {
   if((lvnum >= 0) && (lvnum <= 3))
     return bytecode0(short_store_opcodes[rt][lvnum]);
@@ -7494,7 +7294,7 @@ gen_store_op(int lvnum, enum returntype rt)
  *****************************************************************************/
 
 CodeGraphNode *
-gen_load_op(int lvnum, enum returntype rt)
+gen_load_op(unsigned int lvnum, enum returntype rt)
 {
   if((lvnum >= 0) && (lvnum <= 3))
     return bytecode0(short_load_opcodes[rt][lvnum]);
@@ -7515,8 +7315,6 @@ void
 format_emit(AST *node, AST **nptr)
 {
   CPNODE *c;
-
-  void format_list_emit(AST *, AST **);
 
   /* create a new stringbuffer with no initial value.  */
   c = cp_find_or_insert(cur_const_table,CONSTANT_Class, STRINGBUFFER);
@@ -7542,8 +7340,6 @@ format_list_emit(AST *node, AST **nptr)
 {
   AST *temp = node;
 
-  AST * format_item_emit(AST *, AST **);
-
   while(temp != NULL)
     temp = format_item_emit(temp,nptr);
 }
@@ -7562,10 +7358,6 @@ format_item_emit(AST *temp, AST **nodeptr)
 {
   CPNODE *c;
   int i;
-
-  void format_list_emit(AST *, AST **);
-  void format_name_emit(AST *);
-  char * tok2str(int);
 
   switch(temp->token) {
     case EDIT_DESC:
@@ -7620,7 +7412,7 @@ format_item_emit(AST *temp, AST **nodeptr)
             /* allocate enough space for the given repeat spec, plus
              * 2 quotes, plus a null terminator.
              */
-            tmpbuf = (char *)f2jalloc(atoi(temp->astnode.constant.number)+3);
+            tmpbuf = (char *)f2jalloc((unsigned int)atoi(temp->astnode.constant.number)+3);
 
             sprintf(tmpbuf,"\"%*s\"",atoi(temp->astnode.constant.number)," ");
 
@@ -7706,7 +7498,6 @@ format_item_emit(AST *temp, AST **nodeptr)
 void
 format_name_emit(AST *node)
 {
-  extern int bad_format_count;
   CPNODE *c;
 
   if(node == NULL) {
@@ -7775,8 +7566,6 @@ blockif_emit (AST * root)
   int *tmp_int;
   Dlist gotos, lptr;
   AST *temp;
-
-  void while_emit(AST *);
 
   /* in bytecode, each if-block and elseif-block must have a goto at
    * the end to branch to the statement following the end if.  since we
@@ -8068,7 +7857,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
 
       /* subroutine with args.  */
 
-      int cnt = 0, arr_local;
+      unsigned int cnt = 0, arr_local;
 
       for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
         cnt++;
@@ -8145,7 +7934,7 @@ method_name_emit (AST *root, BOOLEAN adapter)
       fprintf(curfp,"_%s_meth.invoke(null,_%s_args);\n",
         root->astnode.ident.name, root->astnode.ident.name);
 
-      releaseLocal();
+      releaseLocal(Object);
 
       return 1;
     }
@@ -8253,8 +8042,6 @@ call_emit (AST * root)
 {
   BOOLEAN adapter = FALSE;
 
-  void emit_call_arguments(AST *, BOOLEAN);
-
   assert (root != NULL);
 
   if(gendebug)
@@ -8329,9 +8116,6 @@ void
 emit_call_arguments(AST *root, BOOLEAN adapter)
 {
   HASHNODE *hashtemp;
-
-  void emit_call_args_known(AST *, HASHNODE *, BOOLEAN);
-  void emit_call_args_unknown(AST *);
 
   /* look up the function that we are calling so that we may compare
    * the parameters.
@@ -8769,8 +8553,6 @@ needs_adapter(AST *root)
 void
 spec_emit (AST * root)
 {
-  void name_emit (AST *);
-
   /* I am reaching every case in this switch.  */
 
   switch (root->astnode.typeunit.specification)
@@ -8836,9 +8618,6 @@ assign_emit (AST * root)
 {
   enum returntype ltype, rtype;
   CPNODE *c;
-
-  void substring_assign_emit(AST *);
-  void name_emit (AST *);
 
   /* this used to be a pretty simple procedure:
    *    emit LHS
@@ -9749,14 +9528,8 @@ newClassFile(char *name, char *srcFile)
   struct cp_info *newnode;
   struct ClassFile * tmp;
   char * fullclassname;
-  u4 u4BigEndian(u4);
-  u2 u2BigEndian(u2);
   CPNODE *c;
 
-  CPNODE* cp_insert(Dlist, struct cp_info *, char);
-  char *strdup(const char *), *lowercase(char *);
-  void cp_dump(Dlist);
- 
   tmp = (struct ClassFile *)f2jalloc(sizeof(struct ClassFile));
  
   tmp->magic = JVM_MAGIC;
@@ -9879,12 +9652,18 @@ char_substitution(char *str, int from_char, int to_char)
  *****************************************************************************/
 
 struct method_info *
-beginNewMethod(u2 flags)
+beginNewMethod(unsigned int flags)
 {
   struct method_info *tmp;
+  u2 acc;
+
+  acc = (u2) flags;
+
+  if((int)acc != flags)
+    fprintf(stderr,"Warning: possible truncation in beginNewMethod.\n");
 
   tmp = (struct method_info *)f2jalloc(sizeof(struct method_info));
-  tmp->access_flags = flags;
+  tmp->access_flags = acc;
 
   tmp->attributes_count = 1;
   tmp->attributes = make_dl();
@@ -9906,14 +9685,19 @@ beginNewMethod(u2 flags)
  *****************************************************************************/
 
 void
-endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
+endNewMethod(struct method_info * meth, char * name, char * desc,
+  unsigned int mloc)
 {
   ExceptionTableEntry *et_entry;
   CPNODE *c;
   Dlist tmp;
   int idx;
+  u2 maxloc;
 
-  void traverse_code(Dlist); 
+  maxloc = (u2)mloc;
+
+  if((int)maxloc != mloc)
+    fprintf(stderr,"Warning: possible truncation in endNewMethod.\n");
 
   fprintf(indexfp,"%s:%s:%s\n",cur_filename, name, desc);
 
@@ -9974,7 +9758,7 @@ endNewMethod(struct method_info * meth, char * name, char * desc, u2 mloc)
    *   total                   =  12 + exception_table_length * sizeof(exception table) bytes
    */
   cur_code->attribute_length = pc + 12 + num_handlers * sizeof(struct ExceptionTable);
-  cur_code->attr.Code->max_locals = mloc;
+  cur_code->attr.Code->max_locals = maxloc;
   cur_code->attr.Code->code_length = pc;
   printf("Code: set code_length = %d\n",pc);
 
@@ -10065,8 +9849,6 @@ traverse_code(Dlist cgraph)
   char *warn;
   Dlist tmp;
 
-  void calcOffsets(CodeGraphNode *);
-
   if(dl_empty(cgraph))
     return;
 
@@ -10119,9 +9901,6 @@ traverse_code(Dlist cgraph)
 void
 calcOffsets(CodeGraphNode *val)
 {
-  int getStackIncrement(enum _opcode, u4),
-      getStackDecrement(enum _opcode, u4);
-
   /* if we already visited this node, then do not visit again. */
   if(val->visited)
     return;
@@ -10228,10 +10007,9 @@ calcOffsets(CodeGraphNode *val)
 int
 getStackIncrement(enum _opcode op, u4 index)
 {
-  u2 u2BigEndian(u2);
   char *this_desc;
   CPNODE *c;
-  struct stack_info * calcStack(char *), *stackinf;
+  struct stack_info *stackinf;
   int stack_increment;
 
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
@@ -10310,10 +10088,9 @@ getStackIncrement(enum _opcode op, u4 index)
 int
 getStackDecrement(enum _opcode op, u4 index)
 {
-  u2 u2BigEndian(u2);
   char *this_desc;
   CPNODE *c;
-  struct stack_info * calcStack(char *), *stackinf;
+  struct stack_info *stackinf;
   int stack_decrement;
 
   if((op == jvm_invokespecial) || (op == jvm_invokevirtual)
@@ -10392,8 +10169,6 @@ getStackDecrement(enum _opcode op, u4 index)
 struct stack_info *
 calcStack(char *d)
 {
-  char * skipToken(char *);
-
   struct stack_info *tmp;
   int len = strlen(d);
   char *ptr;
@@ -10515,7 +10290,6 @@ assign_local_vars(AST * root)
   AST * locallist;
   HASHNODE * hashtemp;
   int localnum = 0;
-  extern int locals;
 
   /* if root is NULL, this is probably a PROGRAM (no args) */
   if(root == NULL)

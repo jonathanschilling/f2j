@@ -26,24 +26,49 @@
 
 char 
   * strdup ( const char * ),
+  * merge_names(AST *),
   * print_nodetype ( AST * );
 
 METHODTAB
   * methodscan (METHODTAB *, char *);
 
 void 
+  print_eqv_list(AST *, FILE *),
+  remove_duplicates(AST *),
+  typecheck (AST *),
   elseif_check(AST *),
+  func_array_check(AST *, HASHNODE *),
   else_check (AST *),
   expr_check (AST *),
-  assign_check (AST *);
+  assign_check (AST *),
+  name_check (AST *),
+  data_check(AST *),
+  common_check(AST *),
+  call_check (AST *),
+  forloop_check (AST *),
+  blockif_check (AST *),
+  logicalif_check (AST *),
+  check_implied_loop(AST *),
+  read_write_check (AST *),
+  merge_equivalences(AST *),
+  check_equivalences(AST *),
+  insertEquivalences(AST *),
+  type_insert(SYMTABLE *, AST *, enum returntype, char *),
+  external_check(AST *),
+  intrinsic_check(AST *),
+  array_check(AST *, HASHNODE *),
+  subcall_check(AST *);
+
+SYMTABLE 
+  * new_symtable(int);
+
+extern METHODTAB intrinsic_toks[];
 
 /*****************************************************************************
  * Global variables.                                                         *
  *****************************************************************************/
 
 int checkdebug = FALSE;              /* set to TRUE for debugging output     */
-
-extern char *returnstring[];         /* return types (from codegen.c)        */
 
 AST *cur_unit;                       /* program unit currently being checked */
 
@@ -71,18 +96,6 @@ char bitfields[] = {                 /* for typechecking intrinsics          */
 void
 typecheck (AST * root)
 {
-  void data_check(AST *);
-  void common_check(AST *);
-  void call_check (AST *);
-  void forloop_check (AST *);
-  void blockif_check (AST *);
-  void logicalif_check (AST *);
-  void read_write_check (AST *);
-  void merge_equivalences(AST *);
-  void check_equivalences(AST *);
-  void insertEquivalences(AST *);
-  SYMTABLE *new_symtable(int);
-
   switch (root->nodetype)
   {
     case 0:
@@ -352,7 +365,6 @@ merge_equivalences(AST *root)
   AST *temp, *ctemp;
   AST *temp2, *ctemp2;
   int needsMerge = FALSE;
-  void remove_duplicates(AST *);
 
   if(checkdebug)
     printf("M_EQV  Equivalences:\n");
@@ -485,8 +497,6 @@ insertEquivalences(AST *root)
   AST *eqvList = root->astnode.source.equivalences;
   SYMTABLE *eqvSymTab = root->astnode.source.equivalence_table;
   char *merged_name;
-  void type_insert (SYMTABLE *, AST *, int, char *);
-  char *merge_names(AST *);
 
   /* foreach equivalence statement... */
   for(temp = eqvList; temp != NULL; temp = temp->nextstmt) {
@@ -521,7 +531,7 @@ merge_names(AST *root)
 {
   AST *temp;
   char *newName;
-  int len = 0, num = 0;
+  unsigned int len = 0, num = 0;
 
   /* determine how long the merged name will be */
 
@@ -565,7 +575,6 @@ check_equivalences(AST *root)
   enum returntype curType;
   HASHNODE *hashtemp;
   int mismatch = FALSE;
-  void print_eqv_list(AST *, FILE *);
 
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
     if(temp->astnode.equiv.clist != NULL) {
@@ -615,8 +624,6 @@ data_check(AST * root)
   HASHNODE *hashtemp;
   AST *Dtemp, *Ntemp, *var;
 
-  void name_check (AST *);
-
   for(Dtemp = root->astnode.label.stmt; Dtemp != NULL; Dtemp = Dtemp->prevstmt)
   {
     for(Ntemp = Dtemp->astnode.data.nlist;Ntemp != NULL;Ntemp=Ntemp->nextstmt)
@@ -659,7 +666,6 @@ common_check(AST *root)
   AST *Ctemp, *Ntemp;
   int i;
   char **names;
-  void type_insert (SYMTABLE *, AST *, int, char *);
 
   for(Ctemp=root->astnode.common.nlist;Ctemp!=NULL;Ctemp=Ctemp->nextstmt)
   {
@@ -722,11 +728,6 @@ name_check (AST * root)
   HASHNODE *hashtemp;
   HASHNODE *ht;
   char * tempname;
-  extern METHODTAB intrinsic_toks[];
-  void external_check(AST *);
-  void intrinsic_check(AST *);
-  void array_check(AST *, HASHNODE *);
-  void subcall_check(AST *);
 
   if (checkdebug)
     printf("here checking name %s\n",root->astnode.ident.name);
@@ -825,7 +826,6 @@ subcall_check(AST *root)
 {
   AST *temp;
   char *tempstr;
-  void expr_check (AST *);
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
@@ -864,7 +864,6 @@ subcall_check(AST *root)
 void
 func_array_check(AST *root, HASHNODE *hashtemp)
 {
-  void expr_check (AST *);
 
   if(root == NULL)
     fprintf(stderr,"func_array_check1: calling expr_check with null pointer!\n");
@@ -895,7 +894,6 @@ void
 array_check(AST *root, HASHNODE *hashtemp)
 {
   AST *temp;
-  void func_array_check(AST *, HASHNODE *);
 
   if (checkdebug)
     printf ("typecheck(): Array... %s, My node type is %s\n", 
@@ -918,13 +916,8 @@ array_check(AST *root, HASHNODE *hashtemp)
 void
 external_check(AST *root)
 {
-  extern METHODTAB intrinsic_toks[];
   char *tempname;
   AST *temp;
-
-  void name_check (AST *);
-  void expr_check (AST *);
-  void call_check (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -983,14 +976,11 @@ external_check(AST *root)
 void
 intrinsic_check(AST *root)
 {
-  extern METHODTAB intrinsic_toks[];
   AST *temp;
   METHODTAB *entry;
   char *tempname, *javaname;
   enum _intrinsics id;
   enum returntype min_type = Integer;
-
-  void expr_check (AST *);
 
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
@@ -1073,8 +1063,6 @@ intrinsic_check(AST *root)
 void
 expr_check (AST * root)
 {
-  void name_check (AST *);
-
   if(root == NULL) {
     fprintf(stderr,"expr_check(): NULL root!\n");
     return;
@@ -1205,8 +1193,6 @@ expr_check (AST * root)
 void
 forloop_check (AST * root)
 {
-  void assign_check (AST *);
-  void expr_check (AST *);
 
   expr_check (root->astnode.forloop.iter_expr);
   assign_check (root->astnode.forloop.incr_expr);
@@ -1234,8 +1220,6 @@ forloop_check (AST * root)
 void
 logicalif_check (AST * root)
 {
-  void expr_check (AST *);
-
   if (root->astnode.logicalif.conds != NULL)
     expr_check (root->astnode.logicalif.conds);
 
@@ -1254,8 +1238,6 @@ void
 read_write_check (AST * root)
 {
   AST *temp;
-  void expr_check (AST *);
-  void check_implied_loop(AST *);
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
@@ -1293,7 +1275,6 @@ check_implied_loop(AST *node)
 void
 blockif_check (AST * root)
 {
-  void expr_check (AST *);
   AST *temp;
 
   if (root->astnode.blockif.conds != NULL)
@@ -1321,8 +1302,6 @@ blockif_check (AST * root)
 void
 elseif_check (AST * root)
 {
-  void expr_check (AST *);
-
   if (root->astnode.blockif.conds != NULL)
     expr_check (root->astnode.blockif.conds);
   typecheck (root->astnode.blockif.stmts);
@@ -1357,7 +1336,6 @@ call_check (AST * root)
 {
   AST *temp;
   HASHNODE *ht;
-  void expr_check (AST *);
 
   assert (root != NULL);
   if(root->astnode.ident.arraylist == NULL)
@@ -1411,9 +1389,6 @@ call_check (AST * root)
 void
 assign_check (AST * root)
 {
-  void name_check (AST *);
-  void expr_check (AST *);
-
   name_check (root->astnode.assignment.lhs);
 
   if(root->astnode.assignment.rhs == NULL)

@@ -16,8 +16,13 @@
 #include"class.h"
 #include"codegen.h"
 #include"constant_pool.h"
-#include"f2jparse.tab.h"
 #include"graph.h"
+
+u4 u4BigEndian(u4);
+u2 u2BigEndian(u2);
+
+void write_code(Dlist, FILE *),
+     write_exception_table(struct ExceptionTable *, int, FILE *);
 
 /*****************************************************************************
  * write_class                                                               *
@@ -223,8 +228,6 @@ write_attributes(Dlist attr_list, Dlist const_pool, FILE *out)
   Dlist tmpPtr;
   CPNODE *c;
 
-  void write_code(Dlist, FILE *),
-       write_exception_table(struct ExceptionTable *, int, FILE *);
 
   if((attr_list == NULL) || (const_pool == NULL))
     return;
@@ -299,7 +302,6 @@ write_code(Dlist g, FILE *out)
 {
   Dlist tmp;
   CodeGraphNode *node;
-  int opWidth(enum _opcode);
   u1 op;
   u1 op1;
   u2 op2;
@@ -407,7 +409,6 @@ fopen_fullpath(char *file, char *mode)
   int cur_size;
   FILE *f;
 
-  extern char *output_dir;
 
   cur_size = 2; 
   pwd = (char *)f2jalloc(cur_size);
@@ -513,7 +514,6 @@ write_u1(u1 num, FILE *out)
 void
 write_u2(u2 num, FILE *out)
 {
-  u2 u2BigEndian(u2);
 
   num = u2BigEndian(num);
   fwrite(&num, sizeof(num), 1, out);
@@ -530,7 +530,6 @@ write_u2(u2 num, FILE *out)
 void
 write_u4(u4 num, FILE *out)
 {
-  u4 u4BigEndian(u4);
 
   num = u4BigEndian(num);
   fwrite(&num, sizeof(num), 1, out);

@@ -36,8 +36,8 @@
  * Each entry in the list has the following structure:
  */
 typedef struct _constListNode {
-  int index;
-  int next_idx;
+  unsigned int index;
+  unsigned int next_idx;
   struct cp_info * val;
 } CPNODE;
 
@@ -49,12 +49,12 @@ typedef struct _methodref {
 
 CPNODE * cp_lookup(Dlist, enum _constant_tags, void *);
 CPNODE * cp_find_or_insert(Dlist, enum _constant_tags, void *);
-CPNODE * cp_entry_by_index(Dlist, int);
-CPNODE * cp_insert(Dlist, struct cp_info *, char);
+CPNODE * cp_entry_by_index(Dlist, unsigned int);
+CPNODE * cp_insert(Dlist, struct cp_info *, unsigned int);
 CPNODE * insert_constant(Dlist, int, void *);
 CPNODE * newMethodref(Dlist, char *, char *, char *);
 CPNODE * newFieldref(Dlist, char *, char *, char *);
-char   * null_term(u1 *, int);
+char   * null_term(u1 *, unsigned int);
 void     cp_dump(Dlist);
 void     cp_quickdump(Dlist);
 void     fields_dump(Dlist, Dlist);

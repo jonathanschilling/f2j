@@ -56,8 +56,27 @@ METHODTAB
   * methodscan (METHODTAB * , char * );
 
 void 
+  external_optimize(AST *, AST *),
   expr_optimize (AST *, AST *),
-  args_optimize(AST *, AST *);
+  args_optimize(AST *, AST *),
+  optimize (AST *, AST *),
+  optScalar(AST *),
+  assign_optimize(AST *, AST*),
+  call_optimize(AST *, AST*),
+  forloop_optimize(AST *, AST*),
+  blockif_optimize(AST *, AST*),
+  elseif_optimize(AST *, AST*),
+  else_optimize(AST *, AST*),
+  logicalif_optimize(AST *, AST*),
+  read_optimize(AST *, AST*),
+  write_optimize(AST *, AST*),
+  spec_optimize(AST *, AST*),
+  read_implied_loop_optimize(AST *, AST *),
+  name_optimize (AST *, AST *),
+  subcall_optimize(AST *, AST *),
+  while_optimize(AST *, AST *);
+
+extern METHODTAB intrinsic_toks[];
 
 /*****************************************************************************
  *                                                                           *
@@ -74,7 +93,6 @@ optScalar(AST *root)
 {
   AST *temp;
   HASHNODE *ht;
-  void optimize (AST *, AST *);
   SYMTABLE *opt_type_table = root->astnode.source.type_table;
 
   /* look up this function name */
@@ -146,17 +164,6 @@ optScalar(AST *root)
 void
 optimize (AST * root, AST * rptr)
 {
-  void assign_optimize(AST *, AST*);
-  void call_optimize(AST *, AST*);
-  void forloop_optimize(AST *, AST*);
-  void blockif_optimize(AST *, AST*);
-  void elseif_optimize(AST *, AST*);
-  void else_optimize(AST *, AST*);
-  void logicalif_optimize(AST *, AST*);
-  void read_optimize(AST *, AST*);
-  void write_optimize(AST *, AST*);
-  void spec_optimize(AST *, AST*);
-
   switch (root->nodetype)
   {
     case 0:
@@ -332,7 +339,6 @@ spec_optimize(AST *root, AST *rptr)
   SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
   AST *temp;
   HASHNODE *ht;
-  void name_optimize(AST *, AST *);
 
   switch (root->astnode.typeunit.specification)
   {
@@ -381,9 +387,7 @@ spec_optimize(AST *root, AST *rptr)
 void
 external_optimize(AST *root, AST *rptr)
 {
-  extern METHODTAB intrinsic_toks[];
   char *tempname;
-  void call_optimize(AST *, AST *);
 
   if(optdebug) {
     printf("here we are in external_optimize\n");
@@ -426,13 +430,11 @@ name_optimize (AST * root, AST *rptr)
 {
   HASHNODE *hashtemp;
   char * tempname;
-  extern METHODTAB intrinsic_toks[];
   SYMTABLE *opt_external_table = rptr->astnode.source.external_table;
   SYMTABLE *opt_intrinsic_table = rptr->astnode.source.intrinsic_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
 
-  void subcall_optimize(AST *, AST *);
 
   if(optdebug) {
     printf("here in name_optimize... %s\n",print_nodetype(root));
@@ -547,7 +549,6 @@ void
 expr_optimize (AST * root, AST *rptr)
 {
   char *tempname;
-  void name_optimize (AST *, AST *);
 
   if(root == NULL)
   {
@@ -615,8 +616,6 @@ forloop_optimize (AST * root, AST *rptr)
 {
   char *indexname;
   int *tmp_int;
-  void name_optimize (AST *, AST *);
-  void assign_optimize (AST *, AST *);
 
   tmp_int = (int*)f2jalloc(sizeof(int));
 
@@ -684,7 +683,6 @@ void
 write_optimize (AST * root, AST *rptr)
 {
   AST *temp;
-  void expr_optimize(AST *, AST *);
 
   for(temp = root->astnode.io_stmt.arg_list; temp!=NULL;temp=temp->nextstmt)
     if(temp->nodetype != IoImpliedLoop)
@@ -707,7 +705,6 @@ read_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   HASHNODE *ht;
-  void read_implied_loop_optimize(AST *, AST *);
   AST *temp;
 
   if(root->astnode.io_stmt.arg_list == NULL) {
@@ -785,9 +782,6 @@ blockif_optimize (AST * root, AST *rptr)
   AST *prev = root->prevstmt;
   AST *temp;
   int *tmp_int;
-  void elseif_optimize (AST *, AST *),
-       else_optimize (AST *, AST *),
-       while_optimize(AST *, AST *);
 
   /* This function could probably be simplified by getting rid of all the
    * while detection code.  It isn't really necessary here.
@@ -1085,7 +1079,6 @@ assign_optimize (AST * root, AST *rptr)
   SYMTABLE *opt_args_table = rptr->astnode.source.args_table;
   SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
   enum returntype ltype, rtype;
-  void name_optimize (AST *, AST *);
   HASHNODE *ht;
 
   ltype = root->astnode.assignment.lhs->vartype;

@@ -3,16 +3,16 @@
 # $Source$
 # Revision:$
 
-CFLAGS= -g -ansi -Wall -pedantic
+#CFLAGS= -g -ansi -Wall -pedantic
 
 # overkill CFLAGS:
-# CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs
+CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Werror
 CC=gcc
 PURIFY=/usr/local/pure/purify/purify
 YFLAGS= --debug --defines --verbose 
 OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  \
      codegen.o vcg_emitter.o typeassign.o opcode.o dlist.o typecheck.o \
-     optimize.o constant_pool.o class.o
+     optimize.o constant_pool.o class.o globals.o
 LIBS=
 DEPENDS = f2jparse.y f2jlex.c f2j.h 
 YACC=bison -t
@@ -53,6 +53,8 @@ dlist.o: dlist.c dlist.h
 f2jparse.tab.o: f2jparse.tab.c f2j.h
 
 codegen.o:  codegen.c f2j.h class.h f2jparse.tab.h constant_pool.h codegen.h graph.h opcodes.h
+
+globals.o:	globals.c f2j.h f2jparse.tab.h opcodes.h
 
 constant_pool.o:	constant_pool.c constant_pool.h
 

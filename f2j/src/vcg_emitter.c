@@ -27,12 +27,34 @@
  * Function prototypes:                                                      *
  *****************************************************************************/
 
-char *strdup(const char *);
+char
+  * strdup(const char *),
+  * lowercase(char *);
 
 void 
+  start_vcg(AST *),
   emit_vcg(AST *,int),
   vcg_elseif_emit(AST *,int),
-  vcg_else_emit(AST *,int);
+  vcg_else_emit(AST *,int),
+  print_vcg_node(int, char *),
+  print_vcg_nearedge(int, int),
+  print_vcg_edge(int, int),
+  print_vcg_typenode(int, char *),
+  vcg_typedec_emit (AST *, int),
+  vcg_spec_emit (AST *, int),
+  vcg_assign_emit (AST *, int),
+  vcg_call_emit (AST *, int),
+  vcg_forloop_emit (AST *, int),
+  vcg_blockif_emit (AST *, int),
+  vcg_logicalif_emit (AST *, int),
+  vcg_label_emit (AST *, int),
+  vcg_expr_emit (AST *, int);
+
+int
+  vcg_name_emit (AST *, int);
+
+METHODTAB 
+  * methodscan (METHODTAB *, char *);
 
 /*****************************************************************************
  * Global variables.                                                         *
@@ -46,7 +68,7 @@ char
   temp_buf[200],                /* temporary buffer for node titles          */
   * returnname;                 /* return type of the current program unit   */
 
-extern char *returnstring[];    /* data types (from codegen.c)               */
+extern METHODTAB intrinsic_toks[];
 
 /*****************************************************************************
  *                                                                           *
@@ -183,14 +205,6 @@ void
 emit_vcg (AST * root, int parent)
 {
   int my_node = node_num;
-  void vcg_typedec_emit (AST *, int);
-  void vcg_spec_emit (AST *, int);
-  void vcg_assign_emit (AST *, int);
-  void vcg_call_emit (AST *, int);
-  void vcg_forloop_emit (AST *, int);
-  void vcg_blockif_emit (AST *, int);
-  void vcg_logicalif_emit (AST *, int);
-  void vcg_label_emit (AST *, int);
 
   switch (root->nodetype)
   {
@@ -387,7 +401,6 @@ vcg_typedec_emit (AST * root, int parent)
   int my_node = node_num;
   int name_nodenum = 0;
   int prev_node = 0;
-  int vcg_name_emit (AST *, int);
 
   if(vcg_debug)
     printf("in vcg_typedec_emit\n");
@@ -442,13 +455,9 @@ vcg_name_emit (AST * root, int parent)
   AST *temp;
   HASHNODE *hashtemp;
   char *javaname, * tempname;
-  extern METHODTAB intrinsic_toks[];
-  extern SYMTABLE *array_table;
   int my_node = node_num;
   int temp_num;
-  void vcg_call_emit (AST *, int);
-  METHODTAB *methodscan (METHODTAB *, char *), *entry;
-  void vcg_expr_emit (AST *, int);
+  METHODTAB *entry;
 
   if(vcg_debug)
     printf("in vcg_name_emit\n");
@@ -731,9 +740,6 @@ vcg_expr_emit (AST * root, int parent)
 void
 vcg_forloop_emit (AST * root, int parent)
 {
-  void vcg_assign_emit (AST *, int);
-  void vcg_expr_emit (AST *, int);
-
   vcg_assign_emit (root->astnode.forloop.start, parent);
   vcg_expr_emit (root->astnode.forloop.stop, parent);
 
@@ -755,8 +761,6 @@ vcg_forloop_emit (AST * root, int parent)
 void
 vcg_logicalif_emit (AST * root, int parent)
 {
-  void vcg_expr_emit (AST *, int);
-
   if (root->astnode.logicalif.conds != NULL)
     vcg_expr_emit (root->astnode.logicalif.conds, parent);
 
@@ -796,7 +800,6 @@ vcg_label_emit (AST * root, int parent)
 void
 vcg_blockif_emit (AST * root, int parent)
 {
-  void vcg_expr_emit (AST *, int);
   AST *temp;
 
   if (root->astnode.blockif.conds != NULL)
@@ -823,8 +826,6 @@ vcg_blockif_emit (AST * root, int parent)
 void
 vcg_elseif_emit (AST * root, int parent)
 {
-  void vcg_expr_emit (AST *, int);
-
   if (root->astnode.blockif.conds != NULL)
     vcg_expr_emit (root->astnode.blockif.conds, parent);
 
@@ -859,8 +860,6 @@ vcg_call_emit (AST * root, int parent)
   AST *temp;
   char *tempname;
   int my_node = node_num;
-  void vcg_expr_emit (AST *, int);
-  char * lowercase ( char * );
 
   assert (root != NULL);
 
@@ -898,7 +897,6 @@ vcg_spec_emit (AST * root, int parent)
   AST *assigntemp;
   int my_node = node_num;
   int temp_num;
-  void vcg_assign_emit (AST *, int);
 
   if(vcg_debug)
     printf("in vcg_spec_emit, my_node = %d, parent = %d\n",
@@ -946,7 +944,6 @@ void
 vcg_assign_emit (AST * root, int parent)
 {
   int temp_num;
-  void vcg_expr_emit (AST *, int);
 
   temp_num = vcg_name_emit (root->astnode.assignment.lhs, parent);
   print_vcg_edge(parent,temp_num);

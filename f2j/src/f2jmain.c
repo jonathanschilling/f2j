@@ -46,6 +46,7 @@ FILE *devnull;             /* pointer to the file /dev/null                  */
 BOOL isBigEndian(void);
 AST *addnode(void);
 char *strdup(const char *),
+     *f2j_fgets(char *, int, FILE *),
        * get_full_classname(char *);
 SYMTABLE * new_symtable (int);
 int yyparse (void);
@@ -199,7 +200,7 @@ will most likely not work for other code.\n";
 
   inputfilename = argv[argc - 1];
 
-  if((ifp = fopen (inputfilename, "r"))==NULL) {
+  if((ifp = fopen (inputfilename, "rb"))==NULL) {
     fprintf(stderr,"Input file not found: '%s'\n",inputfilename);
     exit(1);
   }
@@ -303,7 +304,10 @@ will most likely not work for other code.\n";
        ignored_formatting);
 
 #ifdef _WIN32
-  fclose(null_file);
+  if(fclose(devnull) < 0) {
+    fprintf(stderr,"error closing...\n");
+    perror("reason");
+  }
   if(remove(null_file) < 0) {
     fprintf(stderr,"couldn't remove temp file...\n");
     perror("reason");
@@ -592,10 +596,10 @@ insert_entries(char *path, Dlist methtab)
   char buf[BUFSZ];
   FILE *in;
   
-  if((in = fopen(path, "r")) == NULL)
+  if((in = fopen(path, "rb")) == NULL)
     return;
 
-  while(fgets(buf, BUFSZ, in) != NULL) {
+  while(f2j_fgets(buf, BUFSZ, in) != NULL) {
     buf[strlen(buf)-1] = '\0';
     class  = strtok(buf,":");
     method = strtok(NULL,":");

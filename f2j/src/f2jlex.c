@@ -85,7 +85,8 @@ int
 
 char 
   *tok2str(int),
-  *strdup(const char *);
+  *strdup(const char *),
+  *f2j_fgets(char *, int, FILE *);
 
 int
   name_scan (BUFFER *),
@@ -123,7 +124,7 @@ main (int argc, char **argv)
 {
   extern FILE *ifp;
   int token = 1;
-  ifp = fopen (argv[1], "r");
+  ifp = fopen (argv[1], "rb");
 
   while (token != 0)
   {
@@ -664,13 +665,15 @@ yylex ()
 int
 prelex (BUFFER * bufstruct)
 {
+
   if(lexdebug)
     printf("entering prelex()\n");
 
-  while (fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
+  while (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
   {
     if(lexdebug)
-      printf("the line is [%s]\n",bufstruct->stmt);
+      printf("the line is [%s](%d)\n",bufstruct->stmt,
+         strlen(bufstruct->stmt));
 
     /* truncate anything beyond 72 characters */
     bufstruct->stmt[72] = '\n';
@@ -940,7 +943,10 @@ check_continued_lines (FILE * fp, char *current_line)
 
     if (next_line[0] != ' ')
     {
-      fseek (fp, -6, 1);
+      if( fseek (fp, -6, SEEK_CUR) < 0 ) {
+        printf("could not seek\n");
+        perror("reason");
+      }
       return;
     }
 
@@ -968,7 +974,13 @@ check_continued_lines (FILE * fp, char *current_line)
        * pointer to the start of the line, and return. 
        */
 
-      fseek (fp, -6, 1);
+      if(lexdebug)
+        printf("no continuation marker.\n");
+
+      if( fseek (fp, -6, SEEK_CUR) < 0 ) {
+        printf("could not seek\n");
+        perror("reason");
+      }
       return;
     }
     else
@@ -980,7 +992,7 @@ check_continued_lines (FILE * fp, char *current_line)
       if(lexdebug)
         printf ("char 6, next_line: %c\n", next_line[5]);
 
-      fgets (next_line, 100, fp);
+      f2j_fgets (next_line, 100, fp);
       next_line[strlen(next_line)-1] = '\0';
 
       if(current_line[strlen(current_line)-1] == '\n')
@@ -1379,6 +1391,37 @@ string_or_char_scan (BUFFER * bufstruct)
   else
     return 0;
 }				/* Close string_or_char_scan(). */
+
+char *
+f2j_fgets(char *s, int n, FILE *f)
+{
+  char *rv;
+  int len;
+
+  rv = fgets(s, n, f);
+
+  if(rv == NULL) return NULL;
+
+  len = strlen(s);
+
+  switch(len) {
+    case 0:
+      s[0] = '\0';
+      break;
+    case 1:
+      s[0] = '\n';
+      s[1] = '\0';
+      break;
+    default:
+      if( s[len-2] == '\r' ) {
+        s[len -2] = '\n';
+        s[len -1] = '\0';
+      }
+      break;
+  }
+
+  return s;
+}
 
 /*****************************************************************************
  *                                                                           *

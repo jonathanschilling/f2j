@@ -1030,6 +1030,9 @@ back:
 
          if(!strcmp(op,"label"))
          {
+           if(type_lookup(att->label_table,lbuf) != NULL)
+             fprintf(stderr,"Warning: duplicate label: %s\n",lbuf);
+
            idx = hash(lbuf) % att->label_table->num_entries;
            type_insert(&(att->label_table->entry[idx]), prev_offset, strdup(lbuf));
 

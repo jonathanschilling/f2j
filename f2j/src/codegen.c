@@ -5063,7 +5063,8 @@ intrinsic_emit(AST *root)
       break;
 
     default:
-      fprintf(stderr,"WARNING: codegen() unimplemented intrinsic!\n");
+      fprintf(stderr,"WARNING: codegen() unimplemented intrinsic: '%s'\n",
+         tempname);
       break; /* ansi c */
   }
 
@@ -11438,7 +11439,8 @@ dec_stack(int dec) {
   stacksize -= dec;
 
   if(stacksize < 0)
-    fprintf(stderr,"WARNING: negative stack! (%s)\n", cur_filename);
+    fprintf(stderr,"WARNING: negative stack! (%s:%s)\n", cur_filename,
+       unit_name);
 }
 
 /*****************************************************************************

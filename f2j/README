@@ -1,105 +1,91 @@
-JLAPACK --- java numerical linear algebra library 
-            automatically translated from FORTRAN.
 
-VERSION 0.?  :  February 19, 1999
+JLAPACK 0.5
+August 23, 2001
+
+This directory should contain:
+
+  README               - this file
+  INSTALL              - installation details
+  CHANGES              - what has changed in this version
+  DdotTest.java        - simple example of how to call a BLAS routine
+  SimpleDdotTest.java  - example of calling the simplified interface
+  DlaruvTest.java      - simple example of how to call a LAPACK routine
+  blas.jar             - the BLAS library
+  blas_simple.jar      - the simplified interfaces to BLAS
+  lapack.jar           - the LAPACK library
+  lapack_simple.jar    - the simplified interfaces to LAPACK
+  xerbla.jar           - LAPACK error reporting routine
+  f2jutil.jar          - utilities required for running f2j translated code
 
 
-The original LAPACK README file follows:
+In addition to raw translations of the numerical routines, the blas_simple
+and lapack_simple jar files contain classes that provide a more Java-like
+interface to the underlying numerical functions.  There is one such class
+for each numerical routine.  The name of the class is simply the function
+name in all caps.  For example, the fortran routine 'ddot' is translated
+into two classes: Ddot.java and DDOT.java.  Ddot.java contains the actual
+translation of the fortran code while DDOT.java contains only a call to
+the real ddot (Ddot), but provides a more simple interface.  Since the
+interface may have to do matrix transposition and copying for some routines,
+it is faster to use the 'raw' numerical routines.
 
-==================
-LAPACK README FILE
-==================
+API documentation for the BLAS and LAPACK can be found online at the 
+following URL:
 
-VERSION 1.0  :  February 29, 1992
-VERSION 1.0a :  June 30, 1992
-VERSION 1.0b :  October 31, 1992
-VERSION 1.1  :  March 31, 1993
-VERSION 2.0  :  September 30, 1994
+  http://www.cs.utk.edu/f2j/docs/html/packages.html
 
-DATE:  September 30, 1994
+NOTES:
 
-LAPACK is a library of Fortran 77 subroutines for solving
-the most commonly occurring problems in numerical linear algebra.
-It is public-domain software, and can be used freely.
+1.  This release has not been tuned for performance - it is a simple,
+    automatic translation.
 
-LAPACK is available via netlib, anonymous ftp, world wide web, and a
-tar tape from NAG.
+2.  Some scalars must be wrapped in objects.  The objects are
+    located in the org.netlib.util package.  Therefore, your code 
+    should contain "import org.netlib.util.*;" to have access to the
+    wrappers.  The source code may be found in:
+       jlapack-0.3a/src/org/netlib/util/
+    In addition, your code should import org.netlib.lapack.Blah or
+    org.netlib.blas.Blah, where Blah represents the routine your
+    code calls.  See the files DdotTest.java and DlaruvTest.java
+    for examples.
 
-The tar tape contains the Fortran source for LAPACK, the testing programs, and
-the timing programs.
+3.  See the warnings on recompilation in the INSTALL file.
 
-It also contains Fortran code for the Basic Linear Algebra Subprograms
-(the Level 1, 2, and 3 BLAS) needed by LAPACK.
-However this code is intended for use only if there is no other implementation
-of the BLAS already available on your machine; the efficiency of LAPACK
-depends very much on the efficiency of the BLAS.
+4.  If you are using a JVM with a JIT complier and encounter a
+    fault in calling JLAPACK, try turning off the JIT and report
+    the problem to f2j@cs.utk.edu.
 
-The complete package, including test code and timing programs in four
-different Fortran data types (real, complex, double precision, double
-complex), contains some 735,000 lines of Fortran source and comments.
-You will need approximately 33 Mbytes to read the complete tape.
-We recommend that you run the testing and timing programs.
-The total space requirements for the testing and timing for all four data
-types, including the object files, is approximately 80 Mbytes.
+5.  The appropriate jar files should be in your classpath.
+      f2jutil.jar - should always be included
+      blas.jar - include if calling BLAS routines
+      lapack.jar - include if calling LAPACK routines
+      xerbla.jar - include for LAPACK error handling
+    Note that if calling LAPACK, you'll want to include
+    lapack.jar, blas.jar, and xerbla.jar in your classpath.
+ 
+    You may customize your error handling by replacing xerbla.jar
+    with your own error reporting package.
 
-A README file containing the information in this letter is located
-in the LAPACK directory. Postscript and LaTeX versions of the Quick
-Installation Guide are in the LAPACK/INSTALL directory, in the files
-lawn81.tex, psfig.tex, lawn81.ps, and org2.ps.  Consult the Installation
-Guide for further details on installing the package and on what is contained
-in each subdirectory.  For complete information on the LAPACK Testing
-and Timing Suites please consult LAPACK Working Note 41 "Installation
-Guide for LAPACK".
+The following two notes only apply to interfacing with the 'raw'
+numerical routines, not the Java style front-ends.
 
-It is highly recommended that you obtain a copy of the Second Edition of
-the LAPACK Users' Guide published by SIAM.  This second edition will be
-ready sometime in late 1994.  This Users' Guide gives a detailed
-description of the philosophy behind LAPACK as well as an explanation of
-its usage.  The LAPACK Users' Guide can be purchased from:
-SIAM; 3600 University City Science Center; Philadelphia, PA 19104-2688;
-215-382-9800, FAX 215-386-7999.  It will also be available from booksellers.
-To order by email, send email to service@siam.org.
+6.  All array arguments are followed by an extra "offset" argument.
+    This allows passing array subsections.
 
-The C version of LAPACK is now available.  Refer to the index on netlib
-for more information.  
+7.  It is important to keep this in mind when interfacing Java code
+    to the JLAPACK routines:  all multidimensional arrays are mapped 
+    to one-dimensional arrays in the translated code and the original 
+    column-major layout is maintained.
 
-echo "send index from clapack" | mail netlib@ornl.gov
+The following note only applies to using the Java style front-ends.
 
-The C++ version of LAPACK is now available.  Refer to the index on netlib
-for more information.  
+8.  When you pass Java 2D arrays to one of the interface routines,
+    it will make a copy of it and convert it into a linearized 1D
+    array to be passed to the underlying numerical routine.  If some
+    routine takes two matrices and you pass the same matrix for both
+    arguments, the interface will generate two copies of the same
+    array rather than the single copy that would normally be provided
+    to the underlying routine.  Therefore, some inconsistency in the
+    results could occur. 
 
-echo "send index from c++/lapack++" | mail netlib@ornl.gov
-
-Or, for more information on the distributed-memory version of LAPACK,
-consult the ScaLAPACK index on netlib:
-
-echo "send index from scalapack" | mail netlib@ornl.gov
-
-LAPACK has been thoroughly tested, on many different
-types of computers.  The LAPACK project supports the package in the
-sense that reports of errors or poor performance will gain immediate
-attention from the developers. Such reports, descriptions 
-of interesting applications, and other comments should be sent by
-electronic mail to lapack@cs.utk.edu.
-
-A list of known problems, bugs, and compiler errors for LAPACK is
-maintained on netlib.  For a copy of this report, send email to
-netlib@ornl.gov with a message of the form: send release_notes from lapack.
-
-A number of technical reports were written during the development of
-LAPACK and published as LAPACK Working Notes, initially by Argonne
-National Laboratory and later by the University of Tennessee.  Many of 
-these reports later appeared as journal articles.  Most of these working
-notes are available in postscript form from netlib.  To receive a list of
-available reports, send email to netlib@ornl.gov with a message of the
-form: send index from lapack/lawns.
-Otherwise, requests for copies of these working notes can be sent to
-the following address.
-
-LAPACK Project
-c/o J.J. Dongarra
-Computer Science Department
-University of Tennessee
-Knoxville, Tennessee 37996-1301
-USA
-Email: lapack@cs.utk.edu
+Contact f2j@cs.utk.edu with any questions, comments, or suggestions.

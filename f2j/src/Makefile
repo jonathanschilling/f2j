@@ -1,59 +1,37 @@
+.PHONY: lib all testers err blas lapack util
 
-HOME=/shag/homes/doolin
-CFLAGS= -g -ansi #-p
-CC=gcc
-PURIFY=/usr/local/pure/purify/purify
-YFLAGS= --debug --defines --verbose 
-OBJS=f2jparse.tab.o f2jlex.o f2jmain.o  symtab.o  codegen.o #initialize.o
-JASMINOBS=f2jparse.tab.o f2jlex.o f2jmain.o symtab.o typeassign.o opcode.o
-DEPENDS = f2jparse.y f2jlex.c f2j.h 
-YACC=bison
-JFILES = *.j
-JAVAFILES = *.java
+ROOT=..
+include $(ROOT)/make.def
 
+lib:    util err blas lapack
 
+javasrc:
+	$(MAKE) -f Makefile_javasrc
 
-f2java: f2j.h f2jparse.y $(OBJS) 
-	${CC} $(CFLAGS) -o $@ $(OBJS) 
-#	cp f2java $(HOME)/bin/
+all:    lib testers
+	
+testers:        err blas lapack
+	cd $(ROOT)/$(TESTING_DIR);$(MAKE)
 
-f2jas: f2j.h f2jparse.y $(JASMINOBS)
-	$(PURIFY) ${CC} $(CFLAGS) -o $@ $(JASMINOBS) 
+timers:        err blas lapack
+	cd $(ROOT)/$(TIMING_DIR);$(MAKE)
 
+err:
+	cd $(ROOT)/$(ERR_DIR);$(MAKE)
 
-f2jmain.o:  f2jmain.c f2j.h f2jparse.y
-	$(CC) -c $(CFLAGS) f2jmain.c
+blas:   util err
+	cd $(ROOT)/$(BLAS_DIR);$(MAKE)
 
+lapack: util err
+	cd $(ROOT)/$(LAPACK_DIR);$(MAKE)
 
-f2jlex: f2jlex.o f2j.h
-	$(CC) $(FLAGS) -o f2jlex f2jlex.o
-
-f2jlex.o: f2jlex.c
-	$(CC) -c $(FLAGS) f2jlex.c
-
-f2jparse.tab.o: f2jparse.tab.c f2j.h
-	$(CC) -c $(CFLAGS) f2jparse.tab.c
-
-f2jparse.tab.c f2jparse.tab.h:  f2jparse.y
-	$(YACC) $(YFLAGS) f2jparse.y
-
-dlist.o: dlist.c
- 
-codegen.o:  codegen.c f2j.h
-
-opcode.o: opcode.c f2j.h
-
-symtab.o: symtab.c symtab.h
-
-typeassign.o: typeassign.c f2j.h
-
-#initialize.o: initialize.c f2j.h
-
-lexdebug:  f2jlex.c
-	$(CC) $(FLAGS) -o lexdebug -DSTANDALONE  f2jlex.c 
-
-#%.o:	%.c
-#	${CC} -c ${CFLAGS} $<
+util:
+	cd $(ROOT)/$(UTIL_DIR);$(MAKE)
 
 clean:
-	rm -f *.o *.class f2jparse.c f2jparse.tab.c f2jparse.h tmp f2j core a.out *.output *~
+	cd $(ROOT)/$(ERR_DIR);$(MAKE) clean
+	cd $(ROOT)/$(BLAS_DIR);$(MAKE) clean
+	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) clean
+	cd $(ROOT)/$(TESTING_DIR);$(MAKE) clean
+	cd $(ROOT)/$(TIMING_DIR);$(MAKE) clean
+	cd $(ROOT)/$(UTIL_DIR);$(MAKE) clean

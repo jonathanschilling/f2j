@@ -19,6 +19,7 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"f2jparse.tab.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Function prototypes:                                                      *

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "dlist.h"
 #include "f2j.h"
+#include "f2jmem.h"
 
 #define boolean int
 #define TRUE 1

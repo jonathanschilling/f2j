@@ -3309,6 +3309,8 @@ array_emit(AST *root, HASHNODE *hashtemp)
       bytecode0(array_load_opcodes[root->vartype]);
     }
   }
+
+  free_var_info(arrayinf);
 }
 
 /*****************************************************************************
@@ -8786,6 +8788,7 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
 {
   HASHNODE *ht;
   BOOLEAN isarg, isext;
+  struct var_info *vtemp;
 
   isarg = type_lookup(cur_args_table, temp->astnode.ident.name) != NULL;
 
@@ -8794,9 +8797,11 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
   if(gendebug)
     printf("arrayacc_arg_emit() %s - %s\n", temp->astnode.ident.name, dptr);
 
+  vtemp = push_array_var(temp);
+
   if(dptr[0] == '[')     /* it is expecting an array */
   {
-    push_array_var(temp);
+
     func_array_emit(temp->astnode.ident.arraylist,ht,
        temp->astnode.ident.name, isarg, TRUE);
   }
@@ -8805,8 +8810,6 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
     /* In this case we are passing the array element to the
      * adapter, so we dont wrap it in an object.
      */
-
-    push_array_var(temp);
 
     if(omitWrappers) {
       if(adapter && isPassByRef_desc(dptr))
@@ -8827,6 +8830,8 @@ arrayacc_arg_emit(AST *temp, char *dptr, char *com_prefix, BOOLEAN adapter)
     if(!isext)
       bytecode0(array_load_opcodes[temp->vartype]);
   }
+
+  free_var_info(vtemp);
 }
 
 /*****************************************************************************
@@ -8853,12 +8858,15 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
   }
   else
   {
+    struct var_info *vtemp;
+
     if(gendebug)
       printf("NOT expecting array\n");
 
+    vtemp = push_array_var(temp);
+
     if(omitWrappers && !isPassByRef_desc(dptr)) {
       /* fprintf(curfp,"%s%s[0]",com_prefix, temp->astnode.ident.name); */
-      push_array_var(temp);
       fprintf(curfp,"[0]");
       pushIntConst(0);
       bytecode0(array_load_opcodes[temp->vartype]);
@@ -8870,7 +8878,6 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
        * which would be the behavior of fortran.
        */
 
-      push_array_var(temp);
       pushIntConst(0);
       fprintf(curfp,",0");
       /* 
@@ -8880,6 +8887,8 @@ arrayref_arg_emit(AST *temp, char *dptr, char *com_prefix)
        * fprintf(curfp,")");
        */
     }
+
+    free_var_info(vtemp);
   }
 }
 
@@ -8917,6 +8926,8 @@ scalar_arg_emit(AST *temp, char *dptr, char *com_prefix)
 
       pushVar(temp->vartype, ainf->is_arg, ainf->class, ainf->name,
         ainf->desc, ainf->localvar, TRUE);
+
+      free_var_info(ainf);
     }
     else if(type_lookup(cur_external_table, temp->astnode.ident.name)) {
       external_emit(temp);

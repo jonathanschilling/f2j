@@ -12,10 +12,7 @@
  *                                                                           *
  *****************************************************************************/
 
-#include"f2j.h"
-#include"f2jparse.tab.h"
-#include"dlist.h"
-#include"constant_pool.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  *                                                                           *
@@ -115,4 +112,38 @@ alloc_error(size_t size)
      (int)size);
   perror("Reason:");
   exit(1);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * free_var_info                                                             *
+ *                                                                           *
+ * frees a variable info structure.                                          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+free_var_info(struct var_info *v)
+{
+  f2jfree(v->name, strlen(v->name)+1);
+  f2jfree(v->desc, strlen(v->desc)+1);
+  f2jfree(v->class, strlen(v->class)+1);
+  f2jfree(v, sizeof(v));
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * freeFieldref                                                              *
+ *                                                                           *
+ * this function frees memory previously allocated for a fieldref.           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+free_fieldref(METHODREF *fieldref)
+{
+  f2jfree(fieldref->classname, strlen(fieldref->classname) + 1);
+  f2jfree(fieldref->methodname, strlen(fieldref->methodname) + 1);
+  f2jfree(fieldref->descriptor, strlen(fieldref->descriptor) + 1);
+  f2jfree(fieldref, sizeof(fieldref));
 }

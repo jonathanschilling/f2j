@@ -20,7 +20,6 @@
 #include"symtab.h"
 #include"dlist.h"
 #include"class.h"
-#include"constant_pool.h"
 
 typedef int BOOLEAN;
 
@@ -67,6 +66,25 @@ struct _str {
   unsigned int size;
   char *val;
 };
+
+/*****************************************************************************
+ * this structure holds information about an array access, including the     *
+ * full name of the array, local variable number, etc.                       *
+ *****************************************************************************/
+
+struct var_info {
+  char *name;        /* name of variable incl common prefix if appropriate   */
+  char *desc;        /* field descriptor of variable                         */
+  char *class;       /* class name of variable                               */
+  int localvar;      /* local variable num of this variable, if appropriate  */
+  BOOLEAN is_arg;    /* is this variable an arg to the current prog unit?    */
+};
+
+typedef struct _methodref {
+  char *classname,
+       *methodname,
+       *descriptor;
+} METHODREF;
 
 /*****************************************************************************
  * F2J_PATH_VAR defines the environment variable used to specify the search  *
@@ -644,11 +662,6 @@ void
   javaheader (FILE *, char *),
   initialize(void),
   uppercase(char *),
-  alloc_error(size_t),
-  f2jfree(void *, size_t),
-  * f2jalloc(size_t),
-  * f2jcalloc(size_t, size_t),
-  * f2jrealloc(void *, size_t),
   print_vcg_header(FILE *, char *),
   print_vcg_trailer(FILE *),
   print_vcg_node(FILE *, int, char *),

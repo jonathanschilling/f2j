@@ -23,6 +23,7 @@
 #include"codegen.h"
 #include"constant_pool.h"
 #include"graph.h"
+#include"f2jmem.h"
 
 u4 u4BigEndian(u4);
 u2 u2BigEndian(u2);

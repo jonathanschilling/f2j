@@ -18,6 +18,7 @@
 #include<ctype.h>
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
+#include"f2jmem.h"
 
 #define NUM_CONSTANT_TAGS 13
 
@@ -57,7 +58,7 @@ char *strdup(const char *);
  *****************************************************************************/
 
 CPNODE *
-cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
+cp_lookup(Dlist list, enum _constant_tags tag, const void *value) {
   Dlist temp;
   struct cp_info * ctemp;
 
@@ -301,7 +302,7 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
 }
 
 CPNODE *
-cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
+cp_find_or_insert(Dlist list, enum _constant_tags tag, const void *value) {
   CPNODE *temp;
 
   temp = cp_find_function_body(list, tag, value);
@@ -326,7 +327,7 @@ cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
  *****************************************************************************/
 
 CPNODE *
-cp_find_function_body(Dlist list, enum _constant_tags tag, void *value) {
+cp_find_function_body(Dlist list, enum _constant_tags tag, const void *value) {
   CPNODE *temp;
 
   if(cp_debug)
@@ -475,7 +476,7 @@ cp_entry_by_index(Dlist list, unsigned int idx)
  *****************************************************************************/
 
 CPNODE *
-insert_constant(Dlist list, int tok, void * tag)
+insert_constant(Dlist list, int tok, const void * tag)
 {
   struct cp_info * newnode = NULL;
   int idx;
@@ -884,11 +885,16 @@ CPNODE *
 newFieldref(Dlist list, char *cname, char *mname, char *dname)
 {
   METHODREF *fieldref;
+  CPNODE *retval;
 
   fieldref = (METHODREF *)f2jalloc(sizeof(METHODREF));
   fieldref->classname = strdup(cname);
   fieldref->methodname = strdup(mname);
   fieldref->descriptor = strdup(dname);
 
-  return cp_find_or_insert(list, CONSTANT_Fieldref, fieldref);
+  retval = cp_find_or_insert(list, CONSTANT_Fieldref, fieldref);
+
+  free_fieldref(fieldref);
+
+  return retval;
 }

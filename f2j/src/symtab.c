@@ -15,8 +15,9 @@
 
 #include<stdio.h>
 #include<stdlib.h>
-#include "f2j.h"
-#include "symtab.h"
+#include"f2j.h"
+#include"symtab.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Globals and Function prototypes:                                          *

@@ -35,6 +35,7 @@
 #include<ctype.h>
 #include"f2j.h"
 #include"codegen.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Set optdebug to TRUE to get debugging output from the optimization        *

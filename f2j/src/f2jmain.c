@@ -25,6 +25,7 @@
 #include"f2jparse.tab.h"
 #include"dlist.h"
 #include"constant_pool.h"
+#include"f2jmem.h"
 
 extern char *java_reserved_words[];
 extern char *jasmin_reserved_words[];

@@ -27,7 +27,7 @@
 #include<string.h>
 #include<ctype.h>
 #include"initialize.h"
-
+#include"f2jmem.h"
 
 /*****************************************************************************
  * BIGBUFF is the maximum size in characters of an input line (including)    *

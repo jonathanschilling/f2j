@@ -22,6 +22,7 @@
 #include"f2j.h"
 #include"class.h"
 #include"constant_pool.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Define YYDEBUG as 1 to get debugging output from yacc.                    *

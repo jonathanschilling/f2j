@@ -26,6 +26,7 @@
 #include"codegen.h"
 #include"opcodes.h"
 #include"graph.h"
+#include"f2jmem.h"
 
 /*****************************************************************************
  * Following are some fully-qualified class names and method descriptors     *
@@ -113,19 +114,6 @@
 struct stack_info {
   int arg_len,       /* depth of stack when this method is invoked           */
       ret_len;       /* depth of stack when this method returns              */
-};
-
-/*****************************************************************************
- * this structure holds information about an array access, including the     *
- * full name of the array, local variable number, etc.                       *
- *****************************************************************************/
-
-struct var_info {
-  char *name;        /* name of variable incl common prefix if appropriate   */
-  char *desc;        /* field descriptor of variable                         */
-  char *class;       /* class name of variable                               */
-  int localvar;      /* local variable num of this variable, if appropriate  */
-  BOOLEAN is_arg;    /* is this variable an arg to the current prog unit?    */ 
 };
 
 /*****************************************************************************

@@ -36,7 +36,7 @@
  *****************************************************************************/
 
 int 
-  debug = FALSE,                  /* set to TRUE for debugging output        */
+  debug = TRUE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok,                        /* temporary token for an inline expr      */
@@ -4102,7 +4102,7 @@ initialize_name(char *id)
   AST *tmp;
 
   if(debug)
-    fprintf(stderr,"initialize_name: '%s'\n",id);
+    printf("initialize_name: '%s'\n",id);
 
   tmp=addnode();
   tmp->token = NAME;
@@ -4124,7 +4124,7 @@ initialize_name(char *id)
     if(hashtemp)
     {
       if(debug)
-        fprintf(stderr,"'%s' in already hash table..\n",id);
+        printf("initialize_name:'%s' in already hash table..\n",id);
       tmp->vartype = hashtemp->variable->vartype;
       tmp->astnode.ident.len = hashtemp->variable->astnode.ident.len;
     }
@@ -4133,12 +4133,12 @@ initialize_name(char *id)
       enum returntype ret;
   
       if(debug)
-        fprintf(stderr,"cannot find name %s in hash table..",id);
+        printf("initialize_name:cannot find name %s in hash table..\n",id);
       
       ret = implicit_table[tolower(id[0]) - 'a'].type;
   
       if(debug)
-        fprintf(stderr,"going to insert with default implicit type %s\n",
+        printf("initialize_name:going to insert with default implicit type %s\n",
           returnstring[ret]);
   
       type_insert(type_table, tmp, ret, tmp->astnode.ident.name);

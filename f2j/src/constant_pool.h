@@ -22,9 +22,20 @@ typedef struct _constListNode {
   struct cp_info * val;
 } CPNODE;
 
+typedef struct _methodref {
+  char *classname,
+       *methodname,
+       *descriptor;
+} METHODREF;
+
 CPNODE * cp_lookup(Dlist, enum _constant_tags, void *);
-int      cp_insert(Dlist, struct cp_info *, char *, char);
+CPNODE * cp_find_or_insert(Dlist, enum _constant_tags, void *);
+CPNODE * cp_entry_by_index(Dlist, int);
+CPNODE * cp_insert(Dlist, struct cp_info *, char);
+CPNODE * insert_constant(int, char *);
+char   * null_term(u1 *, int);
 void     cp_dump(Dlist);
+void     cp_quickdump(Dlist);
 void     cp_initialize(AST *, Dlist);
 
 #endif

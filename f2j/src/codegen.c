@@ -26,10 +26,14 @@
 /*****************************************************************************
  * MAX_RETURNS represents the number of elements in the returnstring         *
  * array (see below).  OBJECT_TYPE identifies the type 'Object'.             *
+ * CPIDX_MAX is the maximum value for a 1-byte constant pool index.          *
  *****************************************************************************/
 
 #define MAX_RETURNS 7
 #define OBJECT_TYPE 7
+#define CPIDX_MAX 255
+
+#define CODE printf
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -120,6 +124,29 @@ char *wrapper_returns[] =  /* data types for pass by reference scalars       */
   "Object"
 };
 
+char *full_wrappername[] =  /* fully qualified names for the wrappers        */
+{
+  "org/netlib/util/StringW", 
+  "org/netlib/util/StringW", 
+  "org/netlib/util/complexW", 
+  "org/netlib/util/doubleW", 
+  "org/netlib/util/floatW", 
+  "org/netlib/util/intW", 
+  "org/netlib/util/booleanW", 
+  "java/lang/Object"
+};
+
+char *wrapper_descriptor[] =
+{
+  "Ljava/lang/String;",
+  "Ljava/lang/String;",
+  "Lorg/netlib/Complex;",
+  "D",
+  "F",
+  "I",
+  "Z",
+  "",
+};
 
 char *java_wrapper[] =  /* names of the standard Java wrappers               */
 {
@@ -294,6 +321,7 @@ emit (AST * root)
 
           fprintf(curfp,"} // End class.\n");
           fclose(curfp);
+          /* cp_dump(cur_const_table); */
 	  break;
         }
       case Subroutine:
@@ -3207,16 +3235,6 @@ expr_emit (AST * root)
       break;
     case Constant:
 
-     /* 
-      * here we need to determine if this is a parameter to a function
-      * or subroutine.  if so, and we are using wrappers, then we need
-      * to create a temporary wrapper and pass that in instead of the
-      * constant.   10/9/97  -- Keith 
-      */
-
-      printf("looking up %s constant '%s'...", returnstring[root->vartype],
-           root->astnode.constant.number);
-
       switch(root->token) {
         case INTEGER:
           {
@@ -3239,24 +3257,31 @@ expr_emit (AST * root)
           ct = NULL;
           break;
         case STRING:
-          ct=cp_lookup(cur_const_table,CONSTANT_Utf8, 
+          ct=cp_lookup(cur_const_table,CONSTANT_String, 
              (void*)root->astnode.constant.number);
+          break;
+        default:
+          ct = NULL;
           break;
       }
 
-      if(ct) {
+      if(ct)
         cp_index = ct->index;
-        printf("found!  constant pool index: %d\n", cp_index);
-      }else {
+      else
         cp_index = 0;  /* constant pool index 0 not valid */
-        printf("not found!  can probaly use literal opcode\n");
-      }
 
       if(root->parent != NULL)
       {
         tempname = strdup(root->parent->astnode.ident.name);
         uppercase(tempname);
       }
+
+     /* 
+      * here we need to determine if this is a parameter to a function
+      * or subroutine.  if so, and we are using wrappers, then we need
+      * to create a temporary wrapper and pass that in instead of the
+      * constant.   10/9/97  -- Keith 
+      */
 
       if( (root->parent != NULL) &&
           (root->parent->nodetype == Call) &&
@@ -3265,10 +3290,58 @@ expr_emit (AST * root)
       {
         if(root->token == STRING) {
           if(omitWrappers) {
+            
+            if(cp_index) {
+              /* cp_index being non-zero means that we've found this constant
+               * in the constant pool.  now we check the index to determine
+               * whether we need to generate the wide load or not (ldc_w).
+               * the ldc instruction uses an unsigned byte index, so if the
+               * index exceeds the max value of an unsigned byte, then we
+               * generate the ldc_w opcode.
+               */
+
+              if(cp_index > CPIDX_MAX)
+                 CODE("ldc_w #%d\n",cp_index);
+              else
+                 CODE("ldc #%d\n",cp_index);
+
+            } else {
+              fprintf(stderr,"WARNING: could not find string '%s' in constant pool!\n",
+                root->astnode.constant.number);
+            }
+
             fprintf (curfp, "\"%s\"", root->astnode.constant.number);
           }
           else
           {
+            METHODREF *methodref;
+            CPNODE * c;
+
+            c = cp_find_or_insert(cur_const_table,CONSTANT_Class,
+                    full_wrappername[root->vartype]);
+
+            CODE("new #%d\n", c->index);  /* remember 2byte index when generating */
+            CODE("dup\n");
+            
+            if(cp_index) {
+              if(cp_index > CPIDX_MAX)
+                 CODE("ldc_w #%d\n",cp_index);
+              else
+                 CODE("ldc #%d\n",cp_index);
+            } else {
+              fprintf(stderr,"WARNING: could not find string '%s' in constant pool!\n",
+                root->astnode.constant.number);
+            }
+
+            methodref = (METHODREF *)malloc(sizeof(METHODREF));
+            methodref->classname = full_wrappername[root->vartype];
+            methodref->methodname = "<init>";
+            methodref->descriptor = wrapper_descriptor[root->vartype];
+
+            c = cp_find_or_insert(cur_const_table,CONSTANT_Methodref, methodref);
+
+            CODE("invokespecial #%d (StringW.<init>)\n",c->index);
+
             fprintf (curfp, "new StringW(\"%s\")", root->astnode.constant.number);
           }
         }

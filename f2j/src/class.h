@@ -26,24 +26,6 @@ enum _constant_tags {
   CONSTANT_NameAndType            /*  12  */
 };
 
-#define NUM_CONSTANT_TAGS 13
-
-static char * constant_tags [NUM_CONSTANT_TAGS] = {
-  "Unknown CONSTANT",
-  "CONSTANT_Utf8",
-  "Unknown CONSTANT",
-  "CONSTANT_Integer",
-  "CONSTANT_Float",
-  "CONSTANT_Long",
-  "CONSTANT_Double",
-  "CONSTANT_Class",
-  "CONSTANT_String",
-  "CONSTANT_Fieldref",
-  "CONSTANT_Methodref",
-  "CONSTANT_InterfaceMethodref",
-  "CONSTANT_NameAndType"
-};
-
 typedef unsigned char  u1;
 typedef unsigned short u2;
 typedef unsigned int   u4;

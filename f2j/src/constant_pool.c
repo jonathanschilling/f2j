@@ -12,6 +12,25 @@
 #include"constant_pool.h"
 #include"f2jparse.tab.h"
 
+#define NUM_CONSTANT_TAGS 13
+
+int cp_debug = FALSE;    /* set to TRUE to generate deubugging output        */
+
+char * constant_tags [NUM_CONSTANT_TAGS] = {
+  "Unknown CONSTANT",
+  "CONSTANT_Utf8",
+  "Unknown CONSTANT",
+  "CONSTANT_Integer",
+  "CONSTANT_Float",
+  "CONSTANT_Long",
+  "CONSTANT_Double",
+  "CONSTANT_Class",
+  "CONSTANT_String",
+  "CONSTANT_Fieldref",
+  "CONSTANT_Methodref",
+  "CONSTANT_InterfaceMethodref",
+  "CONSTANT_NameAndType"
+};
 
 /*****************************************************************************
  *                                                                           *
@@ -29,15 +48,27 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
   u4 u4BigEndian(u4);
   struct cp_info * ctemp;
 
+  if(cp_debug)
+    printf("&&in cp_lookup\n");
+
   switch(tag) {
     case CONSTANT_Utf8:
+      if(cp_debug) {
+        printf("&&hit utf8 constant\n");
+        printf("&&value = %s\n",(char *)value);
+      }
+
       dl_traverse(temp,list) {
         ctemp = ((CPNODE *)(temp->val))->val;
 
-        if( (ctemp->tag == CONSTANT_Utf8)
-          && !strncmp((char*)ctemp->cpnode.Utf8.bytes, (char*)value, ctemp->cpnode.Utf8.length) )
-            return temp->val;
+
+        if(ctemp->tag == CONSTANT_Utf8) {
+          if(strlen((char*)value) == ctemp->cpnode.Utf8.length)
+            if(!strncmp((char*)ctemp->cpnode.Utf8.bytes, (char*)value, ctemp->cpnode.Utf8.length) )
+              return temp->val;
+        }
       }
+
       break;
     case CONSTANT_Integer:
       dl_traverse(temp,list) {
@@ -84,17 +115,298 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
       }
       break;
     case CONSTANT_Class:
-    case CONSTANT_String:
-    case CONSTANT_Fieldref:
+      {
+        int this_len;
+
+        if(cp_debug) {
+          printf("&&hit class constant\n");
+          printf("&&value = %s\n",(char *)value);
+        }
+
+        dl_traverse(temp,list) {
+          ctemp = ((CPNODE *)(temp->val))->val;
+
+          if(ctemp->tag == CONSTANT_Class) {
+            this_len = cp_entry_by_index(list, 
+                ctemp->cpnode.Class.name_index)->val->cpnode.Utf8.length;
+
+            if(this_len == strlen((char*) value))
+              if(!strncmp( (char *) (cp_entry_by_index(list, 
+                    ctemp->cpnode.Class.name_index)->val->cpnode.Utf8.bytes),
+                    (char *)value, strlen((char*)value)))
+                return temp->val;
+          }
+        }
+      }
+      break;
     case CONSTANT_Methodref:
-    case CONSTANT_InterfaceMethodref:
+      {
+        METHODREF *mref = (METHODREF *)value;
+        CPNODE *nameref;
+
+        if(cp_debug) {
+          printf("&&looking up Methodref\n");
+          printf("&&  mref->classname = '%s'\n",mref->classname);
+          printf("&&  mref->methodname = '%s'\n",mref->methodname);
+          printf("&&  mref->descriptor = '%s'\n",mref->descriptor);
+        }
+
+        /* for the methodref to match, we need to check that the class, method,
+         * and descriptor strings all match.
+         */
+
+        dl_traverse(temp,list) {
+          ctemp = ((CPNODE *)(temp->val))->val;
+ 
+          if(ctemp->tag == CONSTANT_Methodref) {
+            char *tmpC, *tmpM, *tmpD;
+  
+            nameref = cp_entry_by_index(list,ctemp->cpnode.Methodref.class_index);
+            nameref = cp_entry_by_index(list,nameref->val->cpnode.Class.name_index);
+
+            tmpC = null_term(nameref->val->cpnode.Utf8.bytes,
+               nameref->val->cpnode.Utf8.length);
+
+            if(cp_debug)
+               printf("&& name_nad_type_index = %d\n",
+                   ctemp->cpnode.Methodref.name_and_type_index);
+
+            nameref = cp_entry_by_index(list,
+                         ctemp->cpnode.Methodref.name_and_type_index);
+
+            if(cp_debug)
+               printf("&& name index = %d\n",
+                 nameref->val->cpnode.NameAndType.name_index);
+
+            nameref = cp_entry_by_index(list,
+               nameref->val->cpnode.NameAndType.name_index);
+
+            if(cp_debug) {
+               printf("&& ok, nodetype of nameref is %s\n",
+                   constant_tags[nameref->val->tag]);
+               printf("&& name[0] = %c\n",nameref->val->cpnode.Utf8.bytes[0]);
+            }
+
+            tmpM = null_term(nameref->val->cpnode.Utf8.bytes,
+                       nameref->val->cpnode.Utf8.length);
+
+            nameref = cp_entry_by_index(list,
+                         ctemp->cpnode.Methodref.name_and_type_index);
+            nameref = cp_entry_by_index(list,
+                         nameref->val->cpnode.NameAndType.descriptor_index);
+            tmpD = null_term(nameref->val->cpnode.Utf8.bytes,
+                         nameref->val->cpnode.Utf8.length);
+        
+            if( !strcmp(tmpC, mref->classname) 
+              && !strcmp(tmpM, mref->methodname)
+              && !strcmp(tmpD, mref->descriptor) )
+               return temp->val;
+          }
+        }
+      }
+      break;
     case CONSTANT_NameAndType:
-      fprintf(stderr,"cp_lookup: WARNING - tag not yet implemented!\n");
+      {
+        METHODREF *mref = (METHODREF *)value;
+        CPNODE *nref, *dref;
+        char *tmpM, *tmpD;
+
+        if(cp_debug) {
+          printf("&& up NameAndType\n");
+          printf("&& mref->classname = '%s'\n",mref->classname);
+          printf("&& mref->methodname = '%s'\n",mref->methodname);
+          printf("&& mref->descriptor = '%s'\n",mref->descriptor);
+        }
+
+        dl_traverse(temp,list) {
+          ctemp = ((CPNODE *)(temp->val))->val;
+
+          if(ctemp->tag == CONSTANT_NameAndType) {
+            nref = cp_entry_by_index(list,ctemp->cpnode.NameAndType.name_index);
+            dref = cp_entry_by_index(list,ctemp->cpnode.NameAndType.descriptor_index);
+
+            tmpM = null_term(nref->val->cpnode.Utf8.bytes,
+                      nref->val->cpnode.Utf8.length);
+            tmpD = null_term(dref->val->cpnode.Utf8.bytes,
+                      dref->val->cpnode.Utf8.length);
+
+            if( !strcmp(tmpM, mref->methodname)
+              && !strcmp(tmpD, mref->descriptor))
+               return temp->val;
+          }
+        }
+      }
+      break;
+    case CONSTANT_String:
+      {
+        CPNODE *sref;
+        char *tmpS;
+
+        dl_traverse(temp,list) {
+          ctemp = ((CPNODE *)(temp->val))->val;
+
+          if(ctemp->tag == CONSTANT_String) {
+            sref = cp_entry_by_index(list,ctemp->cpnode.String.string_index);
+            tmpS = null_term(sref->val->cpnode.Utf8.bytes,sref->val->cpnode.Utf8.length);
+            if(!strcmp(tmpS,(char *)value))
+              return temp->val;
+          }
+        }
+      }
+      break;
+    case CONSTANT_Fieldref:
+    case CONSTANT_InterfaceMethodref:
+      fprintf(stderr,"cp_lookup: WARNING - tag %d not yet implemented!\n",tag);
       break;
     default:
       fprintf(stderr,"cp_lookup: WARNING - hit default case!\n");
       return NULL;
   }
+  return NULL;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * cp_find_or_insert                                                         *
+ *                                                                           *
+ * return a pointer to the node if it exists in the constant pool.  if not,  *
+ * create a new entry and return a pointer to it.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+CPNODE *
+cp_find_or_insert(Dlist list, enum _constant_tags tag, void *value) {
+  CPNODE *temp;
+
+  if(cp_debug)
+    printf("&& cp_find_or_insert\n");
+
+  /* First, check to see if it's already in the list.  */
+
+  if( (temp = cp_lookup(list,tag,value)) != NULL ) {
+    if(cp_debug)
+       printf("&& found entry, returning\n");
+
+    return temp;
+  }
+
+  if(cp_debug)
+    printf("&& entry not found, continuing...\n");
+
+  /* It's not in the list, so we insert it and return a pointer to
+   * the new node
+   */
+  switch(tag) {
+    struct cp_info *newnode;
+
+    case CONSTANT_Class:
+      if(cp_debug)
+        printf("&& find/insert Class %s...\n",(char*)value);
+
+      temp = cp_find_or_insert(list,CONSTANT_Utf8,value);
+      
+      newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+      newnode->tag = CONSTANT_Class;
+      newnode->cpnode.Class.name_index = temp->index;
+
+      /* now return the CPNODE pointer created by cp_insert */
+      return cp_insert(constants_table,newnode,1);
+    case CONSTANT_Methodref:
+      {
+        METHODREF *mref = (METHODREF *)value;
+
+        if(cp_debug)
+          printf("&& ok.. going to find/insert a method reference...\n");
+
+        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode->tag = CONSTANT_Methodref;
+
+        if(cp_debug)
+          printf("&& first find/insert %s...\n",mref->classname);
+
+        temp = cp_find_or_insert(list,CONSTANT_Class,mref->classname);
+        newnode->cpnode.Methodref.class_index = temp->index;
+
+        if(cp_debug)
+          printf("&& then find/insert the name_and_type...\n");
+
+        temp = cp_find_or_insert(list,CONSTANT_NameAndType,mref);
+        newnode->cpnode.Methodref.name_and_type_index = temp->index;
+
+        return cp_insert(constants_table,newnode,1);
+      }
+      break;
+    case CONSTANT_NameAndType:
+      {
+        METHODREF *mref = (METHODREF *)value;
+
+        if(cp_debug)
+          printf("&& find/insert NameAndType...\n");
+
+        newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+        newnode->tag = CONSTANT_NameAndType;
+
+        temp = cp_find_or_insert(list,CONSTANT_Utf8,mref->methodname);
+        newnode->cpnode.NameAndType.name_index = temp->index;
+
+        temp = cp_find_or_insert(list,CONSTANT_Utf8,mref->descriptor);
+        newnode->cpnode.NameAndType.descriptor_index = temp->index;
+ 
+        return cp_insert(constants_table,newnode,1);
+      }
+      break;
+    case CONSTANT_Utf8:
+      newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
+      newnode->tag = CONSTANT_Utf8;
+      newnode->cpnode.Utf8.length = strlen(value);
+      newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
+      strncpy((char*)newnode->cpnode.Utf8.bytes,value,newnode->cpnode.Utf8.length);
+
+      return cp_insert(constants_table, newnode, 1);
+      break;
+    case CONSTANT_Integer:
+      return insert_constant(INTEGER,(char *)value);
+      break;
+    case CONSTANT_Float:
+    case CONSTANT_Long:
+      fprintf(stderr,"cp_find_or_insert():WARNING: should not hit float/long case!\n");
+      break;
+    case CONSTANT_Double:
+      return insert_constant(DOUBLE,(char *)value);
+    case CONSTANT_String:
+      return insert_constant(STRING,(char *)value);
+    case CONSTANT_Fieldref:
+    case CONSTANT_InterfaceMethodref:
+    default:
+      fprintf(stderr,"cp_find_or_insert: WARNING - tag not yet implemented!\n");
+      break;   /* for ansi compliance */
+  }
+  
+  /* should never hit this return stmt once this function is fully-implemented.
+   * still might return NULL if insert_constant returns NULL, though.
+   */
+  return NULL;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * cp_entry_by_index                                                         *
+ *                                                                           *
+ * given an index into the constant pool, return the CPNODE at that index.   *
+ *                                                                           *
+ *****************************************************************************/
+
+CPNODE *
+cp_entry_by_index(Dlist list, int idx)
+{
+  Dlist temp;
+
+  dl_traverse(temp,list) {
+    if( ((CPNODE*)temp->val)->index == idx )
+      return temp->val;
+  }
+
+  fprintf(stderr,"cp_entry_by_index() WARNING: looking for non-existent cp index!\n");
   return NULL;
 }
 
@@ -108,22 +420,19 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
  *                                                                           *
  *****************************************************************************/
 
-void
-insert_constant(AST * nodeToInsert, char * key)
+CPNODE *
+insert_constant(int tok, char * tag)
 {
   extern Dlist constants_table;
   struct cp_info * newnode = NULL;
-  char *tag;
   int idx;
   extern BOOLEAN bigEndian;
   u4 u4BigEndian(u4);
 
-  if(nodeToInsert == NULL)
-    return;
+  if(cp_debug)
+    printf("&& insert_constant... tag = '%s'\n",tag);
 
-  tag = nodeToInsert->astnode.constant.number;
-
-  switch(nodeToInsert->token) {
+  switch(tok) {
     case INTEGER:
       {
         /* if integer value is between -1 and 5 inclusive, then
@@ -139,7 +448,7 @@ insert_constant(AST * nodeToInsert, char * key)
             newnode->tag = CONSTANT_Integer;
             newnode->cpnode.Integer.bytes = u4BigEndian(intVal);
 
-            cp_insert(constants_table, newnode, tag, 1);
+            return cp_insert(constants_table, newnode, 1);
         }
       }
       break;
@@ -169,7 +478,7 @@ insert_constant(AST * nodeToInsert, char * key)
             newnode->cpnode.Double.low_bytes = u4BigEndian(tmp1);
           }
 
-          cp_insert(constants_table, newnode, tag, 2);
+          return cp_insert(constants_table, newnode, 2);
         }
       }
       break;
@@ -190,23 +499,28 @@ insert_constant(AST * nodeToInsert, char * key)
          */
       if( !cp_lookup(constants_table, CONSTANT_Utf8, (void *)tag))
       {
+        if(cp_debug)
+          printf("&& in insert_constant, inserting '%s'\n",tag);
+
         newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_Utf8;
         newnode->cpnode.Utf8.length = strlen(tag);
         newnode->cpnode.Utf8.bytes = (u1 *) malloc(newnode->cpnode.Utf8.length);
         strncpy((char *)newnode->cpnode.Utf8.bytes, tag, newnode->cpnode.Utf8.length);
 
-        idx = cp_insert(constants_table, newnode, NULL, 1);
+        idx = cp_insert(constants_table, newnode, 1)->index;
 
         newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
         newnode->tag = CONSTANT_String;
         newnode->cpnode.String.string_index = idx;
 
-        cp_insert(constants_table, newnode, tag, 1);
+        return cp_insert(constants_table, newnode, 1);
       }
 
       break;
   }
+ 
+  return NULL;
 }
 
 /*****************************************************************************
@@ -222,10 +536,13 @@ insert_constant(AST * nodeToInsert, char * key)
  *                                                                           *
  *****************************************************************************/
 
-int
-cp_insert(Dlist list, struct cp_info *node, char *tag, char width) {
+CPNODE *
+cp_insert(Dlist list, struct cp_info *node, char width) {
   char *strdup(const char *);
   CPNODE * n;
+
+  if(cp_debug)
+    printf("&& in cp_insert, inserting node w/tag = %s\n", constant_tags[node->tag]);
 
   n = (CPNODE *)malloc(sizeof(CPNODE));
 
@@ -235,7 +552,29 @@ cp_insert(Dlist list, struct cp_info *node, char *tag, char width) {
 
   dl_insert_b(list, n);
 
-  return n->index;
+  return n;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * cp_quickdump                                                              *
+ *                                                                           *
+ * Less verbose version of cp_dump.  this function just prints the constant  *
+ * pool index and the tag.                                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+cp_quickdump(Dlist list)
+{
+  CPNODE * tmpconst;
+  Dlist tmpPtr;
+
+  dl_traverse(tmpPtr,list) {
+    tmpconst = (CPNODE *) tmpPtr->val;
+    printf("Constant pool entry %d, ", tmpconst->index);
+    printf("tag: %s\n", constant_tags[tmpconst->val->tag]);
+  }
 }
 
 /*****************************************************************************
@@ -250,7 +589,7 @@ void
 cp_dump(Dlist list)
 {
   extern char *constant_tags[NUM_CONSTANT_TAGS];
-  CPNODE * tmpconst;
+  CPNODE * tmpconst, * tmpconst2;
   Dlist tmpPtr;
   double x;
   u4 u4BigEndian(u4);
@@ -263,7 +602,7 @@ cp_dump(Dlist list)
     printf("\ttag: %s\n", constant_tags[tmpconst->val->tag]);
     switch(tmpconst->val->tag) {
       case CONSTANT_Utf8:
-        printf("\tstring: %s\n",tmpconst->val->cpnode.Utf8.bytes);
+        printf("\tstring: %s\n",null_term(tmpconst->val->cpnode.Utf8.bytes,tmpconst->val->cpnode.Utf8.length));
         break;
       case CONSTANT_Integer:
         if(bigEndian)
@@ -301,7 +640,11 @@ cp_dump(Dlist list)
         }
         break;
       case CONSTANT_Class:
-        printf("\tclass index: %d\n",tmpconst->val->cpnode.Class.name_index);
+        tmpconst2 = cp_entry_by_index(list,tmpconst->val->cpnode.Class.name_index);
+
+        printf("\tclass index: %d -> %s\n",tmpconst->val->cpnode.Class.name_index,
+           null_term(tmpconst2->val->cpnode.Utf8.bytes,tmpconst2->val->cpnode.Utf8.length));
+
         break;
       case CONSTANT_String:
         printf("\tstring index: %d\n",tmpconst->val->cpnode.String.string_index);
@@ -336,6 +679,17 @@ cp_dump(Dlist list)
   }
 }
 
+char *
+null_term(u1 * str, int len)
+{
+  char * temp = (char *)malloc(len + 1);
+
+  strncpy(temp,(char *)str,len);
+  temp[len] = '\0';
+ 
+  return temp;
+}
+
 /*****************************************************************************
  *                                                                           *
  * cp_initialize                                                             *
@@ -356,7 +710,7 @@ cp_initialize(AST *root, Dlist list)
   int idx;
 
   void cp_dump(Dlist);
-  int  cp_insert(Dlist, struct cp_info *, char *, char);
+  CPNODE* cp_insert(Dlist, struct cp_info *, char);
 
 
   /* first create an entry for 'this'.  the class file variable this_class
@@ -366,7 +720,8 @@ cp_initialize(AST *root, Dlist list)
    */
   thisname = root->astnode.source.progtype->astnode.source.name->astnode.ident.name;
 
-  printf("inserting entry for %s\n", thisname);
+  if(cp_debug)
+    printf("&& inserting entry for %s\n", thisname);
 
   newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Utf8;
@@ -374,20 +729,25 @@ cp_initialize(AST *root, Dlist list)
   newnode->cpnode.Utf8.bytes = (u1 *)malloc(newnode->cpnode.Utf8.length);
   strncpy((char *)newnode->cpnode.Utf8.bytes, thisname, newnode->cpnode.Utf8.length);
 
-  idx = cp_insert(list,newnode,NULL,1);
+  idx = cp_insert(list,newnode,1)->index;
 
   newnode = (struct cp_info *)malloc(sizeof(struct cp_info));
   newnode->tag = CONSTANT_Class;
   newnode->cpnode.Class.name_index = idx;
 
-  cp_insert(list,newnode,NULL,1);
-
-  printf("List of Constants for program unit: %s\n",
-    root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
-  printf("\n");
-  cp_dump(list);
+  cp_insert(list,newnode,1);
 
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * u4BigEndian                                                               *
+ *                                                                           *
+ * This function converts a u4 (unsigned int) to big endian format.  if the  *
+ * machine is big endian already, we do nothing.  otherwise, we reverse the  *
+ * byte order and return the reversed number.                                *
+ *                                                                           *
+ *****************************************************************************/
 
 u4
 u4BigEndian(u4 num)

@@ -78,8 +78,10 @@ void
   merge_common_blocks(AST *),
   arg_table_load(AST *),
   exp_to_double (char *, char *),
-  insert_constant(AST *, char *),
   prepend_minus(char *);
+
+CPNODE *
+  insert_constant(int, char *);
 
 AST 
   * dl_astnode_examine(Dlist l),
@@ -2383,29 +2385,29 @@ Constant:
          { 
            $$ = $1; 
 
-           insert_constant($$, $$->astnode.constant.number);
+           insert_constant($$->token, $$->astnode.constant.number);
          }
        | Double
          { 
            $$ = $1; 
 
-           insert_constant($$, $$->astnode.constant.number);
+           insert_constant($$->token, $$->astnode.constant.number);
          }
        | Exponential
          { 
            $$ = $1; 
 
-           insert_constant($$, $$->astnode.constant.number);
+           insert_constant($$->token, $$->astnode.constant.number);
          }
        | Boolean
          { 
            $$ = $1; 
-           insert_constant($$, $$->astnode.constant.number);
+           insert_constant($$->token, $$->astnode.constant.number);
          }
        | String   /* 9-16-97, keith */
          { 
            $$ = $1; 
-           insert_constant($$, $$->astnode.constant.number);
+           insert_constant($$->token, $$->astnode.constant.number);
          }
 ; 
 

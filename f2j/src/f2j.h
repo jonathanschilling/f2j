@@ -54,6 +54,12 @@ typedef int BOOLEAN;
 
 #define DEBUGGEM 0
 
+/*****************************************************************************
+ *  F2J_UTIL defines the default name of the f2java utility package.         *
+ *****************************************************************************/
+
+#define F2J_UTIL org.netlib.util
+
 int 
   lineno,                  /* current line number                            */
   statementno,             /* current statement number                       */

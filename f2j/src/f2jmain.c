@@ -500,7 +500,7 @@ build_method_table(char *path)
       }
     }
 
-    f2jfree(cur_dir, sizeof(DIR));
+    closedir(cur_dir);
   }
 
   return new_table;

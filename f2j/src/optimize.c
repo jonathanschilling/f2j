@@ -1003,7 +1003,7 @@ args_optimize(AST *root, AST *rptr)
   METHODREF *mref;
   AST *temp;
 
-  if((hashtemp=type_lookup(global_func_table, root->astnode.ident.name)) != NULL)
+  if((hashtemp=type_lookup(global_func_table,root->astnode.ident.name))!=NULL)
   {
     AST *t2;
 
@@ -1043,11 +1043,21 @@ args_optimize(AST *root, AST *rptr)
          }
        }
 
+       /* if the function/subroutine expects an array, but
+        * the arg is a scalar, then pass by reference.
+        */
+       if( !type_lookup(opt_array_table,temp->astnode.ident.name) &&
+           t2->astnode.ident.arraylist )
+       {
+         set_passByRef(temp, rptr);
+       }
+
        if(t2 != NULL)
          t2 = t2->nextstmt;
     }
   }
-  else if((mref=find_method(root->astnode.ident.name, descriptor_table)) != NULL) {
+  else if((mref=find_method(root->astnode.ident.name,descriptor_table))!=NULL)
+  {
     char *p;
 
     printf("call_optimize(): found %s in descriptor table.\n",
@@ -1082,8 +1092,12 @@ args_optimize(AST *root, AST *rptr)
        }
 
        /* skip extra element to compensate for array offset arg */
-       if(p[0] == '[')
+       if(p[0] == '[') {
+         if(!type_lookup(opt_array_table, temp->astnode.ident.name))
+           set_passByRef(temp, rptr);
+
          p = skipToken(p);
+       }
     }
   }
   else

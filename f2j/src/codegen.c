@@ -5933,7 +5933,7 @@ constructor (AST * root)
       strcat( temp2, tempnode->astnode.ident.name);
       strcat( temp2, "_offset");
       fprintf(curfp, ", int %s",temp2);
-      free(temp2);
+      f2jfree(temp2);
     }
 
     /* Don't emit a comma on the last iteration. */
@@ -7755,8 +7755,8 @@ format_item_emit(AST *temp, AST **nodeptr)
                   append_descriptor[String]);
             bytecode1(jvm_invokevirtual, c->index);
 
-            free(tmpbuf);
-            free(bi);
+            f2jfree(tmpbuf);
+            f2jfree(bi);
 
             if(temp->nextstmt->nextstmt != NULL)
               fprintf(curfp," + ");

@@ -215,7 +215,18 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
             if( !strcmp(tmpC, mref->classname) 
               && !strcmp(tmpM, mref->methodname)
               && !strcmp(tmpD, mref->descriptor) )
-               return temp->val;
+            {
+              f2jfree(tmpC);
+              f2jfree(tmpM);
+              f2jfree(tmpD);
+
+              return temp->val;
+            }
+            else {
+              f2jfree(tmpC);
+              f2jfree(tmpM);
+              f2jfree(tmpD);
+            }
           }
         }
       }
@@ -247,8 +258,17 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
 
             if( !strcmp(tmpM, mref->methodname)
               && !strcmp(tmpD, mref->descriptor))
-               return temp->val;
+            {
+              f2jfree(tmpM);
+              f2jfree(tmpD);
+              return temp->val;
+            }
+            else {
+              f2jfree(tmpM);
+              f2jfree(tmpD);
+            }
           }
+
         }
       }
       break;
@@ -263,8 +283,12 @@ cp_lookup(Dlist list, enum _constant_tags tag, void *value) {
           if(ctemp->tag == CONSTANT_String) {
             sref = cp_entry_by_index(list,ctemp->cpnode.String.string_index);
             tmpS = null_term(sref->val->cpnode.Utf8.bytes,sref->val->cpnode.Utf8.length);
-            if(!strcmp(tmpS,(char *)value))
+            if(!strcmp(tmpS,(char *)value)) {
+              f2jfree(tmpS);
               return temp->val;
+            }
+            else
+              f2jfree(tmpS);
           }
         }
       }

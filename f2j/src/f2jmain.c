@@ -439,6 +439,28 @@ isBigEndian()
 
 /*****************************************************************************
  *                                                                           *
+ * f2jfree                                                                   *
+ *                                                                           *
+ * Wrapper around free which may overwrite the memory such that we can find  *
+ * problems early (only if DEBUG_MEM is defined).                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+f2jfree(void *p)
+{
+  int size;
+
+#ifdef DEBUG_MEM
+  memcpy(&size, (char *)p-4, sizeof(size));
+  memset(p, 0xA, size-8);
+#endif
+
+  free(p);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * f2jalloc                                                                  *
  *                                                                           *
  * Error-checking memory allocation routine for f2java.  we can't recover    *

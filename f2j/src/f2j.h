@@ -645,6 +645,7 @@ void
   initialize(void),
   uppercase(char *),
   alloc_error(size_t),
+  f2jfree(void *),
   * f2jalloc(size_t),
   * f2jcalloc(size_t, size_t),
   * f2jrealloc(void *, size_t),

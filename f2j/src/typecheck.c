@@ -38,6 +38,10 @@ typecheck (AST * root)
   void logicalif_check (AST *);
   void write_check (AST *);
   void read_check (AST *);
+  void merge_equivalences(AST *);
+  void check_equivalences(AST *);
+  void insertEquivalences(AST *);
+  SYMTABLE *new_symtable(int);
 
   switch (root->nodetype)
   {
@@ -54,6 +58,16 @@ typecheck (AST * root)
       chk_external_table = root->astnode.source.external_table;
       chk_intrinsic_table = root->astnode.source.intrinsic_table;
       chk_array_table = root->astnode.source.array_table;
+
+      merge_equivalences(root->astnode.source.equivalences);
+
+      /* now that the equivalences have been merged and duplicates
+       * removed, we insert the variable names into a symbol table.
+       */
+      root->astnode.source.equivalence_table = new_symtable(211);
+      insertEquivalences(root);
+
+      check_equivalences(root->astnode.source.equivalences);
 
       typecheck (root->astnode.source.progtype);
       typecheck (root->astnode.source.typedecs);
@@ -202,6 +216,180 @@ typecheck (AST * root)
       fprintf(stderr,"typecheck(): Error, bad nodetype (%s)\n",
          print_nodetype(root));
   }				/* switch on nodetype.  */
+}
+
+/* merge_equivalences
+ *
+ *  ok, this is a very poorly written subroutine.  I admit it.
+ * but I dont think that most programs will have a ton of equivalences
+ * to merge, so it should not impose too much of a performance
+ * penalty.  basically what we're doing here is looking at all
+ * the equivalences in the unit and determining if some variable
+ * is contained within more than one equivalence.   If so, we
+ * merge those two equivalence statements.
+ */
+
+void
+merge_equivalences(AST *root)
+{
+  AST *temp, *ctemp;
+  AST *temp2, *ctemp2;
+  int needsMerge = FALSE;
+  void remove_duplicates(AST *);
+
+  printf("M_EQV  Equivalences:\n");
+  for(temp=root; temp != NULL; temp = temp->nextstmt) {
+    printf("M_EQV (%d)", temp->token);
+    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
+      printf(" %s, ", ctemp->astnode.ident.name);
+
+      for(temp2=root;temp2!=NULL;temp2=temp2->nextstmt) {
+        for(ctemp2=temp2->astnode.equiv.clist;ctemp2!=NULL;ctemp2=ctemp2->nextstmt) {
+          if(!strcmp(ctemp->astnode.ident.name,ctemp2->astnode.ident.name) &&
+            temp->token != temp2->token) {
+            temp2->token = temp->token;
+            needsMerge = TRUE;
+          }
+        }
+      }
+    }
+    printf("\n");
+  }
+
+  /* if we dont need to merge anything, go ahead and return, skipping
+   * this last chunk of code.
+   */
+  if(!needsMerge)
+    return;
+
+  for(temp=root; temp != NULL; temp = temp->nextstmt) {
+    for(temp2=root;temp2!=NULL;temp2=temp2->nextstmt) {
+      if((temp->token == temp2->token) && (temp != temp2)) {
+        ctemp=temp->astnode.equiv.clist;
+        while(ctemp->nextstmt != NULL)
+          ctemp = ctemp->nextstmt;
+
+        ctemp->nextstmt = temp2->astnode.equiv.clist;
+
+        ctemp = root;
+        while(ctemp->nextstmt != temp2)
+          ctemp = ctemp->nextstmt;
+
+        ctemp->nextstmt = temp2->nextstmt;
+
+      }
+    }
+    remove_duplicates(temp->astnode.equiv.clist);
+  }
+}
+
+void remove_duplicates(AST *root)
+{
+  AST *temp, *temp2, *prev;
+
+  for(temp = root; temp != NULL; temp = temp->nextstmt) {
+    prev = root;
+    for(temp2 = root; temp2 != NULL; temp2 = temp2->nextstmt) {
+      if(!strcmp(temp->astnode.ident.name,temp2->astnode.ident.name) &&
+          temp != temp2) {
+        prev->nextstmt = temp2->nextstmt;
+      }
+      prev = temp2;
+    }
+  }
+}
+
+void 
+insertEquivalences(AST *root)
+{
+  int idx;
+  AST *temp, *ctemp;
+  AST *eqvList = root->astnode.source.equivalences;
+  SYMTABLE *eqvSymTab = root->astnode.source.equivalence_table;
+  char *merged_name;
+  int hash(char *);
+  void type_insert (HASHNODE **, AST *, int, char *);
+  char *merge_names(AST *);
+
+  for(temp = eqvList; temp != NULL; temp = temp->nextstmt) {
+    merged_name = merge_names(temp->astnode.equiv.clist);
+    for(ctemp = temp->astnode.equiv.clist;ctemp!=NULL;ctemp = ctemp->nextstmt) {
+      ctemp->astnode.ident.merged_name = merged_name;
+      idx = hash(ctemp->astnode.ident.name) % eqvSymTab->num_entries;
+      type_insert( &(eqvSymTab->entry[idx]), ctemp, Float, ctemp->astnode.ident.name);
+    }
+  }
+}
+
+char *
+merge_names(AST *root)
+{
+  AST *temp;
+  char *newName;
+  int len = 0, num = 0;
+  char * malloc(int);
+
+  for(temp = root;temp != NULL;temp=temp->nextstmt, num++)
+    len += strlen(temp->astnode.ident.name);
+  
+  newName = (char *)malloc(len + num + 1);
+
+  if(!newName) {
+    fprintf(stderr,"Unsuccessful malloc.\n");
+    exit(-1);
+  }
+
+  newName[0] = 0;
+
+  for(temp = root;temp != NULL;temp=temp->nextstmt, num++) {
+    strcat(newName,temp->astnode.ident.name);
+    if(temp->nextstmt != NULL)
+      strcat(newName,"_");
+  }
+
+  return newName;
+}
+
+void
+check_equivalences(AST *root)
+{
+  AST *temp, *ctemp;
+  enum returntype curType;
+  HASHNODE *hashtemp;
+  int mismatch = FALSE;
+  void print_eqv_list(AST *, FILE *);
+
+  for(temp=root; temp != NULL; temp = temp->nextstmt) {
+    if(temp->astnode.equiv.clist != NULL) {
+      hashtemp = type_lookup(chk_type_table,
+                    temp->astnode.equiv.clist->astnode.ident.name);
+      if(hashtemp)
+        curType = hashtemp->variable->vartype;
+      else
+        continue;
+    }
+    else
+      continue;
+
+    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
+      hashtemp = type_lookup(chk_type_table,ctemp->astnode.ident.name);
+      if(hashtemp) {
+        if(hashtemp->variable->vartype != curType)
+          mismatch = TRUE;
+      }
+      else
+        continue;
+
+      curType = hashtemp->variable->vartype;
+    }
+ 
+    if(mismatch) {
+      fprintf(stderr, "Error with equivalenced variables: ");
+      print_eqv_list(temp,stderr);
+      fprintf(stderr,
+       "...I can't handle equivalenced variables with differing types.\n");
+    }
+  }
 }
 
 void 

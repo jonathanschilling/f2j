@@ -48,6 +48,7 @@ int cur_idx = 0;
 Dlist doloop = NULL;
 Dlist while_list = NULL;
 Dlist adapter_list = NULL;
+Dlist methcall_list = NULL;
 
 SUBSTITUTION global_sub = { NULL, 0 };
 
@@ -66,6 +67,7 @@ SYMTABLE *cur_data_table;
 SYMTABLE *cur_save_table; 
 SYMTABLE *cur_common_table; 
 SYMTABLE *cur_param_table; 
+SYMTABLE *cur_equiv_table; 
 AST *cur_dataList;
 AST *cur_equivList;
 
@@ -83,6 +85,11 @@ char *returnstring[] =
 
 char *wrapper_returns[] =
 {"StringW", "StringW", "complexW", "doubleW", "floatW", "intW", "booleanW", "Object"};
+
+/* java wrapper names */
+
+char *java_wrapper[] =
+{"String", "String", "Complex", "Double", "Float", "Integer", "Boolean", "Object"};
 
 /* initial values for above data types */
 
@@ -128,6 +135,7 @@ emit (AST * root)
     void read_emit (AST *);
     void emit_invocations(AST *);
     void merge_equivalences(AST *);
+    void print_equivalences(AST *);
 
     switch (root->nodetype)
       {
@@ -152,14 +160,17 @@ emit (AST * root)
           cur_save_table = root->astnode.source.save_table;
           cur_common_table = root->astnode.source.common_table;
           cur_param_table = root->astnode.source.parameter_table;
+          cur_equiv_table = root->astnode.source.equivalence_table;
           cur_dataList = root->astnode.source.dataStmtList;
           cur_equivList = root->astnode.source.equivalences;
 
-          merge_equivalences(cur_equivList);
+          printf("EQV in codegen, equivs:\n");
+          print_equivalences(cur_equivList);
 
           while_list = make_dl();
           doloop = make_dl();
           adapter_list = make_dl();
+          methcall_list = make_dl();
 
           if(root->astnode.source.progtype->astnode.source.needs_reflection)
             import_reflection = TRUE;
@@ -174,7 +185,11 @@ emit (AST * root)
           
 	  emit (root->astnode.source.progtype);
 	  fprintf (curfp, "\n// Executable code.\n");
-	  emit (root->astnode.source.statements);
+
+          if(import_reflection) 
+            fprintf(curfp,"try {\n");
+
+          emit(root->astnode.source.statements);
 
           emit_invocations(root->astnode.source.progtype);
 
@@ -390,6 +405,15 @@ emit (AST * root)
 	  else
 	      fprintf (curfp, "return;\n");
 
+          if(import_reflection) {
+            fprintf(curfp, "%s%s%s%s%s",
+               "} catch (java.lang.reflect.InvocationTargetException e) {\n",
+               "   System.err.println(\"Error calling method.  \"+e.getMessage());\n",
+               "} catch (java.lang.IllegalAccessException e2) {\n",
+               "   System.err.println(\"Error calling method.  \"+e2.getMessage());\n",
+               "}\n");
+          }
+
 	  fprintf (curfp, "   }\n");
 	  break;
       case Save:
@@ -417,34 +441,55 @@ emit (AST * root)
       }				/* switch on nodetype.  */
 }
 
-void 
-merge_equivalences(AST *root)
+void
+print_equivalences(AST *root)
 {
-  AST *temp, *ctemp;
+  AST *temp;
+  void print_eqv_list(AST *, FILE *);
 
   printf("M_EQV  Equivalences:\n");
   for(temp=root; temp != NULL; temp = temp->nextstmt) {
-    printf("M_EQV ");
-    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
-      printf(" %s, ", ctemp->astnode.ident.name);
-    }
-    printf("\n");
+    printf("M_EQV (%d)", temp->token);
+    print_eqv_list(temp,stdout);
   }
+}
+
+void 
+print_eqv_list(AST *root, FILE *fptr)
+{
+  AST *temp;
+
+  for(temp = root->astnode.equiv.clist;temp!=NULL;temp=temp->nextstmt)
+    fprintf(fptr," %s, ", temp->astnode.ident.name);
+  fprintf(fptr,"\n");
 }
 
 void 
 equiv_emit (AST *root)
 {
-  AST *temp, *ctemp;
+  HASHNODE *ht;
+  AST *temp;
+  enum returntype curType;
+  void vardec_emit(AST *, enum returntype);
 
-  printf("EQV  Equivalences:\n");
-  for(temp = root->astnode.equiv.nlist; temp != NULL; temp = temp->nextstmt) {
-    printf("EQV ");
-    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
-      printf(" %s, ", ctemp->astnode.ident.name);
+  for(temp = root->astnode.equiv.nlist; temp != NULL; temp = temp->nextstmt)
+    if(temp->astnode.equiv.clist != NULL) {
+      ht = type_lookup(cur_type_table,
+               temp->astnode.equiv.clist->astnode.ident.name);
+      if(ht) {
+        curType = ht->variable->vartype;
+        if(ht->variable->astnode.ident.arraylist != NULL)
+          printf("EQV looks like %s is an array\n",ht->variable->astnode.ident.name);
+      }
+      else {
+        fprintf(stderr,"equiv_emit(): can't find data type for %s\n" ,
+           temp->astnode.equiv.clist->astnode.ident.name);
+        curType = 0;
+      }
+
+      if(temp->astnode.equiv.clist->astnode.ident.merged_name != NULL)
+        vardec_emit(ht->variable, curType);
     }
-    printf("\n");
-  }
 }
 
 /*  
@@ -538,10 +583,8 @@ common_emit(AST *root)
          * other variable.
          */
         if(type_lookup(cur_data_table,Ntemp->astnode.ident.name) && !needs_dec)
-          /* vardec_emit(temp, temp->vartype, STATIC_WITHDATA); */
           vardec_emit(temp, temp->vartype);
         else
-          /* vardec_emit(temp, temp->vartype, STATIC_NODATA); */
           vardec_emit(temp, temp->vartype);
       }
       if(Ctemp->astnode.common.name != NULL)
@@ -614,11 +657,6 @@ typedec_emit (AST * root)
        printf("@@ Variable %s: Corresponding data stmt not found\n",
          temp->astnode.ident.name);
 
-      /* 
-       * we already emitted this variable as a static variable 
-       * (aka 'class variable'), so we don't emit it here. 
-       */
-
     /*
      *  dont worry about checking the save table now since we're 
      *  going to emit everything as static variables.  --keith
@@ -627,6 +665,26 @@ typedec_emit (AST * root)
      *      continue;
      */
  
+
+    /* 
+     * check to se if this variable is equivalenced with some
+     * other variable(s).  if so, do not emit a variable 
+     * declaration here.
+     */
+
+    hashtemp = type_lookup(cur_equiv_table,temp->astnode.ident.name);
+    if(hashtemp) {
+      if(type_lookup(cur_common_table,temp->astnode.ident.name)) {
+        fprintf(stderr,"Please dont mix COMMON and EQUIVALENCE.  ");
+        fprintf(stderr,"I dont like it.  It scares me.\n");
+      } else {
+        fprintf(curfp,"  // %s equivalenced to %s\n",
+          temp->astnode.ident.name, 
+          hashtemp->variable->astnode.ident.merged_name);
+      }
+      continue;
+    }
+
     /* 
      * also do not try to redefine a 'common' variable since
      * they are placed in their own classes.  10-8-97 -- Keith 
@@ -662,27 +720,12 @@ typedec_emit (AST * root)
 
     if(type_lookup(cur_external_table, temp->astnode.ident.name) != NULL)
     {
-/*
- * this code should be executed for only those external functions
- * that are passed as parameters.
- *
-      char *tempfunc;
-
-      printf("### hit an external %s\n",temp->astnode.ident.name);
-  
-      tempfunc = strdup(temp->astnode.ident.name);
-      *tempfunc = toupper(*tempfunc);
-
-      fprintf(curfp,"%s %s = new %s();\n",tempfunc,temp->astnode.ident.name,
-        tempfunc);
-*/
-
+      /* skip externals */
       continue;
     }
 
     printf("### calling vardec_emit on %s\n",temp->astnode.ident.name);
 
-    /* vardec_emit(temp, returns, NONSTATIC); */
     vardec_emit(temp, returns);
   }
 }				/* Close typedec_emit(). */
@@ -694,11 +737,9 @@ typedec_emit (AST * root)
  *
  * This could probably be simplified somewhat now that all
  * variables are emitted 'static'.   1/27/98 -- Keith
+ * ...done 3/26/98 -- Keith
  */
 
-/*
-int vardec_emit(AST *root, enum returntype returns, int only_static)
-*/
 void
 vardec_emit(AST *root, enum returntype returns)
 {
@@ -706,19 +747,11 @@ vardec_emit(AST *root, enum returntype returns)
   AST *temp2;
   char *prefix;
   int count;
-  int only_static = STATIC_NODATA;
   void name_emit (AST *);
   void expr_emit (AST *);
   void print_string_initializer(AST *);
 
-  if(only_static)         /* true if only_static is either  */
-    prefix = "static ";   /*   STATIC_WITHDATA or STATIC_NODATA */
-  else
-    prefix = "";
-
-  /* Note that only_static is temporarily hardcoded to STATIC_NODATA, above.
-   * thus, prefix will always be 'static'. 
-   */
+  prefix = "static ";
 
   if(gendebug)
     printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
@@ -736,50 +769,45 @@ vardec_emit(AST *root, enum returntype returns)
       printf ("%s\n", returnstring[returns]);
     name_emit (root);
 
-    if(only_static == STATIC_WITHDATA) {
-      fprintf (curfp, ";\n");
-    }
-    else {
-      if (returns == Integer)
-        fprintf (curfp, "= new int[");
-      else if (returns == Double)
-        fprintf (curfp, "= new double[");
-      else if (returns == Logical)
-        fprintf (curfp, "= new boolean[");
-      else if ((returns == String) || (returns == Character))
-        fprintf (curfp, "= new String[");
-      else
-        fprintf(stderr,"vardec_emit():  Unknown type (%d)!\n",returns);
-         
-      /* make sure this variable is in the array table */
+    if (returns == Integer)
+      fprintf (curfp, "= new int[");
+    else if (returns == Double)
+      fprintf (curfp, "= new double[");
+    else if (returns == Logical)
+      fprintf (curfp, "= new boolean[");
+    else if ((returns == String) || (returns == Character))
+      fprintf (curfp, "= new String[");
+    else
+      fprintf(stderr,"vardec_emit():  Unknown type (%d)!\n",returns);
+       
+    /* make sure this variable is in the array table */
 
-      hashtemp = type_lookup(cur_array_table,root->astnode.ident.name);
-      if(hashtemp != NULL) 
+    hashtemp = type_lookup(cur_array_table,root->astnode.ident.name);
+    if(hashtemp != NULL) 
+    {
+      temp2=root->astnode.ident.arraylist;
+      for(count=0 ; temp2!=NULL ; temp2=temp2->nextstmt, count++) 
       {
-        temp2=root->astnode.ident.arraylist;
-        for(count=0 ; temp2!=NULL ; temp2=temp2->nextstmt, count++) 
+        if(temp2 != root->astnode.ident.arraylist)
+          fprintf(curfp, " * ");   /* if not the first iteration */
+        fprintf(curfp,"(");
+        if(temp2->nodetype == ArrayIdxRange)
         {
-          if(temp2 != root->astnode.ident.arraylist)
-            fprintf(curfp, " * ");   /* if not the first iteration */
-          fprintf(curfp,"(");
-          if(temp2->nodetype == ArrayIdxRange)
-          {
-            expr_emit(temp2->astnode.expression.rhs);
-            fprintf(curfp," - ");
-            expr_emit(temp2->astnode.expression.lhs);
-            fprintf(curfp," + 1");
-          }
-          else
-            expr_emit(temp2);
-          fprintf(curfp,")");
+          expr_emit(temp2->astnode.expression.rhs);
+          fprintf(curfp," - ");
+          expr_emit(temp2->astnode.expression.lhs);
+          fprintf(curfp," + 1");
         }
+        else
+          expr_emit(temp2);
+        fprintf(curfp,")");
       }
-      else
-        fprintf(stderr,"vardec_emit: Can't find %s in array table!\n",
-           root->astnode.ident.name);
-
-      fprintf (curfp, "];\n");
     }
+    else
+      fprintf(stderr,"vardec_emit: Can't find %s in array table!\n",
+         root->astnode.ident.name);
+
+    fprintf (curfp, "];\n");
   } else {    /* this is not an array declaration */
 
     HASHNODE *p;
@@ -795,52 +823,38 @@ vardec_emit(AST *root, enum returntype returns)
 
     p = type_lookup(cur_param_table, root->astnode.ident.name);
 
-    /*  expr_emit(p->variable);  */
+    /*  
+     * initialize local variables to zero or
+     * false to keep the java compiler from
+     * squawking.  
+     */
 
-    if(only_static == STATIC_WITHDATA) {
-      if (returns == Integer)
-        fprintf (curfp, "= new intW(%s)", init_vals[returns]);
-      else if (returns == Double)
-        fprintf (curfp, "= new doubleW(%s)", init_vals[returns]);
-      else if (returns == Logical)
-        fprintf (curfp, "= new booleanW(%s)", init_vals[returns]);
-      else if ((returns == String) || (returns == Character))
-        print_string_initializer(root);
-      fprintf (curfp, ";\n");
-    } else {
-      /*  
-       * initialize local variables to zero or
-       * false to keep the java compiler from
-       * squawking.  
+    if(p != NULL)
+    {
+      /* this variable is declared as a parameter, so 
+       * initialize it with the value from the PARAMETER
+       * statement.
        */
 
-      if(p != NULL)
-      {
-        /* this variable is declared as a parameter, so 
-         * initialize it with the value from the PARAMETER
-         * statement.
-         */
+      fprintf(curfp,"= new %s(",wrapper_returns[returns]);
+      expr_emit(p->variable);
+      fprintf(curfp,");\n");
+    }
+    else
+    {
+      /* this variable is not declared as a parameter, so
+       * initialize it with an initial value depending on
+       * its data type.
+       */
 
-        fprintf(curfp,"= new %s(",wrapper_returns[returns]);
-        expr_emit(p->variable);
-        fprintf(curfp,");\n");
+      if ((returns == String) || (returns == Character))
+      {
+        print_string_initializer(root);
+        fprintf(curfp,";\n");
       }
       else
-      {
-        /* this variable is not declared as a parameter, so
-         * initialize it with an initial value depending on
-         * its data type.
-         */
-
-        if ((returns == String) || (returns == Character))
-        {
-          print_string_initializer(root);
-          fprintf(curfp,";\n");
-        }
-        else
-          fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
-            init_vals[returns]);
-      }
+        fprintf(curfp,"= new %s(%s);\n",wrapper_returns[returns],
+          init_vals[returns]);
     }
   }
 }
@@ -1039,6 +1053,9 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
    * we do need a declaration. 
    */
 
+  printf("VAR here we are emitting data for %s\n",
+    Ntemp->astnode.ident.name);
+
   if(Ntemp->astnode.ident.arraylist == NULL)
     needs_dec = FALSE;
   else
@@ -1054,6 +1071,8 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
 
   if( hashtemp->variable->astnode.ident.leaddim != NULL )
   {
+    printf("VAR leaddim not NULL\n");
+
     /* Check for attempts to initialize dummy argument.  we can't
      * determine the number of elements in a dummy arg. 
      */
@@ -1069,18 +1088,20 @@ data_var_emit(AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
         hashtemp->variable->astnode.ident.name);
       return Ctemp;
     }
-
-    /* determine how many elements are in this array so that
-     * we know how many items from the DATA statement to assign
-     * to this variable.
-     */
-    if(is_array)
-      length = determine_var_length(hashtemp);
   }
 
   if(is_array)
   {
+    /* determine how many elements are in this array so that
+     * we know how many items from the DATA statement to assign
+     * to this variable.
+     */
+
+    length = determine_var_length(hashtemp);
+    printf("VAR length = %d\n",length);
+
     fprintf(curfp,"static %s ", returnstring[ hashtemp->type]);
+      printf("VAR going to data_array_emit\n");
     Ctemp = data_array_emit(length, Ctemp, Ntemp, needs_dec);
   }
   else 
@@ -1117,13 +1138,26 @@ int
 determine_var_length(HASHNODE *var)
 {
   AST *temp2;
-
   int length = 1;
+  int dims = var->variable->astnode.ident.dim;
 
+  int eval_const_expr(AST *, int);
+  int idxNeedsDecr(AST *, int);
+
+  printf("VAR - determining length of %s\n", var->variable->astnode.ident.name);
+  printf("VAR - dim = %d\n", dims);
  
   temp2=var->variable->astnode.ident.arraylist;
   for( ; temp2 != NULL ; temp2=temp2->nextstmt ) {
-    if(temp2->nodetype != Constant) {
+    if(temp2->nodetype == ArrayIdxRange) {
+      if(idxNeedsDecr(temp2,dims))
+        length *= eval_const_expr(temp2->astnode.expression.rhs, dims);
+      else
+        length *= eval_const_expr(temp2->astnode.expression.rhs, dims) + 1;
+
+      printf("VAR now length = %d\n", length);
+    }
+    else if(temp2->nodetype != Constant) {
 
       /*
        * fprintf(stderr,"Cant translate data statement for %s\n",
@@ -1138,6 +1172,7 @@ determine_var_length(HASHNODE *var)
     }
   }
 
+  printf("VAR returning length = %d\n", length);
   return length;
 }
 
@@ -1151,6 +1186,8 @@ AST *
 data_array_emit(int length, AST *Ctemp, AST *Ntemp, int needs_dec)
 {
   int i, count =1;
+
+printf("VAR here we are in data_array_emit, length = %d\n",length);
 
   fprintf(curfp,"[] ");
 
@@ -1357,6 +1394,9 @@ name_emit (AST * root)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
+  if(type_lookup(cur_equiv_table, root->astnode.ident.name))
+    printf("EQV %s is equivalenced\n",root->astnode.ident.name);
+
   /* 
    * If the name is in the external table, then check to see if
    * it is an intrinsic function instead (e.g. SQRT, ABS, etc).  
@@ -1402,7 +1442,11 @@ name_emit (AST * root)
   printf("leaving name_emit\n");
 }
 
-/*  This function emits a function call */
+/*  This function emits a function call.  I think this function
+ * is only called in cases where the function or subroutine is
+ * not declared external or intrinsic and we dont know what
+ * else to do with it.
+ */
 
 void 
 subcall_emit(AST *root)
@@ -1413,6 +1457,11 @@ subcall_emit(AST *root)
 
   tempstr = strdup (root->astnode.ident.name);
   *tempstr = toupper (*tempstr);
+
+printf("@##@ in subcall_emit, %s\n",root->astnode.ident.name);
+
+if(type_lookup(cur_args_table, root->astnode.ident.name))
+  printf("@@ calling passed-in func %s\n",root->astnode.ident.name);
 
   fprintf (curfp, "%s.%s", tempstr,root->astnode.ident.name);
   temp = root->astnode.ident.arraylist;
@@ -1435,14 +1484,19 @@ idxNeedsDecr(AST *alist, int dims)
 {
   AST *startIdx = NULL;
   int eval_const_expr(AST *, int);
+  int eval;
 
   if( (alist != NULL) && (alist->nodetype == ArrayIdxRange))
   {
     if((startIdx = alist->astnode.expression.lhs) != NULL)
     {
-      if(eval_const_expr(startIdx,dims) == 0)
+      eval = eval_const_expr(startIdx,dims);
+    
+      printf("VAR eval returns %d\n",eval);
+
+      if(eval == 0)
         return FALSE;
-      else if(eval_const_expr(startIdx,dims) == 1)
+      else if(eval == 1)
         return TRUE;
       else
         fprintf(stderr,"Can't handle array starting at arbitrary index\n");
@@ -1644,6 +1698,7 @@ array_emit(AST *root, HASHNODE *hashtemp)
   char *get_common_prefix(char *);
   char *com_prefix;
   char *name;
+  HASHNODE *ht;
 
   if (gendebug)
     printf ("Array... %s, My node type is %s\n", 
@@ -1656,8 +1711,6 @@ array_emit(AST *root, HASHNODE *hashtemp)
 
   if(com_prefix[0] != '\0')
   {
-    HASHNODE *ht;
-
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
       fprintf(stderr,"array_emit:Cant find %s in type_table\n",
@@ -1666,6 +1719,9 @@ array_emit(AST *root, HASHNODE *hashtemp)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
   }
+
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
+    name = ht->variable->astnode.ident.merged_name;
 
   if (name == NULL)
   {
@@ -1715,12 +1771,13 @@ array_emit(AST *root, HASHNODE *hashtemp)
        * translate them to inline expressions.    3-9-98 -- Keith
        */
 
-      if((type_lookup(cur_external_table, root->parent->astnode.ident.name) != NULL) 
+      if((type_lookup(cur_external_table, root->parent->astnode.ident.name) 
        && strcmp(root->parent->astnode.ident.name,"lsame") 
-       && strcmp(root->parent->astnode.ident.name,"lsamen")  )
+       && strcmp(root->parent->astnode.ident.name,"lsamen"))
+       && !type_lookup(cur_args_table,root->parent->astnode.ident.name) )
         func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, TRUE);
       else 
-        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg, FALSE);
+        func_array_emit(temp, hashtemp, root->astnode.ident.name, is_arg,FALSE);
     } 
     else if((root->parent->nodetype == Typedec)) 
     {
@@ -1782,6 +1839,8 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
   extern METHODTAB intrinsic_toks[];
   char *com_prefix;
   char *name;
+  HASHNODE *ht;
+
 
   /* get the name of the common block class file, if applicable */
 
@@ -1791,8 +1850,6 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
   if(com_prefix[0] != '\0')
   {
-    HASHNODE *ht;
-
     ht = type_lookup(cur_type_table,root->astnode.ident.name);
     if (ht == NULL)
       fprintf(stderr,"scalar_emit:Cant find %s in type_table\n",
@@ -1801,6 +1858,9 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
     if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
   }
+
+  if((ht = type_lookup(cur_equiv_table,root->astnode.ident.name)))
+    name = ht->variable->astnode.ident.merged_name;
 
   if (name == NULL)
   {
@@ -1822,7 +1882,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
       printf("### #in scalar_emit, setting name = %s\n",name);
 
     if(root->parent == NULL) {
-      fprintf(stderr,"name_emit(): NO PARENT! (%s)\n", name);
+      fprintf(stderr,"scalar_emit(): NO PARENT! (%s)\n", name);
     } else {
       if (root->parent->nodetype == Call) {
         char *tempname;
@@ -1867,6 +1927,12 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
           printf("Emitting typedec name: %s\n", name);
         fprintf (curfp, "%s", name);
       }
+      else if(root->parent->nodetype == Equivalence) {
+        if(gendebug)
+          printf("Emitting equivalenced name: %s\n", 
+             root->astnode.ident.merged_name);
+        fprintf (curfp, "%s", root->astnode.ident.merged_name);
+      }
       else if(root->parent->nodetype == ArrayDec) {
         fprintf (curfp, "%s%s.val", com_prefix, name);
       }
@@ -1892,7 +1958,7 @@ scalar_emit(AST *root, HASHNODE *hashtemp)
 
     if(root->parent == NULL) 
     {
-      fprintf(stderr,"name_emit(): NO PARENT!\n");
+      fprintf(stderr,"scalar_emit(): NO PARENT!\n");
     } 
     else 
     {
@@ -1941,11 +2007,32 @@ external_emit(AST *root)
   printf("nodetype = %s, parent nodetype = %s\n",
     print_nodetype(root),print_nodetype(root->parent));
 
+  /*
+   * If we encounter this external variable within a
+   * function/subroutine call, but the name itself is not
+   * being used as a call, then we know that the function
+   * is being passed as a parameter.
+   */
+
   if( (root->parent->nodetype == Call) && 
       (root->astnode.ident.arraylist == NULL))
   {
-    fprintf(stderr,"unit %s: EXTERNAL has parent CALL\n", unit_name);
-    fprintf(curfp," %s ",root->astnode.ident.name);
+    printf("unit %s: EXTERNAL has parent CALL\n", unit_name);
+   
+    tempname = strdup(root->astnode.ident.name);
+    *tempname = toupper(*tempname);
+
+    /* if this external function is also an argument to the
+     * current unit, we already have an Object reference to
+     * it, so just pass that.  If not, we create a new 
+     * instance of whatever class we want to pass.
+     */
+
+    if(type_lookup(cur_args_table,root->astnode.ident.name))
+      fprintf(curfp,"%s", root->astnode.ident.name);
+    else
+      fprintf(curfp," new %s() ",tempname);
+
     return;
   }
 
@@ -3482,8 +3569,11 @@ call_emit (AST * root)
   HASHNODE *ht2;
   int needs_adapter(AST *);
   void insert_adapter(AST *);
+  void insert_methcall(Dlist, AST *);
 
   assert (root != NULL);
+
+  printf("@##@ in call_emit, %s\n",root->astnode.ident.name);
 
   /* shouldn't be necessary to lowercase the name
    *   lowercase (root->astnode.ident.name);
@@ -3492,11 +3582,81 @@ call_emit (AST * root)
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
 
-  /* first analyze this function call to determine if we need to generate
-   * an 'adapter' which will simulate passing array elements by reference.
+  /* If this function was passed in as an argument, we call an
+   * 'adapter' which performs the reflective method invocation..
    */
 
-  if( needs_adapter(root) )
+  if(type_lookup(cur_args_table, root->astnode.ident.name)) {
+    printf("@@ calling passed-in func %s\n",root->astnode.ident.name);
+
+    /* if this function has no args, we can simplify the calling
+     * process by not creating an argument array or calling a
+     * method adapter.
+     */
+
+    if((root->astnode.ident.arraylist->nodetype == EmptyArgList) ||
+       (root->astnode.ident.arraylist == NULL)) {
+
+      /* no args.  either function or subroutine. */
+
+      fprintf(curfp,"((%s)_%s_meth.invoke(null,null)).%sValue()",
+        java_wrapper[root->vartype], root->astnode.ident.name, returnstring[root->vartype]);
+      if(root->nodetype == Call)
+        fprintf(curfp,";");
+      return;
+    }
+    else if (root->nodetype == Call) {
+
+      /* subroutine with args.  */
+
+      int cnt = 0;
+
+      for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
+        cnt++;
+      
+      fprintf(curfp," Object [] _%s_args = new Object[%d];\n",
+         root->astnode.ident.name, cnt);
+
+      cnt = 0;
+      for( temp = root->astnode.ident.arraylist; temp; temp = temp->nextstmt)
+      {
+        fprintf(curfp,"_%s_args[%d] = ", root->astnode.ident.name, cnt);
+
+        if(((temp->nodetype == Identifier) && (temp->astnode.ident.arraylist == NULL)) ||
+            (temp->nodetype == Constant))
+        {
+          expr_emit (temp);
+        }
+        else
+        {
+          fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
+          expr_emit (temp);
+          fprintf(curfp,")");
+        }
+
+        fprintf(curfp, ";\n");
+
+        cnt++;
+      }
+
+      fprintf(curfp,"_%s_meth.invoke(null,_%s_args);\n",
+        root->astnode.ident.name, root->astnode.ident.name);
+      return;
+    }
+    else   /* function with args. */
+    {
+      /* add this call to the list of calls which need adapters */
+      insert_methcall(methcall_list,root);
+
+      fprintf(curfp,"%s_methcall",root->astnode.ident.name);
+    }
+  }
+
+  /* analyze this function call to determine if we need to generate an 
+   * 'adapter' which will simulate passing array elements by reference.
+   */
+
+  else if( needs_adapter(root) )
   {
     printf("wow, guess we need an adapter for %s.\n", root->astnode.ident.name);
     insert_adapter(root);
@@ -3518,6 +3678,17 @@ call_emit (AST * root)
   }
 
   fprintf (curfp, "(");
+
+  /* for reflective method call adapters, the first paramter should
+   * be the method to invoke.
+   */
+
+  if(type_lookup(cur_args_table, root->astnode.ident.name)) {
+    fprintf(curfp,"_%s_meth",root->astnode.ident.name);
+    if(root->astnode.ident.arraylist != NULL)
+      fprintf(curfp,",");
+  }
+
 
   /* look up the function name so that we may compare the parameters */
 
@@ -3668,6 +3839,81 @@ call_emit (AST * root)
   else
     fprintf (curfp, ")");
 }				/*  Close call_emit().  */
+
+/* insert this call.  */
+
+void
+insert_methcall(Dlist mlist, AST *root)
+{
+  Dlist new, p, tmplist;
+  AST *temp;
+  char * root_name;
+
+  printf("MTH: here i am in insert_methcall.  name = %s\n",
+    root->astnode.ident.name);
+
+  /* if the list of lists is empty, create a new list to
+   * hold this node and insert it in the main list.
+   */
+
+  if(dl_empty(mlist)) {
+    printf("MTH: list is empty, create new one.\n");
+    new = make_dl();
+    dl_insert_b(new,root);
+    dl_insert_b(mlist,new);
+    return;
+  }
+
+  /* otherwise we must determine whether there is already
+   * a call to this function in the current program unit.
+   * if not, we create a new list which hangs off the main
+   * list.  This new list contains pointers to all the calls
+   * to that function.  if there is already a list corresponding
+   * to the function, we insert this node into that list. 
+   * the reason we keep _all_ the calls is because we cannot
+   * know the parameters of some function that is passed in
+   * as an argument.  So we must guess (we also have to guess
+   * at its return type).  therefore, we keep around as many
+   * calls as possible to help clear up any ambiguity.  for
+   * example, if the fortran source contains a call like:
+   *    x = func(12)
+   * we must assume that since the constant is an integer, func
+   * must take an integer parameter.  however, if there is
+   * another call to func later on in the program like this:
+   *    x = func(y)
+   * then we can resolve the ambiguity by assuming that func's
+   * parameter should have the same type as the variable y.
+   */
+
+  root_name = root->astnode.ident.name;
+
+  dl_traverse(p,mlist) {
+    tmplist = (Dlist) dl_val(p);
+    temp = dl_val(dl_first(tmplist));
+
+    printf("MTH: temp name is %s.\n", temp->astnode.ident.name);
+
+    if(!strcmp(temp->astnode.ident.name,root_name)) {
+      /* found another function call... insert this node
+       * into the current list.
+       */
+      printf("MTH: found %s...inserting.\n", temp->astnode.ident.name);
+
+      dl_insert_b(tmplist,root);
+      return;
+    }
+  }
+  
+  /* we did not find another call to this function.  create
+   * a new list for it.
+   */
+
+      printf("MTH: could not find %s.\n", root->astnode.ident.name);
+
+  new = make_dl();
+  dl_insert_b(new,root);
+  dl_insert_b(mlist,new);
+}
 
 /*
  * This function compares the expressions in the function call with
@@ -4137,6 +4383,8 @@ emit_adapters()
           ( (arg->nodetype == Identifier) && (arg->astnode.ident.arraylist != NULL) &&
             type_lookup(cur_array_table,arg->astnode.ident.name)) )
         fprintf(curfp,"%s [] arg%d , int arg%d_offset ", returnstring[temp->vartype], i, i);
+      else if( type_lookup(cur_external_table, arg->astnode.ident.name) )
+        fprintf(curfp,"Object arg%d ", i);
       else
         fprintf(curfp,"%s arg%d ", wrapper_returns[temp->vartype], i);
 
@@ -4242,14 +4490,56 @@ emit_adapters()
 void
 emit_invocations(AST *root)
 {
-  AST *temp;
+  HASHNODE *ht;
+  AST *temp, *arg;
+  Dlist p, tmplist;
+  int i, count = 0;
 
-  for(temp=root->astnode.source.args;temp!=NULL;temp=temp->nextstmt) {
-    if((type_lookup(cur_args_table,temp->astnode.ident.name) != NULL) &&
-       (type_lookup(cur_external_table,temp->astnode.ident.name) != NULL))
-      fprintf(curfp,"// reflective method invocation for %s\n",
-         temp->astnode.ident.name);
-  }
+  dl_traverse(p,methcall_list) {
+    tmplist = (Dlist) dl_val(p);
+    
+    temp = (AST *) dl_val(dl_first(tmplist));
+
+    fprintf(curfp,"// reflective method invocation for %s\n",temp->astnode.ident.name);
+    fprintf(curfp,"private static %s %s_methcall( java.lang.reflect.Method _funcptr", 
+       returnstring[temp->vartype], temp->astnode.ident.name);
+
+    count = 0;
+
+    for(arg = temp->astnode.ident.arraylist; arg != NULL; arg = arg->nextstmt) {
+      fprintf(curfp,",");
+
+      if( arg->nodetype == Identifier ) {
+        ht = type_lookup(cur_type_table,arg->astnode.ident.name);
+        if(ht)
+          fprintf(curfp," %s _arg%d ", wrapper_returns[ht->variable->vartype], count);
+        else
+          fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
+      }
+      else if( arg->nodetype == Constant )
+        fprintf(curfp," %s _arg%d ", 
+          wrapper_returns[get_type(arg->astnode.constant.number)], count);
+      else
+        fprintf(curfp," %s _arg%d ", wrapper_returns[arg->vartype], count);
+
+      count++;
+    }
+
+    fprintf(curfp,")\n   throws java.lang.reflect.InvocationTargetException,\n");
+    fprintf(curfp,"          java.lang.IllegalAccessException\n{\n"); 
+
+    fprintf(curfp,"Object [] _funcargs = new Object [%d];\n", count);
+    fprintf(curfp,"%s _retval;\n", returnstring[temp->vartype]);
+
+    for(i=0;i< count;i++)
+      fprintf(curfp," _funcargs[%d] = _arg%d;\n",i,i);
+
+    fprintf(curfp,"_retval = ( (%s) _funcptr.invoke(null,_funcargs)).%sValue();\n",
+      java_wrapper[temp->vartype], returnstring[temp->vartype]);
+
+    fprintf(curfp,"return _retval;\n");
+    fprintf(curfp,"}\n"); 
+  } 
 }
 
 /*
@@ -4356,6 +4646,8 @@ print_nodetype (AST *root)
       return("ImpliedLoop");
     case Unimplemented:
       return("Unimplemented");
+    case Equivalence:
+      return("Equivalence");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

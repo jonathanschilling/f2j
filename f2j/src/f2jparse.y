@@ -519,20 +519,32 @@ EquivalenceStmt: EQUIVALENCE EquivalenceList NL
 
 EquivalenceList: OP EquivalenceItem CP
                  {
+                   AST *tmp;
+
                    $$ = addnode();
                    $$->nodetype = Equivalence;
                    $$->prevstmt = NULL;
                    $$->nextstmt = NULL;
                    $$->astnode.equiv.clist = switchem($2);
+
+                   for(tmp=$2;tmp!=NULL;tmp=tmp->prevstmt)
+                     tmp->parent = $$;
+
                    addEquiv($$->astnode.equiv.clist);
                  }
                | EquivalenceList CM OP EquivalenceItem CP
                  {
+                   AST *tmp;
+
                    $$ = addnode();
                    $$->nodetype = Equivalence;
                    $$->astnode.equiv.clist = switchem($4);
                    $$->prevstmt = $1;
                    $$->nextstmt = NULL;
+
+                   for(tmp=$4;tmp!=NULL;tmp=tmp->prevstmt)
+                     tmp->parent = $$;
+
                    addEquiv($$->astnode.equiv.clist);
                  }
 ;
@@ -2904,9 +2916,12 @@ merge_common_blocks(AST *root)
 void
 addEquiv(AST *node)
 {
+  static int id = 1;
+
   if(equivList == NULL) {
     equivList = addnode(); 
     equivList->nodetype = Equivalence;
+    equivList->token = id++;
     equivList->nextstmt = NULL;
     equivList->prevstmt = NULL;
     equivList->astnode.equiv.clist = node;
@@ -2915,6 +2930,7 @@ addEquiv(AST *node)
     AST *temp = addnode();
 
     temp->nodetype = Equivalence;
+    temp->token = id++;
     temp->astnode.equiv.clist = node;
 
     temp->nextstmt = equivList; 

@@ -161,6 +161,7 @@ typedef struct ast_node
                   SYMTABLE *save_table; 
                   SYMTABLE *common_table; 
                   SYMTABLE *parameter_table; 
+                  SYMTABLE *equivalence_table; 
                   struct ast_node *dataStmtList;
                   struct ast_node *equivalences;
                   int needs_input;

@@ -12,7 +12,7 @@ $(LAPACK_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $
 	/bin/rm -f $(JAVASRC_OUTDIR)/$(LAPACK_PDIR)/*.old
 	$(JAVAB) $(JAVASRC_OUTDIR)/$(LAPACK_PDIR)/*.class
 	mkdir -p $(SIMPLE_DIR)/$(LAPACK_PDIR)
-	-mv $(JAVASRC_OUTDIR)/$(LAPACK_PDIR)/[A-Z][A-Z]*.class $(SIMPLE_DIR)/$(LAPACK_PDIR)
+	-mv `find $(JAVASRC_OUTDIR) -name "[A-Z][A-Z]*.class"` $(SIMPLE_DIR)/$(LAPACK_PDIR)
 	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(LAPACK_JAR) `find . -name "*.class"`
 	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_LAPACK_JAR) `find . -name "*.class"`
 

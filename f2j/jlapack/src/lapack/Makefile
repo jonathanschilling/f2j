@@ -11,7 +11,7 @@ $(ROOT)/$(LAPACK_IDX): $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_
 	cd $(OUTDIR); $(JAR) cvf ../$(LAPACK_JAR) `find . -name "*.class"`
 	mkdir -p $(SIMPLE_DIR)/$(LAPACK_PDIR)
 	-cp $(OUTDIR)/$(LAPACK_PDIR)/[A-Z][A-Z]*.java $(SIMPLE_DIR)/$(LAPACK_PDIR)
-	-$(JAVAC) -classpath .:$(BLAS_JAR):$(LAPACK_JAR):$(SIMPLE_DIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SIMPLE_DIR)/$(LAPACK_PDIR)/*.java
+	-$(JAVAC) -classpath .:$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR):$(LAPACK_JAR):$(SIMPLE_DIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SIMPLE_DIR)/$(LAPACK_PDIR)/*.java
 	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_LAPACK_JAR) `find . -name "*.class"`
 
 nojar: $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_JAR) lapack.f

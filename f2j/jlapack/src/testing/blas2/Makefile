@@ -9,8 +9,8 @@ F2JFLAGS=-c .:$(ROOT)/$(BLAS_OBJ) -p $(BLASTEST_PACKAGE) -o $(OUTDIR) $(STATIC)
 
 tester: $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $(ROOT)/$(BLAS2TEST_IDX) $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
 	/bin/rm -f $(BLAS2TEST_JAR)
-	cd $(OUTDIR); $(JAR) cvf ../$(BLAS2TEST_JAR) `find . -name "*.class"`
-	$(JAR) uvf $(BLAS2TEST_JAR) `find org -name "*.class"`
+	cd $(OUTDIR); $(JAR) cvf0 ../$(BLAS2TEST_JAR) `find . -name "*.class"`
+	$(JAR) uvf0 $(BLAS2TEST_JAR) `find org -name "*.class"`
 
 nojar: $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $(ROOT)/$(BLAS2TEST_IDX) $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
 

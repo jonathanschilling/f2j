@@ -11,7 +11,7 @@ $(BLAS_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_JAR) blas.
 	/bin/rm -f $(JAVASRC_OUTDIR)/$(BLAS_PDIR)/*.old
 	$(JAVAB) $(JAVASRC_OUTDIR)/$(BLAS_PDIR)/*.class
 	mkdir -p $(SIMPLE_DIR)/$(BLAS_PDIR)
-	-mv $(JAVASRC_OUTDIR)/$(BLAS_PDIR)/[A-Z][A-Z]*.class $(SIMPLE_DIR)/$(BLAS_PDIR)
+	-mv `find $(JAVASRC_OUTDIR) -name "[A-Z][A-Z]*.class"` $(SIMPLE_DIR)/$(BLAS_PDIR)
 	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(BLAS_JAR) `find . -name "*.class"`
 	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_BLAS_JAR) `find . -name "*.class"`
 

@@ -218,7 +218,8 @@ emit (AST * root)
           if(root->astnode.source.prologComments != NULL)
             emit_prolog_comments(root);
 
-          assign_varnums_to_locals(root->astnode.source.typedecs);
+          if(!save_all_override)
+            assign_varnums_to_locals(root->astnode.source.typedecs);
           insert_fields(root);
 
           /* as part of creating a new classfile structure, we have 
@@ -260,7 +261,8 @@ emit (AST * root)
           main_method = beginNewMethod(F2J_NORMAL_ACC);
 
           implicit_function_var_emit(root->astnode.source.progtype);
-          local_emit(root->astnode.source.typedecs);
+          if(!save_all_override)
+            local_emit(root->astnode.source.typedecs);
 
           /* If this program unit does any reading, we declare an instance of
            * the EasyIn class.   grab a local var for this, but dont worry
@@ -409,7 +411,11 @@ emit (AST * root)
         if (gendebug)
           printf ("Typedec.\n");
 
-        typedec_emit (root);
+        if(save_all_override)
+          typedec_emit_all_static (root);
+        else
+          typedec_emit (root);
+
         if (root->nextstmt != NULL)	/* End of typestmt list. */
           emit (root->nextstmt);
         break;
@@ -2076,8 +2082,23 @@ is_static(AST *root)
 
 #ifdef F2J_ARRAYS_STATIC
   if(type_lookup (cur_array_table, temp->astnode.ident.name)
-     && !type_lookup (cur_args_table, temp->astnode.ident.name))
+     && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
+
+    ht = type_lookup(cur_type_table,temp->astnode.ident.name);
+
+    if(ht == NULL)
+      return FALSE;
+
+    if(type_lookup(cur_data_table,temp->astnode.ident.name) &&
+       !ht->variable->astnode.ident.needs_declaration)
+    {
+      if(gendebug)
+        printf("is_static: declared data statement\n");
+      return FALSE;
+    }
+
     return TRUE;
+  }
 #endif
 
   if(type_lookup(cur_args_table,temp->astnode.ident.name)) {
@@ -2162,8 +2183,10 @@ is_local(AST *root){
 
 #ifdef F2J_ARRAYS_STATIC
   if(type_lookup (cur_array_table, temp->astnode.ident.name)
-     && !type_lookup (cur_args_table, temp->astnode.ident.name))
+     && !type_lookup (cur_args_table, temp->astnode.ident.name)) {
+
     return FALSE;
+  }
 #endif
 
   if(type_lookup(cur_data_table,temp->astnode.ident.name)) {

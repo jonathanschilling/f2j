@@ -9,8 +9,8 @@
 # trash any freed memory, thus helping to expose
 # some memory-related bugs in f2j.
 #
-#CFLAGS= -g -ansi -Wall -pedantic
-CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM -DF2J_ARRAYS_STATIC
+CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM
+#CFLAGS= -g -ansi -Wall -pedantic -DDEBUG_MEM -DF2J_ARRAYS_STATIC
 
 # overkill CFLAGS:
 #CFLAGS= -g -ansi -Wall -pedantic -Wtraditional -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs

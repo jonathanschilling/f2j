@@ -514,8 +514,8 @@ fopen_fullpath(char *file, char *mode)
   if(output_dir != NULL) {
     full_file = (char *)f2jalloc(strlen(output_dir) + strlen(file) + 3);
     strcpy(full_file, output_dir);
-    if(output_dir[strlen(output_dir)-1] != '/')
-      strcat(full_file, "/");
+    if(output_dir[strlen(output_dir)-1] != FILE_DELIM[0])
+      strcat(full_file, FILE_DELIM);
     strcat(full_file, file);
   }
   else
@@ -538,12 +538,12 @@ fopen_fullpath(char *file, char *mode)
     return f;
   }
 
-  if(full_file[0] == '/')
-    chdir("/");
+  if(full_file[0] == FILE_DELIM[0])
+    chdir(FILE_DELIM);
 
-  prev = strtok(full_file, "/");
+  prev = strtok(full_file, FILE_DELIM);
   
-  while( (segment = strtok(NULL,"/")) != NULL ) {
+  while( (segment = strtok(NULL,FILE_DELIM)) != NULL ) {
 
     if( stat(prev, buf) == -1) {
       if(errno == ENOENT) {

@@ -74,6 +74,7 @@ SYMTABLE
 Dlist 
   constants_table,         /* constants (for bytecode constant pool gen.)    */
   descriptor_table,        /* list of method descriptors from *.f2j files    */
+  include_paths,           /* list of paths to search for included files     */
   file_stack;              /* file stack for handling include statements     */
 
 /*****************************************************************************

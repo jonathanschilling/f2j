@@ -35,6 +35,7 @@ extern char *generic_intrinsics[];
 extern char *unit_name;
 extern char *optarg;
 extern Dlist file_stack;
+extern Dlist include_paths;
 
 #ifdef _WIN32
   char null_file[] = "f2j.tmp";
@@ -101,9 +102,14 @@ main (int argc, char **argv)
 To compile a program into Java source code:\n\
     f2java filename\n\n";
 
+  char f2java_help_I_option[] = "The -I option specifies\
+ a path to be searched for\nincluded files (may be used\
+ multiple times).\n\n";
+
   char f2java_help_c_option[] = "The -c option may also be\
  used to specify the search\n\
-path for \".f2j\" files.  For example:\n\n\
+path for \".f2j\" files.  It is a colon-separated\n\
+list of paths, like a Java CLASSPATH.  For example:\n\n\
     f2java -c .:../objects filename\n\n";
 
   char f2java_help_p_option[] = "The -p option may also be\
@@ -154,12 +160,17 @@ will most likely not work for other code.\n";
   search_path   = NULL; 
 
   file_stack = make_dl();
+  include_paths = make_dl();
+  dl_insert_b(include_paths, ".");
 
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"c:p:wisdho:")) != EOF)
+  while((c = getopt(argc,argv,"I:c:p:wisdho:")) != EOF)
     switch(c) {
+      case 'I':
+        dl_insert_b(include_paths, optarg);
+        break;
       case 'c':
         search_path = optarg;
         break;
@@ -171,6 +182,7 @@ will most likely not work for other code.\n";
         break;
       case 'h':
         printf("%s",f2java_help);
+        printf("%s",f2java_help_I_option);
         printf("%s",f2java_help_c_option);
         printf("%s",f2java_help_p_option);
         printf("%s",f2java_help_o_option);
@@ -203,8 +215,8 @@ will most likely not work for other code.\n";
 
   if(errflg || (argc < 2))
   {
-    fprintf(stderr, "Usage: f2java [-c search path] [-p package name]");
-    fprintf(stderr, " [-o output dir]");
+    fprintf(stderr, "Usage: f2java [-I include path] [-c search path]");
+    fprintf(stderr, "  [-p package name] [-o output dir]");
     fprintf(stderr, " [-w] [-i] [-s] [-d] <filename>\n");
     fprintf(stderr,
      "For help: f2java -h\n");
@@ -313,13 +325,15 @@ will most likely not work for other code.\n";
 #endif
 
   if(bad_format_count > 0)
-    fprintf(stderr,"Bad formatting (%d statements)\n", bad_format_count);
+    fprintf(stderr,"Unsupported formatting (%d statements)\n", bad_format_count);
 
   if(ignored_formatting > 0)
     fprintf(stderr,"Ignored %d format statement(s) with implied loops\n", 
        ignored_formatting);
 
 #ifdef _WIN32
+  /* for windows, we should delete the temp file created earlier. */
+
   if(fclose(devnull) < 0) {
     fprintf(stderr,"error closing...\n");
     perror("reason");
@@ -524,7 +538,7 @@ build_method_table(char *path)
 
   full_path = (char *)f2jalloc(size);
 
-  token = strtok(path, ":");
+  token = strtok(path, PATH_DELIM);
 
   if(token == NULL)
     return NULL;
@@ -536,7 +550,7 @@ build_method_table(char *path)
    */
   do {
     dl_insert_b(paths, token);
-  } while( (token = strtok(NULL, ":")) != NULL);
+  } while( (token = strtok(NULL, PATH_DELIM)) != NULL);
 
   dl_traverse(tmp, paths) {
     token = (char *) tmp->val;
@@ -554,8 +568,8 @@ build_method_table(char *path)
         }
 
         strcpy(full_path, token);
-        if(full_path[strlen(full_path)-1] != '/')
-          strcat(full_path, "/");
+        if(full_path[strlen(full_path)-1] != FILE_DELIM[0])
+          strcat(full_path, FILE_DELIM);
         strcat(full_path, dir_entry->d_name);
         insert_entries(full_path, new_table);
       }

@@ -56,4 +56,13 @@ extern SYMTABLE
 
 extern Dlist
   constants_table,         /* constants (for bytecode constant pool gen.)    */
+  include_paths,           /* list of paths to search for included files     */
   descriptor_table;        /* list of method descriptors from *.f2j files    */
+
+#ifdef _WIN32
+#define FILE_DELIM "\\"
+#define PATH_DELIM ";"
+#else
+#define FILE_DELIM "/"
+#define PATH_DELIM ":"
+#endif

@@ -88,6 +88,9 @@ char
   *strdup(const char *),
   *f2j_fgets(char *, int, FILE *);
 
+FILE
+  *open_included_file(char *);
+
 int
   name_scan (BUFFER *),
   keyscan (register KWDTAB *, BUFFER *),
@@ -201,7 +204,7 @@ yylex ()
       buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
       buffer.text[0] = '\n'; buffer.text[1] = '\0';
 
-      tempfp = fopen(yylval.lexeme,"rb");
+      tempfp = open_included_file(yylval.lexeme);
 
       tmplen = strlen(yylval.lexeme);
       yylval.lexeme[ tmplen ] = '\n';
@@ -675,6 +678,39 @@ yylex ()
   return 0;
 }				/* Close yylex().  */
 
+
+/*****************************************************************************
+ *                                                                           *
+ * open_included_file                                                        *
+ *                                                                           *
+ * search all the include paths specified on the command line with -I (note  *
+ * that the current directory is always included first).  return NULL if     *
+ * the file could not be found in any directory.                             *
+ *                                                                           *
+ *****************************************************************************/
+
+FILE *
+open_included_file(char *filename)
+{
+  Dlist tmp;
+  FILE *tempfp;
+  char *prefix, *full_file = NULL;
+
+  dl_traverse(tmp, include_paths) {
+    prefix = (char *)dl_val(tmp);
+    full_file = (char *)f2jrealloc(full_file, 
+       strlen(prefix) + strlen(filename) + 1);
+
+    strcpy(full_file, prefix);
+    strcat(full_file, FILE_DELIM);
+    strcat(full_file, filename);
+
+    if((tempfp = fopen(full_file,"rb")) != NULL)
+      return tempfp;
+  }
+
+  return NULL;
+}
 
 /*****************************************************************************
  *                                                                           *

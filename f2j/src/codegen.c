@@ -154,7 +154,8 @@ BOOLEAN
 int 
   pc,                   /* current program counter                           */
   cur_local,            /* current local variable number                     */
-  num_locals;           /* number of locals needed for this method           */
+  num_locals,           /* number of locals needed for this method           */
+  stdin_lvar;           /* local var number of the EasyIn object             */
 
 struct method_info
   *clinit_method,       /* special class initialization method <clinit>      */
@@ -209,6 +210,7 @@ emit (AST * root)
     struct attribute_info * newCodeAttribute();
     char * tok2str(int);
     extern int locals;
+    CPNODE *c;
 
     switch (root->nodetype)
     {
@@ -337,6 +339,35 @@ emit (AST * root)
           }
 
           main_method = beginNewMethod(ACC_PUBLIC | ACC_STATIC);
+
+          /* If this program unit does any reading, we declare an instance of
+           * the EasyIn class.   grab a local var for this, but dont worry about
+           * releasing it, since we might need it throughout the life of the
+           * method.
+           */
+
+          if(root->astnode.source.progtype->astnode.source.needs_input) {
+            fprintf(curfp,"  EasyIn _f2j_stdin = new EasyIn();\n");
+            stdin_lvar = getNextLocal(Object);
+
+            c = cp_find_or_insert(cur_const_table,CONSTANT_Class, EASYIN_CLASS);
+            bytecode1(jvm_new,c->index);
+            bytecode0(jvm_dup);
+
+            c = newMethodref(cur_const_table, EASYIN_CLASS, "<init>", 
+                   EASYIN_DESC);
+            bytecode1(jvm_invokespecial, c->index);
+            gen_store_op(stdin_lvar, Object);
+          }
+
+          if(type_lookup(cur_external_table,"etime") != NULL) {
+            fprintf(curfp, "  Etime.etime();\n");
+
+            c = newMethodref(cur_const_table, ETIME_CLASS, 
+                        "etime",ETIME_DESC);
+ 
+            bytecode1(jvm_invokestatic, c->index);
+          }
 
           /* The 'catch' corresponding to the following try is generated
            * in case End. 
@@ -5611,16 +5642,6 @@ constructor (AST * root)
       }
     }
   }
-
-  /* If this program unit does any reading, we declare an instance of
-   * the EasyIn class.
-   */
-
-  if(root->astnode.source.needs_input)
-    fprintf(curfp,"  EasyIn _f2j_in = new EasyIn();\n");
-
-  if(type_lookup(cur_external_table,"etime") != NULL)
-    fprintf(curfp, "  Etime.etime();\n");
 }				/*  Close  constructor(). */
 
 /*****************************************************************************
@@ -6521,7 +6542,7 @@ read_emit (AST * root)
    */
 
   if(root->astnode.io_stmt.arg_list == NULL) {
-    fprintf(curfp,"_f2j_in.readString();  // skip a line\n");
+    fprintf(curfp,"_f2j_stdin.readString();  // skip a line\n");
     return;
   }
 
@@ -6546,10 +6567,10 @@ read_emit (AST * root)
     {
       name_emit(temp);
       if( (temp->vartype == Character) || (temp->vartype == String) )
-        fprintf(curfp," = _f2j_in.%s(%d);\n",funcname[temp->vartype],
+        fprintf(curfp," = _f2j_stdin.%s(%d);\n",funcname[temp->vartype],
            temp->astnode.ident.len);
       else
-        fprintf(curfp," = _f2j_in.%s();\n",funcname[temp->vartype]);
+        fprintf(curfp," = _f2j_stdin.%s();\n",funcname[temp->vartype]);
     }
     else
     {
@@ -6558,13 +6579,13 @@ read_emit (AST * root)
       continue;
     }
   }
-  fprintf(curfp,"_f2j_in.skipRemaining();\n");
+  fprintf(curfp,"_f2j_stdin.skipRemaining();\n");
 
   /* Emit the catch block for when we hit EOF.  We only care if
    * the READ statement has an END label.
    */
 
-  if(root->astnode.io_stmt.end_num > 0 )
+  if(root->astnode.io_stmt.end_num > 0)
   {
     fprintf(curfp,"} catch (java.io.IOException e) {\n");
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
@@ -6628,7 +6649,7 @@ read_implied_loop_emit(AST *node, char **func)
   }
   else {
     name_emit(node->astnode.forloop.Label);
-    fprintf(curfp," = _f2j_in.%s();\n",
+    fprintf(curfp," = _f2j_stdin.%s();\n",
        func[node->astnode.forloop.Label->vartype]);
   }
 }

@@ -30,4 +30,11 @@ typedef struct _code_graph_node {
   BOOLEAN visited;          /* for traversal - has this node been visited?   */
 } CodeGraphNode;
 
+typedef struct _exception_table_entry {
+  CodeGraphNode 
+     * from,                /* PC at which the try block begins              */
+     * to,                  /* PC at which the try block ends                */
+     * target;              /* PC at which the exception handler begins      */
+} ExceptionTableEntry;
+
 #endif

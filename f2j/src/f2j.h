@@ -139,7 +139,7 @@ enum spectype
 
 enum returntype
 {
-  String, Character, Complex, Double, Float, Integer, Logical
+  String, Character, Complex, Double, Float, Integer, Logical, Object
 };
 
 /* Represents whether an expression is on the lhs or rhs. */

@@ -55,6 +55,10 @@
 #define TOSTRING_DESC "()Ljava/lang/String;"
 #define CHARAT_DESC "(I)C"
 #define COMPARE_DESC "(Ljava/lang/String;)I"
+#define EASYIN_CLASS "org/netlib/util/EasyIn"
+#define EASYIN_DESC "()V"
+#define ETIME_CLASS "org/netlib/util/Etime"
+#define ETIME_DESC "()V"
 
 #define THREEARG_MAX_FUNC "Util.max"
 #define THREEARG_MIN_FUNC "Util.min"

@@ -31,6 +31,7 @@ void start_vcg();
 void emit();
 void jas_emit();
 void init_tables();
+void addEquiv(AST *);
 AST * tempnode;
 AST * headnode;
 AST * localvarlist; 
@@ -44,6 +45,7 @@ int debug = 0;
 int len = 1;
 
 AST *dataStmtList = NULL;
+AST *equivList = NULL;
 
 void assign_local_vars(AST *);
 void assign(AST *);
@@ -102,6 +104,7 @@ in alphabetic order. */
 %type <ptnode> Data DataList DataConstant DataItem /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList LoopBounds
 %type <ptnode> Do_vals Double
+%type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
 %type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
 %type <ptnode> Fprogram Ffunction Fsubroutine
@@ -215,6 +218,7 @@ Fprogram:   Program  Specstmts  Statements End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
+                $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
@@ -270,6 +274,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
+                $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
@@ -321,6 +326,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.common_table = common_table; 
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.dataStmtList = dataStmtList; 
+                $$->astnode.source.equivalences = equivList; 
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
@@ -459,11 +465,9 @@ Specstmt:  DIMENSION
 	    fprintf(stderr,"DIMENSION is not implemented.\n");
 	    exit(-1);
 	   }
-         | EQUIVALENCE
+         | EquivalenceStmt
 	   {
-	    $$ = 0;
-	    fprintf(stderr,"EQUIVALENCE is not implemented.\n");
-	    exit(-1);
+	    $$ = $1;
 	   }
          | Common
 	   {
@@ -497,6 +501,51 @@ Specstmt:  DIMENSION
            {
              $$=$1;
            }
+;
+
+/*  the EQUIVALENCE productions are taken from Robert Moniot's 
+ *  ftnchek grammar.
+ */
+
+EquivalenceStmt: EQUIVALENCE EquivalenceList NL
+                 {
+                   $$ = addnode();
+                   $$->nodetype = Equivalence;
+                   $$->prevstmt = NULL;
+                   $$->nextstmt = NULL;
+                   $$->astnode.equiv.nlist = switchem($2);
+                 }
+;
+
+EquivalenceList: OP EquivalenceItem CP
+                 {
+                   $$ = addnode();
+                   $$->nodetype = Equivalence;
+                   $$->prevstmt = NULL;
+                   $$->nextstmt = NULL;
+                   $$->astnode.equiv.clist = switchem($2);
+                   addEquiv($$->astnode.equiv.clist);
+                 }
+               | EquivalenceList CM OP EquivalenceItem CP
+                 {
+                   $$ = addnode();
+                   $$->nodetype = Equivalence;
+                   $$->astnode.equiv.clist = switchem($4);
+                   $$->prevstmt = $1;
+                   $$->nextstmt = NULL;
+                   addEquiv($$->astnode.equiv.clist);
+                 }
+;
+
+EquivalenceItem: Lhs
+                 {
+                   $$ = $1;
+                 }
+               | EquivalenceItem CM Lhs
+                 {
+                   $3->prevstmt = $1;
+                   $$ = $3;
+                 }
 ;
 
 Common:     COMMON CommonList NL
@@ -1244,7 +1293,12 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
              }
 ;
 
-Lhs:     Name {$$=$1;} 
+Lhs:     Name
+         {
+           $$=$1;
+           $$->nextstmt = NULL;
+           $$->prevstmt = NULL;
+         } 
       |  Name OP Arrayindexlist CP
          {
            /*   Use the following declaration in case we 
@@ -1258,6 +1312,8 @@ Lhs:     Name {$$=$1;}
 	   $3->parent = $$; /* 9-4-97 - Keith */
 	   $$->nodetype = Identifier;
            $$->astnode.ident.lead_expr = NULL;
+           $$->prevstmt = NULL;
+           $$->nextstmt = NULL;
 	   strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 	   /*  This is in case we want to switch index order later. */
 	   /*
@@ -1277,6 +1333,8 @@ Lhs:     Name {$$=$1;}
            $5->parent = $$;
            strcpy($$->astnode.ident.name, $1->astnode.ident.name);
            $$->nodetype = Substring;
+           $$->prevstmt = NULL;
+           $$->nextstmt = NULL;
            $$->astnode.ident.arraylist = $3;
            $3->nextstmt = $5;
          }
@@ -2762,6 +2820,7 @@ init_tables()
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
   dataStmtList    = NULL;
+  equivList       = NULL;
 }
 
 void
@@ -2771,6 +2830,8 @@ merge_common_blocks(AST *root)
   AST *Clist, *temp;
   int idx, count;
   char ** name_array;
+  char *comvar = NULL, *var = NULL, und_var[80], 
+       var_und[80], und_var_und[80], *t;
 
   for(Clist = root; Clist != NULL; Clist = Clist->nextstmt)
   {
@@ -2794,28 +2855,72 @@ merge_common_blocks(AST *root)
     for(temp=Clist->astnode.common.nlist, count = 0; 
                temp!=NULL; temp=temp->nextstmt, count++) 
     {
-      if(  (ht != NULL)
-        && strcmp(temp->astnode.ident.name, ((char **)ht->variable)[count]))
-      {
-        name_array[count] = (char *) malloc(strlen(temp->astnode.ident.name) 
-           + strlen(((char **)ht->variable)[count]) + 2);
+      var = temp->astnode.ident.name;
 
-        if(name_array[count] == NULL) {
-           perror("Unsuccessful malloc");
-           exit(1);
-        }
-
-        strcpy(name_array[count],temp->astnode.ident.name);
-        strcat(name_array[count],"_");
-        strcat(name_array[count],((char **)ht->variable)[count]);
+      if(ht != NULL) {
+        comvar = ((char **)ht->variable)[count];
+        und_var[0] = '_';
+        und_var[1] = 0;
+        strcat(und_var,var);
+        strcpy(var_und,var);
+        strcat(var_und,"_");
+        strcpy(und_var_und,und_var);
+        strcat(und_var_und,"_");
       }
-      else
-        name_array[count] = strdup(temp->astnode.ident.name);
+
+      if(ht == NULL)
+        name_array[count] = strdup(var);
+      else {
+        if(!strcmp(var,comvar) || 
+             strstr(comvar,und_var_und) ||
+             (((t=strstr(comvar,var_und)) != NULL) && t == comvar) ||
+             (((t=strstr(comvar,und_var)) != NULL) && 
+               (t+strlen(t) == comvar+strlen(comvar))))
+        {
+          name_array[count] = strdup(comvar);
+        }
+        else {
+          name_array[count] = (char *) malloc(strlen(temp->astnode.ident.name) 
+             + strlen(((char **)ht->variable)[count]) + 2);
+  
+          if(name_array[count] == NULL) {
+             perror("Unsuccessful malloc");
+             exit(1);
+          }
+  
+          strcpy(name_array[count],temp->astnode.ident.name);
+          strcat(name_array[count],"_");
+          strcat(name_array[count],((char **)ht->variable)[count]);
+        }
+      }
     }
 
     idx = hash(Clist->astnode.common.name)%common_block_table->num_entries;
     type_insert(&(common_block_table->entry[idx]), (AST *)name_array, 
        Float, Clist->astnode.common.name);
+  }
+}
+
+void
+addEquiv(AST *node)
+{
+  if(equivList == NULL) {
+    equivList = addnode(); 
+    equivList->nodetype = Equivalence;
+    equivList->nextstmt = NULL;
+    equivList->prevstmt = NULL;
+    equivList->astnode.equiv.clist = node;
+  }
+  else {
+    AST *temp = addnode();
+
+    temp->nodetype = Equivalence;
+    temp->astnode.equiv.clist = node;
+
+    temp->nextstmt = equivList; 
+    temp->prevstmt = NULL;
+
+    equivList = temp;
   }
 }
 

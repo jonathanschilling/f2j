@@ -67,6 +67,7 @@ SYMTABLE *cur_save_table;
 SYMTABLE *cur_common_table; 
 SYMTABLE *cur_param_table; 
 AST *cur_dataList;
+AST *cur_equivList;
 
 int import_reflection;
 
@@ -114,6 +115,7 @@ emit (AST * root)
     void data_emit(AST *);
     void spec_emit (AST *);
     void assign_emit (AST *);
+    void equiv_emit (AST *);
     void call_emit (AST *);
     void forloop_emit (AST *);
     void blockif_emit (AST *);
@@ -125,6 +127,7 @@ emit (AST * root)
     void common_emit(AST *);
     void read_emit (AST *);
     void emit_invocations(AST *);
+    void merge_equivalences(AST *);
 
     switch (root->nodetype)
       {
@@ -150,6 +153,9 @@ emit (AST * root)
           cur_common_table = root->astnode.source.common_table;
           cur_param_table = root->astnode.source.parameter_table;
           cur_dataList = root->astnode.source.dataStmtList;
+          cur_equivList = root->astnode.source.equivalences;
+
+          merge_equivalences(cur_equivList);
 
           while_list = make_dl();
           doloop = make_dl();
@@ -224,6 +230,13 @@ emit (AST * root)
 	      printf ("Specification.\n");
 	  spec_emit (root);
 	  if (root->nextstmt != NULL)	/* End of typestmt list. */
+	      emit (root->nextstmt);
+	  break;
+      case Equivalence:
+	  if (gendebug)
+	      printf ("Equivalence.\n");
+	  equiv_emit (root);
+	  if (root->nextstmt != NULL)
 	      emit (root->nextstmt);
 	  break;
       case Statement:
@@ -402,6 +415,36 @@ emit (AST * root)
           fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
             print_nodetype(root));
       }				/* switch on nodetype.  */
+}
+
+void 
+merge_equivalences(AST *root)
+{
+  AST *temp, *ctemp;
+
+  printf("M_EQV  Equivalences:\n");
+  for(temp=root; temp != NULL; temp = temp->nextstmt) {
+    printf("M_EQV ");
+    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
+      printf(" %s, ", ctemp->astnode.ident.name);
+    }
+    printf("\n");
+  }
+}
+
+void 
+equiv_emit (AST *root)
+{
+  AST *temp, *ctemp;
+
+  printf("EQV  Equivalences:\n");
+  for(temp = root->astnode.equiv.nlist; temp != NULL; temp = temp->nextstmt) {
+    printf("EQV ");
+    for(ctemp=temp->astnode.equiv.clist;ctemp!=NULL;ctemp=ctemp->nextstmt) {
+      printf(" %s, ", ctemp->astnode.ident.name);
+    }
+    printf("\n");
+  }
 }
 
 /*  

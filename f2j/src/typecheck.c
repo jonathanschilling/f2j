@@ -89,6 +89,12 @@ typecheck (AST * root)
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
+    case Equivalence:
+      printf("ignoring equivalence in typechecking\n");
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
     case Typedec:
     case Specification:
     case Statement:

@@ -112,6 +112,7 @@ typedef struct ast_node
 	    Typedec,
 	    Assignment,
 	    Expression,
+	    Equivalence,
 	    Return,
 	    Goto,
 	    Call,
@@ -161,6 +162,7 @@ typedef struct ast_node
                   SYMTABLE *common_table; 
                   SYMTABLE *parameter_table; 
                   struct ast_node *dataStmtList;
+                  struct ast_node *equivalences;
                   int needs_input;
                   int needs_reflection;
 	      }
@@ -272,7 +274,7 @@ typedef struct ast_node
 		  struct ast_node *nlist;
 		  struct ast_node *clist;
 	      }
-            data;
+            data, equiv;
 
 	    struct _commonblock
 	      {

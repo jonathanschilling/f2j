@@ -79,4 +79,4 @@ goto:
 	cd goto_trans; $(MAKE) clean
 
 realclean: clean
-	rm -f f2java 
+	rm -f f2java puref2j

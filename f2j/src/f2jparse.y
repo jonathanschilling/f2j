@@ -1140,7 +1140,7 @@ LhsList:  DataLhs
           {
             $$ = $1;
           }
-        | DataLhs CM LhsList
+        | LhsList CM DataLhs
           {
             $3->prevstmt = $1;
             $$ = $3;

@@ -946,7 +946,7 @@ back:
 
      if(!is_wide)
      {
-       if( (last_op == 18u) 
+       if( ((last_op == 18u) || (last_op == 19u))
              && 
            (((prev_op >= 3u) && (prev_op <= 8u)) 
                 || (prev_op == 16u) || (prev_op == 17u)
@@ -964,9 +964,23 @@ back:
          char *met   = (char *) constant_pool[d] -> u.utf8.s;
          char *op;
 
-         u1_int  ee  = byt[last_offset+1u];
-         u2_int  C1  = constant_pool[ee] -> u.indices.index1;
-         char *caller = (char *) constant_pool[C1]->u.utf8.s;
+         u2_int  C1;
+         char *caller = NULL;
+
+         if(last_op == 18u) {
+           u1_int  ee  = byt[last_offset+1u];
+           C1  = constant_pool[ee] -> u.indices.index1;
+           inst_size = 2;
+         }
+         else if(last_op == 19u) {
+           u2_int ee = ((byt[last_offset+1u]) << 8) | byt[last_offset + 2u];
+           C1  = constant_pool[ee] -> u.indices.index1;
+           inst_size = 3;
+         }
+         else {
+           fprintf(stderr,"internal error\n");
+           exit(-1);
+         }
 
          if(( !strcmp(cla,"Dummy") || !strcmp(cla,"org/netlib/util/Dummy"))
           && !strcmp(met,"label"))
@@ -986,52 +1000,52 @@ back:
            case 3u:   /* iconst_0 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,0);
              branch_label = 0;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 4u:   /* iconst_1 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,1);
              branch_label = 1;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 5u:   /* iconst_2 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,2);
              branch_label = 2;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 6u:   /* iconst_3 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,3);
              branch_label = 3;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 7u:   /* iconst_4 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,4);
              branch_label = 4;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 8u:   /* iconst_5 */
              if(trdebug) printf("%d: %s %d.\n",prev_offset, op,5);
              branch_label = 5;
-             inst_size = 1;
+             inst_size += 1;
              break;
            case 16u:  /* bipush */
              if(trdebug) 
                printf("%d: %s %d\n", prev_offset, op, byt[prev_offset+1u]);
              branch_label = byt[prev_offset+1u];
-             inst_size = 2;
+             inst_size += 2;
              break;
            case 17u:  /* sipush */
              if(trdebug) 
                printf("%d: %s %d\n", prev_offset, op, 
                  B2U4(0,0,byt[prev_offset+1u],byt[prev_offset+2u]));
              branch_label = B2U4(0,0,byt[prev_offset+1u],byt[prev_offset+2u]);
-             inst_size = 3;
+             inst_size += 3;
              break;
            case 18u:  /* ldc */
              if(trdebug) 
                printf("%d: %s %d\n", prev_offset, op,
                  constant_pool[byt[prev_offset+1u]] -> u.data.val1);
              branch_label = constant_pool[byt[prev_offset+1u]] -> u.data.val1;
-             inst_size = 2;
+             inst_size += 2;
              break;
            case 19u:  /* ldc_w */
              {
@@ -1041,20 +1055,21 @@ back:
                  printf("%d: %s %d\n", prev_offset, op,
                    constant_pool[po] -> u.data.val1);
                branch_label = constant_pool[po] -> u.data.val1;
-               inst_size = 3;
+               inst_size += 3;
              }
              break;
            default:
              fprintf(stderr,"%s:Bad opcode encountered, output may be incorrect.\n",
                 filename);
              branch_label = 0;
-             inst_size = 0;
          }
 
          sprintf(lbuf,"%d",branch_label);
 
          if(!strcmp(op,"label"))
          {
+           caller = (char *) constant_pool[C1]->u.utf8.s;
+
            if(type_lookup(att->label_table,lbuf))
              fprintf(stderr,"%s: duplicate label: %s\n",
                 filename,lbuf);
@@ -1067,7 +1082,7 @@ back:
                 prev_offset, strdup(lbuf));
            }
 
-           memset(byt+last_offset, 0, inst_size + 5);
+           memset(byt+last_offset, 0, inst_size + 3);
            numChanges++;
          }
          else if(!strcmp(op,"goto"))
@@ -1077,6 +1092,8 @@ back:
            if(trdebug)
              printf("ok, I'm looking at a goto branching to label %d\n",
                branch_label);
+
+           caller = (char *) constant_pool[C1]->u.utf8.s;
 
            if(!strcmp(caller,thisClassName)) {
 
@@ -1115,7 +1132,7 @@ back:
            else {
              fprintf(stderr,"%s: invalid goto: %s (caller = %s, this = %s)\n",
                 filename,lbuf,caller,thisClassName);
-             memset(byt+last_offset, 0, inst_size + 5);
+             memset(byt+last_offset, 0, inst_size + 3);
              numChanges++;
            }
          }

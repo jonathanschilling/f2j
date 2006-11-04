@@ -1126,7 +1126,7 @@ DataConstant:  Constant
                  }
                  else{
                     printf("Error: '%s' is not a constant\n",yylval.lexeme);
-                    exit(1);
+                    exit(EXIT_FAILURE);
                  }
                }   
             |  MINUS Constant   

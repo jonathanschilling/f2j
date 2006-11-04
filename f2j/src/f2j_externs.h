@@ -26,6 +26,8 @@ extern char
 
 
 extern BOOL 
+  strictFp,                /* should we declare generated code as strictfp   */
+  strictMath,              /* should we use Java's strict fp math mode       */
   omitWrappers,            /* should we try to optimize use of wrappers      */
   genInterfaces,           /* should we generate simplified interfaces       */
   genJavadoc,              /* should we generate javadoc-compatible comments */

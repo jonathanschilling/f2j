@@ -111,7 +111,7 @@ alloc_error(size_t size)
   fprintf(stderr,"f2java: Error allocating %d bytes of memory.  Stopping.\n",
      (int)size);
   perror("Reason:");
-  exit(1);
+  exit(EXIT_FAILURE);
 }
 
 /*****************************************************************************

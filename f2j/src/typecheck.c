@@ -1031,7 +1031,7 @@ intrinsic_check(AST *root)
 
   if(!entry) {
     fprintf(stderr,"Error: not expecting null entry at this point.\n");
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   id = entry->intrinsic;
@@ -1063,7 +1063,7 @@ intrinsic_check(AST *root)
         fprintf(stderr, "--%s\n", cur_check_unit->astnode.source.name->astnode.ident.name);
         fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
                 entry->fortran_name);
-        exit(-1);
+        exit(EXIT_FAILURE);
       }
     }
   }

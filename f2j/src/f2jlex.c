@@ -1097,7 +1097,7 @@ collapse_white_space (BUFFER * bufstruct)
          * if (*lpp == '\n')
          * {
          *   printf("Bad syntax, \" followed by \"\\n\"\n");
-         *   exit(-1);
+         *   exit(EXIT_FAILURE);
          * }
          * else
          */

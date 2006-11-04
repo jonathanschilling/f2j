@@ -35,6 +35,7 @@
  * SUBSTR_DESC is the descriptor for java.lang.String.substring(int,int)     *
  * F2J_UTIL defines the default name of the f2java utility package.          *
  * UTIL_CLASS is where the insertString() method is defined.                 *
+ * STRICT_UTIL_CLASS is an fp strict version of UTIL_CLASS.                  *
  * INS_DESC is the desc for insertString, used for LHS substring assignments *
  * JL_SYSTEM is the fully-qualified name of the System class, for System.out *
  * OUT_DESC is the desc for System.out, the standard output stream.          *
@@ -52,6 +53,7 @@
 #define STRLEN_DESC "()I"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
+#define STRICT_UTIL_CLASS "org/netlib/util/StrictUtil"
 #define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"
 #define JL_SYSTEM "java/lang/System"
 #define PRINTSTREAM "java/io/PrintStream"
@@ -81,8 +83,10 @@
 #define INVOKE_EXCEPTION "java/lang/reflect/InvocationTargetException"
 #define ACCESS_EXCEPTION "java/lang/IllegalAccessException"
 
-#define THREEARG_MAX_FUNC "Util.max"
-#define THREEARG_MIN_FUNC "Util.min"
+#define THREEARG_MAX_FUNC          "Util.max"
+#define THREEARG_MAX_FUNC_STRICT   "StrictUtil.max"
+#define THREEARG_MIN_FUNC          "Util.min"
+#define THREEARG_MIN_FUNC_STRICT   "StrictUtil.min"
 
 #define CB_PREFIX "common_block/"
 #define CB_DELIMITER '|'

@@ -176,7 +176,7 @@ emit (AST * root)
           initialize_lists();
 
           clinit_method = bc_new_method(cur_class_file, "<clinit>", "()V", 
-             F2J_NORMAL_ACC);
+             strictFp ? F2J_STRICT_ACC : F2J_NORMAL_ACC);
           cur_method = clinit_method;
 
           locals = assign_varnums_to_arguments(
@@ -211,7 +211,7 @@ emit (AST * root)
             tmp_method_desc = MAIN_DESCRIPTOR;
 
           main_method = bc_new_method(cur_class_file, methodname, 
-            tmp_method_desc, F2J_NORMAL_ACC);
+            tmp_method_desc, strictFp ? F2J_STRICT_ACC : F2J_NORMAL_ACC);
 
           if(!save_all_override)
             assign_varnums_to_locals(main_method, 
@@ -798,7 +798,7 @@ reflect_declarations_emit(JVM_METHOD *meth, AST *root)
         else {
           fprintf(stderr,"(1)Error: expected to find %s in symbol table.\n",
             tempnode->astnode.ident.name);
-          exit(-1);
+          exit(EXIT_FAILURE);
         }
       }
 
@@ -1620,7 +1620,7 @@ common_emit(AST *root)
       bc_add_default_constructor(cur_class_file, F2J_INIT_ACC);
       
       clinit_method = bc_new_method(cur_class_file, "<clinit>", "()V", 
-         F2J_NORMAL_ACC);
+         strictFp ? F2J_STRICT_ACC : F2J_NORMAL_ACC);
 
       if(gendebug)
         printf("## going to open file: '%s'\n", filename);
@@ -1629,7 +1629,7 @@ common_emit(AST *root)
       {
         fprintf(stderr,"Cannot open output file '%s'.\n",filename);
         perror("Reason");
-        exit(1);
+        exit(EXIT_FAILURE);
       }
   
       curfp = commonfp;
@@ -3128,7 +3128,7 @@ data_array_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
   if(!ht) {
     fprintf(stderr,"type table may be screwed.  Can't find '%s'.",
             Ntemp->astnode.ident.name);
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   fprintf(curfp,"[] ");
@@ -3237,14 +3237,14 @@ data_repeat_emit(JVM_METHOD *meth, AST *root, AST *Ntemp, unsigned int idx)
      (root->astnode.expression.rhs == NULL))
   {
     fprintf(stderr,"Bad data statement!\n");
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   if((root->astnode.expression.lhs->nodetype != Constant) || 
      (root->astnode.expression.rhs->nodetype != Constant))
   {
     fprintf(stderr,"Error: Data items must be constants.\n");
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   repeat = atoi(root->astnode.expression.lhs->astnode.constant.number);
@@ -4425,7 +4425,7 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
   else {
     fprintf(stderr,"ERROR: can't find '%s' in hash table\n", 
        root->astnode.ident.name);
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   if(gendebug)
@@ -4845,7 +4845,7 @@ external_emit(JVM_METHOD *meth, AST *root)
       expr_emit(meth, temp);
       fprintf (curfp, ")");
 
-      c = bc_new_methodref(cur_class_file,entry->class_name, 
+      c = bc_new_methodref(cur_class_file, entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
@@ -4853,7 +4853,7 @@ external_emit(JVM_METHOD *meth, AST *root)
     else if(!strcmp(tempname, "SECOND")) {
       fprintf(curfp, "(System.currentTimeMillis() / 1000.0)");
 
-      c = bc_new_methodref(cur_class_file,entry->class_name, 
+      c = bc_new_methodref(cur_class_file, entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
@@ -4902,10 +4902,18 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 
   if(!entry) {
     fprintf(stderr,"Error: not expecting null entry at this point.\n");
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
-  javaname = entry->java_method;
+  /* if strict floating-point is enabled and the intrinsic has a
+   * strict version, then use it for generating the call.
+   */
+
+  if(strictMath && entry->strict_java_method)
+    javaname = entry->strict_java_method;
+  else
+    javaname = entry->java_method;
+
   id = entry->intrinsic;
 
   switch(id) {
@@ -4979,15 +4987,25 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
     case ifunc_DNINT:
       if(root->astnode.ident.arraylist->vartype == Double) {
         entry = &intrinsic_toks[ifunc_DNINT];
-        fprintf (curfp, "(double)%s(", entry->java_method);
+
+        if(strictMath && entry->strict_java_method)
+          javaname = entry->strict_java_method;
+        else
+          javaname = entry->java_method;
+
+        fprintf (curfp, "(double)%s(", javaname);
       }
       else
-        fprintf (curfp, "(float)%s(", entry->java_method);
+        fprintf (curfp, "(float)%s(", javaname);
 
       expr_emit (meth, root->astnode.ident.arraylist);
       fprintf (curfp, ")");
 
-      c = bc_new_methodref(cur_class_file,entry->class_name, 
+      if(strictMath && entry->strict_class_name)
+        c = bc_new_methodref(cur_class_file, entry->strict_class_name, 
+                        entry->method_name, entry->descriptor);
+      else
+        c = bc_new_methodref(cur_class_file, entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
@@ -5005,11 +5023,20 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
       if(root->astnode.ident.arraylist->vartype == Double)
         entry = &intrinsic_toks[ifunc_IDNINT];
 
-      fprintf (curfp, "%s(", entry->java_method);
+      if(strictMath && entry->strict_java_method)
+        javaname = entry->strict_java_method;
+      else
+        javaname = entry->java_method;
+
+      fprintf (curfp, "%s(", javaname);
       expr_emit (meth, root->astnode.ident.arraylist);
       fprintf (curfp, ")");
 
-      c = bc_new_methodref(cur_class_file,entry->class_name, 
+      if(strictMath && entry->strict_class_name)
+        c = bc_new_methodref(cur_class_file, entry->strict_class_name, 
+                        entry->method_name, entry->descriptor);
+      else
+        c = bc_new_methodref(cur_class_file, entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
@@ -5027,13 +5054,22 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
     case ifunc_DABS:
     case ifunc_IABS:
     case ifunc_CABS:
+      if(strictMath && entry->strict_java_method)
+        javaname = entry->strict_java_method;
+      else
+        javaname = entry->java_method;
+
       temp = root->astnode.ident.arraylist;
 
-      fprintf (curfp, "%s(", entry->java_method);
+      fprintf (curfp, "%s(", javaname);
       expr_emit (meth, temp);
       fprintf (curfp, ")");
 
-      c = bc_new_methodref(cur_class_file,entry->class_name, 
+      if(strictMath && entry->strict_class_name)
+        c = bc_new_methodref(cur_class_file, entry->strict_class_name, 
+                        entry->method_name, entry->descriptor);
+      else
+        c = bc_new_methodref(cur_class_file, entry->class_name, 
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
@@ -5106,10 +5142,7 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 
       /* real AMAX0(integer) */
     case ifunc_AMAX0:
-      fprintf(curfp,"(float)(");
       max_intrinsic_emit(meth, root, entry);
-      fprintf(curfp,")");
-      bc_append(meth, typeconv_matrix[Integer][Float]);
       break;
 
       /* integer MAX1(real) */
@@ -5130,10 +5163,7 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 
       /* real AMIN0(integer) */
     case ifunc_AMIN0: 
-      fprintf(curfp,"(float)(");
       min_intrinsic_emit(meth, root, entry);
-      fprintf(curfp,")");
-      bc_append(meth, typeconv_matrix[Integer][Float]);
       break;
 
       /* integer MIN1(real) */
@@ -5452,9 +5482,16 @@ intrinsic0_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
   if(entry->ret != root->vartype)
     fprintf(curfp, "(%s)", returnstring[root->vartype]);
 
-  fprintf (curfp, "%s()", entry->java_method);
+  if(strictMath && entry->strict_java_method)
+    fprintf (curfp, "%s()", entry->strict_java_method);
+  else
+    fprintf (curfp, "%s()", entry->java_method);
 
-  c = bc_new_methodref(cur_class_file,entry->class_name, 
+  if(strictMath && entry->strict_class_name)
+    c = bc_new_methodref(cur_class_file, entry->strict_class_name, 
+                    entry->method_name, entry->descriptor);
+  else
+    c = bc_new_methodref(cur_class_file, entry->class_name, 
                     entry->method_name, entry->descriptor);
 
   bc_append(meth, jvm_invokestatic, c);
@@ -5485,11 +5522,19 @@ intrinsic_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
   if(entry->ret != root->vartype)
     fprintf(curfp, "(%s)", returnstring[root->vartype]);
 
-  fprintf (curfp, "%s(", entry->java_method);
+  if(strictMath && entry->strict_java_method)
+    fprintf (curfp, "%s(", entry->strict_java_method);
+  else
+    fprintf (curfp, "%s(", entry->java_method);
+
   intrinsic_arg_emit(meth, root->astnode.ident.arraylist, argtype);
   fprintf (curfp, ")");
 
-  c = bc_new_methodref(cur_class_file,entry->class_name, 
+  if(strictMath && entry->strict_class_name)
+    c = bc_new_methodref(cur_class_file,entry->strict_class_name, 
+                    entry->method_name, entry->descriptor);
+  else
+    c = bc_new_methodref(cur_class_file,entry->class_name, 
                     entry->method_name, entry->descriptor);
 
   bc_append(meth, jvm_invokestatic, c);
@@ -5508,21 +5553,40 @@ intrinsic_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
 
 void
 intrinsic2_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry, 
-                                                          enum returntype argtype)
+  enum returntype argtype)
 {
   AST * temp = root->astnode.ident.arraylist;
   int c;
 
-  fprintf (curfp, "%s(", entry->java_method);
+  /* entry->ret should represent the return type of the equivalent JAva
+   * function, while root->vartype should represent the return type of
+   * the fortran intrinsic.  e.g. fortan's EXP may return Real but JAva's
+   * Math.exp() always returns double.  in these cases we must cast.
+   */
+
+  if(entry->ret != root->vartype)
+    fprintf(curfp, "(%s)", returnstring[root->vartype]);
+
+  if(strictMath && entry->strict_java_method)
+    fprintf (curfp, "%s(", entry->strict_java_method);
+  else
+    fprintf (curfp, "%s(", entry->java_method);
   intrinsic_arg_emit (meth, temp, argtype);
   fprintf (curfp, ",");
   intrinsic_arg_emit (meth, temp->nextstmt, argtype);
   fprintf (curfp, ")");
 
-  c = bc_new_methodref(cur_class_file,entry->class_name, 
+  if(strictMath && entry->strict_class_name)
+    c = bc_new_methodref(cur_class_file, entry->strict_class_name, 
+                    entry->method_name, entry->descriptor);
+  else
+    c = bc_new_methodref(cur_class_file, entry->class_name, 
                     entry->method_name, entry->descriptor);
 
   bc_append(meth, jvm_invokestatic, c);
+
+  if(entry->ret != root->vartype)
+    bc_append(meth, typeconv_matrix[entry->ret][root->vartype]);
 }
 
 /*****************************************************************************
@@ -5537,7 +5601,10 @@ intrinsic2_call_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
 void
 aint_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB * entry)
 {
-  fprintf(curfp,"(float)(%s(",entry->java_method);
+  if(strictMath && entry->strict_java_method)
+    fprintf(curfp,"(float)(%s(",entry->strict_java_method);
+  else
+    fprintf(curfp,"(float)(%s(",entry->java_method);
 
   expr_emit(meth, root->astnode.ident.arraylist);
 
@@ -5560,7 +5627,10 @@ aint_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB * entry)
 void
 dint_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
-  fprintf(curfp,"(double)(%s(",entry->java_method);
+  if(strictMath && entry->strict_java_method)
+    fprintf(curfp,"(double)(%s(",entry->strict_java_method);
+  else
+    fprintf(curfp,"(double)(%s(",entry->java_method);
   expr_emit(meth, root->astnode.ident.arraylist);
   fprintf(curfp,"))");
 
@@ -5609,7 +5679,7 @@ void
 max_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
-  char *desc = "(DDD)D";
+  char *desc = "(DDD)D", *f;
 
   if(entry->intrinsic == ifunc_MAX) {
     switch(root->vartype) {
@@ -5630,16 +5700,20 @@ max_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
         break;
     }
   }
-  else if((entry->intrinsic==ifunc_MAX0) || (entry->intrinsic==ifunc_AMAX0))
+  else if(entry->intrinsic==ifunc_MAX0)
     desc = "(III)I";
   else if((entry->intrinsic==ifunc_AMAX1) || (entry->intrinsic==ifunc_MAX1))
+    desc = "(FFF)F";
+  else if(entry->intrinsic==ifunc_AMAX0)
     desc = "(FFF)F";
   else if(entry->intrinsic==ifunc_DMAX1)
     desc = "(DDD)D";
   else
     fprintf(stderr,"WARNING: bad intrinsic tag in max_intrinsic_emit()\n");
 
-  maxmin_intrinsic_emit(meth, root,tmpentry,THREEARG_MAX_FUNC, desc);
+  f = strictMath ? THREEARG_MAX_FUNC_STRICT : THREEARG_MAX_FUNC;
+
+  maxmin_intrinsic_emit(meth, root, tmpentry, f, desc);
 }
 
 /*****************************************************************************
@@ -5655,7 +5729,7 @@ void
 min_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
   METHODTAB *tmpentry = entry;
-  char *desc = "(DDD)D";
+  char *desc = "(DDD)D", *f;
 
   if(entry->intrinsic == ifunc_MIN) {
     switch(root->vartype) {
@@ -5676,9 +5750,11 @@ min_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
         break;  /* ansi c */
     }
   }
-  else if((entry->intrinsic==ifunc_MIN0) || (entry->intrinsic==ifunc_AMIN0))
+  else if(entry->intrinsic==ifunc_MIN0)
     desc = "(III)I";
   else if((entry->intrinsic==ifunc_AMIN1) || (entry->intrinsic==ifunc_MIN1))
+    desc = "(FFF)F";
+  else if(entry->intrinsic==ifunc_AMIN0)
     desc = "(FFF)F";
   else if(entry->intrinsic==ifunc_DMIN1)
     desc = "(DDD)D";
@@ -5689,7 +5765,9 @@ min_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
     printf("MIN vartype = %s, %s %s %s\n", returnstring[root->vartype], 
          entry->class_name, entry->method_name, entry->descriptor);
 
-  maxmin_intrinsic_emit(meth, root,tmpentry,THREEARG_MIN_FUNC, desc);
+  f = strictMath ? THREEARG_MIN_FUNC_STRICT : THREEARG_MIN_FUNC;
+
+  maxmin_intrinsic_emit(meth, root, tmpentry, f, desc);
 }
 
 /*****************************************************************************
@@ -5708,9 +5786,16 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
                       char *threearg, char *three_desc)
 {
   int ii, arg_count = 0;
-  char *javaname = entry->java_method, *method;
+  char *javaname, *method, *util_class;
   int c;
   AST *temp;
+
+  if(strictMath && entry->strict_java_method)
+    javaname = entry->strict_java_method;
+  else
+    javaname = entry->java_method;
+
+  util_class = strictMath ? STRICT_UTIL_CLASS : UTIL_CLASS;
 
   /* figure out how many args we need to handle */
   for(temp = root->astnode.ident.arraylist;temp!=NULL;temp = temp->nextstmt)
@@ -5724,7 +5809,7 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
     temp = root->astnode.ident.arraylist;
 
     fprintf (curfp, "(");
-    intrinsic_arg_emit(meth, temp,entry->ret);
+    intrinsic_arg_emit(meth, temp, entry->ret);
     fprintf (curfp, ")");
   }
 
@@ -5733,11 +5818,15 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
   else if(arg_count == 2) {
     temp = root->astnode.ident.arraylist;
     fprintf(curfp, "%s(", javaname);
-    intrinsic_arg_emit(meth, temp,entry->ret);
+    intrinsic_arg_emit(meth, temp, entry->ret);
     fprintf (curfp, ", ");
-    intrinsic_arg_emit(meth, temp->nextstmt,entry->ret);
+    intrinsic_arg_emit(meth, temp->nextstmt, entry->ret);
     fprintf (curfp, ")");
-    c = bc_new_methodref(cur_class_file,entry->class_name, 
+    if(strictMath && entry->strict_class_name)
+      c = bc_new_methodref(cur_class_file,entry->strict_class_name, 
+                      entry->method_name, entry->descriptor);
+    else
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                       entry->method_name, entry->descriptor);
 
     bc_append(meth, jvm_invokestatic, c);
@@ -5761,7 +5850,7 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
 
     strtok(ta_tmp,".");
     method = strtok(NULL,".");
-    c = bc_new_methodref(cur_class_file,UTIL_CLASS, method, three_desc);
+    c = bc_new_methodref(cur_class_file, util_class, method, three_desc);
 
     bc_append(meth, jvm_invokestatic, c);
 
@@ -5784,8 +5873,8 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
     char *ta_tmp;
 
     for(ii=0;ii<arg_count -3;ii++)
-      fprintf(curfp,"%s(",javaname);
-    fprintf(curfp,"%s(",threearg);
+      fprintf(curfp,"%s(", javaname);
+    fprintf(curfp,"%s(", threearg);
 
     temp = root->astnode.ident.arraylist;
     intrinsic_arg_emit(meth, temp, entry->ret);
@@ -5801,11 +5890,15 @@ maxmin_intrinsic_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry,
 
     strtok(ta_tmp,".");
     method = strtok(NULL,".");
-    c = bc_new_methodref(cur_class_file,UTIL_CLASS, method, three_desc);
+    c = bc_new_methodref(cur_class_file, util_class, method, three_desc);
 
     bc_append(meth, jvm_invokestatic, c);
 
-    c = bc_new_methodref(cur_class_file,entry->class_name, 
+    if(strictMath && entry->strict_class_name)
+      c = bc_new_methodref(cur_class_file,entry->strict_class_name, 
+                      entry->method_name, entry->descriptor);
+    else
+      c = bc_new_methodref(cur_class_file,entry->class_name, 
                       entry->method_name, entry->descriptor);
 
     for(temp = temp->nextstmt; temp != NULL; temp = temp->nextstmt) {
@@ -5978,7 +6071,10 @@ power_emit(JVM_METHOD *meth, AST *root)
   BOOL gencast = (root->parent != NULL)
              && (root->parent->nodetype == ArrayDec);
 
-  fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
+  if(strictMath)
+    fprintf (curfp, "%sStrictMath.pow(", gencast ? "(int) " : "");
+  else
+    fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
 
   /* the args to pow must be doubles, so cast if necessary */
 
@@ -5994,7 +6090,10 @@ power_emit(JVM_METHOD *meth, AST *root)
                              [Double]);
   fprintf (curfp, ")");
 
-  ct = bc_new_methodref(cur_class_file,"java/lang/Math", "pow", "(DD)D");
+  if(strictMath)
+    ct = bc_new_methodref(cur_class_file, "java/lang/StrictMath", "pow", "(DD)D");
+  else
+    ct = bc_new_methodref(cur_class_file, "java/lang/Math", "pow", "(DD)D");
 
   bc_append(meth, jvm_invokestatic, ct);
 
@@ -6625,7 +6724,7 @@ open_output_file(AST *root, char *classname)
   if((javafp = bc_fopen_fullpath(filename,"w", output_dir))==NULL) {
     fprintf(stderr,"Cannot open output file '%s'.\n",filename);
     perror("Reason");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   curfp = javafp;  /* set global pointer to output file */
@@ -6647,7 +6746,10 @@ open_output_file(AST *root, char *classname)
   if(genJavadoc)
     emit_javadoc_comments(root);
 
-  fprintf(javafp,"public class %s {\n\n", classname);
+  if(strictFp)
+    fprintf(javafp,"public strictfp class %s {\n\n", classname);
+  else
+    fprintf(javafp,"public class %s {\n\n", classname);
 
   f2jfree(filename, strlen(cur_filename) + 6);
 }
@@ -6722,7 +6824,7 @@ constructor (AST * root)
       else {
         fprintf (stderr,"Type table is screwed (codegen.c).\n");
         fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-        exit (-1);
+        exit(EXIT_FAILURE);
       }
     }
 
@@ -6849,7 +6951,7 @@ emit_interface(AST *root)
   intfp = bc_fopen_fullpath(intfilename,"w", output_dir);
   if(!intfp) {
     perror("Unable to open file");
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   javaheader(intfp, "");
@@ -6905,7 +7007,7 @@ emit_interface(AST *root)
     {
       fprintf (stderr,"Type table is screwed (codegen.c).\n");
       fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-      exit (-1);
+      exit(EXIT_FAILURE);
     }
 
     if(type_lookup(cur_external_table, tempnode->astnode.ident.name) != NULL)
@@ -7087,7 +7189,7 @@ emit_methcall(FILE *intfp, AST *root)
     {
       fprintf (stderr,"Type table is screwed (codegen.c).\n");
       fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-      exit (-1);
+      exit(EXIT_FAILURE);
     }
 
     if (hashtemp->variable->astnode.ident.arraylist == NULL) {
@@ -8370,7 +8472,7 @@ write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(temp));
       fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
-      exit(-1);
+      exit(EXIT_FAILURE);
     }
   }
   fprintf(curfp,"}\n");
@@ -8411,7 +8513,7 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(temp));
       fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
-      exit(-1);
+      exit(EXIT_FAILURE);
     }
 
     if((temp->vartype != String) && 
@@ -8509,7 +8611,7 @@ format_item_emit(JVM_METHOD *meth, AST *temp, AST **nodeptr)
           printf("** Advancing nodeptr ** \n");
         *nodeptr = (*nodeptr)->nextstmt;
       }
-      if(temp->nextstmt != NULL)
+      if((temp->nextstmt != NULL) || (*nodeptr != NULL))
         fprintf(curfp," + ");
       return(temp->nextstmt);
       
@@ -8590,6 +8692,9 @@ format_item_emit(JVM_METHOD *meth, AST *temp, AST **nodeptr)
             temp=temp->nextstmt;
             for(rcnt = 0; rcnt < max; rcnt++) {
               format_item_emit(meth, temp, nodeptr);
+
+              if((temp->nextstmt == NULL) && (*nodeptr == NULL) && (rcnt < max-1))
+                fprintf(curfp, " + ");
             }
           }
         }
@@ -9004,7 +9109,7 @@ method_name_emit (JVM_METHOD *meth, AST *root, BOOL adapter)
       if(!ht) {
         fprintf(stderr,"(2)Error: expected to find '%s' in external table.\n",
             root->astnode.ident.name);
-        exit(-1);
+        exit(EXIT_FAILURE);
       }
  
       bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
@@ -9140,7 +9245,7 @@ method_name_emit (JVM_METHOD *meth, AST *root, BOOL adapter)
       if(!ht) {
         fprintf(stderr,"(3)Error: expected to find '%s' in external table.\n",
             root->astnode.ident.name);
-        exit(-1);
+        exit(EXIT_FAILURE);
       }
 
       bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
@@ -9483,7 +9588,7 @@ call_emit (JVM_METHOD *meth, AST * root)
     if(!ht) {
       fprintf(stderr,"(4)Error: expected to find '%s' in external table.\n",
           root->astnode.ident.name);
-      exit(-1);
+      exit(EXIT_FAILURE);
     }
 
     bc_gen_load_op(meth, ht->variable->astnode.ident.localvnum, jvm_Object);
@@ -10283,9 +10388,12 @@ assign_emit (JVM_METHOD *meth, AST * root)
       }
       else
       {
-        if(typeconv_matrix[rtype][ltype] == jvm_nop)
-          fprintf(stderr,"WARNING: unable to handle cast (%s->%s)!\n",
+        if(typeconv_matrix[rtype][ltype] == jvm_nop) {
+          if((ltype != String && ltype != Character) ||
+             (rtype != String && rtype != Character))
+            fprintf(stderr,"WARNING: unable to handle cast (%s->%s)!\n",
               returnstring[rtype], returnstring[ltype]);
+        }
 
         /* numeric value = numeric value of some other type */
         fprintf(curfp,"(%s)(",returnstring[ltype]);
@@ -10506,7 +10614,7 @@ substring_assign_emit(JVM_METHOD *meth, AST *root)
 
   fprintf(curfp,")");
 
-  c = bc_new_methodref(cur_class_file,UTIL_CLASS, "stringInsert", INS_DESC);
+  c = bc_new_methodref(cur_class_file, UTIL_CLASS, "stringInsert", INS_DESC);
   bc_append(meth, jvm_invokestatic, c);
 }
 
@@ -11959,7 +12067,7 @@ assign_varnums_to_arguments(AST * root)
       else {
         fprintf(stderr,"Type table is screwed in assign locals.\n");
         fprintf(stderr,"could not find %s\n", locallist->astnode.ident.name);
-        exit(-1);
+        exit(EXIT_FAILURE);
       }
     }
 

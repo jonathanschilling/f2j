@@ -43,6 +43,8 @@ char
   *output_dir;             /* path to which f2java should store class files  */
 
 BOOL 
+  strictFp,                /* should we declare generated code as strictfp   */
+  strictMath,              /* should we use Java's StrictMath library        */
   omitWrappers,            /* should we try to optimize use of wrappers      */
   genInterfaces,           /* should we generate simplified interfaces       */
   genJavadoc,              /* should we generate javadoc-compatible comments */
@@ -209,166 +211,162 @@ KWDTAB read_toks[] =
 
 METHODTAB intrinsic_toks[]=
 {
-  /* Fortran     Java              Class           Method         Descriptor * 
-   *   Name      Name               Name             Name                    * 
-   *                                                                         */
-
   /* Type conversion intrinsics */
-  {ifunc_INT, "INT",    "(int)",             "Unused",           "Unused",           "Unused", IRDC_ARGS, Integer},
-  {ifunc_IFIX, "IFIX",   "(int)",             "Unused",           "Unused",           "Unused", REAL_ARG, Integer},
-  {ifunc_IDINT, "IDINT",  "(int)",             "Unused",           "Unused",           "Unused", DOUBLE_ARG, Integer},
-  {ifunc_REAL, "REAL",   "(float)",          "Unused",           "Unused",           "Unused", IRDC_ARGS, Float},
-  {ifunc_FLOAT, "FLOAT",  "(float)",          "Unused",           "Unused",           "Unused", INT_ARG, Float},
-  {ifunc_SNGL, "SNGL",   "(float)",          "Unused",           "Unused",           "Unused", DOUBLE_ARG, Float},
-  {ifunc_DBLE, "DBLE",   "(double)",          "Unused",           "Unused",           "Unused", IRDC_ARGS, Double},
-  {ifunc_CMPLX, "CMPLX",  "(Complex)",         "Unused",           "Unused",           "Unused", IRDC_ARGS, Complex},
-  {ifunc_ICHAR, "ICHAR",  "(int)",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
-  {ifunc_CHAR, "CHAR",   "(char)",            "Unused",           "Unused",           "Unused", INT_ARG, Character},
+  {ifunc_INT,   "INT",   "(int)",     NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Integer},
+  {ifunc_IFIX,  "IFIX",  "(int)",     NULL, "Unused", NULL, "Unused", "Unused", REAL_ARG,   Integer},
+  {ifunc_IDINT, "IDINT", "(int)",     NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Integer},
+  {ifunc_REAL,  "REAL",  "(float)",   NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Float},
+  {ifunc_FLOAT, "FLOAT", "(float)",   NULL, "Unused", NULL, "Unused", "Unused", INT_ARG,    Float},
+  {ifunc_SNGL,  "SNGL",  "(float)",   NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Float},
+  {ifunc_DBLE,  "DBLE",  "(double)",  NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Double},
+  {ifunc_CMPLX, "CMPLX", "(Complex)", NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Complex},
+  {ifunc_ICHAR, "ICHAR", "(int)",     NULL, "Unused", NULL, "Unused", "Unused", CS_ARGS,    Integer},
+  {ifunc_CHAR,  "CHAR",  "(char)",    NULL, "Unused", NULL, "Unused", "Unused", INT_ARG,    Character},
 
   /* Truncation */
-  {ifunc_AINT, "AINT",   "(int)",             "Unused",           "Unused",           "Unused", RD_ARGS, Float},
-  {ifunc_DINT, "DINT",   "(int)",             "Unused",           "Unused",           "Unused", DOUBLE_ARG, Double},
+  {ifunc_AINT, "AINT", "(int)", NULL, "Unused", NULL, "Unused", "Unused", RD_ARGS,    Float},
+  {ifunc_DINT, "DINT", "(int)", NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Double},
 
   /* Nearest Whole Number - call NINT/IDNINT and then cast to Float/Double */
-  {ifunc_ANINT, "ANINT",  "Util.nint",             "org/netlib/util/Util",           "nint",           "(F)I", RD_ARGS, Float},
-  {ifunc_DNINT, "DNINT",  "Util.idnint",           "org/netlib/util/Util",           "idnint",           "(D)I", DOUBLE_ARG, Double},
+  {ifunc_ANINT, "ANINT", "Util.nint",   "StrictUtil.nint",   "org/netlib/util/Util", "org/netlib/util/StrictUtil", "nint",   "(F)I", RD_ARGS,    Float},
+  {ifunc_DNINT, "DNINT", "Util.idnint", "StrictUtil.idnint", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idnint", "(D)I", DOUBLE_ARG, Double},
 
   /* Nearest Integer */
-  {ifunc_NINT, "NINT",   "Util.nint",             "org/netlib/util/Util",           "nint",           "(F)I", RD_ARGS, Integer},
-  {ifunc_IDNINT, "IDNINT", "Util.idnint",         "org/netlib/util/Util",           "idnint",           "(D)I", DOUBLE_ARG, Integer},
+  {ifunc_NINT,   "NINT",   "Util.nint",   "StrictUtil.nint",   "org/netlib/util/Util", "org/netlib/util/StrictUtil", "nint",   "(F)I", RD_ARGS,    Integer},
+  {ifunc_IDNINT, "IDNINT", "Util.idnint", "StrictUtil.idnint", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idnint", "(D)I", DOUBLE_ARG, Integer},
 
   /* Absolute Value */
-  {ifunc_ABS, "ABS",    "Math.abs",          "java/lang/Math",   "abs",              "(F)F", IRDC_ARGS, Double},
-  {ifunc_IABS, "IABS",   "Math.abs",          "java/lang/Math",   "abs",              "(I)I", INT_ARG, Integer},
-  {ifunc_DABS, "DABS",   "Math.abs",          "java/lang/Math",   "abs",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CABS, "CABS",   "Math.abs",          "java/lang/Math",   "abs",              "(F)F", COMPLEX_ARG, Float},
+  {ifunc_ABS,  "ABS",  "Math.abs", "StrictMath.abs", "java/lang/Math", "java/lang/StrictMath", "abs", "(F)F", IRDC_ARGS,   Double},
+  {ifunc_IABS, "IABS", "Math.abs", "StrictMath.abs", "java/lang/Math", "java/lang/StrictMath", "abs", "(I)I", INT_ARG,     Integer},
+  {ifunc_DABS, "DABS", "Math.abs", "StrictMath.abs", "java/lang/Math", "java/lang/StrictMath", "abs", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CABS, "CABS", "Math.abs", "StrictMath.abs", "java/lang/Math", "java/lang/StrictMath", "abs", "(F)F", COMPLEX_ARG, Float},
 
   /* Remaindering - directly supported in bytecode by irem, drem, etc */
-  {ifunc_MOD, "MOD",    "Unused", "Unused", "Unused", "Unused", IRD_ARGS, Integer},
-  {ifunc_AMOD, "AMOD",   "Unused", "Unused", "Unused", "Unused", REAL_ARG, Float},
-  {ifunc_DMOD, "DMOD",   "Unused", "Unused", "Unused", "Unused", DOUBLE_ARG, Double},
+  {ifunc_MOD,  "MOD",  "Unused", NULL, "Unused", NULL, "Unused", "Unused", IRD_ARGS,   Integer},
+  {ifunc_AMOD, "AMOD", "Unused", NULL, "Unused", NULL, "Unused", "Unused", REAL_ARG,   Float},
+  {ifunc_DMOD, "DMOD", "Unused", NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Double},
 
   /* Transfer of Sign */
-  {ifunc_SIGN, "SIGN",   "Util.sign",             "org/netlib/util/Util",           "sign",           "(FF)F", IRD_ARGS, Float},
-  {ifunc_ISIGN, "ISIGN",  "Util.isign",             "org/netlib/util/Util",           "isign",           "(II)I", INT_ARG, Integer},
-  {ifunc_DSIGN, "DSIGN",  "Util.dsign",             "org/netlib/util/Util",           "dsign",           "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_SIGN,  "SIGN",  "Util.sign",  "StrictUtil.sign",  "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sign",  "(FF)F", IRD_ARGS,   Float},
+  {ifunc_ISIGN, "ISIGN", "Util.isign", "StrictUtil.isign", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "isign", "(II)I", INT_ARG,    Integer},
+  {ifunc_DSIGN, "DSIGN", "Util.dsign", "StrictUtil.dsign", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "dsign", "(DD)D", DOUBLE_ARG, Double},
 
   /* Positive Difference */
-  {ifunc_DIM, "DIM",    "Util.dim",          "org/netlib/util/Util",   "dim",              "(FF)F", IRD_ARGS, Float},
-  {ifunc_IDIM, "IDIM",   "Util.idim",          "org/netlib/util/Util",   "idim",              "(II)I", INT_ARG, Integer},
-  {ifunc_DDIM, "DDIM",   "Util.ddim",          "org/netlib/util/Util",   "ddim",              "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_DIM,  "DIM",  "Util.dim",  "StrictUtil.dim",  "org/netlib/util/Util", "org/netlib/util/StrictUtil", "dim",  "(FF)F", IRD_ARGS,   Float},
+  {ifunc_IDIM, "IDIM", "Util.idim", "StrictUtil.idim", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idim", "(II)I", INT_ARG,    Integer},
+  {ifunc_DDIM, "DDIM", "Util.ddim", "StrictUtil.ddim", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "ddim", "(DD)D", DOUBLE_ARG, Double},
 
   /* Double Precision Product of two reals.  implement as (double)a1 * (double)a2  */
-  {ifunc_DPROD, "DPROD",  "Unused",          "Unused",   "Unused",              "Unused", REAL_ARG, Double},
+  {ifunc_DPROD, "DPROD", "Unused", NULL, "Unused", NULL, "Unused", "Unused", REAL_ARG, Double},
 
   /* Choosing Largest Value */
-  {ifunc_MAX,   "MAX",    "Math.max",          "java/lang/Math",   "max",              "(DD)D", IRD_ARGS, Double},
-  {ifunc_MAX0,  "MAX0",   "Math.max",          "java/lang/Math",   "max",              "(II)I", INT_ARG, Integer},
-  {ifunc_AMAX1, "AMAX1",  "Math.max",          "java/lang/Math",   "max",              "(FF)F", REAL_ARG, Float},
-  {ifunc_DMAX1, "DMAX1",  "Math.max",          "java/lang/Math",   "max",              "(DD)D", DOUBLE_ARG, Double},
-  {ifunc_AMAX0, "AMAX0",  "Math.max",          "java/lang/Math",   "max",              "(II)I", INT_ARG, Float},
-  {ifunc_MAX1,  "MAX1",   "Math.max",          "java/lang/Math",   "max",              "(FF)F", REAL_ARG, Integer},
+  {ifunc_MAX,   "MAX",   "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(DD)D", IRD_ARGS,   Double},
+  {ifunc_MAX0,  "MAX0",  "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(II)I", INT_ARG,    Integer},
+  {ifunc_AMAX1, "AMAX1", "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(FF)F", REAL_ARG,   Float},
+  {ifunc_DMAX1, "DMAX1", "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_AMAX0, "AMAX0", "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(FF)F", INT_ARG,    Float},
+  {ifunc_MAX1,  "MAX1",  "Math.max", "StrictMath.max", "java/lang/Math", "java/lang/StrictMath", "max", "(FF)F", REAL_ARG,   Integer},
 
   /* Choosing Smallest Value */
-  {ifunc_MIN,   "MIN",    "Math.min",          "java/lang/Math",   "min",              "(DD)D", IRD_ARGS, Double},
-  {ifunc_MIN0,  "MIN0",   "Math.min",          "java/lang/Math",   "min",              "(II)I", INT_ARG, Integer},
-  {ifunc_AMIN1, "AMIN1",  "Math.min",          "java/lang/Math",   "min",              "(FF)F", REAL_ARG, Float},
-  {ifunc_DMIN1, "DMIN1",  "Math.min",          "java/lang/Math",   "min",              "(DD)D", DOUBLE_ARG, Double},
-  {ifunc_AMIN0, "AMIN0",  "Math.min",          "java/lang/Math",   "min",              "(II)I", INT_ARG, Float},
-  {ifunc_MIN1,  "MIN1",   "Math.min",          "java/lang/Math",   "min",              "(FF)F", REAL_ARG, Integer},
+  {ifunc_MIN,   "MIN",   "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(DD)D", IRD_ARGS,   Double},
+  {ifunc_MIN0,  "MIN0",  "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(II)I", INT_ARG,    Integer},
+  {ifunc_AMIN1, "AMIN1", "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(FF)F", REAL_ARG,   Float},
+  {ifunc_DMIN1, "DMIN1", "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_AMIN0, "AMIN0", "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(FF)F", INT_ARG,    Float},
+  {ifunc_MIN1,  "MIN1",  "Math.min", "StrictMath.min", "java/lang/Math", "java/lang/StrictMath", "min", "(FF)F", REAL_ARG,   Integer},
 
   /* Length of Character Entity */
-  {ifunc_LEN, "LEN",    "Unused",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
+  {ifunc_LEN, "LEN", "Unused", NULL, "Unused", NULL, "Unused", "Unused", CS_ARGS, Integer},
 
   /* Location of Substring a2 in String a1 */
-  {ifunc_INDEX, "INDEX",    "(int)",             "Unused",           "Unused",           "Unused", CS_ARGS, Integer},
+  {ifunc_INDEX, "INDEX", "(int)", NULL, "Unused", NULL, "Unused", "Unused", CS_ARGS, Integer},
 
   /* Imaginary Part of Complex Arg */
-  {ifunc_AIMAG, "AIMAG",    "(int)",             "Unused",           "Unused",           "Unused", COMPLEX_ARG, Float},
+  {ifunc_AIMAG, "AIMAG", "(int)", NULL, "Unused", NULL, "Unused", "Unused", COMPLEX_ARG, Float},
 
   /* Conjuagate of Complex Argument */
-  {ifunc_CONJG, "CONJG",    "(int)",             "Unused",           "Unused",           "Unused", COMPLEX_ARG, Complex},
+  {ifunc_CONJG, "CONJG", "(int)", NULL, "Unused", NULL, "Unused", "Unused", COMPLEX_ARG, Complex},
 
   /* Sqare Root */
-  {ifunc_SQRT, "SQRT",   "Math.sqrt",         "java/lang/Math",   "sqrt",             "(F)F", RDC_ARGS, Double},
-  {ifunc_DSQRT, "DSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CSQRT, "CSQRT",  "Math.sqrt",         "java/lang/Math",   "sqrt",             "(D)D", COMPLEX_ARG, Complex},
+  {ifunc_SQRT,  "SQRT",   "Math.sqrt", "StrictMath.sqrt", "java/lang/Math", "java/lang/StrictMath", "sqrt", "(F)F", RDC_ARGS,    Double},
+  {ifunc_DSQRT, "DSQRT",  "Math.sqrt", "StrictMath.sqrt", "java/lang/Math", "java/lang/StrictMath", "sqrt", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CSQRT, "CSQRT",  "Math.sqrt", "StrictMath.sqrt", "java/lang/Math", "java/lang/StrictMath", "sqrt", "(D)D", COMPLEX_ARG, Complex},
 
   /* Exponential */
-  {ifunc_EXP, "EXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", RDC_ARGS, Double},
-  {ifunc_DEXP, "DEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CEXP, "CEXP",    "Math.exp",          "java/lang/Math",   "exp",              "(D)D", COMPLEX_ARG, Complex},
+  {ifunc_EXP,  "EXP",  "Math.exp", "StrictMath.exp", "java/lang/Math", "java/lang/StrictMath", "exp", "(D)D", RDC_ARGS,    Double},
+  {ifunc_DEXP, "DEXP", "Math.exp", "StrictMath.exp", "java/lang/Math", "java/lang/StrictMath", "exp", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CEXP, "CEXP", "Math.exp", "StrictMath.exp", "java/lang/Math", "java/lang/StrictMath", "exp", "(D)D", COMPLEX_ARG, Complex},
 
   /* Natural Logarithm */
-  {ifunc_LOG, "LOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", RDC_ARGS, Double},
-  {ifunc_ALOG, "ALOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", REAL_ARG, Double},
-  {ifunc_DLOG, "DLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CLOG, "CLOG",    "Math.log",          "java/lang/Math",   "log",              "(D)D", COMPLEX_ARG, Complex},
+  {ifunc_LOG,  "LOG",  "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", RDC_ARGS,    Double},
+  {ifunc_ALOG, "ALOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", REAL_ARG,    Double},
+  {ifunc_DLOG, "DLOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CLOG, "CLOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", COMPLEX_ARG, Complex},
 
   /* Common Logarithm - use java's log function then divide by 2.30258509 */
-  {ifunc_LOG10, "LOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", RD_ARGS, Double},
-  {ifunc_ALOG10, "ALOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", REAL_ARG, Double},
-  {ifunc_DLOG10, "DLOG10",  "Util.log10",          "org/netlib/util/Util",   "log10",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_LOG10,  "LOG10",  "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", RD_ARGS,    Double},
+  {ifunc_ALOG10, "ALOG10", "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", REAL_ARG,   Double},
+  {ifunc_DLOG10, "DLOG10", "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", DOUBLE_ARG, Double},
 
   /* Sine */
-  {ifunc_SIN, "SIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", RDC_ARGS, Double},
-  {ifunc_DSIN, "DSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CSIN, "CSIN",    "Math.sin",          "java/lang/Math",   "sin",              "(D)D", COMPLEX_ARG, Complex},
+  {ifunc_SIN,  "SIN",  "Math.sin", "StrictMath.sin", "java/lang/Math", "java/lang/StrictMath", "sin", "(D)D", RDC_ARGS,    Double},
+  {ifunc_DSIN, "DSIN", "Math.sin", "StrictMath.sin", "java/lang/Math", "java/lang/StrictMath", "sin", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CSIN, "CSIN", "Math.sin", "StrictMath.sin", "java/lang/Math", "java/lang/StrictMath", "sin", "(D)D", COMPLEX_ARG, Complex},
 
   /* Cosine */
-  {ifunc_COS, "COS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", RDC_ARGS, Double},
-  {ifunc_DCOS, "DCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_CCOS, "CCOS",    "Math.cos",          "java/lang/Math",   "cos",              "(D)D", COMPLEX_ARG, Complex},
+  {ifunc_COS,  "COS",  "Math.cos", "StrictMath.cos", "java/lang/Math", "java/lang/StrictMath", "cos", "(D)D", RDC_ARGS,    Double},
+  {ifunc_DCOS, "DCOS", "Math.cos", "StrictMath.cos", "java/lang/Math", "java/lang/StrictMath", "cos", "(D)D", DOUBLE_ARG,  Double},
+  {ifunc_CCOS, "CCOS", "Math.cos", "StrictMath.cos", "java/lang/Math", "java/lang/StrictMath", "cos", "(D)D", COMPLEX_ARG, Complex},
 
   /* Tangent */
-  {ifunc_TAN, "TAN",    "Math.tan",          "java/lang/Math",   "tan",              "(D)D", RD_ARGS, Double},
-  {ifunc_DTAN, "DTAN",    "Math.tan",          "java/lang/Math",   "tan",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TAN,  "TAN",  "Math.tan", "StrictMath.tan", "java/lang/Math", "java/lang/StrictMath", "tan", "(D)D", RD_ARGS,    Double},
+  {ifunc_DTAN, "DTAN", "Math.tan", "StrictMath.tan", "java/lang/Math", "java/lang/StrictMath", "tan", "(D)D", DOUBLE_ARG, Double},
 
   /* Arcsine */
-  {ifunc_ASIN, "ASIN",    "Math.asin",          "java/lang/Math",   "asin",              "(D)D", RD_ARGS, Double},
-  {ifunc_DASIN, "DASIN",    "Math.asin",          "java/lang/Math",   "asin",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ASIN,  "ASIN",  "Math.asin", "StrictMath.asin", "java/lang/Math", "java/lang/StrictMath", "asin", "(D)D", RD_ARGS,    Double},
+  {ifunc_DASIN, "DASIN", "Math.asin", "StrictMath.asin", "java/lang/Math", "java/lang/StrictMath", "asin", "(D)D", DOUBLE_ARG, Double},
 
   /* Arccosine */
-  {ifunc_ACOS, "ACOS",    "Math.acos",          "java/lang/Math",   "acos",              "(D)D", RD_ARGS, Double},
-  {ifunc_DACOS, "DACOS",    "Math.acos",          "java/lang/Math",   "acos",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_ACOS,  "ACOS",  "Math.acos", "StrictMath.acos", "java/lang/Math", "java/lang/StrictMath", "acos", "(D)D", RD_ARGS,    Double},
+  {ifunc_DACOS, "DACOS", "Math.acos", "StrictMath.acos", "java/lang/Math", "java/lang/StrictMath", "acos", "(D)D", DOUBLE_ARG, Double},
 
   /* Arctangent */
-  {ifunc_ATAN, "ATAN",    "Math.atan",          "java/lang/Math",   "atan",              "(D)D", RD_ARGS, Double},
-  {ifunc_DATAN, "DATAN",    "Math.atan",          "java/lang/Math",   "atan",              "(D)D", DOUBLE_ARG, Double},
-  {ifunc_ATAN2, "ATAN2",    "Math.atan2",          "java/lang/Math",   "atan2",              "(DD)D", RD_ARGS, Double},
-  {ifunc_DATAN2, "DATAN2",    "Math.atan2",          "java/lang/Math",   "atan2",              "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_ATAN,   "ATAN",   "Math.atan",  "StrictMath.atan",  "java/lang/Math", "java/lang/StrictMath", "atan",  "(D)D",  RD_ARGS,    Double},
+  {ifunc_DATAN,  "DATAN",  "Math.atan",  "StrictMath.atan",  "java/lang/Math", "java/lang/StrictMath", "atan",  "(D)D",  DOUBLE_ARG, Double},
+  {ifunc_ATAN2,  "ATAN2",  "Math.atan2", "StrictMath.atan2", "java/lang/Math", "java/lang/StrictMath", "atan2", "(DD)D", RD_ARGS,    Double},
+  {ifunc_DATAN2, "DATAN2", "Math.atan2", "StrictMath.atan2", "java/lang/Math", "java/lang/StrictMath", "atan2", "(DD)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Sine */
-  {ifunc_SINH, "SINH",    "Util.sinh",          "org/netlib/util/Util",   "sinh",              "(D)D", RD_ARGS, Double},
-  {ifunc_DSINH, "DSINH",    "Util.sinh",          "org/netlib/util/Util",   "sinh",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_SINH,  "SINH",  "Util.sinh", "StrictUtil.sinh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sinh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DSINH, "DSINH", "Util.sinh", "StrictUtil.sinh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sinh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Cosine */
-  {ifunc_COSH, "COSH",    "Util.cosh",          "org/netlib/util/Util",   "cosh",              "(D)D", RD_ARGS, Double},
-  {ifunc_DCOSH, "DCOSH",    "Util.cosh",          "org/netlib/util/Util",   "cosh",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_COSH,  "COSH",  "Util.cosh", "StrictUtil.cosh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "cosh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DCOSH, "DCOSH", "Util.cosh", "StrictUtil.cosh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "cosh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Tangent */
-  {ifunc_TANH, "TANH",    "Util.tanh",          "org/netlib/util/Util",   "tanh",              "(D)D", RD_ARGS, Double},
-  {ifunc_DTANH, "DTANH",    "Util.tanh",          "org/netlib/util/Util",   "tanh",              "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TANH,  "TANH",  "Util.tanh", "StrictUtil.tanh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "tanh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DTANH, "DTANH", "Util.tanh", "StrictUtil.tanh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "tanh", "(D)D", DOUBLE_ARG, Double},
 
   /* Lexically Greater than or Equal to */
-  {ifunc_LGE, "LGE",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
+  {ifunc_LGE, "LGE", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Greater than */
-  {ifunc_LGT, "LGT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
+  {ifunc_LGT, "LGT", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Less than or Equal to */
-  {ifunc_LLE, "LLE",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
+  {ifunc_LLE, "LLE", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* Lexically Less than */
-  {ifunc_LLT, "LLT",    ".compareTo",          "java/lang/String",   "compareTo",              "(Ljava/lang/String;)I", CS_ARGS, Logical},
+  {ifunc_LLT, "LLT", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* fortran pseudo intrinsic */
-  {ifunc_ETIME, "ETIME", ".etime",    "org/netlib/util/Etime", "etime",    "([FI)F", IRDC_ARGS, Float}, 
+  {ifunc_ETIME, "ETIME", ".etime", NULL, "org/netlib/util/Etime", NULL, "etime", "([FI)F", IRDC_ARGS, Float}, 
 
-  {ifunc_SECOND, "SECOND", "System.currentTimeMillis",    "java/lang/System", "currentTimeMillis",    "()J", NO_ARG, Float}, 
+  {ifunc_SECOND, "SECOND", "System.currentTimeMillis",  NULL,  "java/lang/System", NULL, "currentTimeMillis", "()J", NO_ARG, Float}, 
 
   /*  Ends a scanning loop.  See comment above. */
-  {0, NULL , NULL, NULL, NULL, NULL, 0, 0}    
+  {0, NULL , NULL, NULL, NULL, NULL, NULL, NULL, 0, 0}    
 };
 
 /*****************************************************************************

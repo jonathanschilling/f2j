@@ -152,6 +152,17 @@ BLAS/LAPACK code (or any other code where the longest\n\
 comment is the one that describes the function), but\n\
 will most likely not work for other code.\n\n";
 
+  char f2java_help_fm_option[] = "The -fm option causes f2j\
+ to generate code that calls\njava.lang.StrictMath\
+ instead of java.lang.Math.  By\ndefault, java.lang.Math is used.\n\n";
+
+  char f2java_help_fs_option[] = "The -fs option causes f2j\
+ to declare the generated\ncode as strictfp (strict floating point).\
+  By default,\nthe generated code is not strict.\n\n";
+
+  char f2java_help_fb_option[] = "The -fb option enables\
+ both the -fm and -fs options.\n\n";
+
   char f2java_help_vs_option[] = "The -vs option causes f2j\
  to generate all variables\nas static class variables.\
   By default f2j generates\nvariables as locals.\n\n";
@@ -163,6 +174,8 @@ will most likely not work for other code.\n\n";
   signal(SIGSEGV,handle_segfault);
 
   omitWrappers      = TRUE;
+  strictMath        = FALSE;
+  strictFp          = FALSE;
   genInterfaces     = FALSE;
   genJavadoc        = FALSE;
   noOffset          = FALSE;
@@ -179,7 +192,7 @@ will most likely not work for other code.\n\n";
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"I:c:p:wisdho:v:")) != EOF)
+  while((c = getopt(argc,argv,"I:c:p:wif:sdho:v:")) != EOF)
     switch(c) {
       case 'I':
         dl_insert_b(include_paths, optarg);
@@ -189,6 +202,14 @@ will most likely not work for other code.\n\n";
         break;
       case 'p':
         package_name = optarg;
+        break;
+      case 'f':
+        if(!strcmp("b", optarg))
+          strictMath = strictFp = TRUE;
+        else if(!strcmp("m", optarg))
+          strictMath = TRUE;
+        else if(!strcmp("s", optarg))
+          strictFp = TRUE;
         break;
       case 'w':
         omitWrappers = FALSE;
@@ -204,6 +225,9 @@ will most likely not work for other code.\n\n";
         printf("%s",f2java_help_h_option);
         printf("%s",f2java_help_s_option);
         printf("%s",f2java_help_d_option);
+        printf("%s",f2java_help_fm_option);
+        printf("%s",f2java_help_fs_option);
+        printf("%s",f2java_help_fb_option);
         printf("%s",f2java_help_vs_option);
         printf("%s",f2java_help_va_option);
         exit(EXIT_SUCCESS);
@@ -243,7 +267,7 @@ will most likely not work for other code.\n\n";
   {
     fprintf(stderr, "Usage: f2java [-I include path] [-c search path]");
     fprintf(stderr, "  [-p package name] [-o output dir]");
-    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] [-va] <filename>\n");
+    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] [-va] [-fs] [-fm] [-fb] <filename>\n");
     fprintf(stderr, "For help: f2java -h\n");
     exit(EXIT_FAILURE);
   }
@@ -348,7 +372,11 @@ will most likely not work for other code.\n\n";
   }
 
   fprintf(stderr,"%s:\n",inputfilename);
-  yyparse ();
+
+  if(yyparse() != 0) {
+    fprintf(stderr, "Parsing failed.\n");
+    exit(EXIT_FAILURE);
+  }
 
 #if VCG
   fclose (vcgfp);
@@ -374,7 +402,7 @@ will most likely not work for other code.\n\n";
   }
 #endif
 
-  return 0;
+  exit(EXIT_SUCCESS);
 }
 
 /*****************************************************************************

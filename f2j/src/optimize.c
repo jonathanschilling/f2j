@@ -1343,7 +1343,7 @@ get_method_descriptor(AST *root, SYMTABLE *ttable, SYMTABLE *ctable,
       else {
         fprintf (stderr,"Type table is screwed (optimize.c).\n");
         fprintf (stderr,"  (looked up: %s)\n", tempnode->astnode.ident.name);
-        exit (-1);
+        exit(EXIT_FAILURE);
       }
     }
 

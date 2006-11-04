@@ -28,7 +28,7 @@
 
 #define F2J_CLASS_ACC (JVM_ACC_PUBLIC | JVM_ACC_FINAL | JVM_ACC_SUPER)
 #define F2J_NORMAL_ACC (JVM_ACC_PUBLIC | JVM_ACC_STATIC)
-#define F2J_STRICT_ACC (JVM_ACC_STRICT | JVM_ACC_PUBLIC | JVM_ACC_STATIC)
+#define F2J_STRICT_ACC (JVM_ACC_STRICT | F2J_NORMAL_ACC)
 #define F2J_ADAPTER_ACC (JVM_ACC_PRIVATE | JVM_ACC_STATIC)
 #define F2J_INIT_ACC (JVM_ACC_PUBLIC)
 
@@ -59,7 +59,7 @@
 
 /*****************************************************************************
 * Definitions for intrinsic variable names. At certain pts in the parser, we *
-* do not know wheather this intrinsic name represents an intrinsic call,     *
+* do not know whether this intrinsic name represents an intrinsic call,      *
 * function call, array name, or a regular variable.                          *
 *****************************************************************************/
 
@@ -615,10 +615,12 @@ typedef struct method_tab
 
   /* for Java source generation: */
   char *java_method;                /* name of the corresponding Java func   */
+  char *strict_java_method;         /* strict version (e.g. StrictMath.abs)  */
 
   /* for bytecode generation: */
   char *class_name;                 /* fully qualified Java class name       */
-  char *method_name;                /* fully qualified Java class name       */
+  char *strict_class_name;          /* strict version of the class name      */ 
+  char *method_name;                /* method name                           */
   char *descriptor;                 /* corresponding Java func descriptor    */
 
   char args;                        /* bitfield of valid args to intrinsic   */

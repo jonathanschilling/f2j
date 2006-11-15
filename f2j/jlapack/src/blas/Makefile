@@ -9,7 +9,7 @@ $(BLAS_JAR): $(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) blas.
 	$(F2J) $(F2JFLAGS) blas.f > /dev/null
 	cd $(OUTDIR); $(JAR) cvf ../$(BLAS_JAR) `find . -name "*.class"`
 	mkdir -p $(SIMPLE_DIR)/$(BLAS_PDIR)
-	-cp $(OUTDIR)/$(BLAS_PDIR)/[A-Z][A-Z]*.java $(SIMPLE_DIR)/$(BLAS_PDIR)
+	-cp `find $(OUTDIR)/$(BLAS_PDIR) -name "[A-Z][A-Z]*.java"` $(SIMPLE_DIR)/$(BLAS_PDIR)
 	-$(JAVAC) -classpath .:$(BLAS_JAR):$(SIMPLE_DIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SIMPLE_DIR)/$(BLAS_PDIR)/*.java
 	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_BLAS_JAR) `find . -name "*.class"`
 

@@ -3288,6 +3288,17 @@ AssignedGoto:   GOTO Name OP Intlist CP NL
         	  if(debug)
         	    printf("Assigned go to,\n");
                 }    
+              | GOTO Name CM OP Intlist CP NL
+                {
+                  $$ = addnode();
+                  $2->parent = $$;
+                  $5->parent = $$;
+                  $$->nodetype = AssignedGoto;
+                  $$->astnode.computed_goto.name = $2;
+                  $$->astnode.computed_goto.intlist = switchem($5);
+        	  if(debug)
+        	    printf("Assigned go to,\n");
+                }    
               | GOTO Name NL
                 {
                   $$ = addnode();

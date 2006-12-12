@@ -184,6 +184,22 @@ typecheck (AST * root)
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
+    case AssignedGoto:
+      if (root->astnode.computed_goto.name)
+        expr_check(root->astnode.computed_goto.name);
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case StmtLabelAssign:
+      if (checkdebug)
+        printf ("typecheck(): StmtLabelAssign.\n");
+
+      assign_check (root);
+
+      if (root->nextstmt != NULL)
+        typecheck (root->nextstmt);
+      break;
     case Typedec:
       typedec_check(root);
       

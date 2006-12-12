@@ -234,6 +234,7 @@ enum _nodetype
   Stop,
   Pause,
   ComputedGoto,
+  AssignedGoto,
   ArrayAccess,
   ArrayDec,
   ArrayIdxRange,
@@ -241,6 +242,7 @@ enum _nodetype
   IoExplist,
   DataImpliedLoop,
   IoImpliedLoop,
+  StmtLabelAssign,
   Unimplemented
 };
 
@@ -275,7 +277,9 @@ struct _source
     *parameter_table,               /* variables declared as PARAMETERS      */
     *equivalence_table;             /* variables that are equivalenced       */
 
-  Dlist constants_table;            /* constant_pool info for bytecode gen.  */
+  Dlist
+    stmt_assign_list,               /* labels used in ASSIGN TO statements   */
+    constants_table;                /* constant_pool info for bytecode gen.  */
 
   BOOL 
     needs_input,                    /* does this unit read any data          */

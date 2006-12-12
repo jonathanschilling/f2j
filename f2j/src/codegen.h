@@ -209,6 +209,7 @@ void
   arithmeticif_emit (JVM_METHOD *, AST *),
   goto_emit (JVM_METHOD *, AST *),
   computed_goto_emit (JVM_METHOD *, AST *),
+  assigned_goto_emit (JVM_METHOD *, AST *),
   label_emit (JVM_METHOD *, AST *),
   write_emit (JVM_METHOD *, AST *),
   common_emit(AST *),

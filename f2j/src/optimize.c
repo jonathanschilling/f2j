@@ -311,12 +311,22 @@ optimize (AST * root, AST * rptr)
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
       break;
+    case StmtLabelAssign:
+      if (optdebug)
+        printf ("StmtLabelAssign.\n");
+ 
+      assign_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
     case Format:
     case Stop:
     case Pause:
     case Save:
     case CommonList:
     case ComputedGoto:
+    case AssignedGoto:
     case Dimension:
     case Goto:
     case Return:

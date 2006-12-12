@@ -31,6 +31,7 @@ char
   **funcname=input_func;/* input functions, EOF-detecting or non-detecting   */
 
 Dlist 
+  cur_assign_list = NULL, /* list of labels used in ASSIGN TO statements     */
   dummy_nodes = NULL,   /* list of dummy graph nodes to free later           */
   doloop = NULL,        /* stack of do loop labels                           */
   while_list = NULL,    /* stack of while loop labels                        */
@@ -164,6 +165,7 @@ emit (AST * root)
           cur_param_table = root->astnode.source.parameter_table;
           cur_equiv_table = root->astnode.source.equivalence_table;
           cur_equivList = root->astnode.source.equivalences;
+          cur_assign_list = root->astnode.source.stmt_assign_list;
           cur_class_file = root->astnode.source.class = 
             bc_new_class(classname,inputfilename, "java.lang.Object",
                          package_name, F2J_CLASS_ACC); 
@@ -448,6 +450,16 @@ emit (AST * root)
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
+      case StmtLabelAssign:
+        if (gendebug)
+          printf ("StmtLabelAssign.\n");
+
+        assign_emit (cur_method, root);
+        fprintf (curfp, ";\n");
+        
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Call:
         if (gendebug)
           printf ("Call.\n");
@@ -531,9 +543,17 @@ emit (AST * root)
         break;
       case ComputedGoto:
         if (gendebug)
-          printf ("Goto.\n");
+          printf ("Computed Goto.\n");
 
         computed_goto_emit (cur_method, root);
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
+      case AssignedGoto:
+        if (gendebug)
+          printf ("Assigned Goto.\n");
+
+        assigned_goto_emit (cur_method, root);
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
@@ -4601,8 +4621,9 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
         else
           fprintf (curfp, "%s%s.val", com_prefix, name);
       }
-      else if((root->parent->nodetype == Assignment) &&
-              (root->parent->astnode.assignment.lhs == root)) {
+      else if(((root->parent->nodetype == Assignment) ||
+               (root->parent->nodetype == StmtLabelAssign))
+            && (root->parent->astnode.assignment.lhs == root)) {
         /* this is the LHS of some assignment.  this is only an
          * issue for bytecode generation since we don't want to
          * generate a load instruction for the LHS of an assignment.
@@ -4699,8 +4720,9 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
           bc_append(meth, jvm_iconst_0);
         }
       }
-      else if((root->parent->nodetype == Assignment) &&
-              (root->parent->astnode.assignment.lhs == root)) {
+      else if(((root->parent->nodetype == Assignment) ||
+               (root->parent->nodetype == StmtLabelAssign))
+            && (root->parent->astnode.assignment.lhs == root)) {
         /* LHS of assignment.  do not generate any bytecode. */
         fprintf (curfp, "%s%s", com_prefix, name);
       }
@@ -7536,6 +7558,102 @@ computed_goto_emit(JVM_METHOD *meth, AST *root)
     bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
 
     count++;
+  }
+  fprintf(curfp,"}\n");
+
+  bc_release_local(meth, jvm_Int);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * assigned_goto_emit                                                        *
+ *                                                                           *
+ * This function generates code to implement fortran's assigned              *
+ * GOTO statement.   we simply use a series of if-else statements            *
+ * to implement the assigned goto.                                           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assigned_goto_emit(JVM_METHOD *meth, AST *root)
+{
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
+  AST *temp;
+  unsigned int lvar;
+  int i, count;
+  char **labels;
+  Dlist tmp;
+
+  count = 0;
+
+  /* if this assigned goto has an integer list of possible targets, e.g.:
+   *     GOTO x (10, 20, 30)
+   * then root->astnode.computed_goto.intlist should be non-null and will
+   * contain a list of AST nodes.
+   *
+   * if there is no list of targets, e.g.:
+   *     GOTO x
+   * then we fall back on the list of all possible targets created during
+   * parsing.
+   *
+   * Since these lists are stored in different data structures, we will
+   * just convert them to an array of strings here so that we can just
+   * write one loop to do the code generation.
+   */
+
+  if(root->astnode.computed_goto.intlist) {
+    for(temp=root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
+      count++;
+  }
+  else {
+    dl_traverse (tmp, cur_assign_list)
+      count++;
+  }
+
+  if(count == 0) {
+    fprintf(stderr, "Warning: didn't expect empty list of statement labels\n");
+    return;
+  }
+
+  labels = (char **) f2jalloc(count * sizeof(char *));
+
+  i = 0;
+
+  if(root->astnode.computed_goto.intlist) {
+    for(temp=root->astnode.computed_goto.intlist;temp!=NULL;temp=temp->nextstmt)
+      labels[i++] = temp->astnode.constant.number;
+  }
+  else {
+    dl_traverse (tmp, cur_assign_list)
+      labels[i++] = ((AST *)dl_val(tmp))->astnode.constant.number;
+  }
+
+  /* Now the array of integer targets has been built. */
+
+  lvar = bc_get_next_local(meth, jvm_Int);
+
+  fprintf(curfp,"{\n");
+  fprintf(curfp,"  int _cg_tmp = ");
+
+  expr_emit(meth, root->astnode.computed_goto.name);
+
+  bc_gen_store_op(meth, lvar, jvm_Int);
+  fprintf(curfp,";\n");
+
+  for(i=0;i<count;i++)
+  {
+    if(i != 0)
+      fprintf(curfp,"else ");
+    fprintf(curfp,"if (_cg_tmp == %s) \n", labels[i]);
+    fprintf(curfp,"  Dummy.go_to(\"%s\",%s);\n", cur_filename, labels[i]);
+    bc_gen_load_op(meth, lvar,  jvm_Int);
+    bc_push_int_const(meth, atoi(labels[i]));
+    if_node = bc_append(meth, jvm_if_icmpne);
+
+    goto_node = bc_append(meth, jvm_goto);
+    bc_set_branch_label(goto_node, labels[i]);
+
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
   }
   fprintf(curfp,"}\n");
 

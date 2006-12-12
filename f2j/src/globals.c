@@ -123,6 +123,7 @@ KWDTAB tab_stmt[] =
     {"THEN", THEN, 0},
     {"WRITE", WRITE, 0},
     {"PRINT", PRINT, 0},
+    {"ASSIGN", ASSIGN, 0},
     { NULL, 0, 0}  /* Ends a scanning loop.  See comment above. */
 };
 
@@ -198,6 +199,16 @@ KWDTAB tab_toks[] =
 KWDTAB read_toks[] =
 {
     {"END", END, 0},
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
+};
+
+/*****************************************************************************
+ * Tokens found within an ASSIGN statement.                                  *
+ *****************************************************************************/
+
+KWDTAB assign_toks[] =
+{
+    {"TO", TO, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 

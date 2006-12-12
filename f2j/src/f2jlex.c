@@ -566,12 +566,51 @@ yylex ()
           return token;
         }
       }
+      else {
+        /* trying to trap the TO in ASSIGN integer TO name. 
+         * check tokennumber == 3 to avoid checking the name part (since the
+         * name could be "TO").   using 3 because we have a label
+         * number as the first token and we start numbering at 0, so
+         * the TO keyword would be number 3.
+         */
+
+        if(!commaseen && (tokennumber == 3)) {
+          token = keyscan (assign_toks, &buffer);
+
+          if(token) {
+            tokennumber++;
+
+            if(lexdebug)
+              printf("8.1: lexer returns %s (%s)\n",
+                 tok2str(token), buffer.stmt);
+            return token;
+          }
+        }
+      }
 
       f2jfree(stmt_copy, strlen(stmt_copy)+1);
       f2jfree(text_copy, strlen(text_copy)+1);
     }
   }
     
+  /* If we are parsing an ASSIGN statement, trap the TO keyword.
+   * There's no label number, so the token number is 2.  (see
+   * comment above).
+   */
+
+  if((firsttoken == ASSIGN) && (tokennumber == 2)) {
+    token = keyscan (assign_toks, &buffer);
+
+    if(token) {
+      tokennumber++;
+
+      if(lexdebug)
+        printf("8.2: lexer returns %s (%s)\n",
+           tok2str(token), buffer.stmt);
+      return token;
+    }
+  }
+
   if (isalpha ((int) *buffer.stmt))
     token = name_scan (&buffer);
 

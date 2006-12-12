@@ -49,6 +49,7 @@ AST
   * equivList = NULL;             /* list to keep track of equivalences      */
 
 Dlist 
+  assign_labels,                  /* labels used in ASSIGN TO statements     */
   subroutine_names,               /* holds the names of subroutines          */
   do_labels;                      /* generated labels for 'do..end do' loops */
 
@@ -62,6 +63,7 @@ METHODTAB
 int 
   yylex(void),
   intrinsic_or_implicit(char *),
+  in_dlist_stmt_label(Dlist, AST *),
   in_dlist(Dlist, char *);
 
 double
@@ -156,7 +158,7 @@ ITAB_ENTRY implicit_table[26];
  */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
-%type <ptnode> Arrayindexlist Arithmeticif ArraydecList
+%type <ptnode> Arrayindexlist Arithmeticif ArraydecList AssignedGoto
 %type <ptnode> Blockif Boolean Close Comment
 %type <ptnode> Call Constant Continue EndDo
 %type <ptnode> Data DataList DataConstantExpr DataConstant DataItem 
@@ -176,7 +178,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
 %type <ptnode> Read IoExp IoExplist Return  Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
-%type <ptnode> Statement Subroutinecall
+%type <ptnode> Statement StmtLabelAssign Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
 %type <ptnode> String  Subroutine Stop SubstringOp Pause
 %type <ptnode> Typestmt Typevar Typevarlist
@@ -326,6 +328,7 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
+                $$->astnode.source.stmt_assign_list = assign_labels; 
 
                 $$->astnode.source.javadocComments = NULL; 
                 $$->astnode.source.save_all = save_all; 
@@ -392,6 +395,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
+                $$->astnode.source.stmt_assign_list = assign_labels; 
 
                 $$->astnode.source.javadocComments = NULL; 
                 $$->astnode.source.save_all = save_all; 
@@ -459,6 +463,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.parameter_table = parameter_table; 
                 $$->astnode.source.constants_table = constants_table;
                 $$->astnode.source.equivalences = equivList; 
+                $$->astnode.source.stmt_assign_list = assign_labels; 
 
                 $$->astnode.source.javadocComments = NULL; 
                 $$->astnode.source.save_all = save_all; 
@@ -1211,6 +1216,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Call;
               }
+            | StmtLabelAssign
+              {
+                $$ = $1;
+                $$->nodetype = StmtLabelAssign;
+              }
             | Logicalif
               {
                 $$ = $1;
@@ -1235,6 +1245,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               {
                 $$ = $1;
                 $$->nodetype = Return;
+              }
+            | AssignedGoto
+              {
+                $$ = $1;
+                $$->nodetype = AssignedGoto;
               }
             | ComputedGoto
               {
@@ -1861,6 +1876,26 @@ Star:  STAR
          $$->nodetype = Identifier;
         *$$->astnode.ident.name = '*';
        }
+;
+
+StmtLabelAssign: ASSIGN Integer TO Name NL
+                 {
+                   $$ = addnode();
+                   $2->parent = $$;
+                   $4->parent = $$;
+                   $$->nodetype = StmtLabelAssign;
+                   $$->astnode.assignment.lhs = $4;
+                   $$->astnode.assignment.rhs = $2;
+
+                   /* add this label to the list of assigned labels */
+
+                   if(in_dlist_stmt_label(assign_labels, $2) == 0) {
+                     if(debug)
+                       printf("inserting label num %s in assign_labels list\n",
+                         $2->astnode.constant.number);
+                     dl_insert_b(assign_labels, $2);
+                   }
+                 }
 ;
 
 /*  At some point, I will need to typecheck the `Name' on the left
@@ -3242,6 +3277,29 @@ ComputedGoto:   GOTO OP Intlist CP Exp NL
                 }    
 ;
 
+AssignedGoto:   GOTO Name OP Intlist CP NL
+                {
+                  $$ = addnode();
+                  $2->parent = $$;
+                  $4->parent = $$;
+                  $$->nodetype = AssignedGoto;
+                  $$->astnode.computed_goto.name = $2;
+                  $$->astnode.computed_goto.intlist = switchem($4);
+        	  if(debug)
+        	    printf("Assigned go to,\n");
+                }    
+              | GOTO Name NL
+                {
+                  $$ = addnode();
+                  $2->parent = $$;
+                  $$->nodetype = AssignedGoto;
+                  $$->astnode.computed_goto.name = $2;
+                  $$->astnode.computed_goto.intlist = NULL;
+        	  if(debug)
+        	    printf("Assigned go to (no intlist)\n");
+                }    
+;
+
 Intlist:   Integer
             {
               $$ = $1;
@@ -3916,6 +3974,7 @@ init_tables()
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
   constants_table = make_dl();
+  assign_labels   = make_dl();
   equivList       = NULL;
   save_all        = FALSE;
 
@@ -4741,6 +4800,31 @@ in_dlist(Dlist list, char *name)
   dl_traverse(ptr, list){
     list_name = (char *)dl_val(ptr);
     if(!strcmp(list_name, name))
+      return 1;
+  }
+
+  return 0;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * in_dlist_stmt_label                                                       *
+ *                                                                           *
+ * Returns 1 if the given label is in the list, returns 0 otherwise.         *
+ * Assumes that the list contains AST pointers.                              *
+ *                                                                           *
+ *****************************************************************************/
+
+int
+in_dlist_stmt_label(Dlist list, AST *label)
+{
+  Dlist ptr;
+  AST *tmp;
+
+  dl_traverse(ptr, list){
+    tmp = (AST *)dl_val(ptr);
+
+    if(!strcmp(tmp->astnode.constant.number, label->astnode.constant.number))
       return 1;
   }
 

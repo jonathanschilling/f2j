@@ -41,6 +41,9 @@ DOC_DIST_TGZ=jlapack-doc.tgz
 BLAS1TEST_JAR=dblat1.jar
 BLAS2TEST_JAR=dblat2.jar
 BLAS3TEST_JAR=dblat3.jar
+SBLAS1TEST_JAR=sblat1.jar
+SBLAS2TEST_JAR=sblat2.jar
+SBLAS3TEST_JAR=sblat3.jar
 EIGTEST_JAR=eigtest.jar
 LINTEST_JAR=lintest.jar
 MATGEN_JAR=matgen.jar
@@ -48,11 +51,17 @@ MATGEN_JAR=matgen.jar
 BLAS1TEST_SH=test_blas1.sh
 BLAS2TEST_SH=test_blas2.sh
 BLAS3TEST_SH=test_blas3.sh
+SBLAS1TEST_SH=test_sblas1.sh
+SBLAS2TEST_SH=test_sblas2.sh
+SBLAS3TEST_SH=test_sblas3.sh
 LINTEST_SH=test_lin.sh
 EIGTEST_SH=test_eig.sh
 BLAS1TEST_BAT=test_blas1.bat
 BLAS2TEST_BAT=test_blas2.bat
 BLAS3TEST_BAT=test_blas3.bat
+SBLAS1TEST_BAT=test_sblas1.bat
+SBLAS2TEST_BAT=test_sblas2.bat
+SBLAS3TEST_BAT=test_sblas3.bat
 LINTEST_BAT=test_lin.bat
 EIGTEST_BAT=test_eig.bat
 
@@ -68,6 +77,9 @@ LINTEST_DIR=$(TESTING_DIR)/lin
 BLAS1TEST_DIR=$(TESTING_DIR)/blas1
 BLAS2TEST_DIR=$(TESTING_DIR)/blas2
 BLAS3TEST_DIR=$(TESTING_DIR)/blas3
+SBLAS1TEST_DIR=$(TESTING_DIR)/sblas1
+SBLAS2TEST_DIR=$(TESTING_DIR)/sblas2
+SBLAS3TEST_DIR=$(TESTING_DIR)/sblas3
 TIMING_DIR=$(SRCDIR)/timing
 SIMPLE_DIR=simple
 
@@ -82,6 +94,9 @@ LINTEST_OBJ=$(LINTEST_DIR)/$(OUTDIR)
 BLAS1TEST_OBJ=$(BLAS1TEST_DIR)/$(OUTDIR)
 BLAS2TEST_OBJ=$(BLAS2TEST_DIR)/$(OUTDIR)
 BLAS3TEST_OBJ=$(BLAS3TEST_DIR)/$(OUTDIR)
+SBLAS1TEST_OBJ=$(SBLAS1TEST_DIR)/$(OUTDIR)
+SBLAS2TEST_OBJ=$(SBLAS2TEST_DIR)/$(OUTDIR)
+SBLAS3TEST_OBJ=$(SBLAS3TEST_DIR)/$(OUTDIR)
 
 MATGEN_IDX=$(MATGEN_OBJ)/Matgen.f2j
 BLAS_IDX=$(BLAS_OBJ)/Blas.f2j
@@ -93,12 +108,17 @@ LINTEST_IDX=$(LINTEST_OBJ)/Lintest.f2j
 BLAS1TEST_IDX=$(BLAS1TEST_OBJ)/Dblat1.f2j
 BLAS2TEST_IDX=$(BLAS2TEST_OBJ)/Dblat2.f2j
 BLAS3TEST_IDX=$(BLAS3TEST_OBJ)/Dblat3.f2j
+SBLAS1TEST_IDX=$(SBLAS1TEST_OBJ)/Sblat1.f2j
+SBLAS2TEST_IDX=$(SBLAS2TEST_OBJ)/Sblat2.f2j
+SBLAS3TEST_IDX=$(SBLAS3TEST_OBJ)/Sblat3.f2j
 
 UTIL_PACKAGE=org.netlib.util
 UTIL_PDIR=org/netlib/util
 
 BLAS_PACKAGE=org.netlib.blas
 BLAS_PDIR=org/netlib/blas
+SBLAS_PACKAGE=org.netlib.blas
+SBLAS_PDIR=org/netlib/blas
 
 ERR_PACKAGE=org.netlib.err
 ERR_PDIR=org/netlib/err
@@ -108,6 +128,8 @@ LAPACK_PDIR=org/netlib/lapack
 
 BLASTEST_PACKAGE=org.netlib.blas.testing
 BLASTEST_PDIR=org/netlib/blas/testing
+SBLASTEST_PACKAGE=org.netlib.blas.testing
+SBLASTEST_PDIR=org/netlib/blas/testing
 
 MATGEN_PACKAGE=org.netlib.lapack.testing.matgen
 MATGEN_PDIR=org/netlib/lapack/testing/matgen
@@ -147,6 +169,8 @@ UTIL_CLASSES=$(OUTDIR)/$(UTIL_PDIR)/Dsign.class \
 
 BLAS2TEST_INPUT=$(BLAS2TEST_DIR)/dblat2.in
 BLAS3TEST_INPUT=$(BLAS3TEST_DIR)/dblat3.in
+SBLAS2TEST_INPUT=$(SBLAS2TEST_DIR)/sblat2.in
+SBLAS3TEST_INPUT=$(SBLAS3TEST_DIR)/sblat3.in
 LINTEST_INPUT=$(LINTEST_DIR)/dtest.in
 EIGTEST_INPUT= $(EIGTEST_DIR)/dbak.in \
         $(EIGTEST_DIR)/dsg.in \

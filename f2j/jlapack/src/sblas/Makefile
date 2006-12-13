@@ -3,14 +3,14 @@
 ROOT=../..
 include $(ROOT)/make.def
 
-F2JFLAGS=-c .:$(OUTDIR):$(ROOT)/$(ERR_OBJ) -p $(BLAS_PACKAGE) -o $(OUTDIR) -s -d $(STATIC)
+F2JFLAGS=-c .:$(OUTDIR):$(ROOT)/$(ERR_OBJ) -p $(SBLAS_PACKAGE) -o $(OUTDIR) -s -d $(STATIC)
 
 $(SBLAS_JAR): $(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) sblas.f
 	$(F2J) $(F2JFLAGS) sblas.f > /dev/null
 	cd $(OUTDIR); $(JAR) cvf ../$(SBLAS_JAR) `find . -name "*.class"`
-	mkdir -p $(SIMPLE_DIR)/$(BLAS_PDIR)
-	-cp `find $(OUTDIR)/$(BLAS_PDIR) -name "[A-Z][A-Z]*.java"` $(SIMPLE_DIR)/$(BLAS_PDIR)
-	-$(JAVAC) -classpath .:$(SBLAS_JAR):$(SIMPLE_DIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SIMPLE_DIR)/$(BLAS_PDIR)/*.java
+	mkdir -p $(SIMPLE_DIR)/$(SBLAS_PDIR)
+	-cp `find $(OUTDIR)/$(SBLAS_PDIR) -name "[A-Z][A-Z]*.java"` $(SIMPLE_DIR)/$(SBLAS_PDIR)
+	-$(JAVAC) -classpath .:$(SBLAS_JAR):$(SIMPLE_DIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SIMPLE_DIR)/$(SBLAS_PDIR)/*.java
 	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_SBLAS_JAR) `find . -name "*.class"`
 
 nojar: $(ROOT)/$(ERR_DIR)/$(ERR_JAR) sblas.f

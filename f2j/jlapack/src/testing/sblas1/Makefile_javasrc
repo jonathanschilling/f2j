@@ -1,0 +1,32 @@
+.SUFFIXES: .f .java
+
+ROOT=../../..
+
+include $(ROOT)/make.def
+
+tester: $(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR) $(ROOT)/$(SBLAS1TEST_IDX) $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
+	/bin/rm -f `find . -name "*.class"`
+	mkdir -p $(JAVASRC_OUTDIR)
+	$(JAVAC) -classpath $(JAVASRC_OUTDIR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(SBLASTEST_PDIR)/*.java
+	/bin/rm -f $(JAVASRC_OUTDIR)/$(SBLASTEST_PDIR)/*.old
+	$(JAVAB) $(JAVASRC_OUTDIR)/$(SBLASTEST_PDIR)/*.class
+	/bin/rm -f $(SBLAS1TEST_JAR)
+	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(SBLAS1TEST_JAR) `find . -name "*.class"`
+
+$(ROOT)/$(SBLAS1TEST_IDX):	sblat1.f
+	$(MAKE) nojar
+
+$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR):
+	cd $(ROOT)/$(SBLAS_DIR); $(MAKE) -f Makefile_javasrc
+
+$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):
+	cd $(ROOT)/$(UTIL_DIR); $(MAKE)
+
+runtest:	tester
+	$(JAVA) $(JFLAGS) -cp .:$(SBLAS1TEST_JAR):$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR) $(SBLASTEST_PACKAGE).Sblat1
+
+verify: $(ROOT)/$(SBLAS1TEST_IDX)
+	cd $(JAVASRC_OUTDIR); $(JAVA) $(MORE_MEM_FLAG) -classpath .:$(JUSTICE):$(BCEL):$(ROOT)/../$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/../$(ERR_DIR)/$(ERR_JAR):$(ROOT)/../$(SBLAS_DIR)/$(SBLAS_JAR) $(VERIFY) $(SBLASTEST_PDIR)/*.class
+
+clean:
+	/bin/rm -rf *.java *.class *.f2j $(OUTDIR) $(JAVASRC_OUTDIR) $(SBLAS1TEST_JAR)

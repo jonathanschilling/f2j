@@ -109,6 +109,7 @@ KWDTAB tab_stmt[] =
     {"GOTO", GOTO, 0},
     {"IF", IF, 0},
     {"NONE", NONE, 0},
+    {"OPEN", OPEN, 0},
     {"IMPLICIT", IMPLICIT, 0},
     {"INTRINSIC", INTRINSIC, 0},
     {"PARAMETER", PARAMETER, 0},
@@ -199,6 +200,25 @@ KWDTAB tab_toks[] =
 KWDTAB read_toks[] =
 {
     {"END", END, 0},
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
+};
+
+/*****************************************************************************
+ * Tokens found within an OPEN statement.  There are probably more that      *
+ * should be here.                                                           *
+ *****************************************************************************/
+
+KWDTAB open_toks[] =
+{
+    {"IOSTAT", OPEN_IOSTAT, 0},
+    {"ERR", OPEN_ERR, 0},
+    {"FILE", OPEN_FILE, 0},
+    {"STATUS", OPEN_STATUS, 0},
+    {"ACCESS", OPEN_ACCESS, 0},
+    {"FORM", OPEN_FORM, 0},
+    {"UNIT", OPEN_UNIT, 0},
+    {"RECL", OPEN_RECL, 0},
+    {"BLANK", OPEN_BLANK, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 

@@ -1120,7 +1120,7 @@ DataConstant:  Constant
                {
                  HASHNODE *hash_temp;
                  if((parameter_table != NULL) &&
-                 ((hash_temp = type_lookup(parameter_table,yylval.lexeme)) != NULL))
+                    ((hash_temp = type_lookup(parameter_table, yylval.lexeme)) != NULL))
                  {
                     $$ = addnode();
                     $$->nodetype = Constant;
@@ -1331,6 +1331,9 @@ Comment: COMMENT NL
 Open: OPEN OP Olist CP NL
       {
         fprintf(stderr,"Warning: OPEN not implemented.. skipping.\n");
+
+        $$ = addnode();
+        $$->nodetype = Unimplemented;
       }
 ;
 
@@ -1344,6 +1347,11 @@ OlistItem: OPEN_UNIT EQ UnitSpec
            {
              /* UNIMPLEMENTED */
              $$ = $3;
+           }
+         | UnitSpec
+           {
+             /* UNIMPLEMENTED */
+             $$ = $1;
            }
          | OPEN_IOSTAT EQ Ios
            {
@@ -3387,6 +3395,7 @@ Pdec:     Assignment
 
                 sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
                 add_decimal_point(temp->astnode.constant.number);
+                strcat(temp->astnode.constant.number, "f");
                 
                 break;
               case Double:

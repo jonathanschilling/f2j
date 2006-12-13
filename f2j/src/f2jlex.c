@@ -437,6 +437,9 @@ yylex ()
   if(!token && (firsttoken == READ))
     token = keyscan (read_toks, &buffer);
 
+  if(!token && (firsttoken == OPEN))
+    token = keyscan (open_toks, &buffer);
+
   if (token)
   {
     if (token == OP)

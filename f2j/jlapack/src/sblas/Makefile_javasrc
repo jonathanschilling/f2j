@@ -3,7 +3,7 @@
 ROOT=../..
 include $(ROOT)/make.def
 
-$(BLAS_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_JAR) blas.f
+$(SBLAS_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_JAR) sblas.f
 	$(MAKE) nojar
 	/bin/rm -f `find . -name "*.class"`
 	mkdir -p $(JAVASRC_OUTDIR)
@@ -12,8 +12,8 @@ $(BLAS_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(ERR_DIR)/$(ERR_JAR) blas.
 	$(JAVAB) $(JAVASRC_OUTDIR)/$(BLAS_PDIR)/*.class
 	mkdir -p $(SIMPLE_DIR)/$(BLAS_PDIR)
 	-mv `find $(JAVASRC_OUTDIR) -name "[A-Z][A-Z]*.class"` $(SIMPLE_DIR)/$(BLAS_PDIR)
-	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(BLAS_JAR) `find . -name "*.class"`
-	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_BLAS_JAR) `find . -name "*.class"`
+	cd $(JAVASRC_OUTDIR); $(JAR) cvf ../$(SBLAS_JAR) `find . -name "*.class"`
+	cd $(SIMPLE_DIR); $(JAR) cvf ../$(SIMPLE_SBLAS_JAR) `find . -name "*.class"`
 
 $(ROOT)/$(ERR_DIR)/$(ERR_JAR):
 	cd $(ROOT)/$(ERR_DIR);$(MAKE) -f Makefile_javasrc
@@ -21,7 +21,7 @@ $(ROOT)/$(ERR_DIR)/$(ERR_JAR):
 $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):
 	cd $(ROOT)/$(UTIL_DIR); $(MAKE)
 
-verify: $(BLAS_JAR)
+verify: $(SBLAS_JAR)
 	cd $(JAVASRC_OUTDIR); $(VERIFY) $(BLAS_PDIR)/*.class
 
 clean:

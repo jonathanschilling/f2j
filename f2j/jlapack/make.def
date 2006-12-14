@@ -48,7 +48,9 @@ SBLAS2TEST_JAR=sblat2.jar
 SBLAS3TEST_JAR=sblat3.jar
 EIGTEST_JAR=eigtest.jar
 LINTEST_JAR=lintest.jar
+SLINTEST_JAR=slintest.jar
 MATGEN_JAR=matgen.jar
+SMATGEN_JAR=smatgen.jar
 
 BLAS1TEST_SH=test_blas1.sh
 BLAS2TEST_SH=test_blas2.sh
@@ -57,6 +59,7 @@ SBLAS1TEST_SH=test_sblas1.sh
 SBLAS2TEST_SH=test_sblas2.sh
 SBLAS3TEST_SH=test_sblas3.sh
 LINTEST_SH=test_lin.sh
+SLINTEST_SH=test_slin.sh
 EIGTEST_SH=test_eig.sh
 BLAS1TEST_BAT=test_blas1.bat
 BLAS2TEST_BAT=test_blas2.bat
@@ -65,6 +68,7 @@ SBLAS1TEST_BAT=test_sblas1.bat
 SBLAS2TEST_BAT=test_sblas2.bat
 SBLAS3TEST_BAT=test_sblas3.bat
 LINTEST_BAT=test_lin.bat
+SLINTEST_BAT=test_slin.bat
 EIGTEST_BAT=test_eig.bat
 
 UTIL_DIR=$(SRCDIR)/util
@@ -75,8 +79,10 @@ LAPACK_DIR=$(SRCDIR)/lapack
 SLAPACK_DIR=$(SRCDIR)/slapack
 TESTING_DIR=$(SRCDIR)/testing
 MATGEN_DIR=$(TESTING_DIR)/matgen
+SMATGEN_DIR=$(TESTING_DIR)/smatgen
 EIGTEST_DIR=$(TESTING_DIR)/eig
 LINTEST_DIR=$(TESTING_DIR)/lin
+SLINTEST_DIR=$(TESTING_DIR)/slin
 BLAS1TEST_DIR=$(TESTING_DIR)/blas1
 BLAS2TEST_DIR=$(TESTING_DIR)/blas2
 BLAS3TEST_DIR=$(TESTING_DIR)/blas3
@@ -88,6 +94,7 @@ SIMPLE_DIR=simple
 
 UTIL_OBJ=$(UTIL_DIR)/$(OUTDIR)
 MATGEN_OBJ=$(MATGEN_DIR)/$(OUTDIR)
+SMATGEN_OBJ=$(SMATGEN_DIR)/$(OUTDIR)
 BLAS_OBJ=$(BLAS_DIR)/$(OUTDIR)
 SBLAS_OBJ=$(SBLAS_DIR)/$(OUTDIR)
 ERR_OBJ=$(ERR_DIR)/$(OUTDIR)
@@ -95,6 +102,7 @@ LAPACK_OBJ=$(LAPACK_DIR)/$(OUTDIR)
 SLAPACK_OBJ=$(SLAPACK_DIR)/$(OUTDIR)
 EIGTEST_OBJ=$(EIGTEST_DIR)/$(OUTDIR)
 LINTEST_OBJ=$(LINTEST_DIR)/$(OUTDIR)
+SLINTEST_OBJ=$(SLINTEST_DIR)/$(OUTDIR)
 BLAS1TEST_OBJ=$(BLAS1TEST_DIR)/$(OUTDIR)
 BLAS2TEST_OBJ=$(BLAS2TEST_DIR)/$(OUTDIR)
 BLAS3TEST_OBJ=$(BLAS3TEST_DIR)/$(OUTDIR)
@@ -103,6 +111,7 @@ SBLAS2TEST_OBJ=$(SBLAS2TEST_DIR)/$(OUTDIR)
 SBLAS3TEST_OBJ=$(SBLAS3TEST_DIR)/$(OUTDIR)
 
 MATGEN_IDX=$(MATGEN_OBJ)/Matgen.f2j
+SMATGEN_IDX=$(SMATGEN_OBJ)/Smatgen.f2j
 BLAS_IDX=$(BLAS_OBJ)/Blas.f2j
 SBLAS_IDX=$(SBLAS_OBJ)/Sblas.f2j
 ERR_IDX=$(ERR_OBJ)/Err.f2j
@@ -110,6 +119,7 @@ LAPACK_IDX=$(LAPACK_OBJ)/Lapack.f2j
 SLAPACK_IDX=$(SLAPACK_OBJ)/Slapack.f2j
 EIGTEST_IDX=$(EIGTEST_OBJ)/Eigtest.f2j
 LINTEST_IDX=$(LINTEST_OBJ)/Lintest.f2j
+SLINTEST_IDX=$(SLINTEST_OBJ)/Slintest.f2j
 BLAS1TEST_IDX=$(BLAS1TEST_OBJ)/Dblat1.f2j
 BLAS2TEST_IDX=$(BLAS2TEST_OBJ)/Dblat2.f2j
 BLAS3TEST_IDX=$(BLAS3TEST_OBJ)/Dblat3.f2j
@@ -140,12 +150,16 @@ SBLASTEST_PDIR=org/netlib/blas/testing
 
 MATGEN_PACKAGE=org.netlib.lapack.testing.matgen
 MATGEN_PDIR=org/netlib/lapack/testing/matgen
+SMATGEN_PACKAGE=org.netlib.lapack.testing.matgen
+SMATGEN_PDIR=org/netlib/lapack/testing/matgen
 
 EIGTEST_PACKAGE=org.netlib.lapack.testing.eig
 EIGTEST_PDIR=org/netlib/lapack/testing/eig
 
 LINTEST_PACKAGE=org.netlib.lapack.testing.lin
 LINTEST_PDIR=org/netlib/lapack/testing/lin
+SLINTEST_PACKAGE=org.netlib.lapack.testing.lin
+SLINTEST_PDIR=org/netlib/lapack/testing/lin
 
 EIGTIME_PACKAGE=org.netlib.lapack.timing.eig
 EIGTIME_PDIR=org/netlib/lapack/timing/eig
@@ -158,6 +172,8 @@ EIGSRC_PDIR=org/netlib/lapack/timing/eig/eigsrc
 
 LINSRC_PACKAGE=org.netlib.lapack.timing.lin.linsrc
 LINSRC_PDIR=org/netlib/lapack/timing/lin/linsrc
+SLINSRC_PACKAGE=org.netlib.lapack.timing.lin.linsrc
+SLINSRC_PDIR=org/netlib/lapack/timing/lin/linsrc
 
 UTIL_CLASSES=$(OUTDIR)/$(UTIL_PDIR)/Dsign.class \
         $(OUTDIR)/$(UTIL_PDIR)/Dummy.class \
@@ -179,6 +195,7 @@ BLAS3TEST_INPUT=$(BLAS3TEST_DIR)/dblat3.in
 SBLAS2TEST_INPUT=$(SBLAS2TEST_DIR)/sblat2.in
 SBLAS3TEST_INPUT=$(SBLAS3TEST_DIR)/sblat3.in
 LINTEST_INPUT=$(LINTEST_DIR)/dtest.in
+SLINTEST_INPUT=$(SLINTEST_DIR)/stest.in
 EIGTEST_INPUT= $(EIGTEST_DIR)/dbak.in \
         $(EIGTEST_DIR)/dsg.in \
         $(EIGTEST_DIR)/dbal.in  \

@@ -394,7 +394,7 @@ METHODTAB intrinsic_toks[]=
   /* fortran pseudo intrinsic */
   {ifunc_ETIME, "ETIME", ".etime", NULL, "org/netlib/util/Etime", NULL, "etime", "([FI)F", IRDC_ARGS, Float}, 
 
-  {ifunc_SECOND, "SECOND", "System.currentTimeMillis",  NULL,  "java/lang/System", NULL, "currentTimeMillis", "()J", NO_ARG, Float}, 
+  {ifunc_SECOND, "SECOND", ".second",  NULL,  "org/netlib/util/Second", NULL, "second", "()F", NO_ARG, Float}, 
 
   /*  Ends a scanning loop.  See comment above. */
   {0, NULL , NULL, NULL, NULL, NULL, NULL, NULL, 0, 0}    

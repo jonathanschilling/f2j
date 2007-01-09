@@ -292,7 +292,8 @@ emit (AST * root)
             bc_gen_store_op(cur_method, stdin_lvar, jvm_Object);
           }
 
-          if(type_lookup(cur_external_table,"etime") != NULL)
+          if((type_lookup(cur_external_table, "etime") != NULL)
+             || type_lookup(cur_external_table, "second") != NULL)
           {
             fprintf(curfp, "  Etime.etime();\n");
 
@@ -4873,15 +4874,15 @@ external_emit(JVM_METHOD *meth, AST *root)
       bc_append(meth, jvm_invokestatic, c);
     }
     else if(!strcmp(tempname, "SECOND")) {
-      fprintf(curfp, "(System.currentTimeMillis() / 1000.0)");
+      if(gendebug)
+        printf("emitting SECOND...\n");
 
-      c = bc_new_methodref(cur_class_file, entry->class_name, 
+      fprintf(curfp, "Second.second()");
+
+      c = bc_new_methodref(cur_class_file, entry->class_name,
                         entry->method_name, entry->descriptor);
 
       bc_append(meth, jvm_invokestatic, c);
-      bc_append(meth, jvm_l2d);
-      bc_push_double_const(meth, 1000.0);
-      bc_append(meth, jvm_ddiv);
     }
   }
 

@@ -1,16 +1,22 @@
-.PHONY:	blas1 blas2 blas3 runtests clean
+.PHONY: blas1 blas2 blas3 runtests clean sblas1 sblas2 sblas3 eig lin seig slin
 
 ROOT=../..
 
 include $(ROOT)/make.def
 
-testers:	blas1 blas2 blas3 eig lin
+testers:        blas1 blas2 blas3 eig lin sblas1 sblas2 sblas3 slin
 
 blas1:	$(ROOT)/$(BLAS1TEST_IDX)
 blas2:	$(ROOT)/$(BLAS2TEST_IDX)
 blas3:	$(ROOT)/$(BLAS3TEST_IDX)
 eig:	$(ROOT)/$(EIGTEST_IDX)
 lin:	$(ROOT)/$(LINTEST_IDX)
+
+sblas1:  $(ROOT)/$(SBLAS1TEST_IDX)
+sblas2:  $(ROOT)/$(SBLAS2TEST_IDX)
+sblas3:  $(ROOT)/$(SBLAS3TEST_IDX)
+seig:    $(ROOT)/$(SEIGTEST_IDX)
+slin:    $(ROOT)/$(SLINTEST_IDX)
 
 $(ROOT)/$(BLAS1TEST_IDX):
 	cd blas1;$(MAKE) -f Makefile_javasrc
@@ -23,23 +29,47 @@ $(ROOT)/$(EIGTEST_IDX):
 $(ROOT)/$(LINTEST_IDX):
 	cd lin;$(MAKE) -f Makefile_javasrc
 
-runtests:	blastest lintest eigtest
+$(ROOT)/$(SBLAS1TEST_IDX):
+	cd sblas1;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(SBLAS2TEST_IDX):
+	cd sblas2;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(SBLAS3TEST_IDX):
+	cd sblas3;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(SEIGTEST_IDX):
+	cd seig;$(MAKE) -f Makefile_javasrc
+$(ROOT)/$(SLINTEST_IDX):
+	cd slin;$(MAKE) -f Makefile_javasrc
+
+runtests:	blastest lintest eigtest sblastest slintest
 
 blastest:
 	cd blas1;$(MAKE) -f Makefile_javasrc runtest
 	cd blas2;$(MAKE) -f Makefile_javasrc runtest
 	cd blas3;$(MAKE) -f Makefile_javasrc runtest
 
+sblastest:
+	cd sblas1;$(MAKE) -f Makefile_javasrc runtest
+	cd sblas2;$(MAKE) -f Makefile_javasrc runtest
+	cd sblas3;$(MAKE) -f Makefile_javasrc runtest
+
 eigtest:
 	cd eig;$(MAKE) -f Makefile_javasrc runtest
 
 lintest:
 	cd lin;$(MAKE) -f Makefile_javasrc runtest
+
+slintest:
+	cd slin;$(MAKE) -f Makefile_javasrc runtest
 	
 clean:
 	cd blas1;$(MAKE) -f Makefile_javasrc clean
 	cd blas2;$(MAKE) -f Makefile_javasrc clean
 	cd blas3;$(MAKE) -f Makefile_javasrc clean
+	cd sblas1;$(MAKE) -f Makefile_javasrc clean
+	cd sblas2;$(MAKE) -f Makefile_javasrc clean
+	cd sblas3;$(MAKE) -f Makefile_javasrc clean
 	cd eig;$(MAKE) -f Makefile_javasrc clean
 	cd lin;$(MAKE) -f Makefile_javasrc clean
+	cd slin;$(MAKE) -f Makefile_javasrc clean
 	cd matgen;$(MAKE) -f Makefile_javasrc clean
+	cd smatgen;$(MAKE) -f Makefile_javasrc clean

@@ -26,7 +26,11 @@ package org.netlib.util;
 public class Second {
   public static float second()
   {
-    float [] dummy = new float[2];
-    return Etime.etime(dummy,0);
+    float [] tarray= new float[2];
+
+    Etime.etime();
+    Etime.etime(tarray,0);
+
+    return tarray[0];
   }
 }

@@ -4,7 +4,7 @@ ROOT=../..
 
 include $(ROOT)/make.def
 
-testers:        blas1 blas2 blas3 eig lin sblas1 sblas2 sblas3 slin
+testers:        blas1 blas2 blas3 eig lin sblas1 sblas2 sblas3 slin seig
 
 blas1:	$(ROOT)/$(BLAS1TEST_IDX)
 blas2:	$(ROOT)/$(BLAS2TEST_IDX)
@@ -40,7 +40,7 @@ $(ROOT)/$(SEIGTEST_IDX):
 $(ROOT)/$(SLINTEST_IDX):
 	cd slin;$(MAKE) -f Makefile_javasrc
 
-runtests:	blastest lintest eigtest sblastest slintest
+runtests:	blastest lintest eigtest sblastest slintest seigtest
 
 blastest:
 	cd blas1;$(MAKE) -f Makefile_javasrc runtest
@@ -54,6 +54,9 @@ sblastest:
 
 eigtest:
 	cd eig;$(MAKE) -f Makefile_javasrc runtest
+
+seigtest:
+	cd seig;$(MAKE) -f Makefile_javasrc runtest
 
 lintest:
 	cd lin;$(MAKE) -f Makefile_javasrc runtest
@@ -69,6 +72,7 @@ clean:
 	cd sblas2;$(MAKE) -f Makefile_javasrc clean
 	cd sblas3;$(MAKE) -f Makefile_javasrc clean
 	cd eig;$(MAKE) -f Makefile_javasrc clean
+	cd seig;$(MAKE) -f Makefile_javasrc clean
 	cd lin;$(MAKE) -f Makefile_javasrc clean
 	cd slin;$(MAKE) -f Makefile_javasrc clean
 	cd matgen;$(MAKE) -f Makefile_javasrc clean

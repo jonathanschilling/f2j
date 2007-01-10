@@ -4,7 +4,7 @@ ROOT=../..
 
 include $(ROOT)/make.def
 
-testers:	blas1 blas2 blas3 eig lin sblas1 sblas2 sblas3 slin
+testers:	blas1 blas2 blas3 eig lin sblas1 sblas2 sblas3 seig slin
 
 blas1:	$(ROOT)/$(BLAS1TEST_IDX)
 blas2:	$(ROOT)/$(BLAS2TEST_IDX)
@@ -41,7 +41,7 @@ $(ROOT)/$(SEIGTEST_IDX):
 $(ROOT)/$(SLINTEST_IDX):
 	cd slin;$(MAKE)
 
-runtests:	blastest lintest eigtest sblastest slintest
+runtests:	blastest lintest eigtest sblastest slintest seigtest
 
 blastest:
 	cd blas1;$(MAKE) runtest
@@ -55,6 +55,9 @@ sblastest:
 
 eigtest:
 	cd eig;$(MAKE) runtest
+
+seigtest:
+	cd seig;$(MAKE) runtest
 
 lintest:
 	cd lin;$(MAKE) runtest
@@ -70,6 +73,7 @@ clean:
 	cd sblas2;$(MAKE) clean
 	cd sblas3;$(MAKE) clean
 	cd eig;$(MAKE) clean
+	cd seig;$(MAKE) clean
 	cd lin;$(MAKE) clean
 	cd slin;$(MAKE) clean
 	cd matgen;$(MAKE) clean

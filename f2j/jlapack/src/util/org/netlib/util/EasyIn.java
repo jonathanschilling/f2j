@@ -77,6 +77,12 @@ public class EasyIn {
        while( (idx < len) && isDelim(line.charAt(idx)) )
          idx++;
 
+       if(idx == len) {
+         initTokenizer();
+         while( (idx < len) && isDelim(line.charAt(idx)) )
+           idx++;
+       }
+
        begin = idx;
 
        while( (idx < len) && !isDelim(line.charAt(idx)) )

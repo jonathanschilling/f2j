@@ -870,7 +870,6 @@ static void byte_trav(u4_int offset) {
    char lbuf[100];
    int hash(char *);
    void type_insert(HASHNODE **, int, char *);
-   char *strdup(const char *);
 
    len = att -> code_length;
    byt = &(att -> info[8u]);
@@ -1286,7 +1285,6 @@ static void byte_codeattr(attribute_ptr a, u2_int w_arg,
 int byte_proc(void) {
   
   u4_int i, j;       /* wide counters */
-  char *strdup(const char *);
   char *strtok(char *, const char *);
   extern char * thisClassName;
 

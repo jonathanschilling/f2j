@@ -1,4 +1,7 @@
-AC_INIT(api.c)
+AC_INIT(libbytecode, 0.7, [f2j@cs.utk.edu])
+AC_REVISION([$Revision$])
+
+AC_CONFIG_SRCDIR(api.c)
 
 AC_PROG_CC(gcc cc ecc xlc)
 

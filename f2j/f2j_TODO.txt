@@ -1,6 +1,9 @@
 Relatively high priority modifications.  (not necessarily listed
 in order of priority)
 
+-common block declarations can be arrays
+-support ! comments 
+
 -Automate the build procedure using autogen/automake/autoconf.
 
 -Isolate the WRITE/FORMAT code in the lexer into a subroutine.

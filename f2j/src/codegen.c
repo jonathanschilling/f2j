@@ -4042,6 +4042,18 @@ isPassByRef(char *name, SYMTABLE *ttable, SYMTABLE *ctable, SYMTABLE *etable)
       }
       else if((mtmp=find_commonblock(name, descriptor_table)) != NULL) {
         char * temp_desc;
+
+        /** TODO: 'pos' was being used here uninitialized, but I can't
+         * remember the circumstances that would drop us into this
+         * case anyway.  it seems common block variables are always
+         * tagged pass-by-ref, so this is never executed (at least
+         * compiling all blas, lapack, testers, etc never result in
+         * this case being executed).
+         *
+         * For now, just set pos to 0 and figure it out later.
+         **/
+
+        pos = 0;
       
         temp_desc = getFieldDescFromCommonDesc(mtmp->descriptor, pos);
         
@@ -5445,7 +5457,7 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
 void
 intrinsic_lexical_compare_emit(JVM_METHOD *meth, AST *root, METHODTAB *entry)
 {
-  JVM_CODE_GRAPH_NODE *goto_node, *if_node;
+  JVM_CODE_GRAPH_NODE *goto_node, *if_node = NULL;
   AST *temp;
   int c;
 
@@ -7904,6 +7916,8 @@ read_emit (JVM_METHOD *meth, AST * root)
   AST *temp;
   int c;
 
+  try_start = NULL;
+
   /* if the READ statement has no args, just read a line and
    * ignore it.
    */
@@ -9449,7 +9463,7 @@ get_method_name(AST *root, BOOL adapter)
 {
   char *buf, *tempname;
   char *tmpdesc;
-  JVM_METHODREF *newmeth;
+  JVM_METHODREF *newmeth = NULL;
 
   tempname = strdup (root->astnode.ident.name);
   *tempname = toupper (*tempname);
@@ -10087,7 +10101,7 @@ void
 wrapped_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr)
 {
   enum returntype vtype = get_type_from_field_desc(dptr);
-  int c;
+  int c = 0;
 
   /* 
    * Otherwise, use wrappers.
@@ -10466,7 +10480,8 @@ assign_emit (JVM_METHOD *meth, AST * root)
       }
       else if( (ltype == Logical) && (rtype != String) )
       {
-        JVM_CODE_GRAPH_NODE *if_node, *goto_node, *iconst_node, *next_node;
+        JVM_CODE_GRAPH_NODE *if_node = NULL, *goto_node = NULL, 
+            *iconst_node = NULL, *next_node = NULL;
 
         /* boolean = numeric value */
         expr_emit (meth, root->astnode.assignment.rhs);
@@ -11113,6 +11128,8 @@ adapter_emit_from_descriptor(JVM_METHOD *meth, JVM_METHODREF *mref, AST *node)
   enum returntype ret_type;
   char *ret;
   int lv_temp, retval_varnum = 0;
+
+  ret_type = Integer;  /* init just to quiet a compiler warning */
 
   fprintf(curfp,"// adapter for %s%s\n", 
     node->astnode.ident.name, mref->descriptor);
@@ -11931,6 +11948,8 @@ methcall_obj_array_emit(JVM_METHOD *meth, AST *temp, int lv)
   HASHNODE *ht;
   int ai = 0, vi = 1, dim;
   AST *arg;
+
+  rtype = Integer;  /* just here to quiet a compiler warning */
 
   for(arg=temp->astnode.ident.arraylist;arg!=NULL;arg=arg->nextstmt,ai++,vi++)
   {

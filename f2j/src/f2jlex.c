@@ -86,7 +86,6 @@ int
 
 char 
   *tok2str(int),
-  *strdup(const char *),
   *f2j_fgets(char *, int, FILE *);
 
 FILE

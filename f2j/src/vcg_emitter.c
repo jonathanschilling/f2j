@@ -21,7 +21,7 @@
 #include<string.h>
 #include<ctype.h>
 #include"f2j.h"
-#include"f2jparse.tab.h"
+#include"y.tab.h"
 #include"f2j_externs.h"
 
 /*****************************************************************************
@@ -29,7 +29,6 @@
  *****************************************************************************/
 
 char
-  * strdup(const char *),
   * lowercase(char *);
 
 void 

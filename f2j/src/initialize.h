@@ -21,7 +21,7 @@
 #include<stdio.h>
 #include<string.h>
 #include"f2j.h"
-#include"f2jparse.tab.h" 
+#include"y.tab.h" 
 
 extern KWDTAB tab_stmt[];                  /* statement starting keywords    */
 

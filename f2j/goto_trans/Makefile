@@ -23,15 +23,9 @@
 #  *** is highly appreciated.
 
 
-#TARGET = $(HOME)/Bin/javab
-TARGET = ../bin/javab
+include make.def
 
-# Flags
-# *****
-
-CC     = gcc
-CFLAGS = -c -O -ansi -Wall
-LFLAGS = -O
+TARGET = javab
 
 OBJS   = byte.o class.o dump.o main.o symtab.o
 
@@ -39,28 +33,32 @@ OBJS   = byte.o class.o dump.o main.o symtab.o
 # **********
 
 $(TARGET): $(OBJS)
-	$(CC) $(LFLAGS) -o $(TARGET) $(OBJS) 
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) 
+
+install: $(TARGET)
+	install -d -m 755 $(F2J_BINDIR)
+	install -m 755 $(TARGET) $(F2J_BINDIR)
 
 # System Program
 # **************
 
 main.o : main.c class.h
-	$(CC) $(CFLAGS) main.c
+	$(CC) -c $(CFLAGS) main.c
 
 # Modules
 # *******
 
 symtab.o : symtab.c symtab.h
-	$(CC) $(CFLAGS) symtab.c
+	$(CC) -c $(CFLAGS) symtab.c
 
 byte.o  : byte.c class.h
-	$(CC) $(CFLAGS) byte.c
+	$(CC) -c $(CFLAGS) byte.c
 
 class.o : class.c class.h
-	$(CC) $(CFLAGS) class.c
+	$(CC) -c $(CFLAGS) class.c
 
 dump.o  : dump.c class.h
-	$(CC) $(CFLAGS) dump.c
+	$(CC) -c $(CFLAGS) dump.c
 
 # Cleanup
 # *******

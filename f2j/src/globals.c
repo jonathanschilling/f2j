@@ -22,7 +22,7 @@
  *****************************************************************************/
 
 #include"f2j.h"
-#include"f2jparse.tab.h" 
+#include"y.tab.h" 
 
 int 
   lineno,                  /* current line number                            */

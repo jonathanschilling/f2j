@@ -37,8 +37,6 @@ SYMTABLE * new_symtable (unsigned int);
 void type_insert (SYMTABLE *, AST *, enum returntype, char *);
 HASHNODE * format_lookup(SYMTABLE *, char *);
 
-char *strdup(const char *);
-
 /*****************************************************************************
  *                                                                           *
  * new_symtable                                                              *

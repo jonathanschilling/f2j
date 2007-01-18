@@ -1,0 +1,18 @@
+
+CC=@CC@
+YACC=@YACC@
+PURIFY=@PURIFY@
+BYTE_DIR=@BYTE_DIR@
+LIBS=@LIBS@
+INCLUDES=-I $(BYTE_DIR)
+
+F2J_BINDIR=@F2J_INSTALL_PREFIX@/bin
+
+# defining DEBUG_MEM includes some code that will
+# trash any freed memory, thus helping to expose
+# some memory-related bugs in f2j.
+#
+
+CFLAGS=-Wall -DDEBUG_MEM @CFLAGS@
+PFLAGS=-cache-dir=/tmp
+YFLAGS=-t --debug --defines --verbose

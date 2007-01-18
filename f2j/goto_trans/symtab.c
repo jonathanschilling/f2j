@@ -5,7 +5,6 @@
 
 #define symdebug 0
 
-char *strdup(const char *);
 void *malloc(size_t);
 void *calloc(size_t, size_t);
 

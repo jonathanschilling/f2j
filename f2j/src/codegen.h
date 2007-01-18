@@ -20,7 +20,7 @@
 #include<string.h>
 #include<ctype.h>
 #include"f2j.h"
-#include"f2jparse.tab.h"
+#include"y.tab.h"
 #include"codegen.h"
 #include"f2jmem.h"
 
@@ -121,7 +121,6 @@ void cfg_emit(Dlist, char *);
 
 char 
   * tok2str(int),
-  * strdup ( const char * ),
   * lowercase ( char * ),
   * get_common_prefix(char *),
   * getVarDescriptor(AST *),

@@ -618,7 +618,6 @@ static void show_classfile(void) {
 
 static void add_shadow_cp(void) {
   u4_int i; /* wide counter */
-  char *strdup(const char *);
 
   constant_pool_count = shadow_cnt;
   

@@ -1,0 +1,36 @@
+AC_INIT(f2j, 0.7, [f2j@cs.utk.edu])
+AC_REVISION([$Revision$])
+
+AC_CONFIG_SRCDIR(f2j_TODO.txt)
+
+AC_CONFIG_SUBDIRS(libbytecode)
+
+AC_PROG_CC(gcc cc ecc xlc)
+
+AC_C_BIGENDIAN
+
+AC_PROG_MAKE_SET
+AC_PROG_RANLIB
+AC_PATH_PROG(AR, ar)
+AC_SUBST(AR)
+AC_PATH_PROG(JAVAC, javac)
+AC_SUBST(JAVAC)
+AC_PATH_PROG(JAVA, java)
+AC_SUBST(JAVA)
+AC_PROG_YACC
+
+if test "x$prefix" != xNONE; then
+  F2J_INSTALL_PREFIX=${prefix}
+else
+  F2J_INSTALL_PREFIX=`pwd`
+fi
+AC_SUBST(F2J_INSTALL_PREFIX)
+
+AC_ARG_WITH(libbytecode-dir,
+            [  --with-libbytecode-dir=dir  directory containing bytecode library],
+            [BYTE_DIR="$with_libbytecode_dir"],
+            [BYTE_DIR="$PWD/libbytecode"])
+AC_SUBST(BYTE_DIR)
+
+AC_CONFIG_FILES(Makefile src/make.def goto_trans/make.def)
+AC_OUTPUT

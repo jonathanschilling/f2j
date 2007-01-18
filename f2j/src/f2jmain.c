@@ -23,7 +23,7 @@
 #include<time.h>
 #include<signal.h>
 #include"f2j.h"
-#include"f2jparse.tab.h"
+#include"y.tab.h"
 #include"dlist.h"
 #include"f2jmem.h"
 #include"f2j_externs.h"
@@ -49,7 +49,6 @@ AST
   *addnode(void);
 
 char
-  *strdup(const char *),
   *f2j_fgets(char *, int, FILE *);
 
 SYMTABLE

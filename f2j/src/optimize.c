@@ -53,7 +53,6 @@ char *unit_name;        /* name of this function/subroutine                  */
  *****************************************************************************/
 
 char 
-  * strdup ( const char * ),
   * lowercase ( char * );
 
 METHODTAB

@@ -70,7 +70,6 @@ double
   eval_const_expr(AST *);
 
 char 
-  * strdup(const char *),
   * lowercase(char * ),
   * first_char_is_minus(char *),
   * tok2str(int );

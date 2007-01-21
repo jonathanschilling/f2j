@@ -3,6 +3,15 @@ AC_REVISION([$Revision$])
 
 AC_CONFIG_SRCDIR(f2j_TODO.txt)
 
+if test "x$prefix" != xNONE; then
+  F2J_INSTALL_PREFIX=${prefix}
+else
+  F2J_INSTALL_PREFIX=`pwd`
+fi
+AC_SUBST(F2J_INSTALL_PREFIX)
+
+prefix=$F2J_INSTALL_PREFIX
+
 AC_CONFIG_SUBDIRS(libbytecode)
 
 AC_PROG_CC(gcc cc ecc xlc)
@@ -19,18 +28,14 @@ AC_PATH_PROG(JAVA, java)
 AC_SUBST(JAVA)
 AC_PROG_YACC
 
-if test "x$prefix" != xNONE; then
-  F2J_INSTALL_PREFIX=${prefix}
-else
-  F2J_INSTALL_PREFIX=`pwd`
-fi
-AC_SUBST(F2J_INSTALL_PREFIX)
-
 AC_ARG_WITH(libbytecode-dir,
             [  --with-libbytecode-dir=dir  directory containing bytecode library],
             [BYTE_DIR="$with_libbytecode_dir"],
             [BYTE_DIR="$PWD/libbytecode"])
 AC_SUBST(BYTE_DIR)
+
+F2J_PACKAGE_STRING=AC_PACKAGE_NAME-AC_PACKAGE_VERSION
+AC_SUBST(F2J_PACKAGE_STRING)
 
 AC_CONFIG_FILES(Makefile src/make.def goto_trans/make.def)
 AC_OUTPUT

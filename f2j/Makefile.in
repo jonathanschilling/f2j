@@ -5,7 +5,14 @@
 # $Source$
 # $Revision$
 
+F2J_PACKAGE_NAME=@F2J_PACKAGE_STRING@
+
 all:	f2java javab
+
+install:
+	cd goto_trans; $(MAKE) install
+	cd libbytecode; $(MAKE) install
+	cd src; $(MAKE) install
 
 libbytecode/libbytecode.a:
 	cd libbytecode; $(MAKE)
@@ -17,22 +24,25 @@ javab:
 	cd goto_trans; $(MAKE)
 
 srcdist: srcdist_common
-	zip -r f2jsrc.zip f2j
+	zip -r $(F2J_PACKAGE_NAME).zip $(F2J_PACKAGE_NAME)
 
 srcdist_tgz: srcdist_common
-	tar cvf - f2j | gzip > f2jsrc.tgz
+	tar cvf - $(F2J_PACKAGE_NAME) | gzip > $(F2J_PACKAGE_NAME).tgz
 
 srcdist_common:
-	cd src; $(MAKE) f2jparse.tab.c
-	mkdir -p f2j/bin
-	mkdir -p f2j/src
-	mkdir -p f2j/goto_trans
-	cd goto_trans; cp *.[ch] README LICENSE Makefile ../f2j/goto_trans
-	cd src; cp *.[chy] LICENSE Makefile ../f2j/src
-	cp srcdist_makefile f2j/Makefile
-	cp srcdist_readme f2j/README
+	cd src; $(MAKE) y.tab.c
+	mkdir -p $(F2J_PACKAGE_NAME)/bin
+	mkdir -p $(F2J_PACKAGE_NAME)/src
+	mkdir -p $(F2J_PACKAGE_NAME)/libbytecode/testing
+	mkdir -p $(F2J_PACKAGE_NAME)/goto_trans
+	cd goto_trans; cp *.[ch] make.def.in README LICENSE Makefile ../$(F2J_PACKAGE_NAME)/goto_trans
+	cd libbytecode; cp *.[ch] *.in configure ../$(F2J_PACKAGE_NAME)/libbytecode
+	cd libbytecode/testing; cp *.c *.correct *.output *.java Makefile.in ../../$(F2J_PACKAGE_NAME)/libbytecode/testing
+	cd src; cp *.[chy] make.def.in LICENSE Makefile ../$(F2J_PACKAGE_NAME)/src
+	cp README install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
 
 clean:
-	/bin/rm -rf f2j f2jsrc.tgz f2jsrc.zip
+	/bin/rm -rf $(F2J_PACKAGE_NAME) f2jsrc.tgz f2jsrc.zip
 	cd goto_trans; $(MAKE) realclean
+	cd libbytecode; $(MAKE) clean
 	cd src; $(MAKE) clean

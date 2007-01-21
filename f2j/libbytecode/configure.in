@@ -16,6 +16,13 @@ AC_SUBST(JAVAC)
 AC_PATH_PROG(JAVA, java)
 AC_SUBST(JAVA)
 
+if test "x$prefix" != xNONE; then
+  F2J_INSTALL_PREFIX=${prefix}
+else
+  F2J_INSTALL_PREFIX=`pwd`
+fi
+AC_SUBST(F2J_INSTALL_PREFIX)
+
 AC_ARG_WITH(doxygen,
             [  --with-doxygen=DOXYGEN  doxygen binary name],
             [DOXYGEN="$with_doxygen"],

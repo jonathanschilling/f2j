@@ -1,0 +1,278 @@
+\documentclass[11pt]{article}
+\setlength{\oddsidemargin}{.25in}
+\setlength{\topmargin}{-.25in}
+\setlength{\textheight}{8.75in}
+\setlength{\textwidth}{6in}
+\setlength{\parindent}{.25in}
+\usepackage{moreverb}
+\usepackage{longtable}
+\usepackage{textcomp}
+\usepackage{graphicx} 
+\usepackage{amstext,amssymb}
+\usepackage{pslatex}
+\usepackage{url}
+\usepackage[ps2pdf,colorlinks]{hyperref}
+
+\begin{document}
+
+\pagenumbering{roman}
+\include{title}
+
+%\include{license}
+%\tableofcontents
+%\listoftables
+%\listoffigures
+
+\newpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\section{Introduction}
+
+Before using the f2j source code, realize that f2j was originally geared
+to a very specific problem - that is, translating the LAPACK and BLAS numerical
+libraries.  However, now that the translation of LAPACK is complete, the goal is
+to handle as much Fortran as possible, but there's still a lot left to cover.
+We have a lot of confidence in the JLAPACK translation, but for a variety of
+reasons, f2j will most likely not correctly translate your code at first.
+
+One of the reasons for putting the code up on SourceForge is to enable
+collaboration with other developers.  If you're interested in helping the
+development of f2j, we'll be glad to give commit access to the CVS tree.
+
+The purpose of this document is to describe how to build and use the f2j compiler and
+to give some background on how to extend it to handle your Fortran code. 
+
+\section{Obtaining the Code}
+
+For downloads and CVS access, see the f2j project page at SourceForge:
+
+  http://sourceforge.net/projects/f2j
+
+The GOTO translation code is based on the bytecode parser found in javab, a
+bytecode parallelizing tool under development at the University of Indiana.
+This code is covered under its original license, found in the translator source
+directory.
+
+\section{Limitations}
+
+Complex data types are still not supported.  f2j also doesn't support file
+I/O, certain forms of EQUIVALENCE, and has pretty weak formatted I/O
+support.  There are a couple of parsing quirks too.
+
+With that said, if you have pretty straightforward numerical code (similar to
+BLAS or LAPACK) f2j may be able to handle it.
+
+\section{Building and Using f2java}
+
+We have been doing development and testing of f2j on Sun SPARCstations running
+various versions of Solaris as well as x86 machines running various versions
+of Linux and Solaris/x86.  It may compile on
+other platforms, though.  At least it's worth a shot.  Depending on the compiler,
+you may see some warnings about unused variables, etc.  You can safely ignore
+them.
+
+First, download and uncompress the source code.  Building the code follows the typical configure/make process:
+
+\begin{verbatim}
+# ./configure
+# make
+\end{verbatim}
+
+Optionally, you can ``make install'' which will copy the executables to the
+location specified in the \verb|--prefix| argument to configure.
+
+Now you may want to add the relevant install directory to your PATH.  This
+will vary depending on whether you did ``make install''.  If so, the PATH
+should include {\verb $prefix/bin}.  If not, your PATH should include
+\verb|$f2j_dir/src| and \verb|$f2j_dir/goto_trans|, where \verb|$f2j_dir|
+is the top-level f2j source directory.
+
+Let's go through a simple example.  Say you have the following Fortran code in a file 
+called ``test.f''
+
+\begin{verbatim}
+      program blah
+      external foo
+      write(*,*) 'hi'
+      call foo(12)
+      stop
+      end
+      subroutine foo(y)
+      integer y
+      write(*,*) 'foo ', y
+      return
+      end
+\end{verbatim}
+
+If you translate it with ``\verb|f2java test.f|'', it will produce one class file and
+one Java source file for each program unit.  So, in this case since we have 
+two program units in the Fortran source file, we end up with four generated files:
+Blah.java, Blah.class, Foo.java, and Foo.class (note the first letter
+of the name becomes
+capitalized).  You can run the generated class file directly:
+
+\begin{verbatim}
+# java Blah
+hi
+foo  12
+\end{verbatim}
+
+You don't need to compile the Java source, but if you wanted to modify it,
+you could recompile:
+
+\begin{verbatim}
+# javac Blah.java Foo.java
+\end{verbatim}
+
+However at this point the GOTO statements haven't been converted, so if you
+run it you'll see some warnings like this:
+
+\begin{verbatim}
+# java Blah
+hi
+foo  12
+Warning: Untransformed goto remaining in program! (Foo, 999999)
+Warning: Untransformed label remaining in program! (Foo, 999999)
+\end{verbatim}
+
+So you need to run the GOTO transformer (javab) on the class files:
+
+\begin{verbatim}
+# javab *.class
+\end{verbatim}
+
+and then it'll run fine:
+
+\begin{verbatim}
+# java Blah
+hi
+foo  12
+\end{verbatim}
+
+\section{Command-line Options}
+
+There are several command-line options that you should be aware of: 
+
+\begin{itemize}
+\item -I specifies a path to be searched for included files (may be used
+  multiple times).
+
+\item -c specifies the search path for ``f2j'' files.
+  It is a colon-separated list of paths, like a Java CLASSPATH).  For example:
+\begin{verbatim}
+    f2java -c .:../objects filename.f
+\end{verbatim}
+
+\item -p specifies the name of the package.  For example:
+\begin{verbatim}
+    f2java -p org.netlib.blas filename.f
+\end{verbatim}
+
+\item -o specifies the destination directory to which the code should be
+  written.
+
+\item -w forces all scalars to be generated as wrapped objects.  The default
+  behavior is to only wrap those scalars that must be passed by reference.
+  Note that using this option will generate less efficient Java code.
+
+\item -i causes f2j to generate a high-level interface to each subroutine and
+  function.  The high-level interface uses a Java-style calling convention (2D
+  row-major arrays, etc).  The low-level routine is still generated because the
+  high-level interface simply performs some conversions and then calls the
+  low-level routine.
+
+\item -h displays help information.
+
+\item -s causes f2j to simplify the interfaces by removing the offset parameter and
+  using a zero offset.  It isn't necessary to specify -i in addition to -s.
+
+\item -d causes f2j to generate comments in a format suitable for javadoc.  It is a
+  bit of a LAPACK-specfic hack -- the longest comment in the program unit is
+  placed in the javadoc comment.  It works fine for BLAS/LAPACK code (or any
+  other code where the longest comment is the one that describes the function),
+  but will most likely not work for other code.
+
+\item -fm causes f2j to generate code that calls java.lang.StrictMath
+  instead of java.lang.Math.  By default, java.lang.Math is used.
+
+\item -fs causes f2j to declare the generated code as strictfp (strict
+  floating point).  By default, the generated code is not strict.
+
+\item -fb enables both the -fm and -fs options.
+
+\item -vs causes f2j to generate all variables as static class
+  variables.  By default f2j generates variables as locals.
+
+\item -va causes f2j to generate arrays as static class variables, but
+  other variables are generated as locals.
+\end{itemize}
+
+After issuing the command ``f2java file.f'' there should be one or more Java
+files in your current directory, one Java file and one class file per Fortran program unit
+(function, subroutine, program) in the source file.  Initially, we would
+suggest concatenating all Fortran program units into one file because it makes
+it easier to perform correct code generation (more about this later).  As the
+example above illustrated, you can run the class file corresponding to the main
+Fortran program unit or you can use the Java compiler of your choice to compile
+the resulting Java source code.  Make sure that the org.netlib.util package is
+in your CLASSPATH.  This package comes in the JLAPACK distribution, so if your
+CLASSPATH already points to JLAPACK's f2jutil.jar, then you're ok.
+
+\section{Extending f2j}
+
+So, at this point you may be wondering how to extend f2j to handle your code.
+Typically, the first problem you'll run into is that f2j doesn't parse your
+code. That could involve something as simple as changing a production in the
+parser or it could involve a bit more work - e.g. creating a new kind of AST
+node along with all the appropriate code generation routines. The first thing
+you'll want to check is whether the parser supports the syntax your code uses
+(the parsing code is machine generated from a Yacc parser in f2jparse.y). For
+example, if your code contains an IMPLICIT statement (besides IMPLICIT NONE),
+your code will not compile because f2j doesn't support implicit typing. Suppose
+you wanted to implement implicit typing in f2j. Your first step would be to
+modify the ``Implicit'' production in the parser to allow the statement. Then
+you'd probably have to modify the ``type assignment'' code in typecheck.c, but
+you shouldn't need to change the code generator (codegen.c). The second thing
+you'll want to check if your code doesn't parse is whether the lexer is acting
+up. If you're getting parse errors on a line of code that should compile based
+on your examination of the parser, then the lexer might not be sending the
+correct tokens to the parser. The lexical analysis code is in f2jlex.c, which
+is handwritten C code based on Sale's algorithm. There's not really an easy way
+of describing the structure of the lexer code, but if you enable debugging
+output (set lexdebug = TRUE) it should help you figure out where the problem
+is.
+
+If f2j can parse your code, but the resulting Java code does not compile or
+does not work, then this may indicate a problem in the f2j back-end. First, try
+concatenating all your Fortran files into one big file (ok, we admit this is
+cheesy, but we haven't implemented multiple file handling yet). This should
+help with the type analysis phase and may eliminate problems in the resulting
+Java code. After that, if the generated code is still incorrect, begin looking
+into the f2j code. After f2j parses your code, it passes through a couple of
+stages before actually generating code. First, the AST goes through 'type
+analysis' (typecheck.c), which simply means that the tree is fully traversed
+and each node is assigned type information as appropriate. This is not semantic
+analysis, just annotation. Next, the AST goes through 'scalar optimization'
+(optimize.c), which is an optimization stage designed to determine which scalar
+variables need to be wrapped in objects and which can remain primitives. After
+that, f2j generates the Java code (codegen.c) based on the modified AST. So, if
+you notice a type mismatch problem in the generated code, typecheck.c would be
+a good place to begin debugging. Similarly, if you notice that object wrappers
+are inappropriately used, check into optimize.c (hint: by passing the -w flag
+to f2java, the scalar optimization code will be skipped). Most other problems
+will be with the code generator itself.
+
+If you're ambitious, you might try grafting a full Fortran 77 front-end onto
+f2j and start building up the back-end to accommodate all the new AST nodes. Or
+you might just try fully implementing Fortran's I/O routines for f2j.  Tips:
+
+\begin{itemize}
+\item f2java -h provides a help screen.
+\item For best results, concatenate all Fortran files into one source file.
+\item Remember to run the goto translation program on the resulting bytecode.
+\item Jasmin code generation and VCG graph generation are deprecated.
+\item Last line of input can't begin with a TAB.
+\end{itemize}
+
+\end{document}

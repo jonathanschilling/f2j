@@ -10,7 +10,7 @@ ZIP=zip
 TAR=tar
 TARFLAGS=chvf
 GZIP=gzip
-VERIFY=java de.fub.bytecode.verifier.Verifier
+VERIFY=de.fub.bytecode.verifier.Verifier
 JUSTICE=$$HOME/bin/JustIce.jar
 BCEL=$$HOME/bin/BCEL.jar
 

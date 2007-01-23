@@ -3,7 +3,14 @@
 ROOT=../..
 include $(ROOT)/make.def
 
-util:	$(UTIL_CLASSES)
+$(UTIL_JAR):
+	if test -f $(ROOT)/../util/$(UTIL_JAR); then \
+		cp $(ROOT)/../util/$(UTIL_JAR) .; \
+	else \
+		$(MAKE) util_deprecated;\
+	fi
+
+util_deprecated:	$(UTIL_CLASSES)
 
 $(UTIL_CLASSES):
 	mkdir -p $(OUTDIR)

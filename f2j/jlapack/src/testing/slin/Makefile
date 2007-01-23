@@ -34,7 +34,7 @@ util:
 	cd $(ROOT)/$(UTIL_DIR); $(MAKE)
 
 runtest:	tester
-	$(JAVA) $(JFLAGS) -cp .:$(SLINTEST_JAR):$(SMATGEN):$(SBLAS):$(SLAPACK):$(ROOT)/$(UTIL_OBJ) $(SLINTEST_PACKAGE).Schkaa < stest.in
+	$(JAVA) $(JFLAGS) -cp .:$(SLINTEST_JAR):$(SMATGEN):$(SBLAS):$(SLAPACK):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(SLINTEST_PACKAGE).Schkaa < stest.in
 
 srctest:
 	$(MAKE) -f Makefile_javasrc runtest

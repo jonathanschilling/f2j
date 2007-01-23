@@ -38,7 +38,7 @@ util:
 runtimer:	timer *.in
 
 *.in:	DUMMY
-	java -server -Xmx500M -cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_OBJ) $(LINTIME_PACKAGE).Dtimaa < $@
+	java -server -Xmx500M -cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(LINTIME_PACKAGE).Dtimaa < $@
 
 clean:
 	cd linsrc;$(MAKE) clean

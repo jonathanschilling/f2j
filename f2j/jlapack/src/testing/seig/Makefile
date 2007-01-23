@@ -44,7 +44,7 @@ verify: $(ROOT)/$(SEIGTEST_IDX)
 
 
 *.in:   DUMMY
-	$(JAVA) $(JFLAGS) -cp .:$(SEIGTEST_JAR):$(SMATGEN):$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR):$(ROOT)/$(SLAPACK_DIR)/$(SLAPACK_JAR):$(ROOT)/$(UTIL_OBJ) $(SEIGTEST_PACKAGE).Schkee < $@
+	$(JAVA) $(JFLAGS) -cp .:$(SEIGTEST_JAR):$(SMATGEN):$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR):$(ROOT)/$(SLAPACK_DIR)/$(SLAPACK_JAR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(SEIGTEST_PACKAGE).Schkee < $@
 
 clean:
 	/bin/rm -rf *.java *.class *.f2j org $(JAVASRC_OUTDIR) $(OUTDIR) $(SEIGTEST_JAR)

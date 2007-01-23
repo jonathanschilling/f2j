@@ -44,7 +44,7 @@ verify: $(ROOT)/$(EIGTEST_IDX)
 
 
 *.in:   DUMMY
-	$(JAVA) $(JFLAGS) -cp .:$(EIGTEST_JAR):$(MATGEN):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR):$(ROOT)/$(UTIL_OBJ) $(EIGTEST_PACKAGE).Dchkee < $@
+	$(JAVA) $(JFLAGS) -cp .:$(EIGTEST_JAR):$(MATGEN):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(EIGTEST_PACKAGE).Dchkee < $@
 
 clean:
 	/bin/rm -rf *.java *.class *.f2j org $(JAVASRC_OUTDIR) $(OUTDIR) $(EIGTEST_JAR)

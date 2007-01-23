@@ -38,7 +38,7 @@ util:
 runtimer:	timer *.in
 
 *.in:	DUMMY
-	java -cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_OBJ) $(EIGTIME_PACKAGE).Dtimee < $@
+	java -cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(EIGTIME_PACKAGE).Dtimee < $@
 
 clean:
 	cd eigsrc;$(MAKE) clean

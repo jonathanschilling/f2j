@@ -34,7 +34,7 @@ util:
 	cd $(ROOT)/$(UTIL_DIR); $(MAKE)
 
 runtest:	tester
-	$(JAVA) $(JFLAGS) -cp .:$(LINTEST_JAR):$(MATGEN):$(BLAS):$(LAPACK):$(ROOT)/$(UTIL_OBJ) $(LINTEST_PACKAGE).Dchkaa < dtest.in
+	$(JAVA) $(JFLAGS) -cp .:$(LINTEST_JAR):$(MATGEN):$(BLAS):$(LAPACK):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(LINTEST_PACKAGE).Dchkaa < dtest.in
 
 srctest:
 	$(MAKE) -f Makefile_javasrc runtest

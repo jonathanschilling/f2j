@@ -128,8 +128,12 @@ testers_dist_common:
 	-ln -s ../../$(DISTDIR)/$(EIGTEST_BAT) $(VERSION)/testing/$(EIGTEST_BAT)
 	-ln -s ../../$(DISTDIR)/README $(VERSION)/testing/README
 
+examples:
+	cd examples; $(MAKE)
+
 clean:
 	cd src; $(MAKE) clean
+	cd examples; $(MAKE) clean
 	/bin/rm -rf doc $(VERSION) $(LIBDIST_ZIP) $(LIBDIST_TGZ) \
 		$(TESTERS_DIST_ZIP) $(TESTERS_DIST_TGZ) $(DOC_DIST_ZIP) \
 		$(DOC_DIST_TGZ)

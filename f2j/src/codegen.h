@@ -68,6 +68,7 @@
 #define EASYIN_DESC "()V"
 #define ETIME_CLASS "org/netlib/util/Etime"
 #define ETIME_DESC "()V"
+#define SECOND_CLASS "org/netlib/util/Second"
 #define IOEXCEPTION "java/io/IOException"
 #define METHOD_CLASS "java/lang/reflect/Method"
 #define GETMETHODS_DESC "()[Ljava/lang/reflect/Method;"

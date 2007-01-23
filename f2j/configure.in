@@ -37,5 +37,5 @@ AC_SUBST(BYTE_DIR)
 F2J_PACKAGE_STRING=AC_PACKAGE_NAME-AC_PACKAGE_VERSION
 AC_SUBST(F2J_PACKAGE_STRING)
 
-AC_CONFIG_FILES(Makefile src/make.def goto_trans/make.def)
+AC_CONFIG_FILES(Makefile src/make.def goto_trans/make.def util/make.def)
 AC_OUTPUT

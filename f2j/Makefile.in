@@ -10,6 +10,7 @@ F2J_PACKAGE_NAME=@F2J_PACKAGE_STRING@
 all:	f2java javab
 
 install:
+	cd util; $(MAKE) install
 	cd goto_trans; $(MAKE) install
 	cd libbytecode; $(MAKE) install
 	cd src; $(MAKE) install
@@ -17,7 +18,10 @@ install:
 libbytecode/libbytecode.a:
 	cd libbytecode; $(MAKE)
 	
-f2java: libbytecode/libbytecode.a
+util/f2jutil.jar:
+	cd util; $(MAKE)
+
+f2java: libbytecode/libbytecode.a util/f2jutil.jar
 	cd src; $(MAKE)
 
 javab:
@@ -35,10 +39,13 @@ srcdist_common:
 	mkdir -p $(F2J_PACKAGE_NAME)/src
 	mkdir -p $(F2J_PACKAGE_NAME)/libbytecode/testing
 	mkdir -p $(F2J_PACKAGE_NAME)/goto_trans
+	mkdir -p $(F2J_PACKAGE_NAME)/util/org/netlib/util
 	cd goto_trans; cp *.[ch] make.def.in README LICENSE Makefile ../$(F2J_PACKAGE_NAME)/goto_trans
 	cd libbytecode; cp *.[ch] *.in configure ../$(F2J_PACKAGE_NAME)/libbytecode
 	cd libbytecode/testing; cp *.c *.correct *.output *.java Makefile.in ../../$(F2J_PACKAGE_NAME)/libbytecode/testing
 	cd src; cp *.[chy] make.def.in LICENSE Makefile ../$(F2J_PACKAGE_NAME)/src
+	cd util; cp make.def.in Makefile ../$(F2J_PACKAGE_NAME)/util
+	cd util; cp -r org ../$(F2J_PACKAGE_NAME)/util
 	cp README install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
 
 clean:
@@ -46,3 +53,4 @@ clean:
 	cd goto_trans; $(MAKE) realclean
 	cd libbytecode; $(MAKE) clean
 	cd src; $(MAKE) clean
+	cd util; $(MAKE) clean

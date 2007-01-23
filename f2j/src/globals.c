@@ -22,6 +22,7 @@
  *****************************************************************************/
 
 #include"f2j.h"
+#include"codegen.h"
 #include"y.tab.h" 
 
 int 
@@ -259,12 +260,12 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DINT, "DINT", "(int)", NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Double},
 
   /* Nearest Whole Number - call NINT/IDNINT and then cast to Float/Double */
-  {ifunc_ANINT, "ANINT", "Util.nint",   "StrictUtil.nint",   "org/netlib/util/Util", "org/netlib/util/StrictUtil", "nint",   "(F)I", RD_ARGS,    Float},
-  {ifunc_DNINT, "DNINT", "Util.idnint", "StrictUtil.idnint", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idnint", "(D)I", DOUBLE_ARG, Double},
+  {ifunc_ANINT, "ANINT", "Util.nint",   "StrictUtil.nint",   UTIL_CLASS, STRICT_UTIL_CLASS, "nint",   "(F)I", RD_ARGS,    Float},
+  {ifunc_DNINT, "DNINT", "Util.idnint", "StrictUtil.idnint", UTIL_CLASS, STRICT_UTIL_CLASS, "idnint", "(D)I", DOUBLE_ARG, Double},
 
   /* Nearest Integer */
-  {ifunc_NINT,   "NINT",   "Util.nint",   "StrictUtil.nint",   "org/netlib/util/Util", "org/netlib/util/StrictUtil", "nint",   "(F)I", RD_ARGS,    Integer},
-  {ifunc_IDNINT, "IDNINT", "Util.idnint", "StrictUtil.idnint", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idnint", "(D)I", DOUBLE_ARG, Integer},
+  {ifunc_NINT,   "NINT",   "Util.nint",   "StrictUtil.nint",   UTIL_CLASS, STRICT_UTIL_CLASS, "nint",   "(F)I", RD_ARGS,    Integer},
+  {ifunc_IDNINT, "IDNINT", "Util.idnint", "StrictUtil.idnint", UTIL_CLASS, STRICT_UTIL_CLASS, "idnint", "(D)I", DOUBLE_ARG, Integer},
 
   /* Absolute Value */
   {ifunc_ABS,  "ABS",  "Math.abs", "StrictMath.abs", "java/lang/Math", "java/lang/StrictMath", "abs", "(F)F", IRDC_ARGS,   Double},
@@ -278,14 +279,14 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DMOD, "DMOD", "Unused", NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Double},
 
   /* Transfer of Sign */
-  {ifunc_SIGN,  "SIGN",  "Util.sign",  "StrictUtil.sign",  "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sign",  "(FF)F", IRD_ARGS,   Float},
-  {ifunc_ISIGN, "ISIGN", "Util.isign", "StrictUtil.isign", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "isign", "(II)I", INT_ARG,    Integer},
-  {ifunc_DSIGN, "DSIGN", "Util.dsign", "StrictUtil.dsign", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "dsign", "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_SIGN,  "SIGN",  "Util.sign",  "StrictUtil.sign",  UTIL_CLASS, STRICT_UTIL_CLASS, "sign",  "(FF)F", IRD_ARGS,   Float},
+  {ifunc_ISIGN, "ISIGN", "Util.isign", "StrictUtil.isign", UTIL_CLASS, STRICT_UTIL_CLASS, "isign", "(II)I", INT_ARG,    Integer},
+  {ifunc_DSIGN, "DSIGN", "Util.dsign", "StrictUtil.dsign", UTIL_CLASS, STRICT_UTIL_CLASS, "dsign", "(DD)D", DOUBLE_ARG, Double},
 
   /* Positive Difference */
-  {ifunc_DIM,  "DIM",  "Util.dim",  "StrictUtil.dim",  "org/netlib/util/Util", "org/netlib/util/StrictUtil", "dim",  "(FF)F", IRD_ARGS,   Float},
-  {ifunc_IDIM, "IDIM", "Util.idim", "StrictUtil.idim", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "idim", "(II)I", INT_ARG,    Integer},
-  {ifunc_DDIM, "DDIM", "Util.ddim", "StrictUtil.ddim", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "ddim", "(DD)D", DOUBLE_ARG, Double},
+  {ifunc_DIM,  "DIM",  "Util.dim",  "StrictUtil.dim",  UTIL_CLASS, STRICT_UTIL_CLASS, "dim",  "(FF)F", IRD_ARGS,   Float},
+  {ifunc_IDIM, "IDIM", "Util.idim", "StrictUtil.idim", UTIL_CLASS, STRICT_UTIL_CLASS, "idim", "(II)I", INT_ARG,    Integer},
+  {ifunc_DDIM, "DDIM", "Util.ddim", "StrictUtil.ddim", UTIL_CLASS, STRICT_UTIL_CLASS, "ddim", "(DD)D", DOUBLE_ARG, Double},
 
   /* Double Precision Product of two reals.  implement as (double)a1 * (double)a2  */
   {ifunc_DPROD, "DPROD", "Unused", NULL, "Unused", NULL, "Unused", "Unused", REAL_ARG, Double},
@@ -335,9 +336,9 @@ METHODTAB intrinsic_toks[]=
   {ifunc_CLOG, "CLOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", COMPLEX_ARG, Complex},
 
   /* Common Logarithm - use java's log function then divide by 2.30258509 */
-  {ifunc_LOG10,  "LOG10",  "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", RD_ARGS,    Double},
-  {ifunc_ALOG10, "ALOG10", "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", REAL_ARG,   Double},
-  {ifunc_DLOG10, "DLOG10", "Util.log10", "StrictUtil.log10", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "log10", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_LOG10,  "LOG10",  "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", RD_ARGS,    Double},
+  {ifunc_ALOG10, "ALOG10", "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", REAL_ARG,   Double},
+  {ifunc_DLOG10, "DLOG10", "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", DOUBLE_ARG, Double},
 
   /* Sine */
   {ifunc_SIN,  "SIN",  "Math.sin", "StrictMath.sin", "java/lang/Math", "java/lang/StrictMath", "sin", "(D)D", RDC_ARGS,    Double},
@@ -368,16 +369,16 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DATAN2, "DATAN2", "Math.atan2", "StrictMath.atan2", "java/lang/Math", "java/lang/StrictMath", "atan2", "(DD)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Sine */
-  {ifunc_SINH,  "SINH",  "Util.sinh", "StrictUtil.sinh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sinh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DSINH, "DSINH", "Util.sinh", "StrictUtil.sinh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "sinh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_SINH,  "SINH",  "Util.sinh", "StrictUtil.sinh", UTIL_CLASS, STRICT_UTIL_CLASS, "sinh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DSINH, "DSINH", "Util.sinh", "StrictUtil.sinh", UTIL_CLASS, STRICT_UTIL_CLASS, "sinh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Cosine */
-  {ifunc_COSH,  "COSH",  "Util.cosh", "StrictUtil.cosh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "cosh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DCOSH, "DCOSH", "Util.cosh", "StrictUtil.cosh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "cosh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_COSH,  "COSH",  "Util.cosh", "StrictUtil.cosh", UTIL_CLASS, STRICT_UTIL_CLASS, "cosh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DCOSH, "DCOSH", "Util.cosh", "StrictUtil.cosh", UTIL_CLASS, STRICT_UTIL_CLASS, "cosh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Tangent */
-  {ifunc_TANH,  "TANH",  "Util.tanh", "StrictUtil.tanh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "tanh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DTANH, "DTANH", "Util.tanh", "StrictUtil.tanh", "org/netlib/util/Util", "org/netlib/util/StrictUtil", "tanh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TANH,  "TANH",  "Util.tanh", "StrictUtil.tanh", UTIL_CLASS, STRICT_UTIL_CLASS, "tanh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DTANH, "DTANH", "Util.tanh", "StrictUtil.tanh", UTIL_CLASS, STRICT_UTIL_CLASS, "tanh", "(D)D", DOUBLE_ARG, Double},
 
   /* Lexically Greater than or Equal to */
   {ifunc_LGE, "LGE", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
@@ -392,9 +393,9 @@ METHODTAB intrinsic_toks[]=
   {ifunc_LLT, "LLT", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
   /* fortran pseudo intrinsic */
-  {ifunc_ETIME, "ETIME", ".etime", NULL, "org/netlib/util/Etime", NULL, "etime", "([FI)F", IRDC_ARGS, Float}, 
+  {ifunc_ETIME, "ETIME", ".etime", NULL, ETIME_CLASS, NULL, "etime", "([FI)F", IRDC_ARGS, Float}, 
 
-  {ifunc_SECOND, "SECOND", ".second",  NULL,  "org/netlib/util/Second", NULL, "second", "()F", NO_ARG, Float}, 
+  {ifunc_SECOND, "SECOND", ".second",  NULL,  SECOND_CLASS, NULL, "second", "()F", NO_ARG, Float}, 
 
   /*  Ends a scanning loop.  See comment above. */
   {0, NULL , NULL, NULL, NULL, NULL, NULL, NULL, 0, 0}    

@@ -66,7 +66,7 @@ optimize.o: optimize.c f2j.h symtab.h dlist.h \
  opcodes.h codegen.h y.tab.h  f2jmem.h
 
 globals.o: globals.c f2j.h symtab.h dlist.h opcodes.h \
- y.tab.h
+ codegen.h y.tab.h
 
 f2jmem.o: f2jmem.c f2jmem.h f2j.h symtab.h dlist.h \
  opcodes.h

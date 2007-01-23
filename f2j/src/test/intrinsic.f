@@ -10,7 +10,7 @@
       external etime
       real etime
       external second
-      double precision second
+      real second
       integer fflag
       fflag = 0
 c   ifunc_INT
@@ -1524,13 +1524,13 @@ c   ifunc_ETIME
       endif
 c   ifunc_SECOND
       write(*,*) 'testing SECOND'
-      y = second()
+      b = second()
       do 15 i = 1, 5000000
        j = j + 1
   15  continue
-      x = second()
-      z = x-y
-      if(z .le. 0.0d0) then
+      a = second()
+      c = a-b
+      if(c .le. 0.0) then
         write(*,*) 'Warning: SECOND might have failed'
       endif
       if(fflag .gt. 0) then

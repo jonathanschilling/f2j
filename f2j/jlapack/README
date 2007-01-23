@@ -7,9 +7,7 @@ This directory should contain:
   README               - this file
   INSTALL              - installation details
   CHANGES              - what has changed in this version
-  DdotTest.java        - simple example of how to call a BLAS routine
-  SimpleDdotTest.java  - example of calling the simplified interface
-  DlaruvTest.java      - simple example of how to call a LAPACK routine
+  examples             - directory containing a few examples of calling JLAPACK
   blas.jar             - the BLAS library
   blas_simple.jar      - the simplified interfaces to BLAS
   lapack.jar           - the LAPACK library

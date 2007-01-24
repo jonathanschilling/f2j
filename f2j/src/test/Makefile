@@ -20,4 +20,4 @@ Intrinsic.class: intrinsic.f
 clean:
 	/bin/rm -f Intrinsic.class Achk.class Dchk.class \
            Intrinsic.java Achk.java Dchk.java \
-           Intrinsic.f2j *.old
+           Intrinsic.f2j *.old f77_test

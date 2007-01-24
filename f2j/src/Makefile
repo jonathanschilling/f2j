@@ -73,7 +73,7 @@ f2jmem.o: f2jmem.c f2jmem.h f2j.h symtab.h dlist.h \
 
 clean:
 	rm -f *.o *.class f2jparse.c y.tab.c y.tab.h \
-	tmp f2j core a.out *.output *~  *.vcg
+	tmp f2j f2java core a.out *.output *~  *.vcg
 
 realclean: clean
 	rm -f ../bin/f2java ../bin/puref2j 

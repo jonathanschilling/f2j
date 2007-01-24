@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------------
-JLAPACK 0.7 -- released January ???, 2007
+JLAPACK 0.7 -- released January 31, 2007
 
  There are two improvements in this release.  First, there are now
 single precision versions of all the BLAS and LAPACK libraries

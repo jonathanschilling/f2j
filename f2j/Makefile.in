@@ -54,3 +54,10 @@ clean:
 	cd libbytecode; $(MAKE) clean
 	cd src; $(MAKE) clean
 	cd util; $(MAKE) clean
+	cd doc; $(MAKE) clean
+
+configclean: clean
+	cd libbytecode; $(MAKE) configclean
+	/bin/rm -rf autom4te.cache 
+	/bin/rm -f config.log config.status config.cache Makefile src/make.def
+	/bin/rm -f configure goto_trans/make.def util/make.def

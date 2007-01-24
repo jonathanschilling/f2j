@@ -1,9 +1,9 @@
-include ../make.def
+JAVAC=javac
 
-BLAS_CLASSPATH=.:../$(UTIL_DIR)/$(UTIL_JAR):../$(BLAS_DIR)/$(BLAS_JAR)
-SIMPLE_BLAS_CLASSPATH=$(BLAS_CLASSPATH):../$(BLAS_DIR)/$(SIMPLE_BLAS_JAR)
-LAPACK_CLASSPATH=$(BLAS_CLASSPATH):../$(LAPACK_DIR)/$(LAPACK_JAR):$(ERR_DIR)/$(ERR_JAR)
-SIMPLE_LAPACK_CLASSPATH=$(LAPACK_CLASSPATH):../$(LAPACK_DIR)/$(SIMPLE_LAPACK_JAR)
+BLAS_CLASSPATH=.:../f2jutil.jar:../blas.jar
+SIMPLE_BLAS_CLASSPATH=$(BLAS_CLASSPATH):../blas_simple.jar
+LAPACK_CLASSPATH=$(BLAS_CLASSPATH):../lapack.jar:../xerbla.jar
+SIMPLE_LAPACK_CLASSPATH=$(LAPACK_CLASSPATH):../lapack_simple.jar
 
 all: DdotTest.class SimpleDdotTest.class DgesvdTest.class DlaruvTest.class \
      DsygvTest.class SimpleDsygvTest.class

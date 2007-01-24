@@ -21,6 +21,12 @@ JLAPACK installed.
 You may omit lapack.jar if you only plan to call BLAS routines, however
 the others should always be used.
 
+If you plan to use the simplified interfaces, you will need to add the
+corresponding jar files to your CLASSPATH:
+
+  $JLAPACK_HOME/blas_simple.jar -- for the simplified BLAS interface
+  $JLAPACK_HOME/lapack_simple.jar -- for the simplified LAPACK interface
+
  For example, if your jlapack directory is /users/bob/jlapack/ the following
 command would append the appropriate files to your CLASSPATH:
   

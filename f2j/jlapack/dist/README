@@ -1,43 +1,83 @@
 JLAPACK testing routines README
-August 23, 2001
+January 31, 2007
 
 This directory should contain:
   README           - this file
-  test_blas1.bat   - windows batch file to test BLAS level 1
-  test_blas2.bat   - windows batch file to test BLAS level 2
-  test_blas3.bat   - windows batch file to test BLAS level 3
-  test_eig.bat     - windows batch file to test LAPACK linear equation routines
-  test_lin.bat     - windows batch file to test LAPACK eigenvalue routines
-  test_blas1.sh    - unix shell script to test BLAS level 1
-  test_blas2.sh    - unix shell script to test BLAS level 2
-  test_blas3.sh    - unix shell script to test BLAS level 3
-  test_eig.sh      - unix shell script to test LAPACK linear equation routines
-  test_lin.sh      - unix shell script to test LAPACK eigenvalue routines
-  dblat1.jar       - BLAS level 1 testing code
-  dblat2.jar       - BLAS level 2 testing code
-  dblat3.jar       - BLAS level 3 testing code
-  eigtest.jar      - LAPACK eigenvalue testing code
-  lintest.jar      - LAPACK linear equation testing code
-  matgen.jar       - support routines for the testers
-  dblat2.in        - BLAS level 2 input file
-  dblat3.in        - BLAS level 3 input file
-  dtest.in         - linear equation input file
-  dbak.in          - eigenvalue input file
-  dbal.in          - eigenvalue input file
-  dec.in           - eigenvalue input file
-  ded.in           - eigenvalue input file
-  dgbak.in         - eigenvalue input file
-  dgbal.in         - eigenvalue input file
-  dgg.in           - eigenvalue input file
-  dsb.in           - eigenvalue input file
-  dsg.in           - eigenvalue input file
-  glm.in           - eigenvalue input file
-  gqr.in           - eigenvalue input file
-  gsv.in           - eigenvalue input file
-  lse.in           - eigenvalue input file
-  nep.in           - eigenvalue input file
-  sep.in           - eigenvalue input file
-  svd.in           - eigenvalue input file
+  
+  Test Scripts for Double Precision:
+    test_blas1.bat   - windows batch file to test BLAS level 1
+    test_blas2.bat   - windows batch file to test BLAS level 2
+    test_blas3.bat   - windows batch file to test BLAS level 3
+    test_eig.bat     - windows batch file to test LAPACK linear equation routines
+    test_lin.bat     - windows batch file to test LAPACK eigenvalue routines
+    test_blas1.sh    - unix shell script to test BLAS level 1
+    test_blas2.sh    - unix shell script to test BLAS level 2
+    test_blas3.sh    - unix shell script to test BLAS level 3
+    test_eig.sh      - unix shell script to test LAPACK linear equation routines
+    test_lin.sh      - unix shell script to test LAPACK eigenvalue routines
+
+  Test Scripts for Single Precision:
+    test_sblas1.bat  - windows batch file to test BLAS level 1
+    test_sblas2.bat  - windows batch file to test BLAS level 2
+    test_sblas3.bat  - windows batch file to test BLAS level 3
+    test_seig.bat    - windows batch file to test LAPACK linear equation routines
+    test_slin.bat    - windows batch file to test LAPACK eigenvalue routines
+    test_sblas1.sh   - unix shell script to test BLAS level 1
+    test_sblas2.sh   - unix shell script to test BLAS level 2
+    test_sblas3.sh   - unix shell script to test BLAS level 3
+    test_seig.sh     - unix shell script to test LAPACK linear equation routines
+    test_slin.sh     - unix shell script to test LAPACK eigenvalue routines
+
+  Jar Files for Double Precision:
+    dblat1.jar       - BLAS level 1 testing code
+    dblat2.jar       - BLAS level 2 testing code
+    dblat3.jar       - BLAS level 3 testing code
+    eigtest.jar      - LAPACK eigenvalue testing code
+    lintest.jar      - LAPACK linear equation testing code
+    matgen.jar       - support routines for the testers
+
+  Jar Files for Single Precision:
+    sblat1.jar       - BLAS level 1 testing code
+    sblat2.jar       - BLAS level 2 testing code
+    sblat3.jar       - BLAS level 3 testing code
+    seigtest.jar     - LAPACK eigenvalue testing code
+    slintest.jar     - LAPACK linear equation testing code
+    smatgen.jar      - support routines for the testers
+
+  Test Input Files:
+    dblat2.in        - Double precision BLAS level 2 input file
+    dblat3.in        - Double precision BLAS level 3 input file
+    sblat2.in        - Single precision BLAS level 2 input file
+    sblat3.in        - Single precision BLAS level 3 input file
+    dtest.in         - Double precision linear equation input file
+    stest.in         - Single precision linear equation input file
+    dbak.in          - eigenvalue input file
+    dbal.in          - eigenvalue input file
+    dec.in           - eigenvalue input file
+    ded.in           - eigenvalue input file
+    dgbak.in         - eigenvalue input file
+    dgbal.in         - eigenvalue input file
+    dgg.in           - eigenvalue input file
+    dsb.in           - eigenvalue input file
+    dsg.in           - eigenvalue input file
+    glm.in           - eigenvalue input file
+    gqr.in           - eigenvalue input file
+    gsv.in           - eigenvalue input file
+    lse.in           - eigenvalue input file
+    nep.in           - eigenvalue input file
+    sbak.in          - eigenvalue input file
+    sbal.in          - eigenvalue input file
+    sbb.in           - eigenvalue input file
+    sec.in           - eigenvalue input file
+    sed.in           - eigenvalue input file
+    sep.in           - eigenvalue input file
+    sgbak.in         - eigenvalue input file
+    sgbal.in         - eigenvalue input file
+    sgd.in           - eigenvalue input file
+    sgg.in           - eigenvalue input file
+    ssb.in           - eigenvalue input file
+    ssg.in           - eigenvalue input file
+    svd.in           - eigenvalue input file
 
 To run the tests, simply execute the appropriate script, which
 depends on the operating system you are running.
@@ -58,3 +98,9 @@ We observed no testcase failures on the following platforms:
 -Solaris sparc / Sun JDK 1.2.2
 -Linux x86 (Redhat 7.1) / Sun JDK 1.3.1 / Hotspot
 -Win2000 x86 / Sun JDK 1.3.1 / Hotspot
+
+Note: in single precision, the eigenvalue testers will report
+some failures, but they match the failures observed during execution 
+of the native Fortran code.  For more details, see:
+
+  http://www.netlib.org/lapack/faq.html#1.23

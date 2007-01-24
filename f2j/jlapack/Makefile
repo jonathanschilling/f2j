@@ -23,8 +23,8 @@ default:
 	@echo ""
 	@echo "Documentation:"
 	@echo "  javadoc - documentation in javadoc format"
-	@echo "  doc_dist - zipped distribution of the documentation"
-	@echo "  doc_dist_tgz - gzipped tar file of the documentation"
+	@echo "  javadoc_dist - zipped distribution of the documentation"
+	@echo "  javadoc_dist_tgz - gzipped tar file of the documentation"
 
 lib:
 	cd $(SRCDIR); $(MAKE)
@@ -49,19 +49,19 @@ javasrc:
 
 javadoc: lib
 	mkdir -p doc
-	javadoc -sourcepath $(BLAS_OBJ):$(LAPACK_OBJ):$(ERR_OBJ):$(UTIL_DIR) -d doc -J-mx48000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
+	javadoc -sourcepath $(BLAS_OBJ):$(SBLAS_OBJ):$(LAPACK_OBJ):$(SLAPACK_OBJ):$(ERR_OBJ):$(UTIL_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
 
-doc_dist: javadoc
-	/bin/rm -f $(DOC_DIST_ZIP) $(VERSION)/doc
+javadoc_dist: javadoc
+	/bin/rm -f $(JAVADOC_DIST_ZIP) $(VERSION)/doc
 	mkdir -p $(VERSION)
 	cd $(VERSION); ln -s ../doc doc
-	$(ZIP) -r9 $(DOC_DIST_ZIP) $(VERSION)/doc
+	$(ZIP) -r9 $(JAVADOC_DIST_ZIP) $(VERSION)/doc
 
-doc_dist_tgz: javadoc
-	/bin/rm -f $(DOC_DIST_TGZ) $(VERSION)/doc
+javadoc_dist_tgz: javadoc
+	/bin/rm -f $(JAVADOC_DIST_TGZ) $(VERSION)/doc
 	mkdir -p $(VERSION)
 	cd $(VERSION); ln -s ../doc doc
-	$(TAR) $(TARFLAGS) - $(VERSION)/doc | $(GZIP) > $(DOC_DIST_TGZ)
+	$(TAR) $(TARFLAGS) - $(VERSION)/doc | $(GZIP) > $(JAVADOC_DIST_TGZ)
 
 libdist: lib libdist_common
 	$(ZIP) -r9 $(LIBDIST_ZIP) $(VERSION)
@@ -80,16 +80,19 @@ libdist_common:
 	mkdir -p $(VERSION)
 	-ln -s ../$(BLAS_DIR)/$(BLAS_JAR) $(VERSION)/$(BLAS_JAR)
 	-ln -s ../$(BLAS_DIR)/$(SIMPLE_BLAS_JAR) $(VERSION)/$(SIMPLE_BLAS_JAR)
+	-ln -s ../$(SBLAS_DIR)/$(SBLAS_JAR) $(VERSION)/$(SBLAS_JAR)
+	-ln -s ../$(SBLAS_DIR)/$(SIMPLE_SBLAS_JAR) $(VERSION)/$(SIMPLE_SBLAS_JAR)
 	-ln -s ../$(LAPACK_DIR)/$(LAPACK_JAR) $(VERSION)/$(LAPACK_JAR)
 	-ln -s ../$(LAPACK_DIR)/$(SIMPLE_LAPACK_JAR) $(VERSION)/$(SIMPLE_LAPACK_JAR)
+	-ln -s ../$(SLAPACK_DIR)/$(SLAPACK_JAR) $(VERSION)/$(SLAPACK_JAR)
+	-ln -s ../$(SLAPACK_DIR)/$(SIMPLE_SLAPACK_JAR) $(VERSION)/$(SIMPLE_SLAPACK_JAR)
 	-ln -s ../$(UTIL_DIR)/$(UTIL_JAR) $(VERSION)/$(UTIL_JAR)
 	-ln -s ../$(ERR_DIR)/$(ERR_JAR) $(VERSION)/$(ERR_JAR)
 	-ln -s ../README $(VERSION)/README
 	-ln -s ../INSTALL $(VERSION)/INSTALL
 	-ln -s ../CHANGES $(VERSION)/CHANGES
-	-ln -s ../DdotTest.java $(VERSION)/DdotTest.java
-	-ln -s ../DlaruvTest.java $(VERSION)/DlaruvTest.java
-	-ln -s ../SimpleDdotTest.java $(VERSION)/SimpleDdotTest.java
+	mkdir -p $(VERSION)/examples
+	cp examples/*.java examples/Makefile examples/README $(VERSION)/examples
 
 testers_dist: testers testers_dist_common
 	$(ZIP) -r9 $(TESTERS_DIST_ZIP) $(VERSION)/testing
@@ -108,25 +111,25 @@ testers_dist_common:
 	mkdir -p $(VERSION)/testing
 	-/bin/cp $(BLAS2TEST_INPUT) $(VERSION)/testing
 	-/bin/cp $(BLAS3TEST_INPUT) $(VERSION)/testing
+	-/bin/cp $(SBLAS2TEST_INPUT) $(VERSION)/testing
+	-/bin/cp $(SBLAS3TEST_INPUT) $(VERSION)/testing
 	-/bin/cp $(LINTEST_INPUT) $(VERSION)/testing
+	-/bin/cp $(SLINTEST_INPUT) $(VERSION)/testing
 	-/bin/cp $(EIGTEST_INPUT) $(VERSION)/testing
+	-/bin/cp $(SEIGTEST_INPUT) $(VERSION)/testing
+	-/bin/cp $(DISTDIR)/*.sh $(DISTDIR)/*.bat $(DISTDIR)/README $(VERSION)/testing
 	-ln -s ../../$(BLAS1TEST_DIR)/$(BLAS1TEST_JAR) $(VERSION)/testing/$(BLAS1TEST_JAR)
 	-ln -s ../../$(BLAS2TEST_DIR)/$(BLAS2TEST_JAR) $(VERSION)/testing/$(BLAS2TEST_JAR)
 	-ln -s ../../$(BLAS3TEST_DIR)/$(BLAS3TEST_JAR) $(VERSION)/testing/$(BLAS3TEST_JAR)
+	-ln -s ../../$(SBLAS1TEST_DIR)/$(SBLAS1TEST_JAR) $(VERSION)/testing/$(SBLAS1TEST_JAR)
+	-ln -s ../../$(SBLAS2TEST_DIR)/$(SBLAS2TEST_JAR) $(VERSION)/testing/$(SBLAS2TEST_JAR)
+	-ln -s ../../$(SBLAS3TEST_DIR)/$(SBLAS3TEST_JAR) $(VERSION)/testing/$(SBLAS3TEST_JAR)
 	-ln -s ../../$(MATGEN_DIR)/$(MATGEN_JAR) $(VERSION)/testing/$(MATGEN_JAR)
+	-ln -s ../../$(SMATGEN_DIR)/$(SMATGEN_JAR) $(VERSION)/testing/$(SMATGEN_JAR)
 	-ln -s ../../$(LINTEST_DIR)/$(LINTEST_JAR) $(VERSION)/testing/$(LINTEST_JAR)
+	-ln -s ../../$(SLINTEST_DIR)/$(SLINTEST_JAR) $(VERSION)/testing/$(SLINTEST_JAR)
 	-ln -s ../../$(EIGTEST_DIR)/$(EIGTEST_JAR) $(VERSION)/testing/$(EIGTEST_JAR)
-	-ln -s ../../$(DISTDIR)/$(BLAS1TEST_SH) $(VERSION)/testing/$(BLAS1TEST_SH)
-	-ln -s ../../$(DISTDIR)/$(BLAS2TEST_SH) $(VERSION)/testing/$(BLAS2TEST_SH)
-	-ln -s ../../$(DISTDIR)/$(BLAS3TEST_SH) $(VERSION)/testing/$(BLAS3TEST_SH)
-	-ln -s ../../$(DISTDIR)/$(LINTEST_SH) $(VERSION)/testing/$(LINTEST_SH)
-	-ln -s ../../$(DISTDIR)/$(EIGTEST_SH) $(VERSION)/testing/$(EIGTEST_SH)
-	-ln -s ../../$(DISTDIR)/$(BLAS1TEST_BAT) $(VERSION)/testing/$(BLAS1TEST_BAT)
-	-ln -s ../../$(DISTDIR)/$(BLAS2TEST_BAT) $(VERSION)/testing/$(BLAS2TEST_BAT)
-	-ln -s ../../$(DISTDIR)/$(BLAS3TEST_BAT) $(VERSION)/testing/$(BLAS3TEST_BAT)
-	-ln -s ../../$(DISTDIR)/$(LINTEST_BAT) $(VERSION)/testing/$(LINTEST_BAT)
-	-ln -s ../../$(DISTDIR)/$(EIGTEST_BAT) $(VERSION)/testing/$(EIGTEST_BAT)
-	-ln -s ../../$(DISTDIR)/README $(VERSION)/testing/README
+	-ln -s ../../$(SEIGTEST_DIR)/$(SEIGTEST_JAR) $(VERSION)/testing/$(SEIGTEST_JAR)
 
 examples:
 	cd examples; $(MAKE)
@@ -135,5 +138,5 @@ clean:
 	cd src; $(MAKE) clean
 	cd examples; $(MAKE) clean
 	/bin/rm -rf doc $(VERSION) $(LIBDIST_ZIP) $(LIBDIST_TGZ) \
-		$(TESTERS_DIST_ZIP) $(TESTERS_DIST_TGZ) $(DOC_DIST_ZIP) \
-		$(DOC_DIST_TGZ)
+		$(TESTERS_DIST_ZIP) $(TESTERS_DIST_TGZ) $(JAVADOC_DIST_ZIP) \
+		$(JAVADOC_DIST_TGZ)

@@ -8,10 +8,14 @@ This directory should contain:
   INSTALL              - installation details
   CHANGES              - what has changed in this version
   examples             - directory containing a few examples of calling JLAPACK
-  blas.jar             - the BLAS library
-  blas_simple.jar      - the simplified interfaces to BLAS
-  lapack.jar           - the LAPACK library
-  lapack_simple.jar    - the simplified interfaces to LAPACK
+  blas.jar             - the BLAS library (in double precision)
+  blas_simple.jar      - the simplified interfaces to BLAS (double)
+  sblas.jar            - the BLAS library (in single precision)
+  sblas_simple.jar     - the simplified interfaces to BLAS (single)
+  lapack.jar           - the LAPACK library (in double precision)
+  lapack_simple.jar    - the simplified interfaces to LAPACK (double)
+  slapack.jar          - the LAPACK library (in single precision)
+  slapack_simple.jar   - the simplified interfaces to LAPACK (single)
   xerbla.jar           - LAPACK error reporting routine
   f2jutil.jar          - utilities required for running f2j translated code
 

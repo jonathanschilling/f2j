@@ -34,12 +34,12 @@ LAPACK_JAR=lapack.jar
 SLAPACK_JAR=slapack.jar
 SIMPLE_LAPACK_JAR=lapack_simple.jar
 SIMPLE_SLAPACK_JAR=slapack_simple.jar
-LIBDIST_ZIP=jlapack-0_7.zip
-LIBDIST_TGZ=jlapack-0_7.tgz
-TESTERS_DIST_ZIP=testers.zip
-TESTERS_DIST_TGZ=testers.tgz
-DOC_DIST_ZIP=jlapack-doc.zip
-DOC_DIST_TGZ=jlapack-doc.tgz
+LIBDIST_ZIP=$(VERSION).zip
+LIBDIST_TGZ=$(VERSION).tgz
+TESTERS_DIST_ZIP=$(VERSION)-testers.zip
+TESTERS_DIST_TGZ=$(VERSION)-testers.tgz
+JAVADOC_DIST_ZIP=$(VERSION)-javadoc.zip
+JAVADOC_DIST_TGZ=$(VERSION)-javadoc.tgz
 BLAS1TEST_JAR=dblat1.jar
 BLAS2TEST_JAR=dblat2.jar
 BLAS3TEST_JAR=dblat3.jar
@@ -222,3 +222,21 @@ EIGTEST_INPUT= $(EIGTEST_DIR)/dbak.in \
         $(EIGTEST_DIR)/sep.in \
         $(EIGTEST_DIR)/dsb.in \
         $(EIGTEST_DIR)/svd.in
+SEIGTEST_INPUT=$(SEIGTEST_DIR)/glm.in \
+        $(SEIGTEST_DIR)/lse.in \
+        $(SEIGTEST_DIR)/sbal.in \
+        $(SEIGTEST_DIR)/sed.in \
+        $(SEIGTEST_DIR)/sgbal.in \
+        $(SEIGTEST_DIR)/ssb.in \
+        $(SEIGTEST_DIR)/gqr.in \
+        $(SEIGTEST_DIR)/nep.in \
+        $(SEIGTEST_DIR)/sbb.in \
+        $(SEIGTEST_DIR)/sep.in \
+        $(SEIGTEST_DIR)/sgd.in \
+        $(SEIGTEST_DIR)/ssg.in \
+        $(SEIGTEST_DIR)/gsv.in \
+        $(SEIGTEST_DIR)/sbak.in \
+        $(SEIGTEST_DIR)/sec.in \
+        $(SEIGTEST_DIR)/sgbak.in \
+        $(SEIGTEST_DIR)/sgg.in \
+        $(SEIGTEST_DIR)/svd.in

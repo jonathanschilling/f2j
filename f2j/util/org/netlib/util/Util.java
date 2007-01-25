@@ -3,6 +3,8 @@ package org.netlib.util;
 import java.io.*;
 
 /**
+ * Implementations of various Fortran intrinsic functions.
+ * <p>
  * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
  * <p>

@@ -1,6 +1,8 @@
 package org.netlib.util;
 
 /**
+ * f2j object wrapper for booleans.
+ * <p>
  * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
  * <p>

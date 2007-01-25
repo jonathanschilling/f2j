@@ -4,6 +4,7 @@ import java.io.*;
 
 /**
  * Simple input from the keyboard for all primitive types. ver 1.0
+ * <p>
  * Copyright (c) Peter van der Linden,  May 5 1997.
  *     corrected error message 11/21/97
  * <p>

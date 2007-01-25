@@ -1,6 +1,8 @@
 package org.netlib.util;
 
 /**
+ * Conversions between one-dimensional linearized arrays and two-dimensional arays.
+ * <p>
  * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
  * <p>

@@ -1,6 +1,8 @@
 package org.netlib.util;
 
 /**
+ * Placeholders for Fortran GOTO statements and labels.
+ * <p>
  * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
  * <p>

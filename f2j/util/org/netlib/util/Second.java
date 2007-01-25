@@ -1,6 +1,8 @@
 package org.netlib.util;
 
 /**
+ * Implementation of Fortran SECOND intrinsic function.
+ * <p>
  * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
  * <p>

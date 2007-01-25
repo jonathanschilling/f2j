@@ -1,26 +1,30 @@
-// Simple input from the keyboard for all primitive types. ver 1.0
-// Copyright (c) Peter van der Linden,  May 5 1997.
-//     corrected error message 11/21/97
-//
-// The creator of this software hereby gives you permission to:
-//  1. copy the work without changing it
-//  2. modify the work providing you send me a copy which I can
-//     use in any way I want, including incorporating into this work.
-//  3. distribute copies of the work to the public by sale, lease, 
-//     rental, or lending
-//  4. perform the work
-//  5. display the work
-//  6. fold the work into a funny hat and wear it on your head.
-//
-// This is not thread safe, not high performance, and doesn't tell EOF.
-// It's intended for low-volume easy keyboard input.
-// An example of use is:
-//     EasyIn easy = new EasyIn();
-//     int i = easy.readInt();   // reads an int from System.in
-//     float f = easy.readFloat();   // reads a float from System.in
-//
-// 2/25/98 - modified by Keith Seymour to be useful with the f2java
-//           translator.
+/**
+ * Simple input from the keyboard for all primitive types. ver 1.0
+ * Copyright (c) Peter van der Linden,  May 5 1997.
+ *     corrected error message 11/21/97
+ *
+ * The creator of this software hereby gives you permission to:
+ *  1. copy the work without changing it
+ *  2. modify the work providing you send me a copy which I can
+ *     use in any way I want, including incorporating into this work.
+ *  3. distribute copies of the work to the public by sale, lease, 
+ *     rental, or lending
+ *  4. perform the work
+ *  5. display the work
+ *  6. fold the work into a funny hat and wear it on your head.
+ *
+ * This is not thread safe, not high performance, and doesn't tell EOF.
+ * It's intended for low-volume easy keyboard input.
+ * An example of use is:
+ *     EasyIn easy = new EasyIn();
+ *     int i = easy.readInt();   // reads an int from System.in
+ *     float f = easy.readFloat();   // reads a float from System.in
+ *
+ * 2/25/98 - modified by Keith Seymour to be useful with the f2java
+ *           translator.
+ *
+ * @author Peter van der Linden
+ */
 
 package org.netlib.util;
 import java.io.*;
@@ -32,6 +36,11 @@ public class EasyIn {
     static int idx, len;
     static String blank_string = "                                                                                           ";
 
+    /**
+     * Reset the tokenizer.
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     private void initTokenizer() throws IOException {
       do {
         line = br.readLine();
@@ -44,6 +53,13 @@ public class EasyIn {
       } while(!hasTokens(line));
     }
 
+    /**
+     * Checks if the string contains any tokens.
+     *
+     * @param str -- string to check
+     *
+     * @return true if there are tokens, false otherwise.
+     */
     private boolean hasTokens(String str)
     {
       int i, str_len;
@@ -57,17 +73,35 @@ public class EasyIn {
       return false;
     }
 
+    /**
+     * Checks if this character is a delimiter.
+     *
+     * @param c -- character to check
+     *
+     * @return true if this character is a delimiter, false otherwise.
+     */
     private boolean isDelim(char c)
     {
-      // return ( (c == ' ') || (c == '\t') || (c == '\r') );
       return ( (c == ' ') || (c == '\t') || (c == '\r') || (c == '\n'));
     }
 
+    /**
+     * Checks if there are more tokens.
+     *
+     * @return true if there are more tokens, false otherwise.
+     */
     private boolean moreTokens()
     {
       return ( idx < len );
     }
       
+    /**
+     * Gets the next token.
+     *
+     * @throws IOException if an input or output exception occurred.
+     *
+     * @return the token
+     */
     private String getToken() throws IOException {
        int begin,end;
 
@@ -93,6 +127,16 @@ public class EasyIn {
        return line.substring(begin,end);
     }
 
+    /**
+     * Reads the specified number of characters and returns a new String
+     * containing them.
+     *
+     * @param num_chars -- the number of characters to read
+     *
+     * @throws IOException if an input or output exception occurred.
+     *
+     * @return the String containing the characters read.
+     */
     public String readchars(int num_chars) throws IOException {
       int cp_idx;
 
@@ -113,6 +157,14 @@ public class EasyIn {
       }
     }
 
+    /**
+     * Reads the specified number of characters and returns a new String
+     * containing them.  Unlike readchars(), does not throw IOException.
+     *
+     * @param num_chars -- the number of characters to read
+     *
+     * @return the String containing the characters read.
+     */
     public String readChars(int num_chars) {
       try{ 
         return readchars(num_chars);
@@ -122,11 +174,21 @@ public class EasyIn {
       }
     }
 
+    /** 
+     * Skips any tokens remaining on this line.
+     */
     public void skipRemaining() {
       line = null;  //may not be needed
       idx = len;
     }
 
+    /**
+     * Gets a boolean value from the next token.
+     *
+     * @return the boolean value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public boolean readboolean() throws IOException {
           char ch = getToken().charAt(0);
           if((ch == 't') || (ch == 'T'))
@@ -135,6 +197,12 @@ public class EasyIn {
             return false;
     }
 
+    /**
+     * Gets a boolean value from the next token.
+     * Same as readboolean() except it does not throw IOException.
+     *
+     * @return the boolean value
+     */
     public boolean readBoolean() {
        try {
           char ch = getToken().charAt(0);
@@ -148,10 +216,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a byte value from the next token.
+     *
+     * @return the byte value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public byte readbyte() throws IOException {
       return Byte.parseByte(getToken());
     }
 
+    /**
+     * Gets a byte value from the next token.
+     * Same as readbyte() except it does not throw IOException.
+     *
+     * @return the byte value
+     */
     public byte readByte() {
        try {
          return Byte.parseByte(getToken());
@@ -161,10 +242,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a short value from the next token.
+     *
+     * @return the short value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public short readshort() throws IOException {
       return Short.parseShort(getToken());
     }
 
+    /**
+     * Gets a short value from the next token.
+     * Same as readshort() except it does not throw IOException.
+     *
+     * @return the short value
+     */
     public short readShort() {
        try {
          return Short.parseShort(getToken());
@@ -174,10 +268,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets an integer value from the next token.
+     *
+     * @return the integer value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public int readint() throws IOException {
       return Integer.parseInt(getToken());
     }
 
+    /**
+     * Gets an integer value from the next token.
+     * Same as readint() except it does not throw IOException.
+     *
+     * @return the integer value
+     */
     public int readInt() {
        try {
          return Integer.parseInt(getToken());
@@ -187,10 +294,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a long integer value from the next token.
+     *
+     * @return the long integer value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public long readlong() throws IOException {
       return Long.parseLong(getToken());
     }
 
+    /**
+     * Gets a long integer value from the next token.
+     * Same as readlong() except it does not throw IOException.
+     *
+     * @return the long integer value
+     */
     public long readLong() {
        try {
          return Long.parseLong(getToken());
@@ -200,10 +320,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a float value from the next token.
+     *
+     * @return the float value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public float readfloat() throws IOException {
       return new Float(getToken()).floatValue();
     }
 
+    /**
+     * Gets a float value from the next token.
+     * Same as readfloat() except it does not throw IOException.
+     *
+     * @return the float value
+     */
     public float readFloat() {
        try {
          return new Float(getToken()).floatValue();
@@ -213,10 +346,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a double value from the next token.
+     *
+     * @return the double value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public double readdouble() throws IOException {
       return new Double(getToken()).doubleValue();
     }
 
+    /**
+     * Gets a double value from the next token.
+     * Same as readdouble() except it does not throw IOException.
+     *
+     * @return the double value
+     */
     public double readDouble() {
        try {
          return new Double(getToken()).doubleValue();
@@ -226,10 +372,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a character value from the next token.
+     *
+     * @return the character value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public char readchar() throws IOException {
       return getToken().charAt(0);
     }
 
+    /**
+     * Gets a character value from the next token.
+     * Same as readchar() except it does not throw IOException.
+     *
+     * @return the character value
+     */
     public char readChar() {
        try {
           return getToken().charAt(0);
@@ -239,10 +398,23 @@ public class EasyIn {
        }
     }
 
+    /**
+     * Gets a string value from the next token.
+     *
+     * @return the string value
+     *
+     * @throws IOException if an input or output exception occurred.
+     */
     public String readstring() throws IOException {
       return br.readLine(); 
     }
 
+    /**
+     * Gets a string value from the next token.
+     * Same as readstring() except it does not throw IOException.
+     *
+     * @return the string value
+     */
     public String readString() {
        try {
          return br.readLine(); 
@@ -252,7 +424,10 @@ public class EasyIn {
        }
     }
 
-// This method is just here to test the class
+   /**
+    * This method is just here to test the class
+    */
+
    public static void main (String args[]){
        EasyIn easy = new EasyIn();
 
@@ -283,5 +458,4 @@ public class EasyIn {
        System.out.print("enter double: "); System.out.flush();
        System.out.println("You entered: " + easy.readDouble() );
    }
-
 }

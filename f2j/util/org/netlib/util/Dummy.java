@@ -1,4 +1,4 @@
-/*
+/**
  * This file is part of the Fortran-to-Java (f2java) system,
  * developed at the University of Tennessee.
  *
@@ -12,18 +12,31 @@
  * If so, the print statements should warn the user that the
  * goto translation was not successful.
  *
- * Keith Seymour (seymour@cs.utk.edu)
+ * @author Keith Seymour (seymour@cs.utk.edu)
  *
  */
 
 package org.netlib.util;
 
 public class Dummy {
+
+  /**
+   * Placeholder for a Fortran GOTO statement.
+   *
+   * @param clname -- name of the program unit where this GOTO exists
+   * @param lbl -- the label number (target) of the GOTO
+   */
   public static void go_to(String clname, int lbl) {
     System.err.println("Warning: Untransformed goto remaining in program! ("
       +clname+", " + lbl + ")");
   }
 
+  /**
+   * Placeholder for a Fortran label.
+   *
+   * @param clname -- name of the program unit where this label exists
+   * @param lbl -- the label number
+   */
   public static void label(String clname, int lbl) {
     System.err.println("Warning: Untransformed label remaining in program! ("
       +clname+", " + lbl + ")");

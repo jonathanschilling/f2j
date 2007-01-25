@@ -1,12 +1,28 @@
+/**
+ * This file is part of the Fortran-to-Java (f2java) system,
+ * developed at the University of Tennessee.
+ *
+ * This class contains methods for converting between the linearized
+ * arrays used by f2j-generated code and the more natural Java-style
+ * two-dimensional arrays.
+ *
+ * @author Keith Seymour (seymour@cs.utk.edu)
+ *
+ */
+
 package org.netlib.util;
 
 public class MatConv
 {
   
-  /*  Method to convert 2D matrices into 1D arrays for
-   *  passing to blas and lapack subroutines.  
+  /**
+   * Convert a double precision two-dimensional array to
+   * a linearized one-dimensional array.
+   *
+   * @param m -- the matrix to be converted
+   *
+   * @return the linearized array
    */
-
   public static double[] doubleTwoDtoOneD (double[][]m)
   {
     /* We make the assumption here that the matrices are
@@ -22,8 +38,17 @@ public class MatConv
         apimatrix[i + j * ld] = m[i][j];
 
     return apimatrix;
-  }				//  Close TwoDtoOneD().
+  }
 
+  /**
+   * Convert a double precision linearized one-dimensional array
+   * to a two-dimensional array.
+   *
+   * @param vec -- the linearized array to be converted
+   * @param ld -- leading dimension of the array
+   *
+   * @return the two-dimensional array
+   */
   public static double[][] doubleOneDtoTwoD(double [] vec, int ld)
   {
     int i,j;
@@ -37,10 +62,14 @@ public class MatConv
     return mat;
   }
 
-  /*  Method to convert 2D matrices into 1D arrays for
-   *  passing to blas and lapack subroutines.
+  /**
+   * Convert a single precision two-dimensional array to
+   * a linearized one-dimensional array.
+   *
+   * @param m -- the matrix to be converted
+   *
+   * @return the linearized array
    */
-
   public static float[] floatTwoDtoOneD (float[][]m)
   {
     /* We make the assumption here that the matrices are
@@ -56,13 +85,21 @@ public class MatConv
         apimatrix[i + j * ld] = m[i][j];
 
     return apimatrix;
-  }                             //  Close TwoDtoOneD().
+  }
 
+  /**
+   * Convert a single precision linearized one-dimensional array
+   * to a two-dimensional array.
+   *
+   * @param vec -- the linearized array to be converted
+   * @param ld -- leading dimension of the array
+   *
+   * @return the two-dimensional array
+   */
   public static float[][] floatOneDtoTwoD(float [] vec, int ld)
   {
     int i,j;
     float [][] mat = new float [ld][vec.length / ld];
-
    
     for (i = 0; i < ld; i++)
       for (j = 0; j < mat[0].length; j++)
@@ -71,6 +108,14 @@ public class MatConv
     return mat;
   }
 
+  /**
+   * Convert an integer two-dimensional array to
+   * a linearized one-dimensional array.
+   *
+   * @param m -- the matrix to be converted
+   *
+   * @return the linearized array
+   */
   public static int[] intTwoDtoOneD (int[][]m)
   {
     /* We make the assumption here that the matrices are
@@ -86,8 +131,17 @@ public class MatConv
         apimatrix[i + j * ld] = m[i][j];
 
     return apimatrix;
-  }				//  Close TwoDtoOneD().
+  }
 
+  /**
+   * Convert an integer linearized one-dimensional array
+   * to a two-dimensional array.
+   *
+   * @param vec -- the linearized array to be converted
+   * @param ld -- leading dimension of the array
+   *
+   * @return the two-dimensional array
+   */
   public static int[][] intOneDtoTwoD(int [] vec, int ld)
   {
     int i,j;
@@ -101,6 +155,15 @@ public class MatConv
     return mat;
   }
 
+  /**
+   * Copies a linearized array into an already allocated two-dimensional
+   * matrix.  This is typically called from the simplified wrappers
+   * after the raw routine has been called and the results need to be
+   * copied back into the Java-style two-dimensional matrix.
+   *
+   * @param mat -- destination matrix
+   * @param vec -- source array
+   */
   public static void copyOneDintoTwoD(double [][]mat, double[]vec)
   {
     int i,j;
@@ -111,6 +174,15 @@ public class MatConv
         mat[i][j] = vec[i + j * ld];
   }
 
+  /**
+   * Copies a linearized array into an already allocated two-dimensional
+   * matrix.  This is typically called from the simplified wrappers
+   * after the raw routine has been called and the results need to be
+   * copied back into the Java-style two-dimensional matrix.
+   *
+   * @param mat -- destination matrix
+   * @param vec -- source array
+   */
   public static void copyOneDintoTwoD(float [][]mat, float[]vec)
   {
     int i,j;
@@ -121,6 +193,15 @@ public class MatConv
         mat[i][j] = vec[i + j * ld];
   }
 
+  /**
+   * Copies a linearized array into an already allocated two-dimensional
+   * matrix.  This is typically called from the simplified wrappers
+   * after the raw routine has been called and the results need to be
+   * copied back into the Java-style two-dimensional matrix.
+   *
+   * @param mat -- destination matrix
+   * @param vec -- source array
+   */
   public static void copyOneDintoTwoD(int [][]mat, int[]vec)
   {
     int i,j;

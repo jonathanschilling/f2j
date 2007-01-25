@@ -1,4 +1,4 @@
-/*
+/**
  * This file is part of the Fortran-to-Java (f2java) system,
  * developed at the University of Tennessee.
  *
@@ -17,7 +17,7 @@
  * wall-clock time elapsed since the beginning of 
  * execution.
  *
- * Keith Seymour (seymour@cs.utk.edu)
+ * @author Keith Seymour (seymour@cs.utk.edu)
  *
  */
 
@@ -27,12 +27,28 @@ public class Etime {
   private static int call_num = 0;
   private static long start_time = 0;
 
+  /**
+   * Initializes the timer.
+   */
   public static void etime()
   {
     float [] dummy = new float[2];
     etime(dummy,0);
   }
 
+  /**
+   * Get the elapsed time.  Sets the first element of the
+   * array 't' to the elapsed time.  This is also the
+   * return value.
+   * 
+   * @param t -- Two-element array of times.  The first
+   *    element should be user time.  The second element
+   *    should be system time.  Currently these are set
+   *    the same, though.
+   * @param t_offset -- Offset from t.  Normally zero.
+   *
+   * @returns first element of t.
+   */
   public static float etime(float [] t, int t_offset)
   {
     if(call_num++ == 0)

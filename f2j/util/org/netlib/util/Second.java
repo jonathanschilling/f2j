@@ -1,4 +1,4 @@
-/*
+/**
  * This file is part of the Fortran-to-Java (f2java) system,
  * developed at the University of Tennessee.
  *
@@ -17,13 +17,20 @@
  * wall-clock time elapsed since the beginning of 
  * execution.
  *
- * Keith Seymour (seymour@cs.utk.edu)
+ * @author Keith Seymour (seymour@cs.utk.edu)
  *
  */
 
 package org.netlib.util;
 
 public class Second {
+
+  /**
+   * Supposed to return the elapsed CPU time since the beginning of 
+   * program execution.  Currently implemented as wall clock time.
+   *
+   * @return the elapsed time.
+   */
   public static float second()
   {
     float [] tarray= new float[2];

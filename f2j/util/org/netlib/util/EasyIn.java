@@ -1,33 +1,39 @@
+package org.netlib.util;
+
+import java.io.*;
+
 /**
  * Simple input from the keyboard for all primitive types. ver 1.0
  * Copyright (c) Peter van der Linden,  May 5 1997.
  *     corrected error message 11/21/97
- *
+ * <p>
  * The creator of this software hereby gives you permission to:
- *  1. copy the work without changing it
- *  2. modify the work providing you send me a copy which I can
+ * <ol>
+ *  <li> copy the work without changing it
+ *  <li> modify the work providing you send me a copy which I can
  *     use in any way I want, including incorporating into this work.
- *  3. distribute copies of the work to the public by sale, lease, 
+ *  <li> distribute copies of the work to the public by sale, lease, 
  *     rental, or lending
- *  4. perform the work
- *  5. display the work
- *  6. fold the work into a funny hat and wear it on your head.
- *
+ *  <li> perform the work
+ *  <li> display the work
+ *  <li> fold the work into a funny hat and wear it on your head.
+ * </ol>
+ * <p>
  * This is not thread safe, not high performance, and doesn't tell EOF.
  * It's intended for low-volume easy keyboard input.
  * An example of use is:
- *     EasyIn easy = new EasyIn();
- *     int i = easy.readInt();   // reads an int from System.in
- *     float f = easy.readFloat();   // reads a float from System.in
- *
- * 2/25/98 - modified by Keith Seymour to be useful with the f2java
+ * <p>
+ * <code>
+ *     EasyIn easy = new EasyIn(); <br>
+ *     int i = easy.readInt();   // reads an int from System.in <br>
+ *     float f = easy.readFloat();   // reads a float from System.in <br>
+ * </code>
+ * <p>
+ * 2/25/98 - modified by Keith Seymour to be useful with the f2j
  *           translator.
- *
+ * <p>
  * @author Peter van der Linden
  */
-
-package org.netlib.util;
-import java.io.*;
 
 public class EasyIn {
     static InputStreamReader is = new InputStreamReader( System.in );
@@ -56,7 +62,7 @@ public class EasyIn {
     /**
      * Checks if the string contains any tokens.
      *
-     * @param str -- string to check
+     * @param str string to check
      *
      * @return true if there are tokens, false otherwise.
      */
@@ -76,7 +82,7 @@ public class EasyIn {
     /**
      * Checks if this character is a delimiter.
      *
-     * @param c -- character to check
+     * @param c character to check
      *
      * @return true if this character is a delimiter, false otherwise.
      */
@@ -131,7 +137,7 @@ public class EasyIn {
      * Reads the specified number of characters and returns a new String
      * containing them.
      *
-     * @param num_chars -- the number of characters to read
+     * @param num_chars the number of characters to read
      *
      * @throws IOException if an input or output exception occurred.
      *
@@ -161,7 +167,7 @@ public class EasyIn {
      * Reads the specified number of characters and returns a new String
      * containing them.  Unlike readchars(), does not throw IOException.
      *
-     * @param num_chars -- the number of characters to read
+     * @param num_chars the number of characters to read
      *
      * @return the String containing the characters read.
      */

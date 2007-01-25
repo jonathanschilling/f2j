@@ -49,7 +49,7 @@ javasrc:
 
 javadoc: lib
 	mkdir -p doc
-	javadoc -sourcepath $(BLAS_OBJ):$(SBLAS_OBJ):$(LAPACK_OBJ):$(SLAPACK_OBJ):$(ERR_OBJ):$(UTIL_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
+	javadoc -author -sourcepath $(BLAS_OBJ):$(SBLAS_OBJ):$(LAPACK_OBJ):$(SLAPACK_OBJ):$(ERR_OBJ):$(UTIL_F2J_SRC_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
 
 javadoc_dist: javadoc
 	/bin/rm -f $(JAVADOC_DIST_ZIP) $(VERSION)/doc

@@ -1,27 +1,29 @@
+package org.netlib.util;
+
 /**
- * This file is part of the Fortran-to-Java (f2java) system,
+ * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
- *
+ * <p>
  * This class implements the Fortran 77 SECOND intrinsic.
  * SECOND is supposed to provide the CPU time for the
  * process since the start of execution.  Currently,
  * Java doesn't have a similar method, so we use this
- * cheesy simulation:  
- *   - insert a call to Etime.etime() at the beginning 
- *       of the program.  
- *   - on the first call, record the current time
- *   - on subsequent calls, return the difference 
- *       between the current call and the starting
- *       time.
+ * cheesy simulation:  <br>
+ * <ul>
+ *   <li> f2j inserts a call at the beginning of the program
+ *         to record the start time.
+ *   <li> on the first call, record the current time.
+ *   <li> on subsequent calls, return the difference 
+ *         between the current call time and the starting
+ *         time.
+ * </ul>
  * Essentially, this version of etime returns the
  * wall-clock time elapsed since the beginning of 
  * execution.
- *
+ * <p>
  * @author Keith Seymour (seymour@cs.utk.edu)
  *
  */
-
-package org.netlib.util;
 
 public class Second {
 

@@ -75,6 +75,7 @@ EIGTEST_BAT=test_eig.bat
 SEIGTEST_BAT=test_seig.bat
 
 UTIL_DIR=$(SRCDIR)/util
+UTIL_F2J_SRC_DIR=../util
 BLAS_DIR=$(SRCDIR)/blas
 SBLAS_DIR=$(SRCDIR)/sblas
 ERR_DIR=$(SRCDIR)/error_reporting

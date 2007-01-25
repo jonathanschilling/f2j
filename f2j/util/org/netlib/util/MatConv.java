@@ -1,16 +1,16 @@
+package org.netlib.util;
+
 /**
- * This file is part of the Fortran-to-Java (f2java) system,
+ * This file is part of the Fortran-to-Java (f2j) system,
  * developed at the University of Tennessee.
- *
+ * <p>
  * This class contains methods for converting between the linearized
  * arrays used by f2j-generated code and the more natural Java-style
  * two-dimensional arrays.
- *
+ * <p>
  * @author Keith Seymour (seymour@cs.utk.edu)
  *
  */
-
-package org.netlib.util;
 
 public class MatConv
 {
@@ -19,7 +19,7 @@ public class MatConv
    * Convert a double precision two-dimensional array to
    * a linearized one-dimensional array.
    *
-   * @param m -- the matrix to be converted
+   * @param m the matrix to be converted
    *
    * @return the linearized array
    */
@@ -44,8 +44,8 @@ public class MatConv
    * Convert a double precision linearized one-dimensional array
    * to a two-dimensional array.
    *
-   * @param vec -- the linearized array to be converted
-   * @param ld -- leading dimension of the array
+   * @param vec the linearized array to be converted
+   * @param ld leading dimension of the array
    *
    * @return the two-dimensional array
    */
@@ -66,7 +66,7 @@ public class MatConv
    * Convert a single precision two-dimensional array to
    * a linearized one-dimensional array.
    *
-   * @param m -- the matrix to be converted
+   * @param m the matrix to be converted
    *
    * @return the linearized array
    */
@@ -91,8 +91,8 @@ public class MatConv
    * Convert a single precision linearized one-dimensional array
    * to a two-dimensional array.
    *
-   * @param vec -- the linearized array to be converted
-   * @param ld -- leading dimension of the array
+   * @param vec the linearized array to be converted
+   * @param ld leading dimension of the array
    *
    * @return the two-dimensional array
    */
@@ -112,7 +112,7 @@ public class MatConv
    * Convert an integer two-dimensional array to
    * a linearized one-dimensional array.
    *
-   * @param m -- the matrix to be converted
+   * @param m the matrix to be converted
    *
    * @return the linearized array
    */
@@ -137,8 +137,8 @@ public class MatConv
    * Convert an integer linearized one-dimensional array
    * to a two-dimensional array.
    *
-   * @param vec -- the linearized array to be converted
-   * @param ld -- leading dimension of the array
+   * @param vec the linearized array to be converted
+   * @param ld leading dimension of the array
    *
    * @return the two-dimensional array
    */
@@ -161,8 +161,8 @@ public class MatConv
    * after the raw routine has been called and the results need to be
    * copied back into the Java-style two-dimensional matrix.
    *
-   * @param mat -- destination matrix
-   * @param vec -- source array
+   * @param mat destination matrix
+   * @param vec source array
    */
   public static void copyOneDintoTwoD(double [][]mat, double[]vec)
   {
@@ -180,8 +180,8 @@ public class MatConv
    * after the raw routine has been called and the results need to be
    * copied back into the Java-style two-dimensional matrix.
    *
-   * @param mat -- destination matrix
-   * @param vec -- source array
+   * @param mat destination matrix
+   * @param vec source array
    */
   public static void copyOneDintoTwoD(float [][]mat, float[]vec)
   {
@@ -199,8 +199,8 @@ public class MatConv
    * after the raw routine has been called and the results need to be
    * copied back into the Java-style two-dimensional matrix.
    *
-   * @param mat -- destination matrix
-   * @param vec -- source array
+   * @param mat destination matrix
+   * @param vec source array
    */
   public static void copyOneDintoTwoD(int [][]mat, int[]vec)
   {

@@ -6,6 +6,7 @@ MORE_MEM_FLAG=-Xmx256M
 JAVAC=javac
 JAVAB=javab
 JAR=jar
+# JAR=/usr/bin/jar
 ZIP=zip
 TAR=tar
 TARFLAGS=chvf
@@ -175,6 +176,8 @@ EIGTIME_PDIR=org/netlib/lapack/timing/eig
 
 LINTIME_PACKAGE=org.netlib.lapack.timing.lin
 LINTIME_PDIR=org/netlib/lapack/timing/lin
+SLINTIME_PACKAGE=org.netlib.lapack.timing.lin
+SLINTIME_PDIR=org/netlib/lapack/timing/lin
 
 EIGSRC_PACKAGE=org.netlib.lapack.timing.eig.eigsrc
 EIGSRC_PDIR=org/netlib/lapack/timing/eig/eigsrc

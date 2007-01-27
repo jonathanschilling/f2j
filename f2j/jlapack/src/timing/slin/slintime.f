@@ -3740,7 +3740,7 @@ C
       REAL               S1, S2, TIMMIN
 *     ..
 *     .. Local Arrays ..
-      INTEGER            IWORK( 2*NMAXB ), KVAL( MAXVAL ),
+      INTEGER            IWORK( 3*NMAXB ), KVAL( MAXVAL ),
      $                   LDAVAL( MXNLDA ), MVAL( MAXVAL ),
      $                   NBVAL( MAXVAL ), NVAL( MAXVAL ),
      $                   NXVAL( MAXVAL )

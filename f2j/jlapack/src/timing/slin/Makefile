@@ -17,12 +17,6 @@ timer: $(SBLAS) $(SLAPACK) $(SMATGEN) linsrc/$(OUTDIR)/Slinsrc.f2j $(OUTDIR)/Sli
 linsrc/$(OUTDIR)/Slinsrc.f2j:
 	cd linsrc;$(MAKE)
 
-#$(OUTDIR)/Slintime.f2j:	$(OUTDIR)/Lsamen.f2j slintime.f
-#	$(F2J) $(F2JFLAGS) slintime.f > /dev/null
-#
-#$(OUTDIR)/Lsamen.f2j:	lsamen.f
-#	$(F2J) $(F2JFLAGS) $< > /dev/null
-
 $(OUTDIR)/Slintime.f2j:	slintime.f
 	$(F2J) $(F2JFLAGS) slintime.f > /dev/null
 

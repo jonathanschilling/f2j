@@ -4,20 +4,30 @@ ROOT=../..
 
 include $(ROOT)/make.def
 
-timers:	eigtimer lintimer
+timers:	eigtimer lintimer seigtimer slintimer
 
-eigtimer:	eig/$(OUTDIR)/Eigtime.f2j
-lintimer:	lin/$(OUTDIR)/Lintime.f2j
+eigtimer: $(ROOT)/$(EIGTIME_IDX)
+seigtimer: $(ROOT)/$(SEIGTIME_IDX)
+lintimer: $(ROOT)/$(LINTIME_IDX)
+slintimer: $(ROOT)/$(SLINTIME_IDX)
 
-eig/$(OUTDIR)/Eigtime.f2j:
+$(ROOT)/$(EIGTIME_IDX):
 	cd eig;$(MAKE)
-lin/$(OUTDIR)/Lintime.f2j:
+$(ROOT)/$(SEIGTIME_IDX):
+	cd seig;$(MAKE)
+$(ROOT)/$(LINTIME_IDX):
 	cd lin;$(MAKE)
+$(ROOT)/$(SLINTIME_IDX):
+	cd slin;$(MAKE)
 
 runtimers:
 	cd eig;$(MAKE) runtimer
 	cd lin;$(MAKE) runtimer
+	cd seig;$(MAKE) runtimer
+	cd slin;$(MAKE) runtimer
 
 clean:
 	cd eig;$(MAKE) clean
 	cd lin;$(MAKE) clean
+	cd seig;$(MAKE) clean
+	cd slin;$(MAKE) clean

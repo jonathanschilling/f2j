@@ -194,12 +194,12 @@
 *
       END
       SUBROUTINE CDIV(AR,AI,BR,BI,CR,CI)
-      DOUBLE PRECISION AR,AI,BR,BI,CR,CI
+      REAL AR,AI,BR,BI,CR,CI
 C
 C     COMPLEX DIVISION, (CR,CI) = (AR,AI)/(BR,BI)
 C
-      DOUBLE PRECISION S,ARS,AIS,BRS,BIS
-      S = DABS(BR) + DABS(BI)
+      REAL S,ARS,AIS,BRS,BIS
+      S = ABS(BR) + ABS(BI)
       ARS = AR/S
       AIS = AI/S
       BRS = BR/S
@@ -209,12 +209,12 @@ C
       CI = (AIS*BRS - ARS*BIS)/S
       RETURN
       END
-      DOUBLE PRECISION FUNCTION EPSLON (X)
-      DOUBLE PRECISION X
+      REAL FUNCTION EPSLON (X)
+      REAL X
 C
 C     ESTIMATE UNIT ROUNDOFF IN QUANTITIES OF SIZE X.
 C
-      DOUBLE PRECISION A,B,C,EPS
+      REAL A,B,C,EPS
 C
 C     THIS PROGRAM SHOULD FUNCTION PROPERLY ON ALL SYSTEMS
 C     SATISFYING THE FOLLOWING TWO ASSUMPTIONS,
@@ -237,19 +237,19 @@ C     ABOUT ANY SYSTEMS WHERE THESE ASSUMPTIONS DO NOT HOLD.
 C
 C     THIS VERSION DATED 4/6/83.
 C
-      A = 4.0D0/3.0D0
-   10 B = A - 1.0D0
+      A = 4.0E0/3.0E0
+   10 B = A - 1.0E0
       C = B + B + B
-      EPS = DABS(C-1.0D0)
-      IF (EPS .EQ. 0.0D0) GO TO 10
-      EPSLON = EPS*DABS(X)
+      EPS = ABS(C-1.0E0)
+      IF (EPS .EQ. 0.0E0) GO TO 10
+      EPSLON = EPS*ABS(X)
       RETURN
       END
       SUBROUTINE HQR(NM,N,LOW,IGH,H,WR,WI,IERR)
 C
       INTEGER I,J,K,L,M,N,EN,LL,MM,NA,NM,IGH,ITN,ITS,LOW,MP2,ENM2,IERR
-      DOUBLE PRECISION H(NM,N),WR(N),WI(N)
-      DOUBLE PRECISION P,Q,R,S,T,W,X,Y,ZZ,NORM,TST1,TST2
+      REAL H(NM,N),WR(N),WI(N)
+      REAL P,Q,R,S,T,W,X,Y,ZZ,NORM,TST1,TST2
       LOGICAL NOTLAS
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
@@ -260,7 +260,7 @@ C
       COMMON /LATIME/ OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION OPS, ITCNT, OPST
+      REAL OPS, ITCNT, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE HQR,
@@ -316,8 +316,8 @@ C
 C     ------------------------------------------------------------------
 C
 *
-      EXTERNAL DLAMCH
-      DOUBLE PRECISION DLAMCH, UNFL,OVFL,ULP,SMLNUM,SMALL
+      EXTERNAL SLAMCH
+      REAL SLAMCH, UNFL,OVFL,ULP,SMLNUM,SMALL
       IF (N.LE.0) RETURN
 *
 *
@@ -329,10 +329,9 @@ C
 C     .......... STORE ROOTS ISOLATED BY BALANC
 C                AND COMPUTE MATRIX NORM ..........
       DO 50 I = 1, N
-         K = I
          IF (I .GE. LOW .AND. I .LE. IGH) GO TO 50
          WR(I) = H(I,I)
-         WI(I) = 0.0D0
+         WI(I) = 0.0E0
    50 CONTINUE
 *
 *        INCREMENT OPCOUNT FOR COMPUTING MATRIX NORM
@@ -340,23 +339,23 @@ C                AND COMPUTE MATRIX NORM ..........
 *
 *     COMPUTE THE 1-NORM OF MATRIX H
 *
-      NORM = 0.0D0
+      NORM = 0.0E0
       DO 5 J = LOW, IGH
-         S = 0.0D0
+         S = 0.0E0
          DO 4 I = LOW, MIN(IGH,J+1)
-              S = S + DABS(H(I,J))
+              S = S + ABS(H(I,J))
   4      CONTINUE
          NORM = MAX(NORM, S)
   5   CONTINUE
 *
-      UNFL = DLAMCH( 'SAFE MINIMUM' )
-      OVFL = DLAMCH( 'OVERFLOW' )
-      ULP = DLAMCH( 'EPSILON' )*DLAMCH( 'BASE' )
+      UNFL = SLAMCH( 'SAFE MINIMUM' )
+      OVFL = SLAMCH( 'OVERFLOW' )
+      ULP = SLAMCH( 'EPSILON' )*SLAMCH( 'BASE' )
       SMLNUM = MAX( UNFL*( N / ULP ), N / ( ULP*OVFL ) )
       SMALL = MAX( SMLNUM, ULP*NORM )
 C
       EN = IGH
-      T = 0.0D0
+      T = 0.0E0
       ITN = 30*N
 C     .......... SEARCH FOR NEXT EIGENVALUES ..........
    60 IF (EN .LT. LOW) GO TO 1001
@@ -370,9 +369,9 @@ C                FOR L=EN STEP -1 UNTIL LOW DO -- ..........
    70 DO 80 LL = LOW, EN
          L = EN + LOW - LL
          IF (L .EQ. LOW) GO TO 100
-         S = DABS(H(L-1,L-1)) + DABS(H(L,L))
-         IF (S .EQ. 0.0D0) S = NORM
-         IF (DABS(H(L,L-1)) .LE. MAX(ULP*S,SMALL))  GO TO 100
+         S = ABS(H(L-1,L-1)) + ABS(H(L,L))
+         IF (S .EQ. 0.0E0) S = NORM
+         IF (ABS(H(L,L-1)) .LE. MAX(ULP*S,SMALL))  GO TO 100
    80 CONTINUE
 C     .......... FORM SHIFT ..........
   100 CONTINUE
@@ -395,10 +394,10 @@ C
       DO 120 I = LOW, EN
   120 H(I,I) = H(I,I) - X
 C
-      S = DABS(H(EN,NA)) + DABS(H(NA,ENM2))
-      X = 0.75D0 * S
+      S = ABS(H(EN,NA)) + ABS(H(NA,ENM2))
+      X = 0.75E0 * S
       Y = X
-      W = -0.4375D0 * S * S
+      W = -0.4375E0 * S * S
   130 ITS = ITS + 1
       ITN = ITN - 1
 *
@@ -416,13 +415,13 @@ C                FOR M=EN-2 STEP -1 UNTIL L DO -- ..........
          P = (R * S - W) / H(M+1,M) + H(M,M+1)
          Q = H(M+1,M+1) - ZZ - R - S
          R = H(M+2,M+1)
-         S = DABS(P) + DABS(Q) + DABS(R)
+         S = ABS(P) + ABS(Q) + ABS(R)
          P = P / S
          Q = Q / S
          R = R / S
          IF (M .EQ. L) GO TO 150
-         TST1 = DABS(P)*(DABS(H(M-1,M-1)) + DABS(ZZ) + DABS(H(M+1,M+1)))
-         TST2 = DABS(H(M,M-1))*(DABS(Q) + DABS(R))
+         TST1 = ABS(P)*(ABS(H(M-1,M-1)) + ABS(ZZ) + ABS(H(M+1,M+1)))
+         TST2 = ABS(H(M,M-1))*(ABS(Q) + ABS(R))
          IF ( TST2 .LE. MAX(ULP*TST1,SMALL) ) GO TO 150
   140 CONTINUE
 C
@@ -433,9 +432,9 @@ C
       MP2 = M + 2
 C
       DO 160 I = MP2, EN
-         H(I,I-2) = 0.0D0
+         H(I,I-2) = 0.0E0
          IF (I .EQ. MP2) GO TO 160
-         H(I,I-3) = 0.0D0
+         H(I,I-3) = 0.0E0
   160 CONTINUE
 C     .......... DOUBLE QR STEP INVOLVING ROWS L TO EN AND
 C                COLUMNS M TO EN ..........
@@ -447,14 +446,14 @@ C                COLUMNS M TO EN ..........
          IF (K .EQ. M) GO TO 170
          P = H(K,K-1)
          Q = H(K+1,K-1)
-         R = 0.0D0
+         R = 0.0E0
          IF (NOTLAS) R = H(K+2,K-1)
-         X = DABS(P) + DABS(Q) + DABS(R)
-         IF (X .EQ. 0.0D0) GO TO 260
+         X = ABS(P) + ABS(Q) + ABS(R)
+         IF (X .EQ. 0.0E0) GO TO 260
          P = P / X
          Q = Q / X
          R = R / X
-  170    S = DSIGN(DSQRT(P*P+Q*Q+R*R),P)
+  170    S = SIGN(SQRT(P*P+Q*Q+R*R),P)
          IF (K .EQ. M) GO TO 180
          H(K,K-1) = -S * X
          GO TO 190
@@ -517,25 +516,25 @@ C
       GO TO 70
 C     .......... ONE ROOT FOUND ..........
   270 WR(EN) = X + T
-      WI(EN) = 0.0D0
+      WI(EN) = 0.0E0
       EN = NA
       GO TO 60
 C     .......... TWO ROOTS FOUND ..........
-  280 P = (Y - X) / 2.0D0
+  280 P = (Y - X) / 2.0E0
       Q = P * P + W
-      ZZ = DSQRT(DABS(Q))
+      ZZ = SQRT(ABS(Q))
       X = X + T
 *
 *        INCREMENT OP COUNT FOR FINDING TWO ROOTS.
          OPST = OPST + 8
-      IF (Q .LT. 0.0D0) GO TO 320
+      IF (Q .LT. 0.0E0) GO TO 320
 C     .......... REAL PAIR ..........
-      ZZ = P + DSIGN(ZZ,P)
+      ZZ = P + SIGN(ZZ,P)
       WR(NA) = X + ZZ
       WR(EN) = WR(NA)
-      IF (ZZ .NE. 0.0D0) WR(EN) = X - W / ZZ
-      WI(NA) = 0.0D0
-      WI(EN) = 0.0D0
+      IF (ZZ .NE. 0.0E0) WR(EN) = X - W / ZZ
+      WI(NA) = 0.0E0
+      WI(EN) = 0.0E0
       GO TO 330
 C     .......... COMPLEX PAIR ..........
   320 WR(NA) = X + P
@@ -557,8 +556,8 @@ C                CONVERGED AFTER 30*N ITERATIONS ..........
 C
       INTEGER I,J,K,L,M,N,EN,II,JJ,LL,MM,NA,NM,NN,
      X        IGH,ITN,ITS,LOW,MP2,ENM2,IERR
-      DOUBLE PRECISION H(NM,N),WR(N),WI(N),Z(NM,N)
-      DOUBLE PRECISION P,Q,R,S,T,W,X,Y,RA,SA,VI,VR,ZZ,NORM,TST1,TST2
+      REAL H(NM,N),WR(N),WI(N),Z(NM,N)
+      REAL P,Q,R,S,T,W,X,Y,RA,SA,VI,VR,ZZ,NORM,TST1,TST2
       LOGICAL NOTLAS
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
@@ -569,7 +568,7 @@ C
       COMMON /LATIME/ OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION OPS, ITCNT, OPST
+      REAL OPS, ITCNT, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE HQR2,
@@ -637,8 +636,8 @@ C     THIS VERSION DATED AUGUST 1983.
 C
 C     ------------------------------------------------------------------
 *
-      EXTERNAL DLAMCH
-      DOUBLE PRECISION DLAMCH, UNFL,OVFL,ULP,SMLNUM,SMALL
+      EXTERNAL SLAMCH
+      REAL SLAMCH, UNFL,OVFL,ULP,SMLNUM,SMALL
       IF (N.LE.0) RETURN
 *
 *     INITIALIZE
@@ -653,31 +652,31 @@ C                AND COMPUTE MATRIX NORM ..........
       DO 50 I = 1, N
          IF (I .GE. LOW .AND. I .LE. IGH) GO TO 50
          WR(I) = H(I,I)
-         WI(I) = 0.0D0
+         WI(I) = 0.0E0
    50 CONTINUE
-
+*
 *        INCREMENT OPCOUNT FOR COMPUTING MATRIX NORM
          OPS = OPS + (IGH-LOW+1)*(IGH-LOW+2)/2
 *
 *     COMPUTE THE 1-NORM OF MATRIX H
 *
-      NORM = 0.0D0
+      NORM = 0.0E0
       DO 5 J = LOW, IGH
-         S = 0.0D0
+         S = 0.0E0
          DO 4 I = LOW, MIN(IGH,J+1)
-              S = S + DABS(H(I,J))
+              S = S + ABS(H(I,J))
   4      CONTINUE
          NORM = MAX(NORM, S)
   5   CONTINUE
 C
-      UNFL = DLAMCH( 'SAFE MINIMUM' )
-      OVFL = DLAMCH( 'OVERFLOW' )
-      ULP = DLAMCH( 'EPSILON' )*DLAMCH( 'BASE' )
+      UNFL = SLAMCH( 'SAFE MINIMUM' )
+      OVFL = SLAMCH( 'OVERFLOW' )
+      ULP = SLAMCH( 'EPSILON' )*SLAMCH( 'BASE' )
       SMLNUM = MAX( UNFL*( N / ULP ), N / ( ULP*OVFL ) )
-      SMALL = MAX( SMLNUM, MIN( ( NORM*SMLNUM )*NORM, ULP*NORM ) )
+      SMALL = MAX( SMLNUM, ULP*NORM )
 C
       EN = IGH
-      T = 0.0D0
+      T = 0.0E0
       ITN = 30*N
 C     .......... SEARCH FOR NEXT EIGENVALUES ..........
    60 IF (EN .LT. LOW) GO TO 340
@@ -691,8 +690,8 @@ C                FOR L=EN STEP -1 UNTIL LOW DO -- ..........
    70 DO 80 LL = LOW, EN
          L = EN + LOW - LL
          IF (L .EQ. LOW) GO TO 100
-         S = DABS(H(L-1,L-1)) + DABS(H(L,L))
-         IF (S .EQ. 0.0D0) S = NORM
+         S = ABS(H(L-1,L-1)) + ABS(H(L,L))
+         IF (S .EQ. 0.0E0) S = NORM
          IF ( ABS(H(L,L-1)) .LE. MAX(ULP*S,SMALL) )  GO TO 100
    80 CONTINUE
 C     .......... FORM SHIFT ..........
@@ -716,10 +715,10 @@ C
       DO 120 I = LOW, EN
   120 H(I,I) = H(I,I) - X
 C
-      S = DABS(H(EN,NA)) + DABS(H(NA,ENM2))
-      X = 0.75D0 * S
+      S = ABS(H(EN,NA)) + ABS(H(NA,ENM2))
+      X = 0.75E0 * S
       Y = X
-      W = -0.4375D0 * S * S
+      W = -0.4375E0 * S * S
   130 ITS = ITS + 1
       ITN = ITN - 1
 *
@@ -736,13 +735,13 @@ C                FOR M=EN-2 STEP -1 UNTIL L DO -- ..........
          P = (R * S - W) / H(M+1,M) + H(M,M+1)
          Q = H(M+1,M+1) - ZZ - R - S
          R = H(M+2,M+1)
-         S = DABS(P) + DABS(Q) + DABS(R)
+         S = ABS(P) + ABS(Q) + ABS(R)
          P = P / S
          Q = Q / S
          R = R / S
          IF (M .EQ. L) GO TO 150
-         TST1 = DABS(P)*(DABS(H(M-1,M-1)) + DABS(ZZ) + DABS(H(M+1,M+1)))
-         TST2 = DABS(H(M,M-1))*(DABS(Q) + DABS(R))
+         TST1 = ABS(P)*(ABS(H(M-1,M-1)) + ABS(ZZ) + ABS(H(M+1,M+1)))
+         TST2 = ABS(H(M,M-1))*(ABS(Q) + ABS(R))
          IF ( TST2 .LE. MAX(ULP*TST1,SMALL) ) GO TO 150
   140 CONTINUE
 C
@@ -753,9 +752,9 @@ C
       MP2 = M + 2
 C
       DO 160 I = MP2, EN
-         H(I,I-2) = 0.0D0
+         H(I,I-2) = 0.0E0
          IF (I .EQ. MP2) GO TO 160
-         H(I,I-3) = 0.0D0
+         H(I,I-3) = 0.0E0
   160 CONTINUE
 C     .......... DOUBLE QR STEP INVOLVING ROWS L TO EN AND
 C                COLUMNS M TO EN ..........
@@ -767,14 +766,14 @@ C                COLUMNS M TO EN ..........
          IF (K .EQ. M) GO TO 170
          P = H(K,K-1)
          Q = H(K+1,K-1)
-         R = 0.0D0
+         R = 0.0E0
          IF (NOTLAS) R = H(K+2,K-1)
-         X = DABS(P) + DABS(Q) + DABS(R)
-         IF (X .EQ. 0.0D0) GO TO 260
+         X = ABS(P) + ABS(Q) + ABS(R)
+         IF (X .EQ. 0.0E0) GO TO 260
          P = P / X
          Q = Q / X
          R = R / X
-  170    S = DSIGN(DSQRT(P*P+Q*Q+R*R),P)
+  170    S = SIGN(SQRT(P*P+Q*Q+R*R),P)
          IF (K .EQ. M) GO TO 180
          H(K,K-1) = -S * X
          GO TO 190
@@ -857,29 +856,29 @@ C
 C     .......... ONE ROOT FOUND ..........
   270 H(EN,EN) = X + T
       WR(EN) = H(EN,EN)
-      WI(EN) = 0.0D0
+      WI(EN) = 0.0E0
       EN = NA
       GO TO 60
 C     .......... TWO ROOTS FOUND ..........
-  280 P = (Y - X) / 2.0D0
+  280 P = (Y - X) / 2.0E0
       Q = P * P + W
-      ZZ = DSQRT(DABS(Q))
+      ZZ = SQRT(ABS(Q))
       H(EN,EN) = X + T
       X = H(EN,EN)
       H(NA,NA) = Y + T
-      IF (Q .LT. 0.0D0) GO TO 320
+      IF (Q .LT. 0.0E0) GO TO 320
 C     .......... REAL PAIR ..........
-      ZZ = P + DSIGN(ZZ,P)
+      ZZ = P + SIGN(ZZ,P)
       WR(NA) = X + ZZ
       WR(EN) = WR(NA)
-      IF (ZZ .NE. 0.0D0) WR(EN) = X - W / ZZ
-      WI(NA) = 0.0D0
-      WI(EN) = 0.0D0
+      IF (ZZ .NE. 0.0E0) WR(EN) = X - W / ZZ
+      WI(NA) = 0.0E0
+      WI(EN) = 0.0E0
       X = H(EN,NA)
-      S = DABS(X) + DABS(ZZ)
+      S = ABS(X) + ABS(ZZ)
       P = X / S
       Q = ZZ / S
-      R = DSQRT(P*P+Q*Q)
+      R = SQRT(P*P+Q*Q)
       P = P / R
       Q = Q / R
 *
@@ -921,7 +920,7 @@ C     .......... COMPLEX PAIR ..........
       GO TO 60
 C     .......... ALL ROOTS FOUND.  BACKSUBSTITUTE TO FIND
 C                VECTORS OF UPPER TRIANGULAR FORM ..........
-  340 IF (NORM .EQ. 0.0D0) GO TO 1001
+  340 IF (NORM .EQ. 0.0E0) GO TO 1001
 C     .......... FOR EN=N STEP -1 UNTIL 1 DO -- ..........
       DO 800 NN = 1, N
          EN = N + 1 - NN
@@ -931,13 +930,13 @@ C     .......... FOR EN=N STEP -1 UNTIL 1 DO -- ..........
          IF (Q) 710, 600, 800
 C     .......... REAL VECTOR ..........
   600    M = EN
-         H(EN,EN) = 1.0D0
+         H(EN,EN) = 1.0E0
          IF (NA .EQ. 0) GO TO 800
 C     .......... FOR I=EN-1 STEP -1 UNTIL 1 DO -- ..........
          DO 700 II = 1, NA
             I = EN - II
             W = H(I,I) - P
-            R = 0.0D0
+            R = 0.0E0
 C
 *
 *        INCREMENT OP COUNT FOR LOOP 610
@@ -945,17 +944,17 @@ C
             DO 610 J = M, EN
   610       R = R + H(I,J) * H(J,EN)
 C
-            IF (WI(I) .GE. 0.0D0) GO TO 630
+            IF (WI(I) .GE. 0.0E0) GO TO 630
             ZZ = W
             S = R
             GO TO 700
   630       M = I
-            IF (WI(I) .NE. 0.0D0) GO TO 640
+            IF (WI(I) .NE. 0.0E0) GO TO 640
             T = W
-            IF (T .NE. 0.0D0) GO TO 635
+            IF (T .NE. 0.0E0) GO TO 635
                TST1 = NORM
                T = TST1
-  632          T = 0.01D0 * T
+  632          T = 0.01E0 * T
                TST2 = NORM + T
                IF (TST2 .GT. TST1) GO TO 632
   635       H(I,EN) = -R / T
@@ -969,16 +968,16 @@ C     .......... SOLVE REAL EQUATIONS ..........
 *        INCREMENT OP COUNT FOR SOLVING REAL EQUATION.
          OPST = OPST + 13
             H(I,EN) = T
-            IF (DABS(X) .LE. DABS(ZZ)) GO TO 650
+            IF (ABS(X) .LE. ABS(ZZ)) GO TO 650
             H(I+1,EN) = (-R - W * T) / X
             GO TO 680
   650       H(I+1,EN) = (-S - Y * T) / ZZ
 C
 C     .......... OVERFLOW CONTROL ..........
-  680       T = DABS(H(I,EN))
-            IF (T .EQ. 0.0D0) GO TO 700
+  680       T = ABS(H(I,EN))
+            IF (T .EQ. 0.0E0) GO TO 700
             TST1 = T
-            TST2 = TST1 + 1.0D0/TST1
+            TST2 = TST1 + 1.0E0/TST1
             IF (TST2 .GT. TST1) GO TO 700
 *
 *        INCREMENT OP COUNT.
@@ -994,27 +993,27 @@ C     .......... COMPLEX VECTOR ..........
   710    M = NA
 C     .......... LAST VECTOR COMPONENT CHOSEN IMAGINARY SO THAT
 C                EIGENVECTOR MATRIX IS TRIANGULAR ..........
-         IF (DABS(H(EN,NA)) .LE. DABS(H(NA,EN))) GO TO 720
+         IF (ABS(H(EN,NA)) .LE. ABS(H(NA,EN))) GO TO 720
          H(NA,NA) = Q / H(EN,NA)
          H(NA,EN) = -(H(EN,EN) - P) / H(EN,NA)
 *
 *        INCREMENT OP COUNT.
          OPST = OPST + 3
          GO TO 730
-  720    CALL CDIV(0.0D0,-H(NA,EN),H(NA,NA)-P,Q,H(NA,NA),H(NA,EN))
+  720    CALL CDIV(0.0E0,-H(NA,EN),H(NA,NA)-P,Q,H(NA,NA),H(NA,EN))
 *
 *        INCREMENT OP COUNT IF (ABS(H(EN,NA)) .LE. ABS(H(NA,EN)))
          OPST = OPST + 16
-  730    H(EN,NA) = 0.0D0
-         H(EN,EN) = 1.0D0
+  730    H(EN,NA) = 0.0E0
+         H(EN,EN) = 1.0E0
          ENM2 = NA - 1
          IF (ENM2 .EQ. 0) GO TO 800
 C     .......... FOR I=EN-2 STEP -1 UNTIL 1 DO -- ..........
          DO 795 II = 1, ENM2
             I = NA - II
             W = H(I,I) - P
-            RA = 0.0D0
-            SA = 0.0D0
+            RA = 0.0E0
+            SA = 0.0E0
 C
 *
 *        INCREMENT OP COUNT FOR LOOP 760
@@ -1024,13 +1023,13 @@ C
                SA = SA + H(I,J) * H(J,EN)
   760       CONTINUE
 C
-            IF (WI(I) .GE. 0.0D0) GO TO 770
+            IF (WI(I) .GE. 0.0E0) GO TO 770
             ZZ = W
             R = RA
             S = SA
             GO TO 795
   770       M = I
-            IF (WI(I) .NE. 0.0D0) GO TO 780
+            IF (WI(I) .NE. 0.0E0) GO TO 780
             CALL CDIV(-RA,-SA,W,Q,H(I,NA),H(I,EN))
 *
 *        INCREMENT OP COUNT FOR CDIV
@@ -1040,20 +1039,20 @@ C     .......... SOLVE COMPLEX EQUATIONS ..........
   780       X = H(I,I+1)
             Y = H(I+1,I)
             VR = (WR(I) - P) * (WR(I) - P) + WI(I) * WI(I) - Q * Q
-            VI = (WR(I) - P) * 2.0D0 * Q
+            VI = (WR(I) - P) * 2.0E0 * Q
 *
 *        INCREMENT OPCOUNT (AVERAGE) FOR SOLVING COMPLEX EQUATIONS
          OPST = OPST + 42
-            IF (VR .NE. 0.0D0 .OR. VI .NE. 0.0D0) GO TO 784
-               TST1 = NORM * (DABS(W) + DABS(Q) + DABS(X)
-     X                      + DABS(Y) + DABS(ZZ))
+            IF (VR .NE. 0.0E0 .OR. VI .NE. 0.0E0) GO TO 784
+               TST1 = NORM * (ABS(W) + ABS(Q) + ABS(X)
+     X                      + ABS(Y) + ABS(ZZ))
                VR = TST1
-  783          VR = 0.01D0 * VR
+  783          VR = 0.01E0 * VR
                TST2 = TST1 + VR
                IF (TST2 .GT. TST1) GO TO 783
   784       CALL CDIV(X*R-ZZ*RA+Q*SA,X*S-ZZ*SA-Q*RA,VR,VI,
      X                H(I,NA),H(I,EN))
-            IF (DABS(X) .LE. DABS(ZZ) + DABS(Q)) GO TO 785
+            IF (ABS(X) .LE. ABS(ZZ) + ABS(Q)) GO TO 785
             H(I+1,NA) = (-RA - W * H(I,NA) + Q * H(I,EN)) / X
             H(I+1,EN) = (-SA - W * H(I,EN) - Q * H(I,NA)) / X
             GO TO 790
@@ -1061,10 +1060,10 @@ C     .......... SOLVE COMPLEX EQUATIONS ..........
      X                H(I+1,NA),H(I+1,EN))
 C
 C     .......... OVERFLOW CONTROL ..........
-  790       T = DMAX1(DABS(H(I,NA)), DABS(H(I,EN)))
-            IF (T .EQ. 0.0D0) GO TO 795
+  790       T = AMAX1(ABS(H(I,NA)), ABS(H(I,EN)))
+            IF (T .EQ. 0.0E0) GO TO 795
             TST1 = T
-            TST2 = TST1 + 1.0D0/TST1
+            TST2 = TST1 + 1.0E0/TST1
             IF (TST2 .GT. TST1) GO TO 795
 *
 *        INCREMENT OP COUNT.
@@ -1097,7 +1096,7 @@ C
 *        INCREMENT OP COUNT.
          OPS = OPS + 2*(IGH-LOW+1)*(M-LOW+1)
          DO 880 I = LOW, IGH
-            ZZ = 0.0D0
+            ZZ = 0.0E0
 C
             DO 860 K = LOW, M
   860       ZZ = ZZ + Z(I,K) * H(K,J)
@@ -1120,15 +1119,14 @@ C                CONVERGED AFTER 30*N ITERATIONS ..........
 *     EISPACK ROUTINE
 *     MODIFIED FOR COMPARISON WITH LAPACK ROUTINES.
 *
-*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN DSTEQR.
+*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN SSTEQR.
 *
 C
       INTEGER I,J,L,M,N,II,MML,IERR
-      DOUBLE PRECISION D(N),E(N)
-      DOUBLE PRECISION B,C,F,G,P,R,S,TST1,TST2,PYTHAG
-      DOUBLE PRECISION EPS, TST
-      DOUBLE PRECISION DLAMCH
-      external pythag, dlamch
+      REAL D(N),E(N)
+      REAL B,C,F,G,P,R,S,TST1,TST2,PYTHAG
+      REAL             EPS, TST
+      REAL             SLAMCH
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -1140,7 +1138,7 @@ C
       COMMON             / PYTHOP / OPST
 *
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS, OPST
+      REAL               ITCNT, OPS, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE IMTQL1,
@@ -1192,12 +1190,12 @@ C
 *
 *     DETERMINE THE UNIT ROUNDOFF FOR THIS ENVIRONMENT.
 *
-      EPS = DLAMCH( 'EPSILON' )
+      EPS = SLAMCH( 'EPSILON' )
 C
       DO 100 I = 2, N
   100 E(I-1) = E(I)
 C
-      E(N) = 0.0D0
+      E(N) = 0.0E0
 C
       DO 290 L = 1, N
          J = 0
@@ -1219,15 +1217,15 @@ C
          IF (J .EQ. 40) GO TO 1000
          J = J + 1
 C     .......... FORM SHIFT ..........
-         G = (D(L+1) - P) / (2.0D0 * E(L))
-         R = PYTHAG(G,1.0D0)
-         G = D(M) - P + E(L) / (G + DSIGN(R,G))
+         G = (D(L+1) - P) / (2.0E0 * E(L))
+         R = PYTHAG(G,1.0E0)
+         G = D(M) - P + E(L) / (G + SIGN(R,G))
 *
 *        INCREMENT OPCOUNT FOR FORMING SHIFT.
             OPS = OPS + 7
-         S = 1.0D0
-         C = 1.0D0
-         P = 0.0D0
+         S = 1.0E0
+         C = 1.0E0
+         P = 0.0E0
          MML = M - L
 C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
          DO 200 II = 1, MML
@@ -1236,11 +1234,11 @@ C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
             B = C * E(I)
             R = PYTHAG(F,G)
             E(I+1) = R
-            IF (R .EQ. 0.0D0) GO TO 210
+            IF (R .EQ. 0.0E0) GO TO 210
             S = F / R
             C = G / R
             G = D(I+1) - P
-            R = (D(I) - G) * S + 2.0D0 * C * B
+            R = (D(I) - G) * S + 2.0E0 * C * B
             P = S * R
             D(I+1) = G + P
             G = C * R - B
@@ -1248,7 +1246,7 @@ C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
 C
          D(L) = D(L) - P
          E(L) = G
-         E(M) = 0.0D0
+         E(M) = 0.0E0
 *
 *        INCREMENT OPCOUNT FOR INNER LOOP.
             OPS = OPS + MML*14 + 1
@@ -1258,7 +1256,7 @@ C
          GO TO 105
 C     .......... RECOVER FROM UNDERFLOW ..........
   210    D(I+1) = D(I+1) - P
-         E(M) = 0.0D0
+         E(M) = 0.0E0
 *
 *        INCREMENT OPCOUNT FOR INNER LOOP, WHEN UNDERFLOW OCCURS.
             OPS = OPS + 2+(II-1)*14 + 1
@@ -1290,15 +1288,14 @@ C                EIGENVALUE AFTER 40 ITERATIONS ..........
 *
 *     EISPACK ROUTINE.  MODIFIED FOR COMPARISON WITH LAPACK.
 *
-*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN DSTEQR.
+*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN SSTEQR.
 *
 C
       INTEGER I,J,K,L,M,N,II,NM,MML,IERR
-      DOUBLE PRECISION D(N),E(N),Z(NM,N)
-      DOUBLE PRECISION B,C,F,G,P,R,S,TST1,TST2,PYTHAG
-      DOUBLE PRECISION EPS, TST
-      DOUBLE PRECISION DLAMCH
-      external pythag, dlamch
+      REAL D(N),E(N),Z(NM,N)
+      REAL B,C,F,G,P,R,S,TST1,TST2,PYTHAG
+      REAL             EPS, TST
+      REAL             SLAMCH
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -1310,7 +1307,7 @@ C
       COMMON             / PYTHOP / OPST
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS, OPST
+      REAL               ITCNT, OPS, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE IMTQL2,
@@ -1377,12 +1374,12 @@ C
             OPST = 0
 *
 *     DETERMINE UNIT ROUNDOFF FOR THIS MACHINE.
-      EPS = DLAMCH( 'EPSILON' )
+      EPS = SLAMCH( 'EPSILON' )
 C
       DO 100 I = 2, N
   100 E(I-1) = E(I)
 C
-      E(N) = 0.0D0
+      E(N) = 0.0E0
 C
       DO 240 L = 1, N
          J = 0
@@ -1404,15 +1401,15 @@ C
          IF (J .EQ. 40) GO TO 1000
          J = J + 1
 C     .......... FORM SHIFT ..........
-         G = (D(L+1) - P) / (2.0D0 * E(L))
-         R = PYTHAG(G,1.0D0)
-         G = D(M) - P + E(L) / (G + DSIGN(R,G))
+         G = (D(L+1) - P) / (2.0E0 * E(L))
+         R = PYTHAG(G,1.0E0)
+         G = D(M) - P + E(L) / (G + SIGN(R,G))
 *
 *        INCREMENT OPCOUNT FOR FORMING SHIFT.
             OPS = OPS + 7
-         S = 1.0D0
-         C = 1.0D0
-         P = 0.0D0
+         S = 1.0E0
+         C = 1.0E0
+         P = 0.0E0
          MML = M - L
 C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
          DO 200 II = 1, MML
@@ -1421,11 +1418,11 @@ C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
             B = C * E(I)
             R = PYTHAG(F,G)
             E(I+1) = R
-            IF (R .EQ. 0.0D0) GO TO 210
+            IF (R .EQ. 0.0E0) GO TO 210
             S = F / R
             C = G / R
             G = D(I+1) - P
-            R = (D(I) - G) * S + 2.0D0 * C * B
+            R = (D(I) - G) * S + 2.0E0 * C * B
             P = S * R
             D(I+1) = G + P
             G = C * R - B
@@ -1440,7 +1437,7 @@ C
 C
          D(L) = D(L) - P
          E(L) = G
-         E(M) = 0.0D0
+         E(M) = 0.0E0
 *
 *        INCREMENT OPCOUNT FOR INNER LOOP.
             OPS = OPS + MML*( 14+6*N ) + 1
@@ -1450,7 +1447,7 @@ C
          GO TO 105
 C     .......... RECOVER FROM UNDERFLOW ..........
   210    D(I+1) = D(I+1) - P
-         E(M) = 0.0D0
+         E(M) = 0.0E0
 *
 *        INCREMENT OPCOUNT FOR INNER LOOP, WHEN UNDERFLOW OCCURS.
             OPS = OPS + 2+(II-1)*(14+6*N) + 1
@@ -1493,12 +1490,11 @@ C                EIGENVALUE AFTER 40 ITERATIONS ..........
       SUBROUTINE INVIT(NM,N,A,WR,WI,SELECT,MM,M,Z,IERR,RM1,RV1,RV2)
 C
       INTEGER I,J,K,L,M,N,S,II,IP,MM,MP,NM,NS,N1,UK,IP1,ITS,KM1,IERR
-      DOUBLE PRECISION A(NM,N),WR(N),WI(N),Z(NM,MM),RM1(N,N),
+      REAL A(NM,N),WR(N),WI(N),Z(NM,MM),RM1(N,N),
      X       RV1(N),RV2(N)
-      DOUBLE PRECISION T,W,X,Y,EPS3,NORM,NORMV,GROWTO,ILAMBD,
+      REAL T,W,X,Y,EPS3,NORM,NORMV,GROWTO,ILAMBD,
      X       PYTHAG,RLAMBD,UKROOT
       LOGICAL SELECT(N)
-      external pythag, dlamch
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -1508,7 +1504,7 @@ C
       COMMON /LATIME/ OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION OPS, ITCNT, OPST
+      REAL OPS, ITCNT, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE INVIT
@@ -1591,11 +1587,11 @@ C     THIS VERSION DATED AUGUST 1983.
 C
 C     ------------------------------------------------------------------
 *
-*     GET ULP FROM DLAMCH FOR NEW SMALL PERTURBATION AS IN LAPACK
-      EXTERNAL DLAMCH
-      DOUBLE PRECISION DLAMCH, ULP
+*     GET ULP FROM SLAMCH FOR NEW SMALL PERTURBATION AS IN LAPACK
+      EXTERNAL SLAMCH
+      REAL SLAMCH, ULP
       IF (N.LE.0) RETURN
-      ULP = DLAMCH( 'EPSILON' )
+      ULP = SLAMCH( 'EPSILON' )
 C
 *
 *     INITIALIZE
@@ -1610,38 +1606,38 @@ C                    -1, SECOND OF CONJUGATE COMPLEX PAIR ..........
       N1 = N - 1
 C
       DO 980 K = 1, N
-         IF (WI(K) .EQ. 0.0D0 .OR. IP .LT. 0) GO TO 100
+         IF (WI(K) .EQ. 0.0E0 .OR. IP .LT. 0) GO TO 100
          IP = 1
          IF (SELECT(K) .AND. SELECT(K+1)) SELECT(K+1) = .FALSE.
   100    IF (.NOT. SELECT(K)) GO TO 960
-         IF (WI(K) .NE. 0.0D0) S = S + 1
+         IF (WI(K) .NE. 0.0E0) S = S + 1
          IF (S .GT. MM) GO TO 1000
          IF (UK .GE. K) GO TO 200
 C     .......... CHECK FOR POSSIBLE SPLITTING ..........
          DO 120 UK = K, N
             IF (UK .EQ. N) GO TO 140
-            IF (A(UK+1,UK) .EQ. 0.0D0) GO TO 140
+            IF (A(UK+1,UK) .EQ. 0.0E0) GO TO 140
   120    CONTINUE
 C     .......... COMPUTE INFINITY NORM OF LEADING UK BY UK
 C                (HESSENBERG) MATRIX ..........
-  140    NORM = 0.0D0
+  140    NORM = 0.0E0
          MP = 1
 C
 *
 *        INCREMENT OPCOUNT FOR COMPUTING MATRIX NORM
          OPS = OPS + UK*(UK-1)/2
          DO 180 I = 1, UK
-            X = 0.0D0
+            X = 0.0E0
 C
             DO 160 J = MP, UK
-  160       X = X + DABS(A(I,J))
+  160       X = X + ABS(A(I,J))
 C
             IF (X .GT. NORM) NORM = X
             MP = I
   180    CONTINUE
 C     .......... EPS3 REPLACES ZERO PIVOT IN DECOMPOSITION
 C                AND CLOSE ROOTS ARE MODIFIED BY EPS3 ..........
-         IF (NORM .EQ. 0.0D0) NORM = 1.0D0
+         IF (NORM .EQ. 0.0E0) NORM = 1.0E0
 *        EPS3 = EPSLON(NORM)
 *
 *        INCREMENT OPCOUNT
@@ -1649,8 +1645,8 @@ C                AND CLOSE ROOTS ARE MODIFIED BY EPS3 ..........
          EPS3 = NORM*ULP
 C     .......... GROWTO IS THE CRITERION FOR THE GROWTH ..........
          UKROOT = UK
-         UKROOT = DSQRT(UKROOT)
-         GROWTO = 0.1D0 / UKROOT
+         UKROOT = SQRT(UKROOT)
+         GROWTO = 0.1E0 / UKROOT
   200    RLAMBD = WR(K)
          ILAMBD = WI(K)
          IF (K .EQ. 1) GO TO 280
@@ -1662,8 +1658,8 @@ C                TO ANY PREVIOUS EIGENVALUE ..........
 C     .......... FOR I=K-1 STEP -1 UNTIL 1 DO -- ..........
   240    DO 260 II = 1, KM1
             I = K - II
-            IF (SELECT(I) .AND. DABS(WR(I)-RLAMBD) .LT. EPS3 .AND.
-     X         DABS(WI(I)-ILAMBD) .LT. EPS3) GO TO 220
+            IF (SELECT(I) .AND. ABS(WR(I)-RLAMBD) .LT. EPS3 .AND.
+     X         ABS(WI(I)-ILAMBD) .LT. EPS3) GO TO 220
   260    CONTINUE
 *
 *        INCREMENT OPCOUNT FOR LOOP 260 (ASSUME THAT ALL EIGENVALUES
@@ -1692,7 +1688,7 @@ C
   320    CONTINUE
 C
          ITS = 0
-         IF (ILAMBD .NE. 0.0D0) GO TO 520
+         IF (ILAMBD .NE. 0.0E0) GO TO 520
 C     .......... REAL EIGENVALUE.
 C                TRIANGULAR DECOMPOSITION WITH INTERCHANGES,
 C                REPLACING ZERO PIVOTS BY EPS3 ..........
@@ -1703,7 +1699,7 @@ C
          OPS = OPS + (UK-1)*(UK+2)
          DO 400 I = 2, UK
             MP = I - 1
-            IF (DABS(RM1(MP,I)) .LE. DABS(RM1(MP,MP))) GO TO 360
+            IF (ABS(RM1(MP,I)) .LE. ABS(RM1(MP,MP))) GO TO 360
 C
             DO 340 J = MP, UK
                Y = RM1(J,I)
@@ -1711,16 +1707,16 @@ C
                RM1(J,MP) = Y
   340       CONTINUE
 C
-  360       IF (RM1(MP,MP) .EQ. 0.0D0) RM1(MP,MP) = EPS3
+  360       IF (RM1(MP,MP) .EQ. 0.0E0) RM1(MP,MP) = EPS3
             X = RM1(MP,I) / RM1(MP,MP)
-            IF (X .EQ. 0.0D0) GO TO 400
+            IF (X .EQ. 0.0E0) GO TO 400
 C
             DO 380 J = I, UK
   380       RM1(J,I) = RM1(J,I) - X * RM1(J,MP)
 C
   400    CONTINUE
 C
-  420    IF (RM1(UK,UK) .EQ. 0.0D0) RM1(UK,UK) = EPS3
+  420    IF (RM1(UK,UK) .EQ. 0.0E0) RM1(UK,UK) = EPS3
 C     .......... BACK SUBSTITUTION FOR REAL VECTOR
 C                FOR I=UK STEP -1 UNTIL 1 DO -- ..........
   440    DO 500 II = 1, UK
@@ -1745,14 +1741,14 @@ C                REPLACING ZERO PIVOTS BY EPS3.  STORE IMAGINARY
 C                PARTS IN UPPER TRIANGLE STARTING AT (1,3) ..........
   520    NS = N - S
          Z(1,S-1) = -ILAMBD
-         Z(1,S) = 0.0D0
+         Z(1,S) = 0.0E0
          IF (N .EQ. 2) GO TO 550
          RM1(1,3) = -ILAMBD
-         Z(1,S-1) = 0.0D0
+         Z(1,S-1) = 0.0E0
          IF (N .EQ. 3) GO TO 550
 C
          DO 540 I = 4, N
-  540    RM1(1,I) = 0.0D0
+  540    RM1(1,I) = 0.0E0
 C
   550    DO 640 I = 2, UK
             MP = I - 1
@@ -1764,8 +1760,8 @@ C
             X = RM1(MP,MP) / W
             Y = T / W
             RM1(MP,MP) = W
-            IF (I .LT. N) RM1(MP,I+1) = 0.0D0
-            IF (I .EQ. N) Z(MP,S-1) = 0.0D0
+            IF (I .LT. N) RM1(MP,I+1) = 0.0E0
+            IF (I .EQ. N) Z(MP,S-1) = 0.0E0
 C
 *
 *        INCREMENT OPCOUNT FOR LOOP 560
@@ -1777,10 +1773,10 @@ C
                IF (J .LT. N1) GO TO 555
                L = J - NS
                Z(I,L) = Z(MP,L) - Y * W
-               Z(MP,L) = 0.0D0
+               Z(MP,L) = 0.0E0
                GO TO 560
   555          RM1(I,J+2) = RM1(MP,J+2) - Y * W
-               RM1(MP,J+2) = 0.0D0
+               RM1(MP,J+2) = 0.0E0
   560       CONTINUE
 C
             RM1(I,I) = RM1(I,I) - Y * ILAMBD
@@ -1792,11 +1788,11 @@ C
   570       RM1(MP,I+2) = -ILAMBD
             RM1(I,I+2) = RM1(I,I+2) + X * ILAMBD
             GO TO 640
-  580       IF (X .NE. 0.0D0) GO TO 600
+  580       IF (X .NE. 0.0E0) GO TO 600
             RM1(MP,MP) = EPS3
-            IF (I .LT. N) RM1(MP,I+1) = 0.0D0
-            IF (I .EQ. N) Z(MP,S-1) = 0.0D0
-            T = 0.0D0
+            IF (I .LT. N) RM1(MP,I+1) = 0.0E0
+            IF (I .EQ. N) Z(MP,S-1) = 0.0E0
+            T = 0.0E0
             X = EPS3 * EPS3
   600       W = W / X
             X = RM1(MP,MP) * W
@@ -1832,13 +1828,13 @@ C
          T = Z(UK,L)
          GO TO 655
   650    T = RM1(UK,UK+2)
-  655    IF (RM1(UK,UK) .EQ. 0.0D0 .AND. T .EQ. 0.0D0) RM1(UK,UK) = EPS3
+  655    IF (RM1(UK,UK) .EQ. 0.0E0 .AND. T .EQ. 0.0E0) RM1(UK,UK) = EPS3
 C     .......... BACK SUBSTITUTION FOR COMPLEX VECTOR
 C                FOR I=UK STEP -1 UNTIL 1 DO -- ..........
   660    DO 720 II = 1, UK
             I = UK + 1 - II
             X = RV1(I)
-            Y = 0.0D0
+            Y = 0.0E0
             IF (I .EQ. UK) GO TO 700
             IP1 = I + 1
 C
@@ -1865,12 +1861,12 @@ C
 C     .......... ACCEPTANCE TEST FOR REAL OR COMPLEX
 C                EIGENVECTOR AND NORMALIZATION ..........
   740    ITS = ITS + 1
-         NORM = 0.0D0
-         NORMV = 0.0D0
+         NORM = 0.0E0
+         NORMV = 0.0E0
 C
          DO 780 I = 1, UK
-            IF (ILAMBD .EQ. 0.0D0) X = DABS(RV1(I))
-            IF (ILAMBD .NE. 0.0D0) X = PYTHAG(RV1(I),RV2(I))
+            IF (ILAMBD .EQ. 0.0E0) X = ABS(RV1(I))
+            IF (ILAMBD .NE. 0.0E0) X = PYTHAG(RV1(I),RV2(I))
             IF (NORMV .GE. X) GO TO 760
             NORMV = X
             J = I
@@ -1878,21 +1874,21 @@ C
   780    CONTINUE
 *
 *        INCREMENT OP COUNT ACCEPTANCE TEST
-         IF (ILAMBD .EQ. 0.0D0) OPS = OPS + UK
-         IF (ILAMBD .NE. 0.0D0) OPS = OPS + 16*UK
+         IF (ILAMBD .EQ. 0.0E0) OPS = OPS + UK
+         IF (ILAMBD .NE. 0.0E0) OPS = OPS + 16*UK
 C
          IF (NORM .LT. GROWTO) GO TO 840
 C     .......... ACCEPT VECTOR ..........
          X = RV1(J)
-         IF (ILAMBD .EQ. 0.0D0) X = 1.0D0 / X
-         IF (ILAMBD .NE. 0.0D0) Y = RV2(J)
+         IF (ILAMBD .EQ. 0.0E0) X = 1.0E0 / X
+         IF (ILAMBD .NE. 0.0E0) Y = RV2(J)
 C
 *
 *        INCREMENT OPCOUNT FOR LOOP 820
-         IF (ILAMBD .EQ. 0.0D0) OPS = OPS + UK
-         IF (ILAMBD .NE. 0.0D0) OPS = OPS + 16*UK
+         IF (ILAMBD .EQ. 0.0E0) OPS = OPS + UK
+         IF (ILAMBD .NE. 0.0E0) OPS = OPS + 16*UK
          DO 820 I = 1, UK
-            IF (ILAMBD .NE. 0.0D0) GO TO 800
+            IF (ILAMBD .NE. 0.0E0) GO TO 800
             Z(I,S) = RV1(I) * X
             GO TO 820
   800       CALL CDIV(RV1(I),RV2(I),X,Y,Z(I,S-1),Z(I,S))
@@ -1905,7 +1901,7 @@ C     .......... IN-LINE PROCEDURE FOR CHOOSING
 C                A NEW STARTING VECTOR ..........
   840    IF (ITS .GE. UK) GO TO 880
          X = UKROOT
-         Y = EPS3 / (X + 1.0D0)
+         Y = EPS3 / (X + 1.0E0)
          RV1(1) = EPS3
 C
          DO 860 I = 2, UK
@@ -1913,15 +1909,15 @@ C
 C
          J = UK - ITS + 1
          RV1(J) = RV1(J) - EPS3 * X
-         IF (ILAMBD .EQ. 0.0D0) GO TO 440
+         IF (ILAMBD .EQ. 0.0E0) GO TO 440
          GO TO 660
 C     .......... SET ERROR -- UNACCEPTED EIGENVECTOR ..........
   880    J = 1
          IERR = -K
 C     .......... SET REMAINING VECTOR COMPONENTS TO ZERO ..........
   900    DO 920 I = J, N
-            Z(I,S) = 0.0D0
-            IF (ILAMBD .NE. 0.0D0) Z(I,S-1) = 0.0D0
+            Z(I,S) = 0.0E0
+            IF (ILAMBD .NE. 0.0E0) Z(I,S-1) = 0.0E0
   920    CONTINUE
 C
   940    S = S + 1
@@ -1943,8 +1939,8 @@ C                SPACE REQUIRED ..........
       SUBROUTINE ORTHES(NM,N,LOW,IGH,A,ORT)
 C
       INTEGER I,J,M,N,II,JJ,LA,MP,NM,IGH,KP1,LOW
-      DOUBLE PRECISION A(NM,N),ORT(IGH)
-      DOUBLE PRECISION F,G,H,SCALE
+      REAL A(NM,N),ORT(IGH)
+      REAL F,G,H,SCALE
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -1954,7 +1950,7 @@ C
       COMMON /LATIME/ OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION OPS, ITCNT, OPST
+      REAL OPS, ITCNT, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE ORTHES,
@@ -2006,17 +2002,17 @@ C
 *     INCREMENT OP COUNR FOR COMPUTING G,H,ORT(M),.. IN LOOP 180
       OPS = OPS + 6*(LA - KP1 + 1)
       DO 180 M = KP1, LA
-         H = 0.0D0
-         ORT(M) = 0.0D0
-         SCALE = 0.0D0
+         H = 0.0E0
+         ORT(M) = 0.0E0
+         SCALE = 0.0E0
 C     .......... SCALE COLUMN (ALGOL TOL THEN NOT NEEDED) ..........
 *
 *     INCREMENT OP COUNT FOR LOOP 90
       OPS = OPS + (IGH-M +1)
          DO 90 I = M, IGH
-   90    SCALE = SCALE + DABS(A(I,M-1))
+   90    SCALE = SCALE + ABS(A(I,M-1))
 C
-         IF (SCALE .EQ. 0.0D0) GO TO 180
+         IF (SCALE .EQ. 0.0E0) GO TO 180
          MP = M + IGH
 C     .......... FOR I=IGH STEP -1 UNTIL M DO -- ..........
 *
@@ -2028,7 +2024,7 @@ C     .......... FOR I=IGH STEP -1 UNTIL M DO -- ..........
             H = H + ORT(I) * ORT(I)
   100    CONTINUE
 C
-         G = -DSIGN(DSQRT(H),ORT(M))
+         G = -SIGN(SQRT(H),ORT(M))
          H = H - ORT(M) * G
          ORT(M) = ORT(M) - G
 C     .......... FORM (I-(U*UT)/H) * A ..........
@@ -2036,7 +2032,7 @@ C     .......... FORM (I-(U*UT)/H) * A ..........
 *     INCREMENT OP COUNT FOR LOOP 130 AND 160
       OPS = OPS + (N-M+1+IGH)*(4*(IGH-M+1) + 1)
          DO 130 J = M, N
-            F = 0.0D0
+            F = 0.0E0
 C     .......... FOR I=IGH STEP -1 UNTIL M DO -- ..........
             DO 110 II = M, IGH
                I = MP - II
@@ -2051,7 +2047,7 @@ C
   130    CONTINUE
 C     .......... FORM (I-(U*UT)/H)*A*(I-(U*UT)/H) ..........
          DO 160 I = 1, IGH
-            F = 0.0D0
+            F = 0.0E0
 C     .......... FOR J=IGH STEP -1 UNTIL M DO -- ..........
             DO 140 JJ = M, IGH
                J = MP - JJ
@@ -2071,8 +2067,8 @@ C
 C
   200 RETURN
       END
-      DOUBLE PRECISION FUNCTION PYTHAG(A,B)
-      DOUBLE PRECISION A,B
+      REAL FUNCTION PYTHAG(A,B)
+      REAL A,B
 C
 C     FINDS SQRT(A**2+B**2) WITHOUT OVERFLOW OR DESTRUCTIVE UNDERFLOW
 C
@@ -2083,20 +2079,20 @@ C
       COMMON             / PYTHOP / OPST
 *     ..
 *     .. SCALARS IN COMMON
-      DOUBLE PRECISION   OPST
+      REAL               OPST
 *     ..
-      DOUBLE PRECISION P,R,S,T,U
-      P = DMAX1(DABS(A),DABS(B))
-      IF (P .EQ. 0.0D0) GO TO 20
-      R = (DMIN1(DABS(A),DABS(B))/P)**2
+      REAL P,R,S,T,U
+      P = AMAX1(ABS(A),ABS(B))
+      IF (P .EQ. 0.0E0) GO TO 20
+      R = (AMIN1(ABS(A),ABS(B))/P)**2
 *
 *     INCREMENT OPST
       OPST = OPST + 2
    10 CONTINUE
-         T = 4.0D0 + R
-         IF (T .EQ. 4.0D0) GO TO 20
+         T = 4.0E0 + R
+         IF (T .EQ. 4.0E0) GO TO 20
          S = R/T
-         U = 1.0D0 + 2.0D0*S
+         U = 1.0E0 + 2.0E0*S
          P = U*P
          R = (S/U)**2 * R
 *
@@ -2111,15 +2107,14 @@ C
 *     EISPACK ROUTINE.
 *     MODIFIED FOR COMPARISON WITH LAPACK ROUTINES.
 *
-*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN DSTEQR.
+*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN SSTEQR.
 *
 C
       INTEGER I,J,L,M,N,II,L1,MML,IERR
-      DOUBLE PRECISION D(N),E2(N)
-      DOUBLE PRECISION B,C,F,G,H,P,R,S,T,EPSLON,PYTHAG
-      DOUBLE PRECISION EPS, TST
-      DOUBLE PRECISION DLAMCH
-      external pythag, dlamch, epslon
+      REAL D(N),E2(N)
+      REAL B,C,F,G,H,P,R,S,T,EPSLON,PYTHAG
+      REAL             EPS, TST
+      REAL             SLAMCH
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -2131,7 +2126,7 @@ C
       COMMON             / PYTHOP / OPST
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS, OPST
+      REAL               ITCNT, OPS, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE TQLRAT,
@@ -2181,18 +2176,18 @@ C
 *
 *     DETERMINE THE UNIT ROUNDOFF FOR THIS ENVIRONMENT.
 *
-      EPS = DLAMCH( 'EPSILON' )
+      EPS = SLAMCH( 'EPSILON' )
 C
       DO 100 I = 2, N
   100 E2(I-1) = E2(I)
 C
-      F = 0.0D0
-      T = 0.0D0
-      E2(N) = 0.0D0
+      F = 0.0E0
+      T = 0.0E0
+      E2(N) = 0.0E0
 C
       DO 290 L = 1, N
          J = 0
-         H = DABS(D(L)) + DSQRT(E2(L))
+         H = ABS(D(L)) + SQRT(E2(L))
          IF (T .GT. H) GO TO 105
          T = H
          B = EPSLON(T)
@@ -2222,11 +2217,11 @@ C
          J = J + 1
 C     .......... FORM SHIFT ..........
          L1 = L + 1
-         S = DSQRT(E2(L))
+         S = SQRT(E2(L))
          G = D(L)
-         P = (D(L1) - G) / (2.0D0 * S)
-         R = PYTHAG(P,1.0D0)
-         D(L) = S / (P + DSIGN(R,P))
+         P = (D(L1) - G) / (2.0E0 * S)
+         R = PYTHAG(P,1.0E0)
+         D(L) = S / (P + SIGN(R,P))
          H = G - D(L)
 C
          DO 140 I = L1, N
@@ -2238,9 +2233,9 @@ C
             OPS = OPS + 8 + (I-L1+1)
 C     .......... RATIONAL QL TRANSFORMATION ..........
          G = D(M)
-         IF (G .EQ. 0.0D0) G = B
+         IF (G .EQ. 0.0E0) G = B
          H = G
-         S = 0.0D0
+         S = 0.0E0
          MML = M - L
 C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
          DO 200 II = 1, MML
@@ -2251,7 +2246,7 @@ C     .......... FOR I=M-1 STEP -1 UNTIL L DO -- ..........
             S = E2(I) / R
             D(I+1) = H + S * (H + D(I))
             G = D(I) - E2(I) / G
-            IF (G .EQ. 0.0D0) G = B
+            IF (G .EQ. 0.0E0) G = B
             H = G * P / R
   200    CONTINUE
 C
@@ -2264,10 +2259,10 @@ C
 *        INCREMENT ITERATION COUNTER
             ITCNT = ITCNT + 1
 C     .......... GUARD AGAINST UNDERFLOW IN CONVERGENCE TEST ..........
-         IF (H .EQ. 0.0D0) GO TO 210
-         IF (DABS(E2(L)) .LE. DABS(C/H)) GO TO 210
+         IF (H .EQ. 0.0E0) GO TO 210
+         IF (ABS(E2(L)) .LE. ABS(C/H)) GO TO 210
          E2(L) = H * E2(L)
-         IF (E2(L) .NE. 0.0D0) GO TO 130
+         IF (E2(L) .NE. 0.0E0) GO TO 130
   210    P = D(L) + F
 C     .......... ORDER EIGENVALUES ..........
          IF (L .EQ. 1) GO TO 250
@@ -2295,8 +2290,8 @@ C                EIGENVALUE AFTER 30 ITERATIONS ..........
       SUBROUTINE TRED1(NM,N,A,D,E,E2)
 C
       INTEGER I,J,K,L,N,II,NM,JP1
-      DOUBLE PRECISION A(NM,N),D(N),E(N),E2(N)
-      DOUBLE PRECISION F,G,H,SCALE
+      REAL A(NM,N),D(N),E(N),E2(N)
+      REAL F,G,H,SCALE
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT.
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED.
@@ -2304,7 +2299,7 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE TRED1,
@@ -2348,9 +2343,9 @@ C
 C     ------------------------------------------------------------------
 C
 *
-      OPS = OPS + MAX( 0.0D0, (4.0D0/3.0D0)*DBLE(N)**3 +
-     $                              12.0D0*DBLE(N)**2 +
-     $                      (11.0D0/3.0D0)*N - 22 )
+      OPS = OPS + MAX( 0.0E0, (4.0E0/3.0E0)*REAL(N)**3 +
+     $                              12.0E0*REAL(N)**2 +
+     $                      (11.0E0/3.0E0)*N - 22 )
 *
       DO 100 I = 1, N
          D(I) = A(N,I)
@@ -2360,23 +2355,23 @@ C     .......... FOR I=N STEP -1 UNTIL 1 DO -- ..........
       DO 300 II = 1, N
          I = N + 1 - II
          L = I - 1
-         H = 0.0D0
-         SCALE = 0.0D0
+         H = 0.0E0
+         SCALE = 0.0E0
          IF (L .LT. 1) GO TO 130
 C     .......... SCALE ROW (ALGOL TOL THEN NOT NEEDED) ..........
          DO 120 K = 1, L
-  120    SCALE = SCALE + DABS(D(K))
+  120    SCALE = SCALE + ABS(D(K))
 C
-         IF (SCALE .NE. 0.0D0) GO TO 140
+         IF (SCALE .NE. 0.0E0) GO TO 140
 C
          DO 125 J = 1, L
             D(J) = A(L,J)
             A(L,J) = A(I,J)
-            A(I,J) = 0.0D0
+            A(I,J) = 0.0E0
   125    CONTINUE
 C
-  130    E(I) = 0.0D0
-         E2(I) = 0.0D0
+  130    E(I) = 0.0E0
+         E2(I) = 0.0E0
          GO TO 300
 C
   140    DO 150 K = 1, L
@@ -2386,14 +2381,14 @@ C
 C
          E2(I) = SCALE * SCALE * H
          F = D(L)
-         G = -DSIGN(DSQRT(H),F)
+         G = -SIGN(SQRT(H),F)
          E(I) = SCALE * G
          H = H - F * G
          D(L) = F - G
          IF (L .EQ. 1) GO TO 285
 C     .......... FORM A*U ..........
          DO 170 J = 1, L
-  170    E(J) = 0.0D0
+  170    E(J) = 0.0E0
 C
          DO 240 J = 1, L
             F = D(J)
@@ -2409,7 +2404,7 @@ C
   220       E(J) = G
   240    CONTINUE
 C     .......... FORM P ..........
-         F = 0.0D0
+         F = 0.0E0
 C
          DO 245 J = 1, L
             E(J) = E(J) / H
@@ -2446,14 +2441,13 @@ C
 *     EISPACK ROUTINE.
 *     MODIFIED FOR COMPARISON WITH LAPACK ROUTINES.
 *
-*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN DSTEBZ.
+*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN SSTEBZ.
 *
 C
       INTEGER I,J,K,L,M,N,P,Q,R,S,II,MM,M1,M2,TAG,IERR,ISTURM
-      DOUBLE PRECISION D(N),E(N),E2(N),W(MM),RV4(N),RV5(N)
-      DOUBLE PRECISION U,V,LB,T1,T2,UB,XU,X0,X1,EPS1,TST1,TST2,EPSLON
+      REAL D(N),E(N),E2(N),W(MM),RV4(N),RV5(N)
+      REAL U,V,LB,T1,T2,UB,XU,X0,X1,EPS1,TST1,TST2,EPSLON
       INTEGER IND(MM)
-      external epslon
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -2461,7 +2455,7 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE BISECTION TECHNIQUE
@@ -2538,17 +2532,17 @@ C     THIS VERSION DATED AUGUST 1983.
 C
 C     ------------------------------------------------------------------
 C
-      DOUBLE PRECISION ONE
-      PARAMETER        ( ONE = 1.0D0 )
-      DOUBLE PRECISION RELFAC
-      PARAMETER        ( RELFAC = 2.0D0 )
-      DOUBLE PRECISION ATOLI, RTOLI, SAFEMN, TMP1, TMP2, TNORM, ULP
-      DOUBLE PRECISION DLAMCH, PIVMIN
-      EXTERNAL DLAMCH
+      REAL             ONE
+      PARAMETER        ( ONE = 1.0E0 )
+      REAL             RELFAC
+      PARAMETER        ( RELFAC = 2.0E0 )
+      REAL ATOLI, RTOLI, SAFEMN, TMP1, TMP2, TNORM, ULP
+      REAL SLAMCH, PIVMIN
+      EXTERNAL SLAMCH
 *        INITIALIZE ITERATION COUNT.
             ITCNT = 0
-      SAFEMN = DLAMCH( 'S' )
-      ULP = DLAMCH( 'E' )*DLAMCH( 'B' )
+      SAFEMN = SLAMCH( 'S' )
+      ULP = SLAMCH( 'E' )*SLAMCH( 'B' )
       RTOLI = ULP*RELFAC
       IERR = 0
       TAG = 0
@@ -2557,13 +2551,13 @@ C
 C     .......... LOOK FOR SMALL SUB-DIAGONAL ENTRIES ..........
       DO 40 I = 1, N
          IF (I .EQ. 1) GO TO 20
-CCC         TST1 = DABS(D(I)) + DABS(D(I-1))
-CCC         TST2 = TST1 + DABS(E(I))
+CCC         TST1 = ABS(D(I)) + ABS(D(I-1))
+CCC         TST2 = TST1 + ABS(E(I))
 CCC         IF (TST2 .GT. TST1) GO TO 40
          TMP1 = E( I )**2
          IF( ABS( D(I)*D(I-1) )*ULP**2+SAFEMN.LE.TMP1 )
      $      GO TO 40
-   20    E2(I) = 0.0D0
+   20    E2(I) = 0.0E0
    40 CONTINUE
 *           INCREMENT OPCOUNT FOR DETERMINING IF MATRIX SPLITS.
                OPS = OPS + 5*( N-1 )
@@ -2608,24 +2602,24 @@ C                INTERVAL BY THE GERSCHGORIN BOUNDS ..........
       P = Q + 1
       XU = D(P)
       X0 = D(P)
-      U = 0.0D0
+      U = 0.0E0
 C
       DO 120 Q = P, N
          X1 = U
-         U = 0.0D0
-         V = 0.0D0
+         U = 0.0E0
+         V = 0.0E0
          IF (Q .EQ. N) GO TO 110
-         U = DABS(E(Q+1))
+         U = ABS(E(Q+1))
          V = E2(Q+1)
-  110    XU = DMIN1(D(Q)-(X1+U),XU)
-         X0 = DMAX1(D(Q)+(X1+U),X0)
-         IF (V .EQ. 0.0D0) GO TO 140
+  110    XU = AMIN1(D(Q)-(X1+U),XU)
+         X0 = AMAX1(D(Q)+(X1+U),X0)
+         IF (V .EQ. 0.0E0) GO TO 140
   120 CONTINUE
 *        INCREMENT OPCOUNT FOR REFINING INTERVAL.
             OPS = OPS + ( N-P+1 )*2
 C
-  140 X1 = EPSLON(DMAX1(DABS(XU),DABS(X0)))
-      IF (EPS1 .LE. 0.0D0) EPS1 = -X1
+  140 X1 = EPSLON(AMAX1(ABS(XU),ABS(X0)))
+      IF (EPS1 .LE. 0.0E0) EPS1 = -X1
       IF (P .NE. Q) GO TO 180
 C     .......... CHECK FOR ISOLATED ROOT WITHIN INTERVAL ..........
       IF (T1 .GT. D(P) .OR. D(P) .GE. T2) GO TO 940
@@ -2634,8 +2628,8 @@ C     .......... CHECK FOR ISOLATED ROOT WITHIN INTERVAL ..........
       RV5(P) = D(P)
       GO TO 900
   180 X1 = X1 * (Q - P + 1)
-      LB = DMAX1(T1,XU-X1)
-      UB = DMIN1(T2,X0+X1)
+      LB = AMAX1(T1,XU-X1)
+      UB = AMIN1(T2,X0+X1)
       X1 = LB
       ISTURM = 3
       GO TO 320
@@ -2668,9 +2662,9 @@ C     .......... FOR I=K STEP -1 UNTIL M1 DO -- ..........
 C
   280    IF (X0 .GT. RV5(K)) X0 = RV5(K)
 C     .......... NEXT BISECTION STEP ..........
-  300    X1 = (XU + X0) * 0.5D0
-CCC         IF ((X0 - XU) .LE. DABS(EPS1)) GO TO 420
-CCC         TST1 = 2.0D0 * (DABS(XU) + DABS(X0))
+  300    X1 = (XU + X0) * 0.5E0
+CCC         IF ((X0 - XU) .LE. ABS(EPS1)) GO TO 420
+CCC         TST1 = 2.0E0 * (ABS(XU) + ABS(X0))
 CCC         TST2 = TST1 + (X0 - XU)
 CCC         IF (TST2 .EQ. TST1) GO TO 420
          TMP1 = ABS( X0 - XU )
@@ -2679,16 +2673,16 @@ CCC         IF (TST2 .EQ. TST1) GO TO 420
      $      GO TO 420
 C     .......... IN-LINE PROCEDURE FOR STURM SEQUENCE ..........
   320    S = P - 1
-         U = 1.0D0
+         U = 1.0E0
 C
          DO 340 I = P, Q
-            IF (U .NE. 0.0D0) GO TO 325
-            V = DABS(E(I)) / EPSLON(1.0D0)
-            IF (E2(I) .EQ. 0.0D0) V = 0.0D0
+            IF (U .NE. 0.0E0) GO TO 325
+            V = ABS(E(I)) / EPSLON(1.0E0)
+            IF (E2(I) .EQ. 0.0E0) V = 0.0E0
             GO TO 330
   325       V = E2(I) / U
   330       U = D(I) - X1 - V
-            IF (U .LT. 0.0D0) S = S + 1
+            IF (U .LT. 0.0E0) S = S + 1
   340    CONTINUE
 *           INCREMENT OPCOUNT FOR STURM SEQUENCE.
                OPS = OPS + ( Q-P+1 )*3
@@ -2756,12 +2750,11 @@ C                EIGENVALUES IN INTERVAL ..........
 *
 C
       INTEGER I,J,M,N,P,Q,R,S,II,IP,JJ,NM,ITS,TAG,IERR,GROUP
-      DOUBLE PRECISION D(N),E(N),E2(N),W(M),Z(NM,M),
+      REAL D(N),E(N),E2(N),W(M),Z(NM,M),
      X       RV1(N),RV2(N),RV3(N),RV4(N),RV6(N)
-      DOUBLE PRECISION U,V,UK,XU,X0,X1,EPS2,EPS3,EPS4,NORM,ORDER,EPSLON,
+      REAL U,V,UK,XU,X0,X1,EPS2,EPS3,EPS4,NORM,ORDER,EPSLON,
      X       PYTHAG
       INTEGER IND(M)
-      external pythag, dlamch, epslon
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -2770,7 +2763,7 @@ C
       COMMON             / PYTHOP / OPST
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS, OPST
+      REAL               ITCNT, OPS, OPST
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE INVERSE ITERATION TECH-
@@ -2799,7 +2792,7 @@ C          WITH ZEROS CORRESPONDING TO NEGLIGIBLE ELEMENTS OF E.
 C          E(I) IS CONSIDERED NEGLIGIBLE IF IT IS NOT LARGER THAN
 C          THE PRODUCT OF THE RELATIVE MACHINE PRECISION AND THE SUM
 C          OF THE MAGNITUDES OF D(I) AND D(I-1).  E2(1) MUST CONTAIN
-C          0.0D0 IF THE EIGENVALUES ARE IN ASCENDING ORDER, OR 2.0D0
+C          0.0E0 IF THE EIGENVALUES ARE IN ASCENDING ORDER, OR 2.0E0
 C          IF THE EIGENVALUES ARE IN DESCENDING ORDER.  IF  BISECT,
 C          TRIDIB, OR  IMTQLV  HAS BEEN USED TO FIND THE EIGENVALUES,
 C          THEIR OUTPUT E2 ARRAY IS EXACTLY WHAT IS EXPECTED HERE.
@@ -2827,7 +2820,7 @@ C                     EIGENVALUE FAILS TO CONVERGE IN 5 ITERATIONS.
 C
 C        RV1, RV2, RV3, RV4, AND RV6 ARE TEMPORARY STORAGE ARRAYS.
 C
-C     CALLS PYTHAG FOR  DSQRT(A*A + B*B) .
+C     CALLS PYTHAG FOR  SQRT(A*A + B*B) .
 C
 C     QUESTIONS AND COMMENTS SHOULD BE DIRECTED TO BURTON S. GARBOW,
 C     MATHEMATICS AND COMPUTER SCIENCE DIV, ARGONNE NATIONAL LABORATORY
@@ -2841,14 +2834,14 @@ C
       IERR = 0
       IF (M .EQ. 0) GO TO 1001
       TAG = 0
-      ORDER = 1.0D0 - E2(1)
+      ORDER = 1.0E0 - E2(1)
       Q = 0
 C     .......... ESTABLISH AND PROCESS NEXT SUBMATRIX ..........
   100 P = Q + 1
 C
       DO 120 Q = P, N
          IF (Q .EQ. N) GO TO 140
-         IF (E2(Q+1) .EQ. 0.0D0) GO TO 140
+         IF (E2(Q+1) .EQ. 0.0E0) GO TO 140
   120 CONTINUE
 C     .......... FIND VECTORS BY INVERSE ITERATION ..........
   140 TAG = TAG + 1
@@ -2860,48 +2853,48 @@ C
          X1 = W(R)
          IF (S .NE. 0) GO TO 510
 C     .......... CHECK FOR ISOLATED ROOT ..........
-         XU = 1.0D0
+         XU = 1.0E0
          IF (P .NE. Q) GO TO 490
-         RV6(P) = 1.0D0
+         RV6(P) = 1.0E0
          GO TO 870
-  490    NORM = DABS(D(P))
+  490    NORM = ABS(D(P))
          IP = P + 1
 C
          DO 500 I = IP, Q
-  500    NORM = DMAX1(NORM, DABS(D(I))+DABS(E(I)))
+  500    NORM = AMAX1(NORM, ABS(D(I))+ABS(E(I)))
 C     .......... EPS2 IS THE CRITERION FOR GROUPING,
 C                EPS3 REPLACES ZERO PIVOTS AND EQUAL
 C                ROOTS ARE MODIFIED BY EPS3,
 C                EPS4 IS TAKEN VERY SMALL TO AVOID OVERFLOW ..........
-         EPS2 = 1.0D-3 * NORM
+         EPS2 = 1.0E-3 * NORM
          EPS3 = EPSLON(NORM)
          UK = Q - P + 1
          EPS4 = UK * EPS3
-         UK = EPS4 / DSQRT(UK)
+         UK = EPS4 / SQRT(UK)
 *           INCREMENT OPCOUNT FOR COMPUTING CRITERIA.
                OPS = OPS + ( Q-IP+4 )
          S = P
   505    GROUP = 0
          GO TO 520
 C     .......... LOOK FOR CLOSE OR COINCIDENT ROOTS ..........
-  510    IF (DABS(X1-X0) .GE. EPS2) GO TO 505
+  510    IF (ABS(X1-X0) .GE. EPS2) GO TO 505
          GROUP = GROUP + 1
-         IF (ORDER * (X1 - X0) .LE. 0.0D0) X1 = X0 + ORDER * EPS3
+         IF (ORDER * (X1 - X0) .LE. 0.0E0) X1 = X0 + ORDER * EPS3
 C     .......... ELIMINATION WITH INTERCHANGES AND
 C                INITIALIZATION OF VECTOR ..........
-  520    V = 0.0D0
+  520    V = 0.0E0
 C
          DO 580 I = P, Q
             RV6(I) = UK
             IF (I .EQ. P) GO TO 560
-            IF (DABS(E(I)) .LT. DABS(U)) GO TO 540
+            IF (ABS(E(I)) .LT. ABS(U)) GO TO 540
 C     .......... WARNING -- A DIVIDE CHECK MAY OCCUR HERE IF
 C                E2 ARRAY HAS NOT BEEN SPECIFIED CORRECTLY ..........
             XU = U / E(I)
             RV4(I) = XU
             RV1(I-1) = E(I)
             RV2(I-1) = D(I) - X1
-            RV3(I-1) = 0.0D0
+            RV3(I-1) = 0.0E0
             IF (I .NE. Q) RV3(I-1) = E(I+1)
             U = V - XU * RV2(I-1)
             V = -XU * RV3(I-1)
@@ -2910,17 +2903,17 @@ C                E2 ARRAY HAS NOT BEEN SPECIFIED CORRECTLY ..........
             RV4(I) = XU
             RV1(I-1) = U
             RV2(I-1) = V
-            RV3(I-1) = 0.0D0
+            RV3(I-1) = 0.0E0
   560       U = D(I) - X1 - XU * V
             IF (I .NE. Q) V = E(I+1)
   580    CONTINUE
 *           INCREMENT OPCOUNT FOR ELIMINATION.
                OPS = OPS + ( Q-P+1 )*5
 C
-         IF (U .EQ. 0.0D0) U = EPS3
+         IF (U .EQ. 0.0E0) U = EPS3
          RV1(Q) = U
-         RV2(Q) = 0.0D0
-         RV3(Q) = 0.0D0
+         RV2(Q) = 0.0E0
+         RV3(Q) = 0.0E0
 C     .......... BACK SUBSTITUTION
 C                FOR I=Q STEP -1 UNTIL P DO -- ..........
   600    DO 620 II = P, Q
@@ -2939,7 +2932,7 @@ C
          DO 680 JJ = 1, GROUP
   630       J = J - 1
             IF (IND(J) .NE. TAG) GO TO 630
-            XU = 0.0D0
+            XU = 0.0E0
 C
             DO 640 I = P, Q
   640       XU = XU + RV6(I) * Z(I,J)
@@ -2951,17 +2944,17 @@ C
                   OPS = OPS + ( Q-P+1 )*4
   680    CONTINUE
 C
-  700    NORM = 0.0D0
+  700    NORM = 0.0E0
 C
          DO 720 I = P, Q
-  720    NORM = NORM + DABS(RV6(I))
+  720    NORM = NORM + ABS(RV6(I))
 *           INCREMENT OPCOUNT FOR COMPUTING NORM.
                OPS = OPS + ( Q-P+1 )
 C
-         IF (NORM .GE. 1.0D0) GO TO 840
+         IF (NORM .GE. 1.0E0) GO TO 840
 C     .......... FORWARD SUBSTITUTION ..........
          IF (ITS .EQ. 5) GO TO 830
-         IF (NORM .NE. 0.0D0) GO TO 740
+         IF (NORM .NE. 0.0E0) GO TO 740
          RV6(S) = EPS4
          S = S + 1
          IF (S .GT. Q) S = P
@@ -2991,19 +2984,19 @@ C
          GO TO 600
 C     .......... SET ERROR -- NON-CONVERGED EIGENVECTOR ..........
   830    IERR = -R
-         XU = 0.0D0
+         XU = 0.0E0
          GO TO 870
 C     .......... NORMALIZE SO THAT SUM OF SQUARES IS
 C                1 AND EXPAND TO FULL ORDER ..........
-  840    U = 0.0D0
+  840    U = 0.0E0
 C
          DO 860 I = P, Q
   860    U = PYTHAG(U,RV6(I))
 C
-         XU = 1.0D0 / U
+         XU = 1.0E0 / U
 C
   870    DO 880 I = 1, N
-  880    Z(I,R) = 0.0D0
+  880    Z(I,R) = 0.0E0
 C
          DO 900 I = P, Q
   900    Z(I,R) = RV6(I) * XU
@@ -3023,14 +3016,13 @@ C
 *     EISPACK ROUTINE.
 *     MODIFIED FOR COMPARISON WITH LAPACK ROUTINES.
 *
-*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN DSTEBZ.
+*     CONVERGENCE TEST WAS MODIFIED TO BE THE SAME AS IN SSTEBZ.
 *
 C
       INTEGER I,J,K,L,M,N,P,Q,R,S,II,M1,M2,M11,M22,TAG,IERR,ISTURM
-      DOUBLE PRECISION D(N),E(N),E2(N),W(M),RV4(N),RV5(N)
-      DOUBLE PRECISION U,V,LB,T1,T2,UB,XU,X0,X1,EPS1,TST1,TST2,EPSLON
+      REAL D(N),E(N),E2(N),W(M),RV4(N),RV5(N)
+      REAL U,V,LB,T1,T2,UB,XU,X0,X1,EPS1,TST1,TST2,EPSLON
       INTEGER IND(M)
-      external epslon
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, OPS IS ONLY INCREMENTED
@@ -3038,7 +3030,7 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 C
 C     THIS SUBROUTINE IS A TRANSLATION OF THE ALGOL PROCEDURE BISECT,
@@ -3115,42 +3107,42 @@ C     THIS VERSION DATED AUGUST 1983.
 C
 C     ------------------------------------------------------------------
 C
-      DOUBLE PRECISION ONE
-      PARAMETER        ( ONE = 1.0D0 )
-      DOUBLE PRECISION RELFAC
-      PARAMETER        ( RELFAC = 2.0D0 )
-      DOUBLE PRECISION ATOLI, RTOLI, SAFEMN, TMP1, TMP2, TNORM, ULP
-      DOUBLE PRECISION DLAMCH, PIVMIN
-      EXTERNAL DLAMCH
+      REAL             ONE
+      PARAMETER        ( ONE = 1.0E0 )
+      REAL             RELFAC
+      PARAMETER        ( RELFAC = 2.0E0 )
+      REAL ATOLI, RTOLI, SAFEMN, TMP1, TMP2, TNORM, ULP
+      REAL SLAMCH, PIVMIN
+      EXTERNAL SLAMCH
 *        INITIALIZE ITERATION COUNT.
             ITCNT = 0
-      SAFEMN = DLAMCH( 'S' )
-      ULP = DLAMCH( 'E' )*DLAMCH( 'B' )
+      SAFEMN = SLAMCH( 'S' )
+      ULP = SLAMCH( 'E' )*SLAMCH( 'B' )
       RTOLI = ULP*RELFAC
       IERR = 0
       TAG = 0
       XU = D(1)
       X0 = D(1)
-      U = 0.0D0
+      U = 0.0E0
 C     .......... LOOK FOR SMALL SUB-DIAGONAL ENTRIES AND DETERMINE AN
 C                INTERVAL CONTAINING ALL THE EIGENVALUES ..........
       PIVMIN = ONE
       DO 40 I = 1, N
          X1 = U
-         U = 0.0D0
-         IF (I .NE. N) U = DABS(E(I+1))
-         XU = DMIN1(D(I)-(X1+U),XU)
-         X0 = DMAX1(D(I)+(X1+U),X0)
+         U = 0.0E0
+         IF (I .NE. N) U = ABS(E(I+1))
+         XU = AMIN1(D(I)-(X1+U),XU)
+         X0 = AMAX1(D(I)+(X1+U),X0)
          IF (I .EQ. 1) GO TO 20
-CCC         TST1 = DABS(D(I)) + DABS(D(I-1))
-CCC         TST2 = TST1 + DABS(E(I))
+CCC         TST1 = ABS(D(I)) + ABS(D(I-1))
+CCC         TST2 = TST1 + ABS(E(I))
 CCC         IF (TST2 .GT. TST1) GO TO 40
          TMP1 = E( I )**2
          IF( ABS( D(I)*D(I-1) )*ULP**2+SAFEMN.LE.TMP1 ) THEN
             PIVMIN = MAX( PIVMIN, TMP1 )
             GO TO 40
          END IF
-   20    E2(I) = 0.0D0
+   20    E2(I) = 0.0E0
    40 CONTINUE
       PIVMIN = PIVMIN*SAFEMN
       TNORM = MAX( ABS( XU ), ABS( X0 ) )
@@ -3159,7 +3151,7 @@ CCC         IF (TST2 .GT. TST1) GO TO 40
             OPS = OPS + 9*( N-1 )
 C
       X1 = N
-      X1 = X1 * EPSLON(DMAX1(DABS(XU),DABS(X0)))
+      X1 = X1 * EPSLON(AMAX1(ABS(XU),ABS(X0)))
       XU = XU - X1
       T1 = XU
       X0 = X0 + X1
@@ -3172,7 +3164,7 @@ C                THE DESIRED EIGENVALUES ..........
       IF (M1 .EQ. 0) GO TO 75
       ISTURM = 1
    50 V = X1
-      X1 = XU + (X0 - XU) * 0.5D0
+      X1 = XU + (X0 - XU) * 0.5E0
       IF (X1 .EQ. V) GO TO 980
       GO TO 320
    60 IF (S - M1) 65, 73, 70
@@ -3198,24 +3190,24 @@ C                INTERVAL BY THE GERSCHGORIN BOUNDS ..........
       P = Q + 1
       XU = D(P)
       X0 = D(P)
-      U = 0.0D0
+      U = 0.0E0
 C
       DO 120 Q = P, N
          X1 = U
-         U = 0.0D0
-         V = 0.0D0
+         U = 0.0E0
+         V = 0.0E0
          IF (Q .EQ. N) GO TO 110
-         U = DABS(E(Q+1))
+         U = ABS(E(Q+1))
          V = E2(Q+1)
-  110    XU = DMIN1(D(Q)-(X1+U),XU)
-         X0 = DMAX1(D(Q)+(X1+U),X0)
-         IF (V .EQ. 0.0D0) GO TO 140
+  110    XU = AMIN1(D(Q)-(X1+U),XU)
+         X0 = AMAX1(D(Q)+(X1+U),X0)
+         IF (V .EQ. 0.0E0) GO TO 140
   120 CONTINUE
 *        INCREMENT OPCOUNT FOR REFINING INTERVAL.
             OPS = OPS + ( N-P+1 )*2
 C
-  140 X1 = EPSLON(DMAX1(DABS(XU),DABS(X0)))
-      IF (EPS1 .LE. 0.0D0) EPS1 = -X1
+  140 X1 = EPSLON(AMAX1(ABS(XU),ABS(X0)))
+      IF (EPS1 .LE. 0.0E0) EPS1 = -X1
       IF (P .NE. Q) GO TO 180
 C     .......... CHECK FOR ISOLATED ROOT WITHIN INTERVAL ..........
       IF (T1 .GT. D(P) .OR. D(P) .GE. T2) GO TO 940
@@ -3224,8 +3216,8 @@ C     .......... CHECK FOR ISOLATED ROOT WITHIN INTERVAL ..........
       RV5(P) = D(P)
       GO TO 900
   180 X1 = X1 * (Q - P + 1)
-      LB = DMAX1(T1,XU-X1)
-      UB = DMIN1(T2,X0+X1)
+      LB = AMAX1(T1,XU-X1)
+      UB = AMIN1(T2,X0+X1)
       X1 = LB
       ISTURM = 3
       GO TO 320
@@ -3258,9 +3250,9 @@ C     .......... FOR I=K STEP -1 UNTIL M1 DO -- ..........
 C
   280    IF (X0 .GT. RV5(K)) X0 = RV5(K)
 C     .......... NEXT BISECTION STEP ..........
-  300    X1 = (XU + X0) * 0.5D0
-CCC         IF ((X0 - XU) .LE. DABS(EPS1)) GO TO 420
-CCC         TST1 = 2.0D0 * (DABS(XU) + DABS(X0))
+  300    X1 = (XU + X0) * 0.5E0
+CCC         IF ((X0 - XU) .LE. ABS(EPS1)) GO TO 420
+CCC         TST1 = 2.0E0 * (ABS(XU) + ABS(X0))
 CCC         TST2 = TST1 + (X0 - XU)
 CCC         IF (TST2 .EQ. TST1) GO TO 420
          TMP1 = ABS( X0 - XU )
@@ -3269,16 +3261,16 @@ CCC         IF (TST2 .EQ. TST1) GO TO 420
      $      GO TO 420
 C     .......... IN-LINE PROCEDURE FOR STURM SEQUENCE ..........
   320    S = P - 1
-         U = 1.0D0
+         U = 1.0E0
 C
          DO 340 I = P, Q
-            IF (U .NE. 0.0D0) GO TO 325
-            V = DABS(E(I)) / EPSLON(1.0D0)
-            IF (E2(I) .EQ. 0.0D0) V = 0.0D0
+            IF (U .NE. 0.0E0) GO TO 325
+            V = ABS(E(I)) / EPSLON(1.0E0)
+            IF (E2(I) .EQ. 0.0E0) V = 0.0E0
             GO TO 330
   325       V = E2(I) / U
   330       U = D(I) - X1 - V
-            IF (U .LT. 0.0D0) S = S + 1
+            IF (U .LT. 0.0E0) S = S + 1
   340    CONTINUE
 *           INCREMENT OPCOUNT FOR STURM SEQUENCE.
                OPS = OPS + ( Q-P+1 )*3
@@ -3335,9 +3327,9 @@ C                EXACTLY THE DESIRED EIGENVALUES ..........
       UB = T2
       RETURN
       END
-      SUBROUTINE DSVDC(X,LDX,N,P,S,E,U,LDU,V,LDV,WORK,JOB,INFO)
+      SUBROUTINE SSVDC(X,LDX,N,P,S,E,U,LDU,V,LDV,WORK,JOB,INFO)
       INTEGER LDX,N,P,LDU,LDV,JOB,INFO
-      DOUBLE PRECISION X(LDX,*),S(*),E(*),U(LDU,*),V(LDV,*),WORK(*)
+      REAL X(LDX,*),S(*),E(*),U(LDU,*),V(LDV,*),WORK(*)
 *
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
 *     ITCNT IS INITIALIZED TO 0, IOPS IS ONLY INCREMENTED
@@ -3347,22 +3339,22 @@ C                EXACTLY THE DESIRED EIGENVALUES ..........
       COMMON /LATIME/ IOPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION IOPS, ITCNT, IOPST
+      REAL IOPS, ITCNT, IOPST
 *     ..
 C
 C
-C     DSVDC IS A SUBROUTINE TO REDUCE A DOUBLE PRECISION NXP MATRIX X
-C     BY ORTHOGONAL TRANSFORMATIONS U AND V TO DIAGONAL FORM.  THE
+C     SSVDC IS A SUBROUTINE TO REDUCE A REAL NXP MATRIX X BY
+C     ORTHOGONAL TRANSFORMATIONS U AND V TO DIAGONAL FORM.  THE
 C     DIAGONAL ELEMENTS S(I) ARE THE SINGULAR VALUES OF X.  THE
 C     COLUMNS OF U ARE THE CORRESPONDING LEFT SINGULAR VECTORS,
 C     AND THE COLUMNS OF V THE RIGHT SINGULAR VECTORS.
 C
 C     ON ENTRY
 C
-C         X         DOUBLE PRECISION(LDX,P), WHERE LDX.GE.N.
+C         X         REAL(LDX,P), WHERE LDX.GE.N.
 C                   X CONTAINS THE MATRIX WHOSE SINGULAR VALUE
 C                   DECOMPOSITION IS TO BE COMPUTED.  X IS
-C                   DESTROYED BY DSVDC.
+C                   DESTROYED BY SSVDC.
 C
 C         LDX       INTEGER.
 C                   LDX IS THE LEADING DIMENSION OF THE ARRAY X.
@@ -3381,7 +3373,7 @@ C         LDV       INTEGER.
 C                   LDV IS THE LEADING DIMENSION OF THE ARRAY V.
 C                   (SEE BELOW).
 C
-C         WORK      DOUBLE PRECISION(N).
+C         WORK      REAL(N).
 C                   WORK IS A SCRATCH ARRAY.
 C
 C         JOB       INTEGER.
@@ -3402,24 +3394,24 @@ C                                  IN V.
 C
 C     ON RETURN
 C
-C         S         DOUBLE PRECISION(MM), WHERE MM=MIN(N+1,P).
+C         S         REAL(MM), WHERE MM=MIN(N+1,P).
 C                   THE FIRST MIN(N,P) ENTRIES OF S CONTAIN THE
 C                   SINGULAR VALUES OF X ARRANGED IN DESCENDING
 C                   ORDER OF MAGNITUDE.
 C
-C         E         DOUBLE PRECISION(P),
+C         E         REAL(P).
 C                   E ORDINARILY CONTAINS ZEROS.  HOWEVER SEE THE
 C                   DISCUSSION OF INFO FOR EXCEPTIONS.
 C
-C         U         DOUBLE PRECISION(LDU,K), WHERE LDU.GE.N.  IF
-C                                   JOBA.EQ.1 THEN K.EQ.N, IF JOBA.GE.2
-C                                   THEN K.EQ.MIN(N,P).
+C         U         REAL(LDU,K), WHERE LDU.GE.N.  IF JOBA.EQ.1 THEN
+C                                   K.EQ.N, IF JOBA.GE.2 THEN
+C                                   K.EQ.MIN(N,P).
 C                   U CONTAINS THE MATRIX OF LEFT SINGULAR VECTORS.
 C                   U IS NOT REFERENCED IF JOBA.EQ.0.  IF N.LE.P
 C                   OR IF JOBA.EQ.2, THEN U MAY BE IDENTIFIED WITH X
 C                   IN THE SUBROUTINE CALL.
 C
-C         V         DOUBLE PRECISION(LDV,P), WHERE LDV.GE.P.
+C         V         REAL(LDV,P), WHERE LDV.GE.P.
 C                   V CONTAINS THE MATRIX OF RIGHT SINGULAR VECTORS.
 C                   V IS NOT REFERENCED IF JOB.EQ.0.  IF P.LE.N,
 C                   THEN V MAY BE IDENTIFIED WITH X IN THE
@@ -3437,31 +3429,30 @@ C                   ELEMENTS OF E ON ITS SUPER-DIAGONAL (TRANS(U)
 C                   IS THE TRANSPOSE OF U).  THUS THE SINGULAR
 C                   VALUES OF X AND B ARE THE SAME.
 C
-C     LINPACK. THIS VERSION DATED 08/14/78 .
-C              CORRECTION MADE TO SHIFT 2/84.
+C     LINPACK. THIS VERSION DATED 03/19/79 .
+C              CORRECTION TO SHIFT CALCULATION MADE 2/85.
 C     G.W. STEWART, UNIVERSITY OF MARYLAND, ARGONNE NATIONAL LAB.
 C
-C     DSVDC USES THE FOLLOWING FUNCTIONS AND SUBPROGRAMS.
+C     ***** USES THE FOLLOWING FUNCTIONS AND SUBPROGRAMS.
 C
-C     EXTERNAL DROT
-C     BLAS DAXPY,DDOT,DSCAL,DSWAP,DNRM2,DROTG
-C     FORTRAN DABS,DMAX1,MAX0,MIN0,MOD,DSQRT
+C     EXTERNAL SROT
+C     BLAS SAXPY,SDOT,SSCAL,SSWAP,SNRM2,SROTG
+C     FORTRAN ABS,AMAX1,MAX0,MIN0,MOD,SQRT
 C
 C     INTERNAL VARIABLES
 C
       INTEGER I,ITER,J,JOBU,K,KASE,KK,L,LL,LLS,LM1,LP1,LS,LU,M,MAXIT,
      *        MM,MM1,MP1,NCT,NCTP1,NCU,NRT,NRTP1
-      DOUBLE PRECISION DDOT,T
-      DOUBLE PRECISION B,C,CS,EL,EMM1,F,G,DNRM2,SCALE,SHIFT,SL,SM,SN,
-     *                 SMM1,T1,TEST
-*     DOUBLE PRECISION ZTEST,R
+      REAL SDOT,T
+      REAL B,C,CS,EL,EMM1,F,G,SNRM2,SCALE,SHIFT,SL,SM,SN,SMM1,T1,TEST
+*     REAL ZTEST,R
       LOGICAL WANTU,WANTV
 *
-*     GET EPS FROM DLAMCH FOR NEW STOPPING CRITERION
-      EXTERNAL DLAMCH, dnrm2, ddot
-      DOUBLE PRECISION DLAMCH, EPS
+*     GET EPS FROM SLAMCH FOR NEW STOPPING CRITERION
+      EXTERNAL SLAMCH
+      REAL SLAMCH, EPS
       IF (N.LE.0 .OR. P.LE.0) RETURN
-      EPS = DLAMCH( 'EPSILON' )
+      EPS = SLAMCH( 'EPSILON' )
 *
 C
 C
@@ -3500,29 +3491,29 @@ C
 *
 *           INCREMENT OP COUNT
             IOPS = IOPS + (2*(N-L+1)+1)
-            S(L) = DNRM2(N-L+1,X(L,L),1)
-            IF (S(L) .EQ. 0.0D0) GO TO 10
-               IF (X(L,L) .NE. 0.0D0) S(L) = DSIGN(S(L),X(L,L))
+            S(L) = SNRM2(N-L+1,X(L,L),1)
+            IF (S(L) .EQ. 0.0E0) GO TO 10
+               IF (X(L,L) .NE. 0.0E0) S(L) = SIGN(S(L),X(L,L))
 *
 *              INCREMENT OP COUNT
                IOPS = IOPS + (N-L+3)
-               CALL DSCAL(N-L+1,1.0D0/S(L),X(L,L),1)
-               X(L,L) = 1.0D0 + X(L,L)
+               CALL SSCAL(N-L+1,1.0E0/S(L),X(L,L),1)
+               X(L,L) = 1.0E0 + X(L,L)
    10       CONTINUE
             S(L) = -S(L)
    20    CONTINUE
          IF (P .LT. LP1) GO TO 50
          DO 40 J = LP1, P
             IF (L .GT. NCT) GO TO 30
-            IF (S(L) .EQ. 0.0D0) GO TO 30
+            IF (S(L) .EQ. 0.0E0) GO TO 30
 C
 C              APPLY THE TRANSFORMATION.
 C
 *
 *              INCREMENT OP COUNT
                IOPS = IOPS + (4*(N-L)+5)
-               T = -DDOT(N-L+1,X(L,L),1,X(L,J),1)/X(L,L)
-               CALL DAXPY(N-L+1,T,X(L,L),1,X(L,J),1)
+               T = -SDOT(N-L+1,X(L,L),1,X(L,J),1)/X(L,L)
+               CALL SAXPY(N-L+1,T,X(L,L),1,X(L,J),1)
    30       CONTINUE
 C
 C           PLACE THE L-TH ROW OF X INTO  E FOR THE
@@ -3548,31 +3539,31 @@ C
 *
 *           INCREMENT OP COUNT
             IOPS = IOPS + (2*(P-L)+1)
-            E(L) = DNRM2(P-L,E(LP1),1)
-            IF (E(L) .EQ. 0.0D0) GO TO 80
-               IF (E(LP1) .NE. 0.0D0) E(L) = DSIGN(E(L),E(LP1))
+            E(L) = SNRM2(P-L,E(LP1),1)
+            IF (E(L) .EQ. 0.0E0) GO TO 80
+               IF (E(LP1) .NE. 0.0E0) E(L) = SIGN(E(L),E(LP1))
 *
 *              INCREMENT OP COUNT
                IOPS = IOPS + (P-L+2)
-               CALL DSCAL(P-L,1.0D0/E(L),E(LP1),1)
-               E(LP1) = 1.0D0 + E(LP1)
+               CALL SSCAL(P-L,1.0E0/E(L),E(LP1),1)
+               E(LP1) = 1.0E0 + E(LP1)
    80       CONTINUE
             E(L) = -E(L)
-            IF (LP1 .GT. N .OR. E(L) .EQ. 0.0D0) GO TO 120
+            IF (LP1 .GT. N .OR. E(L) .EQ. 0.0E0) GO TO 120
 C
 C              APPLY THE TRANSFORMATION.
 C
                DO 90 I = LP1, N
-                  WORK(I) = 0.0D0
+                  WORK(I) = 0.0E0
    90          CONTINUE
 *
 *              INCREMENT OP COUNT
-               IOPS = IOPS + DBLE(4*(N-L)+1)*(P-L)
+               IOPS = IOPS + FLOAT(4*(N-L)+1)*(P-L)
                DO 100 J = LP1, P
-                  CALL DAXPY(N-L,E(J),X(LP1,J),1,WORK(LP1),1)
+                  CALL SAXPY(N-L,E(J),X(LP1,J),1,WORK(LP1),1)
   100          CONTINUE
                DO 110 J = LP1, P
-                  CALL DAXPY(N-L,-E(J)/E(LP1),WORK(LP1),1,X(LP1,J),1)
+                  CALL SAXPY(N-L,-E(J)/E(LP1),WORK(LP1),1,X(LP1,J),1)
   110          CONTINUE
   120       CONTINUE
             IF (.NOT.WANTV) GO TO 140
@@ -3594,9 +3585,9 @@ C
       NCTP1 = NCT + 1
       NRTP1 = NRT + 1
       IF (NCT .LT. P) S(NCTP1) = X(NCTP1,NCTP1)
-      IF (N .LT. M) S(M) = 0.0D0
+      IF (N .LT. M) S(M) = 0.0E0
       IF (NRTP1 .LT. M) E(NRTP1) = X(NRTP1,M)
-      E(M) = 0.0D0
+      E(M) = 0.0E0
 C
 C     IF REQUIRED, GENERATE U.
 C
@@ -3604,39 +3595,39 @@ C
          IF (NCU .LT. NCTP1) GO TO 200
          DO 190 J = NCTP1, NCU
             DO 180 I = 1, N
-               U(I,J) = 0.0D0
+               U(I,J) = 0.0E0
   180       CONTINUE
-            U(J,J) = 1.0D0
+            U(J,J) = 1.0E0
   190    CONTINUE
   200    CONTINUE
          IF (NCT .LT. 1) GO TO 290
          DO 280 LL = 1, NCT
             L = NCT - LL + 1
-            IF (S(L) .EQ. 0.0D0) GO TO 250
+            IF (S(L) .EQ. 0.0E0) GO TO 250
                LP1 = L + 1
                IF (NCU .LT. LP1) GO TO 220
 *
 *              INCREMENT OP COUNT
-               IOPS = IOPS + (DBLE(4*(N-L)+5)*(NCU-L)+(N-L+2))
+               IOPS = IOPS + (FLOAT(4*(N-L)+5)*(NCU-L)+(N-L+2))
                DO 210 J = LP1, NCU
-                  T = -DDOT(N-L+1,U(L,L),1,U(L,J),1)/U(L,L)
-                  CALL DAXPY(N-L+1,T,U(L,L),1,U(L,J),1)
+                  T = -SDOT(N-L+1,U(L,L),1,U(L,J),1)/U(L,L)
+                  CALL SAXPY(N-L+1,T,U(L,L),1,U(L,J),1)
   210          CONTINUE
   220          CONTINUE
-               CALL DSCAL(N-L+1,-1.0D0,U(L,L),1)
-               U(L,L) = 1.0D0 + U(L,L)
+               CALL SSCAL(N-L+1,-1.0E0,U(L,L),1)
+               U(L,L) = 1.0E0 + U(L,L)
                LM1 = L - 1
                IF (LM1 .LT. 1) GO TO 240
                DO 230 I = 1, LM1
-                  U(I,L) = 0.0D0
+                  U(I,L) = 0.0E0
   230          CONTINUE
   240          CONTINUE
             GO TO 270
   250       CONTINUE
                DO 260 I = 1, N
-                  U(I,L) = 0.0D0
+                  U(I,L) = 0.0E0
   260          CONTINUE
-               U(L,L) = 1.0D0
+               U(L,L) = 1.0E0
   270       CONTINUE
   280    CONTINUE
   290    CONTINUE
@@ -3649,19 +3640,19 @@ C
             L = P - LL + 1
             LP1 = L + 1
             IF (L .GT. NRT) GO TO 320
-            IF (E(L) .EQ. 0.0D0) GO TO 320
+            IF (E(L) .EQ. 0.0E0) GO TO 320
 *
 *              INCREMENT OP COUNT
-               IOPS = IOPS + DBLE(4*(P-L)+1)*(P-L)
+               IOPS = IOPS + FLOAT(4*(P-L)+1)*(P-L)
                DO 310 J = LP1, P
-                  T = -DDOT(P-L,V(LP1,L),1,V(LP1,J),1)/V(LP1,L)
-                  CALL DAXPY(P-L,T,V(LP1,L),1,V(LP1,J),1)
+                  T = -SDOT(P-L,V(LP1,L),1,V(LP1,J),1)/V(LP1,L)
+                  CALL SAXPY(P-L,T,V(LP1,L),1,V(LP1,J),1)
   310          CONTINUE
   320       CONTINUE
             DO 330 I = 1, P
-               V(I,L) = 0.0D0
+               V(I,L) = 0.0E0
   330       CONTINUE
-            V(L,L) = 1.0D0
+            V(L,L) = 1.0E0
   340    CONTINUE
   350 CONTINUE
 C
@@ -3708,15 +3699,15 @@ C        ...EXIT
 *
 *           INCREMENT OP COUNT
             IOPST = IOPST + 2
-            TEST = DABS(S(L)) + DABS(S(L+1))
+            TEST = ABS(S(L)) + ABS(S(L+1))
 *
 *           REPLACE STOPPING CRITERION WITH NEW ONE AS IN LAPACK
 *
-*           ZTEST = TEST + DABS(E(L))
+*           ZTEST = TEST + ABS(E(L))
 *           IF (ZTEST .NE. TEST) GO TO 380
-            IF (DABS(E(L)) .GT. EPS * TEST) GOTO 380
+            IF (ABS(E(L)) .GT. EPS * TEST) GOTO 380
 *
-               E(L) = 0.0D0
+               E(L) = 0.0E0
 C        ......EXIT
                GO TO 400
   380       CONTINUE
@@ -3732,20 +3723,20 @@ C        ......EXIT
                LS = M - LLS + LP1
 C           ...EXIT
                IF (LS .EQ. L) GO TO 440
-               TEST = 0.0D0
+               TEST = 0.0E0
 *
 *              INCREMENT OP COUNT
                IOPST = IOPST + 3
-               IF (LS .NE. M) TEST = TEST + DABS(E(LS))
-               IF (LS .NE. L + 1) TEST = TEST + DABS(E(LS-1))
+               IF (LS .NE. M) TEST = TEST + ABS(E(LS))
+               IF (LS .NE. L + 1) TEST = TEST + ABS(E(LS-1))
 *
 *              REPLACE STOPPING CRITERION WITH NEW ONE AS IN LAPACK
 *
-*              ZTEST = TEST + DABS(S(LS))
+*              ZTEST = TEST + ABS(S(LS))
 *              IF (ZTEST .NE. TEST) GO TO 420
-               IF (DABS(S(LS)) .GT. EPS * TEST) GOTO 420
+               IF (ABS(S(LS)) .GT. EPS * TEST) GOTO 420
 *
-                  S(LS) = 0.0D0
+                  S(LS) = 0.0E0
 C           ......EXIT
                   GO TO 440
   420          CONTINUE
@@ -3774,21 +3765,21 @@ C
   490    CONTINUE
             MM1 = M - 1
             F = E(M-1)
-            E(M-1) = 0.0D0
+            E(M-1) = 0.0E0
 *
 *           INCREMENT OP COUNT
             IOPS = IOPS + ((MM1-L+1)*13 - 2)
-            IF (WANTV) IOPS = IOPS + DBLE(MM1-L+1)*6*P
+            IF (WANTV) IOPS = IOPS + FLOAT(MM1-L+1)*6*P
             DO 510 KK = L, MM1
                K = MM1 - KK + L
                T1 = S(K)
-               CALL DROTG(T1,F,CS,SN)
+               CALL SROTG(T1,F,CS,SN)
                S(K) = T1
                IF (K .EQ. L) GO TO 500
                   F = -SN*E(K-1)
                   E(K-1) = CS*E(K-1)
   500          CONTINUE
-               IF (WANTV) CALL DROT(P,V(1,K),1,V(1,M),1,CS,SN)
+               IF (WANTV) CALL SROT(P,V(1,K),1,V(1,M),1,CS,SN)
   510       CONTINUE
          GO TO 610
 C
@@ -3796,18 +3787,18 @@ C        SPLIT AT NEGLIGIBLE S(L).
 C
   520    CONTINUE
             F = E(L-1)
-            E(L-1) = 0.0D0
+            E(L-1) = 0.0E0
 *
 *           INCREMENT OP COUNT
             IOPS = IOPS + (M-L+1)*13
-            IF (WANTU) IOPS = IOPS + DBLE(M-L+1)*6*N
+            IF (WANTU) IOPS = IOPS + FLOAT(M-L+1)*6*N
             DO 530 K = L, M
                T1 = S(K)
-               CALL DROTG(T1,F,CS,SN)
+               CALL SROTG(T1,F,CS,SN)
                S(K) = T1
                F = -SN*E(K)
                E(K) = CS*E(K)
-               IF (WANTU) CALL DROT(N,U(1,K),1,U(1,L-1),1,CS,SN)
+               IF (WANTU) CALL SROT(N,U(1,K),1,U(1,L-1),1,CS,SN)
   530       CONTINUE
          GO TO 610
 C
@@ -3820,19 +3811,19 @@ C
 *
 *           INCREMENT OP COUNT
             IOPST = IOPST + 23
-            SCALE = DMAX1(DABS(S(M)),DABS(S(M-1)),DABS(E(M-1)),
-     *                    DABS(S(L)),DABS(E(L)))
+            SCALE = AMAX1(ABS(S(M)),ABS(S(M-1)),ABS(E(M-1)),ABS(S(L)),
+     *                    ABS(E(L)))
             SM = S(M)/SCALE
             SMM1 = S(M-1)/SCALE
             EMM1 = E(M-1)/SCALE
             SL = S(L)/SCALE
             EL = E(L)/SCALE
-            B = ((SMM1 + SM)*(SMM1 - SM) + EMM1**2)/2.0D0
+            B = ((SMM1 + SM)*(SMM1 - SM) + EMM1**2)/2.0E0
             C = (SM*EMM1)**2
-            SHIFT = 0.0D0
-            IF (B .EQ. 0.0D0 .AND. C .EQ. 0.0D0) GO TO 550
-               SHIFT = DSQRT(B**2+C)
-               IF (B .LT. 0.0D0) SHIFT = -SHIFT
+            SHIFT = 0.0E0
+            IF (B .EQ. 0.0E0 .AND. C .EQ. 0.0E0) GO TO 550
+               SHIFT = SQRT(B**2+C)
+               IF (B .LT. 0.0E0) SHIFT = -SHIFT
                SHIFT = C/(B + SHIFT)
   550       CONTINUE
             F = (SL + SM)*(SL - SM) + SHIFT
@@ -3844,24 +3835,24 @@ C
 *
 *           INCREMENT OP COUNT
             IOPS = IOPS + (MM1-L+1)*38
-            IF (WANTV) IOPS = IOPS+DBLE(MM1-L+1)*6*P
-            IF (WANTU) IOPS = IOPS+DBLE(MAX((MIN(MM1,N-1)-L+1),0))*6*N
+            IF (WANTV) IOPS = IOPS+FLOAT(MM1-L+1)*6*P
+            IF (WANTU) IOPS = IOPS+FLOAT(MAX((MIN(MM1,N-1)-L+1),0))*6*N
             DO 560 K = L, MM1
-               CALL DROTG(F,G,CS,SN)
+               CALL SROTG(F,G,CS,SN)
                IF (K .NE. L) E(K-1) = F
                F = CS*S(K) + SN*E(K)
                E(K) = CS*E(K) - SN*S(K)
                G = SN*S(K+1)
                S(K+1) = CS*S(K+1)
-               IF (WANTV) CALL DROT(P,V(1,K),1,V(1,K+1),1,CS,SN)
-               CALL DROTG(F,G,CS,SN)
+               IF (WANTV) CALL SROT(P,V(1,K),1,V(1,K+1),1,CS,SN)
+               CALL SROTG(F,G,CS,SN)
                S(K) = F
                F = CS*E(K) + SN*S(K+1)
                S(K+1) = -SN*E(K) + CS*S(K+1)
                G = SN*E(K+1)
                E(K+1) = CS*E(K+1)
                IF (WANTU .AND. K .LT. N)
-     *            CALL DROT(N,U(1,K),1,U(1,K+1),1,CS,SN)
+     *            CALL SROT(N,U(1,K),1,U(1,K+1),1,CS,SN)
   560       CONTINUE
             E(M-1) = F
             ITER = ITER + 1
@@ -3873,12 +3864,12 @@ C
 C
 C           MAKE THE SINGULAR VALUE  POSITIVE.
 C
-            IF (S(L) .GE. 0.0D0) GO TO 580
+            IF (S(L) .GE. 0.0E0) GO TO 580
                S(L) = -S(L)
 *
 *              INCREMENT OP COUNT
                IF (WANTV) IOPS = IOPS + P
-               IF (WANTV) CALL DSCAL(P,-1.0D0,V(1,L),1)
+               IF (WANTV) CALL SSCAL(P,-1.0E0,V(1,L),1)
   580       CONTINUE
 C
 C           ORDER THE SINGULAR VALUE.
@@ -3890,9 +3881,9 @@ C           ...EXIT
                S(L) = S(L+1)
                S(L+1) = T
                IF (WANTV .AND. L .LT. P)
-     *            CALL DSWAP(P,V(1,L),1,V(1,L+1),1)
+     *            CALL SSWAP(P,V(1,L),1,V(1,L+1),1)
                IF (WANTU .AND. L .LT. N)
-     *            CALL DSWAP(N,U(1,L),1,U(1,L+1),1)
+     *            CALL SSWAP(N,U(1,L),1,U(1,L+1),1)
                L = L + 1
             GO TO 590
   600       CONTINUE
@@ -3909,8 +3900,8 @@ C           ...EXIT
       SUBROUTINE QZHES(NM,N,A,B,MATZ,Z)
 C
       INTEGER I,J,K,L,N,LB,L1,NM,NK1,NM1,NM2
-      DOUBLE PRECISION A(NM,N),B(NM,N),Z(NM,N)
-      DOUBLE PRECISION R,S,T,U1,U2,V1,V2,RHO
+      REAL A(NM,N),B(NM,N),Z(NM,N)
+      REAL R,S,T,U1,U2,V1,V2,RHO
       LOGICAL MATZ
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
@@ -3922,7 +3913,7 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     ----------------------- END TIMING CODE --------------------------
 *
@@ -3976,10 +3967,10 @@ C
       DO 3 J = 1, N
 C
          DO 2 I = 1, N
-            Z(I,J) = 0.0D0
+            Z(I,J) = 0.0E0
     2    CONTINUE
 C
-         Z(J,J) = 1.0D0
+         Z(J,J) = 1.0E0
     3 CONTINUE
 C     .......... REDUCE B TO UPPER TRIANGULAR FORM ..........
    10 IF (N .LE. 1) GO TO 170
@@ -3987,27 +3978,27 @@ C     .......... REDUCE B TO UPPER TRIANGULAR FORM ..........
 C
       DO 100 L = 1, NM1
          L1 = L + 1
-         S = 0.0D0
+         S = 0.0E0
 C
          DO 20 I = L1, N
-            S = S + DABS(B(I,L))
+            S = S + ABS(B(I,L))
    20    CONTINUE
 C
-         IF (S .EQ. 0.0D0) GO TO 100
-         S = S + DABS(B(L,L))
-         R = 0.0D0
+         IF (S .EQ. 0.0E0) GO TO 100
+         S = S + ABS(B(L,L))
+         R = 0.0E0
 C
          DO 25 I = L, N
             B(I,L) = B(I,L) / S
             R = R + B(I,L)**2
    25    CONTINUE
 C
-         R = DSIGN(DSQRT(R),B(L,L))
+         R = SIGN(SQRT(R),B(L,L))
          B(L,L) = B(L,L) + R
          RHO = R * B(L,L)
 C
          DO 50 J = L1, N
-            T = 0.0D0
+            T = 0.0E0
 C
             DO 30 I = L, N
                T = T + B(I,L) * B(I,J)
@@ -4022,7 +4013,7 @@ C
    50    CONTINUE
 C
          DO 80 J = 1, N
-            T = 0.0D0
+            T = 0.0E0
 C
             DO 60 I = L, N
                T = T + B(I,L) * A(I,J)
@@ -4039,13 +4030,13 @@ C
          B(L,L) = -S * R
 C
          DO 90 I = L1, N
-            B(I,L) = 0.0D0
+            B(I,L) = 0.0E0
    90    CONTINUE
 C
   100 CONTINUE
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPS = OPS + DBLE( 8*N**2 + 17*N + 24 )*DBLE( N-1 ) / 3.0D0
+      OPS = OPS + REAL( 8*N**2 + 17*N + 24 )*REAL( N-1 ) / 3.0E0
 *     ----------------------- END TIMING CODE --------------------------
 *
 C     .......... REDUCE A TO UPPER HESSENBERG FORM, WHILE
@@ -4060,11 +4051,11 @@ C     .......... FOR L=N-1 STEP -1 UNTIL K+1 DO -- ..........
             L = N - LB
             L1 = L + 1
 C     .......... ZERO A(L+1,K) ..........
-            S = DABS(A(L,K)) + DABS(A(L1,K))
-            IF (S .EQ. 0.0D0) GO TO 150
+            S = ABS(A(L,K)) + ABS(A(L1,K))
+            IF (S .EQ. 0.0E0) GO TO 150
             U1 = A(L,K) / S
             U2 = A(L1,K) / S
-            R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+            R = SIGN(SQRT(U1*U1+U2*U2),U1)
             V1 =  -(U1 + R) / R
             V2 = -U2 / R
             U2 = V2 / V1
@@ -4075,7 +4066,7 @@ C
                A(L1,J) = A(L1,J) + T * V2
   110       CONTINUE
 C
-            A(L1,K) = 0.0D0
+            A(L1,K) = 0.0E0
 C
             DO 120 J = L, N
                T = B(L,J) + U2 * B(L1,J)
@@ -4083,11 +4074,11 @@ C
                B(L1,J) = B(L1,J) + T * V2
   120       CONTINUE
 C     .......... ZERO B(L+1,L) ..........
-            S = DABS(B(L1,L1)) + DABS(B(L1,L))
-            IF (S .EQ. 0.0D0) GO TO 150
+            S = ABS(B(L1,L1)) + ABS(B(L1,L))
+            IF (S .EQ. 0.0E0) GO TO 150
             U1 = B(L1,L1) / S
             U2 = B(L1,L) / S
-            R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+            R = SIGN(SQRT(U1*U1+U2*U2),U1)
             V1 =  -(U1 + R) / R
             V2 = -U2 / R
             U2 = V2 / V1
@@ -4098,7 +4089,7 @@ C
                B(I,L) = B(I,L) + T * V2
   130       CONTINUE
 C
-            B(L1,L) = 0.0D0
+            B(L1,L) = 0.0E0
 C
             DO 140 I = 1, N
                T = A(I,L1) + U2 * A(I,L)
@@ -4121,9 +4112,9 @@ C
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
       IF( MATZ ) THEN
-         OPS = OPS + DBLE( 11*N + 20 )*DBLE( N-1 )*DBLE( N-2 )
+         OPS = OPS + REAL( 11*N + 20 )*REAL( N-1 )*REAL( N-2 )
       ELSE
-         OPS = OPS + DBLE( 8*N + 20 )*DBLE( N-1 )*DBLE( N-2 )
+         OPS = OPS + REAL( 8*N + 20 )*REAL( N-1 )*REAL( N-2 )
       END IF
 *     ----------------------- END TIMING CODE --------------------------
 *
@@ -4133,12 +4124,11 @@ C
 C
       INTEGER I,J,K,L,N,EN,K1,K2,LD,LL,L1,NA,NM,ISH,ITN,ITS,KM1,LM1,
      X        ENM2,IERR,LOR1,ENORN
-      DOUBLE PRECISION A(NM,N),B(NM,N),Z(NM,N)
-      DOUBLE PRECISION R,S,T,A1,A2,A3,EP,SH,U1,U2,U3,V1,V2,V3,ANI,A11,
+      REAL A(NM,N),B(NM,N),Z(NM,N)
+      REAL R,S,T,A1,A2,A3,EP,SH,U1,U2,U3,V1,V2,V3,ANI,A11,
      X       A12,A21,A22,A33,A34,A43,A44,BNI,B11,B12,B22,B33,B34,
      X       B44,EPSA,EPSB,EPS1,ANORM,BNORM,EPSLON
       LOGICAL MATZ,NOTLAS
-      external epslon
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
 *     COMMON BLOCK TO RETURN OPERATION COUNT AND ITERATION COUNT
@@ -4149,9 +4139,9 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
-      DOUBLE PRECISION   OPST
+      REAL               OPST
 *     ----------------------- END TIMING CODE --------------------------
 *
 C
@@ -4224,17 +4214,17 @@ C     ------------------------------------------------------------------
 C
       IERR = 0
 C     .......... COMPUTE EPSA,EPSB ..........
-      ANORM = 0.0D0
-      BNORM = 0.0D0
+      ANORM = 0.0E0
+      BNORM = 0.0E0
 C
       DO 30 I = 1, N
-         ANI = 0.0D0
-         IF (I .NE. 1) ANI = DABS(A(I,I-1))
-         BNI = 0.0D0
+         ANI = 0.0E0
+         IF (I .NE. 1) ANI = ABS(A(I,I-1))
+         BNI = 0.0E0
 C
          DO 20 J = I, N
-            ANI = ANI + DABS(A(I,J))
-            BNI = BNI + DABS(B(I,J))
+            ANI = ANI + ABS(A(I,J))
+            BNI = BNI + ABS(B(I,J))
    20    CONTINUE
 C
          IF (ANI .GT. ANORM) ANORM = ANI
@@ -4242,18 +4232,18 @@ C
    30 CONTINUE
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPS = OPS + DBLE( N*( N+1 ) )
-      OPST = 0.0D0
+      OPS = OPS + REAL( N*( N+1 ) )
+      OPST = 0.0E0
       ITCNT = 0
 *     ----------------------- END TIMING CODE --------------------------
 *
 C
-      IF (ANORM .EQ. 0.0D0) ANORM = 1.0D0
-      IF (BNORM .EQ. 0.0D0) BNORM = 1.0D0
+      IF (ANORM .EQ. 0.0E0) ANORM = 1.0E0
+      IF (BNORM .EQ. 0.0E0) BNORM = 1.0E0
       EP = EPS1
-      IF (EP .GT. 0.0D0) GO TO 50
+      IF (EP .GT. 0.0E0) GO TO 50
 C     .......... USE ROUNDOFF LEVEL IF EPS1 IS ZERO ..........
-      EP = EPSLON(1.0D0)
+      EP = EPSLON(1.0E0)
    50 EPSA = EP * ANORM
       EPSB = EP * BNORM
 C     .......... REDUCE A TO QUASI-TRIANGULAR FORM, WHILE
@@ -4272,7 +4262,7 @@ C     .......... BEGIN QZ STEP ..........
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
       OPS = OPS + OPST
-      OPST = 0.0D0
+      OPST = 0.0E0
       ITCNT = ITCNT + 1
 *     ----------------------- END TIMING CODE --------------------------
 *
@@ -4282,10 +4272,10 @@ C                FOR L=EN STEP -1 UNTIL 1 DO -- ..........
          LM1 = EN - LL
          L = LM1 + 1
          IF (L .EQ. 1) GO TO 95
-         IF (DABS(A(L,LM1)) .LE. EPSA) GO TO 90
+         IF (ABS(A(L,LM1)) .LE. EPSA) GO TO 90
    80 CONTINUE
 C
-   90 A(L,LM1) = 0.0D0
+   90 A(L,LM1) = 0.0E0
       IF (L .LT. NA) GO TO 95
 C     .......... 1-BY-1 OR 2-BY-2 BLOCK ISOLATED ..........
       EN = LM1
@@ -4294,12 +4284,12 @@ C     .......... CHECK FOR SMALL TOP OF B ..........
    95 LD = L
   100 L1 = L + 1
       B11 = B(L,L)
-      IF (DABS(B11) .GT. EPSB) GO TO 120
-      B(L,L) = 0.0D0
-      S = DABS(A(L,L)) + DABS(A(L1,L))
+      IF (ABS(B11) .GT. EPSB) GO TO 120
+      B(L,L) = 0.0E0
+      S = ABS(A(L,L)) + ABS(A(L1,L))
       U1 = A(L,L) / S
       U2 = A(L1,L) / S
-      R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+      R = SIGN(SQRT(U1*U1+U2*U2),U1)
       V1 = -(U1 + R) / R
       V2 = -U2 / R
       U2 = V2 / V1
@@ -4314,7 +4304,7 @@ C
   110 CONTINUE
 C
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPST = OPST + DBLE( 12*( ENORN+1-L ) + 11 )
+      OPST = OPST + REAL( 12*( ENORN+1-L ) + 11 )
 *     ----------------------- END TIMING CODE --------------------------
       IF (L .NE. 1) A(L,LM1) = -A(L,LM1)
       LM1 = L
@@ -4328,28 +4318,28 @@ C     .......... ITERATION STRATEGY ..........
       IF (ITS .EQ. 10) GO TO 155
 C     .......... DETERMINE TYPE OF SHIFT ..........
       B22 = B(L1,L1)
-      IF (DABS(B22) .LT. EPSB) B22 = EPSB
+      IF (ABS(B22) .LT. EPSB) B22 = EPSB
       B33 = B(NA,NA)
-      IF (DABS(B33) .LT. EPSB) B33 = EPSB
+      IF (ABS(B33) .LT. EPSB) B33 = EPSB
       B44 = B(EN,EN)
-      IF (DABS(B44) .LT. EPSB) B44 = EPSB
+      IF (ABS(B44) .LT. EPSB) B44 = EPSB
       A33 = A(NA,NA) / B33
       A34 = A(NA,EN) / B44
       A43 = A(EN,NA) / B33
       A44 = A(EN,EN) / B44
       B34 = B(NA,EN) / B44
-      T = 0.5D0 * (A43 * B34 - A33 - A44)
+      T = 0.5E0 * (A43 * B34 - A33 - A44)
       R = T * T + A34 * A43 - A33 * A44
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPST = OPST + DBLE( 16 )
+      OPST = OPST + REAL( 16 )
 *     ----------------------- END TIMING CODE --------------------------
-      IF (R .LT. 0.0D0) GO TO 150
+      IF (R .LT. 0.0E0) GO TO 150
 C     .......... DETERMINE SINGLE SHIFT ZEROTH COLUMN OF A ..........
       ISH = 1
-      R = DSQRT(R)
+      R = SQRT(R)
       SH = -T + R
       S = -T - R
-      IF (DABS(S-A44) .LT. DABS(SH-A44)) SH = S
+      IF (ABS(S-A44) .LT. ABS(SH-A44)) SH = S
 C     .......... LOOK FOR TWO CONSECUTIVE SMALL
 C                SUB-DIAGONAL ELEMENTS OF A.
 C                FOR L=EN-2 STEP -1 UNTIL LD DO -- ..........
@@ -4359,16 +4349,16 @@ C                FOR L=EN-2 STEP -1 UNTIL LD DO -- ..........
          LM1 = L - 1
          L1 = L + 1
          T = A(L,L)
-         IF (DABS(B(L,L)) .GT. EPSB) T = T - SH * B(L,L)
+         IF (ABS(B(L,L)) .GT. EPSB) T = T - SH * B(L,L)
 *        --------------------- BEGIN TIMING CODE -----------------------
-         IF (DABS(A(L,LM1)) .LE. DABS(T/A(L1,L)) * EPSA) THEN
-            OPST = OPST + DBLE( 5 + 4*( LL+1-LD ) )
+         IF (ABS(A(L,LM1)) .LE. ABS(T/A(L1,L)) * EPSA) THEN
+            OPST = OPST + REAL( 5 + 4*( LL+1-LD ) )
             GO TO 100
          END IF
 *        ---------------------- END TIMING CODE ------------------------
   130 CONTINUE
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPST = OPST + DBLE( 5 + 4*( ENM2+1-LD ) )
+      OPST = OPST + REAL( 5 + 4*( ENM2+1-LD ) )
 *     ----------------------- END TIMING CODE --------------------------
 C
   140 A1 = A11 - SH
@@ -4385,13 +4375,13 @@ C     .......... DETERMINE DOUBLE SHIFT ZEROTH COLUMN OF A ..........
      X     + A43 * B34
       A3 = A(L1+1,L1) / B22
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPST = OPST + DBLE( 25 )
+      OPST = OPST + REAL( 25 )
 *     ----------------------- END TIMING CODE --------------------------
       GO TO 160
 C     .......... AD HOC SHIFT ..........
-  155 A1 = 0.0D0
-      A2 = 1.0D0
-      A3 = 1.1605D0
+  155 A1 = 0.0E0
+      A2 = 1.0E0
+      A3 = 1.1605E0
   160 ITS = ITS + 1
       ITN = ITN - 1
       IF (.NOT. MATZ) LOR1 = LD
@@ -4407,11 +4397,11 @@ C     .......... ZERO A(K+1,K-1) ..........
          IF (K .EQ. L) GO TO 170
          A1 = A(K,KM1)
          A2 = A(K1,KM1)
-  170    S = DABS(A1) + DABS(A2)
-         IF (S .EQ. 0.0D0) GO TO 70
+  170    S = ABS(A1) + ABS(A2)
+         IF (S .EQ. 0.0E0) GO TO 70
          U1 = A1 / S
          U2 = A2 / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          U2 = V2 / V1
@@ -4426,21 +4416,21 @@ C
   180    CONTINUE
 C
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 11 + 12*( ENORN+1-KM1 ) )
+         OPST = OPST + REAL( 11 + 12*( ENORN+1-KM1 ) )
 *        ---------------------- END TIMING CODE ------------------------
-         IF (K .NE. L) A(K1,KM1) = 0.0D0
+         IF (K .NE. L) A(K1,KM1) = 0.0E0
          GO TO 240
 C     .......... ZERO A(K+1,K-1) AND A(K+2,K-1) ..........
   190    IF (K .EQ. L) GO TO 200
          A1 = A(K,KM1)
          A2 = A(K1,KM1)
          A3 = A(K2,KM1)
-  200    S = DABS(A1) + DABS(A2) + DABS(A3)
-         IF (S .EQ. 0.0D0) GO TO 260
+  200    S = ABS(A1) + ABS(A2) + ABS(A3)
+         IF (S .EQ. 0.0E0) GO TO 260
          U1 = A1 / S
          U2 = A2 / S
          U3 = A3 / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2+U3*U3),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2+U3*U3),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          V3 = -U3 / R
@@ -4458,19 +4448,19 @@ C
             B(K2,J) = B(K2,J) + T * V3
   210    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 17 + 20*( ENORN+1-KM1 ) )
+         OPST = OPST + REAL( 17 + 20*( ENORN+1-KM1 ) )
 *        ---------------------- END TIMING CODE ------------------------
 C
          IF (K .EQ. L) GO TO 220
-         A(K1,KM1) = 0.0D0
-         A(K2,KM1) = 0.0D0
+         A(K1,KM1) = 0.0E0
+         A(K2,KM1) = 0.0E0
 C     .......... ZERO B(K+2,K+1) AND B(K+2,K) ..........
-  220    S = DABS(B(K2,K2)) + DABS(B(K2,K1)) + DABS(B(K2,K))
-         IF (S .EQ. 0.0D0) GO TO 240
+  220    S = ABS(B(K2,K2)) + ABS(B(K2,K1)) + ABS(B(K2,K))
+         IF (S .EQ. 0.0E0) GO TO 240
          U1 = B(K2,K2) / S
          U2 = B(K2,K1) / S
          U3 = B(K2,K) / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2+U3*U3),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2+U3*U3),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          V3 = -U3 / R
@@ -4488,11 +4478,11 @@ C
             B(I,K) = B(I,K) + T * V3
   230    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 17 + 20*( LL+1-LOR1 ) )
+         OPST = OPST + REAL( 17 + 20*( LL+1-LOR1 ) )
 *        ---------------------- END TIMING CODE ------------------------
 C
-         B(K2,K) = 0.0D0
-         B(K2,K1) = 0.0D0
+         B(K2,K) = 0.0E0
+         B(K2,K1) = 0.0E0
          IF (.NOT. MATZ) GO TO 240
 C
          DO 235 I = 1, N
@@ -4502,14 +4492,14 @@ C
             Z(I,K) = Z(I,K) + T * V3
   235    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 10*N )
+         OPST = OPST + REAL( 10*N )
 *        ---------------------- END TIMING CODE ------------------------
 C     .......... ZERO B(K+1,K) ..........
-  240    S = DABS(B(K1,K1)) + DABS(B(K1,K))
-         IF (S .EQ. 0.0D0) GO TO 260
+  240    S = ABS(B(K1,K1)) + ABS(B(K1,K))
+         IF (S .EQ. 0.0E0) GO TO 260
          U1 = B(K1,K1) / S
          U2 = B(K1,K) / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          U2 = V2 / V1
@@ -4523,10 +4513,10 @@ C
             B(I,K) = B(I,K) + T * V2
   250    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 11 + 12*( LL+1-LOR1 ) )
+         OPST = OPST + REAL( 11 + 12*( LL+1-LOR1 ) )
 *        ---------------------- END TIMING CODE ------------------------
 C
-         B(K1,K) = 0.0D0
+         B(K1,K) = 0.0E0
          IF (.NOT. MATZ) GO TO 260
 C
          DO 255 I = 1, N
@@ -4535,7 +4525,7 @@ C
             Z(I,K) = Z(I,K) + T * V2
   255    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST = OPST + DBLE( 6*N )
+         OPST = OPST + REAL( 6*N )
 *        ---------------------- END TIMING CODE ------------------------
 C
   260 CONTINUE
@@ -4549,7 +4539,7 @@ C     .......... SAVE EPSB FOR USE BY QZVAL AND QZVEC ..........
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
       OPS = OPS + OPST
-      OPST = 0.0D0
+      OPST = 0.0E0
 *     ----------------------- END TIMING CODE --------------------------
 *
       RETURN
@@ -4557,8 +4547,8 @@ C     .......... SAVE EPSB FOR USE BY QZVAL AND QZVEC ..........
       SUBROUTINE QZVAL(NM,N,A,B,ALFR,ALFI,BETA,MATZ,Z)
 C
       INTEGER I,J,N,EN,NA,NM,NN,ISW
-      DOUBLE PRECISION A(NM,N),B(NM,N),ALFR(N),ALFI(N),BETA(N),Z(NM,N)
-      DOUBLE PRECISION C,D,E,R,S,T,AN,A1,A2,BN,CQ,CZ,DI,DR,EI,TI,TR,U1,
+      REAL A(NM,N),B(NM,N),ALFR(N),ALFI(N),BETA(N),Z(NM,N)
+      REAL C,D,E,R,S,T,AN,A1,A2,BN,CQ,CZ,DI,DR,EI,TI,TR,U1,
      X       U2,V1,V2,A1I,A11,A12,A2I,A21,A22,B11,B12,B22,SQI,SQR,
      X       SSI,SSR,SZI,SZR,A11I,A11R,A12I,A12R,A22I,A22R,EPSB
       LOGICAL MATZ
@@ -4572,9 +4562,9 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
-      DOUBLE PRECISION   OPST, OPST2
+      REAL               OPST, OPST2
 *     ----------------------- END TIMING CODE --------------------------
 *
 C
@@ -4648,38 +4638,38 @@ C     .......... FIND EIGENVALUES OF QUASI-TRIANGULAR MATRICES.
 C                FOR EN=N STEP -1 UNTIL 1 DO -- ..........
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
-      OPST = 0.0D0
-      OPST2 = 0.0D0
+      OPST = 0.0E0
+      OPST2 = 0.0E0
 *     ----------------------- END TIMING CODE --------------------------
 *
       DO 510 NN = 1, N
 *
 *        --------------------- BEGIN TIMING CODE -----------------------
          OPST = OPST + OPST2
-         OPST2 = 0.0D0
+         OPST2 = 0.0E0
 *        ---------------------- END TIMING CODE ------------------------
 *
          EN = N + 1 - NN
          NA = EN - 1
          IF (ISW .EQ. 2) GO TO 505
          IF (EN .EQ. 1) GO TO 410
-         IF (A(EN,NA) .NE. 0.0D0) GO TO 420
+         IF (A(EN,NA) .NE. 0.0E0) GO TO 420
 C     .......... 1-BY-1 BLOCK, ONE REAL ROOT ..........
   410    ALFR(EN) = A(EN,EN)
-         IF (B(EN,EN) .LT. 0.0D0) ALFR(EN) = -ALFR(EN)
-         BETA(EN) = DABS(B(EN,EN))
-         ALFI(EN) = 0.0D0
+         IF (B(EN,EN) .LT. 0.0E0) ALFR(EN) = -ALFR(EN)
+         BETA(EN) = ABS(B(EN,EN))
+         ALFI(EN) = 0.0E0
          GO TO 510
 C     .......... 2-BY-2 BLOCK ..........
-  420    IF (DABS(B(NA,NA)) .LE. EPSB) GO TO 455
-         IF (DABS(B(EN,EN)) .GT. EPSB) GO TO 430
+  420    IF (ABS(B(NA,NA)) .LE. EPSB) GO TO 455
+         IF (ABS(B(EN,EN)) .GT. EPSB) GO TO 430
          A1 = A(EN,EN)
          A2 = A(EN,NA)
-         BN = 0.0D0
+         BN = 0.0E0
          GO TO 435
-  430    AN = DABS(A(NA,NA)) + DABS(A(NA,EN)) + DABS(A(EN,NA))
-     X      + DABS(A(EN,EN))
-         BN = DABS(B(NA,NA)) + DABS(B(NA,EN)) + DABS(B(EN,EN))
+  430    AN = ABS(A(NA,NA)) + ABS(A(NA,EN)) + ABS(A(EN,NA))
+     X      + ABS(A(EN,EN))
+         BN = ABS(B(NA,NA)) + ABS(B(NA,EN)) + ABS(B(EN,EN))
          A11 = A(NA,NA) / AN
          A12 = A(NA,EN) / AN
          A21 = A(EN,NA) / AN
@@ -4691,36 +4681,36 @@ C     .......... 2-BY-2 BLOCK ..........
          EI = A22 / B22
          S = A21 / (B11 * B22)
          T = (A22 - E * B22) / B22
-         IF (DABS(E) .LE. DABS(EI)) GO TO 431
+         IF (ABS(E) .LE. ABS(EI)) GO TO 431
          E = EI
          T = (A11 - E * B11) / B11
-  431    C = 0.5D0 * (T - S * B12)
+  431    C = 0.5E0 * (T - S * B12)
          D = C * C + S * (A12 - E * B12)
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 28 )
+         OPST2 = OPST2 + REAL( 28 )
 *        ---------------------- END TIMING CODE ------------------------
-         IF (D .LT. 0.0D0) GO TO 480
+         IF (D .LT. 0.0E0) GO TO 480
 C     .......... TWO REAL ROOTS.
 C                ZERO BOTH A(EN,NA) AND B(EN,NA) ..........
-         E = E + (C + DSIGN(DSQRT(D),C))
+         E = E + (C + SIGN(SQRT(D),C))
          A11 = A11 - E * B11
          A12 = A12 - E * B12
          A22 = A22 - E * B22
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 11 )
+         OPST2 = OPST2 + REAL( 11 )
 *        ---------------------- END TIMING CODE ------------------------
-         IF (DABS(A11) + DABS(A12) .LT.
-     X       DABS(A21) + DABS(A22)) GO TO 432
+         IF (ABS(A11) + ABS(A12) .LT.
+     X       ABS(A21) + ABS(A22)) GO TO 432
          A1 = A12
          A2 = A11
          GO TO 435
   432    A1 = A22
          A2 = A21
 C     .......... CHOOSE AND APPLY REAL Z ..........
-  435    S = DABS(A1) + DABS(A2)
+  435    S = ABS(A1) + ABS(A2)
          U1 = A1 / S
          U2 = A2 / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          U2 = V2 / V1
@@ -4734,7 +4724,7 @@ C
             B(I,NA) = B(I,NA) + T * V2
   440    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 11 + 12*EN )
+         OPST2 = OPST2 + REAL( 11 + 12*EN )
 *        ---------------------- END TIMING CODE ------------------------
 C
          IF (.NOT. MATZ) GO TO 450
@@ -4745,22 +4735,22 @@ C
             Z(I,NA) = Z(I,NA) + T * V2
   445    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 6*N )
+         OPST2 = OPST2 + REAL( 6*N )
 *        ---------------------- END TIMING CODE ------------------------
 C
-  450    IF (BN .EQ. 0.0D0) GO TO 475
-         IF (AN .LT. DABS(E) * BN) GO TO 455
+  450    IF (BN .EQ. 0.0E0) GO TO 475
+         IF (AN .LT. ABS(E) * BN) GO TO 455
          A1 = B(NA,NA)
          A2 = B(EN,NA)
          GO TO 460
   455    A1 = A(NA,NA)
          A2 = A(EN,NA)
 C     .......... CHOOSE AND APPLY REAL Q ..........
-  460    S = DABS(A1) + DABS(A2)
-         IF (S .EQ. 0.0D0) GO TO 475
+  460    S = ABS(A1) + ABS(A2)
+         IF (S .EQ. 0.0E0) GO TO 475
          U1 = A1 / S
          U2 = A2 / S
-         R = DSIGN(DSQRT(U1*U1+U2*U2),U1)
+         R = SIGN(SQRT(U1*U1+U2*U2),U1)
          V1 = -(U1 + R) / R
          V2 = -U2 / R
          U2 = V2 / V1
@@ -4774,31 +4764,31 @@ C
             B(EN,J) = B(EN,J) + T * V2
   470    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 11 + 12*( N+1-NA ) )
+         OPST2 = OPST2 + REAL( 11 + 12*( N+1-NA ) )
 *        ---------------------- END TIMING CODE ------------------------
 C
-  475    A(EN,NA) = 0.0D0
-         B(EN,NA) = 0.0D0
+  475    A(EN,NA) = 0.0E0
+         B(EN,NA) = 0.0E0
          ALFR(NA) = A(NA,NA)
          ALFR(EN) = A(EN,EN)
-         IF (B(NA,NA) .LT. 0.0D0) ALFR(NA) = -ALFR(NA)
-         IF (B(EN,EN) .LT. 0.0D0) ALFR(EN) = -ALFR(EN)
-         BETA(NA) = DABS(B(NA,NA))
-         BETA(EN) = DABS(B(EN,EN))
-         ALFI(EN) = 0.0D0
-         ALFI(NA) = 0.0D0
+         IF (B(NA,NA) .LT. 0.0E0) ALFR(NA) = -ALFR(NA)
+         IF (B(EN,EN) .LT. 0.0E0) ALFR(EN) = -ALFR(EN)
+         BETA(NA) = ABS(B(NA,NA))
+         BETA(EN) = ABS(B(EN,EN))
+         ALFI(EN) = 0.0E0
+         ALFI(NA) = 0.0E0
          GO TO 505
 C     .......... TWO COMPLEX ROOTS ..........
   480    E = E + C
-         EI = DSQRT(-D)
+         EI = SQRT(-D)
          A11R = A11 - E * B11
          A11I = EI * B11
          A12R = A12 - E * B12
          A12I = EI * B12
          A22R = A22 - E * B22
          A22I = EI * B22
-         IF (DABS(A11R) + DABS(A11I) + DABS(A12R) + DABS(A12I) .LT.
-     X       DABS(A21) + DABS(A22R) + DABS(A22I)) GO TO 482
+         IF (ABS(A11R) + ABS(A11I) + ABS(A12R) + ABS(A12I) .LT.
+     X       ABS(A21) + ABS(A22R) + ABS(A22I)) GO TO 482
          A1 = A12R
          A1I = A12I
          A2 = -A11R
@@ -4807,20 +4797,20 @@ C     .......... TWO COMPLEX ROOTS ..........
   482    A1 = A22R
          A1I = A22I
          A2 = -A21
-         A2I = 0.0D0
+         A2I = 0.0E0
 C     .......... CHOOSE COMPLEX Z ..........
-  485    CZ = DSQRT(A1*A1+A1I*A1I)
-         IF (CZ .EQ. 0.0D0) GO TO 487
+  485    CZ = SQRT(A1*A1+A1I*A1I)
+         IF (CZ .EQ. 0.0E0) GO TO 487
          SZR = (A1 * A2 + A1I * A2I) / CZ
          SZI = (A1 * A2I - A1I * A2) / CZ
-         R = DSQRT(CZ*CZ+SZR*SZR+SZI*SZI)
+         R = SQRT(CZ*CZ+SZR*SZR+SZI*SZI)
          CZ = CZ / R
          SZR = SZR / R
          SZI = SZI / R
          GO TO 490
-  487    SZR = 1.0D0
-         SZI = 0.0D0
-  490    IF (AN .LT. (DABS(E) + EI) * BN) GO TO 492
+  487    SZR = 1.0E0
+         SZI = 0.0E0
+  490    IF (AN .LT. (ABS(E) + EI) * BN) GO TO 492
          A1 = CZ * B11 + SZR * B12
          A1I = SZI * B12
          A2 = SZR * B22
@@ -4831,17 +4821,17 @@ C     .......... CHOOSE COMPLEX Z ..........
          A2 = CZ * A21 + SZR * A22
          A2I = SZI * A22
 C     .......... CHOOSE COMPLEX Q ..........
-  495    CQ = DSQRT(A1*A1+A1I*A1I)
-         IF (CQ .EQ. 0.0D0) GO TO 497
+  495    CQ = SQRT(A1*A1+A1I*A1I)
+         IF (CQ .EQ. 0.0E0) GO TO 497
          SQR = (A1 * A2 + A1I * A2I) / CQ
          SQI = (A1 * A2I - A1I * A2) / CQ
-         R = DSQRT(CQ*CQ+SQR*SQR+SQI*SQI)
+         R = SQRT(CQ*CQ+SQR*SQR+SQI*SQI)
          CQ = CQ / R
          SQR = SQR / R
          SQI = SQI / R
          GO TO 500
-  497    SQR = 1.0D0
-         SQI = 0.0D0
+  497    SQR = 1.0E0
+         SQI = 0.0E0
 C     .......... COMPUTE DIAGONAL ELEMENTS THAT WOULD RESULT
 C                IF TRANSFORMATIONS WERE APPLIED ..........
   500    SSR = SQR * SZR + SQI * SZI
@@ -4861,14 +4851,14 @@ C                IF TRANSFORMATIONS WERE APPLIED ..........
          DI = -SSI * B11 - SQI * CZ * B12
   503    T = TI * DR - TR * DI
          J = NA
-         IF (T .LT. 0.0D0) J = EN
-         R = DSQRT(DR*DR+DI*DI)
+         IF (T .LT. 0.0E0) J = EN
+         R = SQRT(DR*DR+DI*DI)
          BETA(J) = BN * R
          ALFR(J) = AN * (TR * DR + TI * DI) / R
          ALFI(J) = AN * T / R
          IF (I .EQ. 1) GO TO 502
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPST2 = OPST2 + DBLE( 151 )
+         OPST2 = OPST2 + REAL( 151 )
 *        ---------------------- END TIMING CODE ------------------------
   505    ISW = 3 - ISW
   510 CONTINUE
@@ -4884,8 +4874,8 @@ C
       SUBROUTINE QZVEC(NM,N,A,B,ALFR,ALFI,BETA,Z)
 C
       INTEGER I,J,K,M,N,EN,II,JJ,NA,NM,NN,ISW,ENM2
-      DOUBLE PRECISION A(NM,N),B(NM,N),ALFR(N),ALFI(N),BETA(N),Z(NM,N)
-      DOUBLE PRECISION D,Q,R,S,T,W,X,Y,DI,DR,RA,RR,SA,TI,TR,T1,T2,W1,X1,
+      REAL A(NM,N),B(NM,N),ALFR(N),ALFI(N),BETA(N),Z(NM,N)
+      REAL D,Q,R,S,T,W,X,Y,DI,DR,RA,RR,SA,TI,TR,T1,T2,W1,X1,
      X       ZZ,Z1,ALFM,ALMI,ALMR,BETM,EPSB
 *
 *     ---------------------- BEGIN TIMING CODE -------------------------
@@ -4897,7 +4887,7 @@ C
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. SCALARS IN COMMON ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
       INTEGER            IN2BY2
 *     ----------------------- END TIMING CODE --------------------------
@@ -4976,10 +4966,10 @@ C     .......... FOR EN=N STEP -1 UNTIL 1 DO -- ..........
          EN = N + 1 - NN
          NA = EN - 1
          IF (ISW .EQ. 2) GO TO 795
-         IF (ALFI(EN) .NE. 0.0D0) GO TO 710
+         IF (ALFI(EN) .NE. 0.0E0) GO TO 710
 C     .......... REAL VECTOR ..........
          M = EN
-         B(EN,EN) = 1.0D0
+         B(EN,EN) = 1.0E0
          IF (NA .EQ. 0) GO TO 800
          ALFM = ALFR(M)
          BETM = BETA(M)
@@ -4987,13 +4977,13 @@ C     .......... FOR I=EN-1 STEP -1 UNTIL 1 DO -- ..........
          DO 700 II = 1, NA
             I = EN - II
             W = BETM * A(I,I) - ALFM * B(I,I)
-            R = 0.0D0
+            R = 0.0E0
 C
             DO 610 J = M, EN
   610       R = R + (BETM * A(I,J) - ALFM * B(I,J)) * B(J,EN)
 C
             IF (I .EQ. 1 .OR. ISW .EQ. 2) GO TO 630
-            IF (BETM * A(I,I-1) .EQ. 0.0D0) GO TO 630
+            IF (BETM * A(I,I-1) .EQ. 0.0E0) GO TO 630
             ZZ = W
             S = R
             GO TO 690
@@ -5001,7 +4991,7 @@ C
             IF (ISW .EQ. 2) GO TO 640
 C     .......... REAL 1-BY-1 BLOCK ..........
             T = W
-            IF (W .EQ. 0.0D0) T = EPSB
+            IF (W .EQ. 0.0E0) T = EPSB
             B(I,EN) = -R / T
             GO TO 700
 C     .......... REAL 2-BY-2 BLOCK ..........
@@ -5013,7 +5003,7 @@ C     .......... REAL 2-BY-2 BLOCK ..........
 *           ------------------- BEGIN TIMING CODE ----------------------
             IN2BY2 = IN2BY2 + 1
 *           -------------------- END TIMING CODE -----------------------
-            IF (DABS(X) .LE. DABS(ZZ)) GO TO 650
+            IF (ABS(X) .LE. ABS(ZZ)) GO TO 650
             B(I+1,EN) = (-R - W * T) / X
             GO TO 690
   650       B(I+1,EN) = (-S - Y * T) / ZZ
@@ -5021,7 +5011,7 @@ C     .......... REAL 2-BY-2 BLOCK ..........
   700    CONTINUE
 C     .......... END REAL VECTOR ..........
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPS = OPS + ( 5.0D0/2.0D0 )*DBLE( ( EN+2 )*( EN-1 ) + IN2BY2 )
+         OPS = OPS + ( 5.0E0/2.0E0 )*REAL( ( EN+2 )*( EN-1 ) + IN2BY2 )
 *        ---------------------- END TIMING CODE ------------------------
          GO TO 800
 C     .......... COMPLEX VECTOR ..........
@@ -5034,8 +5024,8 @@ C                EIGENVECTOR MATRIX IS TRIANGULAR ..........
          Y = BETM * A(EN,NA)
          B(NA,NA) = -ALMI * B(EN,EN) / Y
          B(NA,EN) = (ALMR * B(EN,EN) - BETM * A(EN,EN)) / Y
-         B(EN,NA) = 0.0D0
-         B(EN,EN) = 1.0D0
+         B(EN,NA) = 0.0E0
+         B(EN,EN) = 1.0E0
          ENM2 = NA - 1
          IF (ENM2 .EQ. 0) GO TO 795
 C     .......... FOR I=EN-2 STEP -1 UNTIL 1 DO -- ..........
@@ -5043,8 +5033,8 @@ C     .......... FOR I=EN-2 STEP -1 UNTIL 1 DO -- ..........
             I = NA - II
             W = BETM * A(I,I) - ALMR * B(I,I)
             W1 = -ALMI * B(I,I)
-            RA = 0.0D0
-            SA = 0.0D0
+            RA = 0.0E0
+            SA = 0.0E0
 C
             DO 760 J = M, EN
                X = BETM * A(I,J) - ALMR * B(I,J)
@@ -5054,7 +5044,7 @@ C
   760       CONTINUE
 C
             IF (I .EQ. 1 .OR. ISW .EQ. 2) GO TO 770
-            IF (BETM * A(I,I-1) .EQ. 0.0D0) GO TO 770
+            IF (BETM * A(I,I-1) .EQ. 0.0E0) GO TO 770
             ZZ = W
             Z1 = W1
             R = RA
@@ -5069,7 +5059,7 @@ C     .......... COMPLEX 1-BY-1 BLOCK ..........
   773       DR = W
             DI = W1
 C     .......... COMPLEX DIVIDE (T1,T2) = (TR,TI) / (DR,DI) ..........
-  775       IF (DABS(DI) .GT. DABS(DR)) GO TO 777
+  775       IF (ABS(DI) .GT. ABS(DR)) GO TO 777
             RR = DI / DR
             D = DR + DI * RR
             T1 = (TR + TI * RR) / D
@@ -5091,12 +5081,12 @@ C     .......... COMPLEX 2-BY-2 BLOCK ..........
 *           ------------------- BEGIN TIMING CODE ----------------------
             IN2BY2 = IN2BY2 + 1
 *           -------------------- END TIMING CODE -----------------------
-            IF (DR .EQ. 0.0D0 .AND. DI .EQ. 0.0D0) DR = EPSB
+            IF (DR .EQ. 0.0E0 .AND. DI .EQ. 0.0E0) DR = EPSB
             GO TO 775
   782       B(I+1,NA) = T1
             B(I+1,EN) = T2
             ISW = 1
-            IF (DABS(Y) .GT. DABS(W) + DABS(W1)) GO TO 785
+            IF (ABS(Y) .GT. ABS(W) + ABS(W1)) GO TO 785
             TR = -RA - X * B(I+1,NA) + X1 * B(I+1,EN)
             TI = -SA - X * B(I+1,EN) - X1 * B(I+1,NA)
             GO TO 773
@@ -5106,7 +5096,7 @@ C     .......... COMPLEX 2-BY-2 BLOCK ..........
             B(I,EN) = T2
   790    CONTINUE
 *        --------------------- BEGIN TIMING CODE -----------------------
-         OPS = OPS + DBLE( ( 6*EN-7 )*( EN-2 ) + 31*IN2BY2 )
+         OPS = OPS + REAL( ( 6*EN-7 )*( EN-2 ) + 31*IN2BY2 )
 *        ---------------------- END TIMING CODE ------------------------
 C     .......... END COMPLEX VECTOR ..........
   795    ISW = 3 - ISW
@@ -5118,7 +5108,7 @@ C                FOR J=N STEP -1 UNTIL 1 DO -- ..........
          J = N + 1 - JJ
 C
          DO 880 I = 1, N
-            ZZ = 0.0D0
+            ZZ = 0.0E0
 C
             DO 860 K = 1, J
   860       ZZ = ZZ + Z(I,K) * B(K,J)
@@ -5126,7 +5116,7 @@ C
             Z(I,J) = ZZ
   880 CONTINUE
 *     ----------------------- BEGIN TIMING CODE ------------------------
-      OPS = OPS + DBLE( N**2 )*DBLE( N+1 )
+      OPS = OPS + REAL( N**2 )*REAL( N+1 )
 *     ------------------------ END TIMING CODE -------------------------
 C     .......... NORMALIZE SO THAT MODULUS OF LARGEST
 C                COMPONENT OF EACH VECTOR IS 1.
@@ -5135,12 +5125,12 @@ C                (ISW IS 1 INITIALLY FROM BEFORE) ..........
       IN2BY2 = 0
 *     ------------------------- END TIMING CODE ------------------------
       DO 950 J = 1, N
-         D = 0.0D0
+         D = 0.0E0
          IF (ISW .EQ. 2) GO TO 920
-         IF (ALFI(J) .NE. 0.0D0) GO TO 945
+         IF (ALFI(J) .NE. 0.0E0) GO TO 945
 C
          DO 890 I = 1, N
-            IF (DABS(Z(I,J)) .GT. D) D = DABS(Z(I,J))
+            IF (ABS(Z(I,J)) .GT. D) D = ABS(Z(I,J))
   890    CONTINUE
 C
          DO 900 I = 1, N
@@ -5149,8 +5139,8 @@ C
          GO TO 950
 C
   920    DO 930 I = 1, N
-            R = DABS(Z(I,J-1)) + DABS(Z(I,J))
-            IF (R .NE. 0.0D0) R = R * DSQRT((Z(I,J-1)/R)**2
+            R = ABS(Z(I,J-1)) + ABS(Z(I,J))
+            IF (R .NE. 0.0E0) R = R * SQRT((Z(I,J-1)/R)**2
      X                                     +(Z(I,J)/R)**2)
             IF (R .GT. D) D = R
   930    CONTINUE
@@ -5166,12 +5156,12 @@ C
   945    ISW = 3 - ISW
   950 CONTINUE
 *     ------------------------ BEGIN TIMING CODE -----------------------
-      OPS = OPS + DBLE( N*( N + 5*IN2BY2 ) )
+      OPS = OPS + REAL( N*( N + 5*IN2BY2 ) )
 *     ------------------------- END TIMING CODE ------------------------
 C
       RETURN
       END
-      SUBROUTINE DLAQZH( ILQ, ILZ, N, ILO, IHI, A, LDA, B, LDB, Q, LDQ,
+      SUBROUTINE SLAQZH( ILQ, ILZ, N, ILO, IHI, A, LDA, B, LDB, Q, LDQ,
      $                   Z, LDZ, WORK, INFO )
 *
 *  -- LAPACK timing routine (version 3.0) --
@@ -5184,7 +5174,7 @@ C
       INTEGER            IHI, ILO, INFO, LDA, LDB, LDQ, LDZ, N
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION   A( LDA, * ), B( LDB, * ), Q( LDQ, * ),
+      REAL               A( LDA, * ), B( LDB, * ), Q( LDQ, * ),
      $                   WORK( N ), Z( LDZ, * )
 *     ..
 *
@@ -5192,7 +5182,7 @@ C
 *  =======
 *
 *  This calls the LAPACK routines to perform the function of
-*  QZHES.  It is similar in function to DGGHRD, except that
+*  QZHES.  It is similar in function to SGGHRD, except that
 *  B is not assumed to be upper-triangular.
 *
 *  It reduces a pair of matrices (A,B) to a Hessenberg-triangular
@@ -5228,7 +5218,7 @@ C
 *          triangular form already, and will not be touched.  IHI may
 *          not be greater than N.
 *
-*  A       (input/output) DOUBLE PRECISION array, dimension (LDA, N)
+*  A       (input/output) REAL array, dimension (LDA, N)
 *          On entry, the first of the pair of N x N general matrices to
 *          be reduced.
 *          On exit, the upper triangle and the first subdiagonal of A
@@ -5239,7 +5229,7 @@ C
 *          The leading dimension of A as declared in the calling
 *          program. LDA must be at least max ( 1, N ) .
 *
-*  B       (input/output) DOUBLE PRECISION array, dimension (LDB, N)
+*  B       (input/output) REAL array, dimension (LDB, N)
 *          On entry, the second of the pair of N x N general matrices to
 *          be reduced.
 *          On exit, the transformed matrix T = Q' B Z, which is upper
@@ -5249,7 +5239,7 @@ C
 *          The leading dimension of B as declared in the calling
 *          program. LDB must be at least max ( 1, N ) .
 *
-*  Q       (output) DOUBLE PRECISION array, dimension (LDQ,N)
+*  Q       (output) REAL array, dimension (LDQ,N)
 *          If ILQ = .TRUE., Q will contain the orthogonal matrix Q.
 *          (See "Purpose", above.)
 *          Will not be referenced if ILQ = .FALSE.
@@ -5258,7 +5248,7 @@ C
 *          The leading dimension of the matrix Q. LDQ must be at
 *          least 1 and at least N.
 *
-*  Z       (output) DOUBLE PRECISION array, dimension (LDZ,N)
+*  Z       (output) REAL array, dimension (LDZ,N)
 *          If ILZ = .TRUE., Z will contain the orthogonal matrix Z.
 *          (See "Purpose", above.)
 *          May be referenced even if ILZ = .FALSE.
@@ -5267,30 +5257,30 @@ C
 *          The leading dimension of the matrix Z. LDZ must be at
 *          least 1 and at least N.
 *
-*  WORK    (workspace) DOUBLE PRECISION array, dimension (N)
+*  WORK    (workspace) REAL array, dimension (N)
 *          Workspace.
 *
 *  INFO    (output) INTEGER
 *          = 0:  successful exit.
 *          < 0:  if INFO = -i, the i-th argument had an illegal value.
 *          > 0:  errors that usually indicate LAPACK problems:
-*                = 2: error return from DGEQRF;
-*                = 3: error return from DORMQR;
-*                = 4: error return from DORGQR;
-*                = 5: error return from DGGHRD.
+*                = 2: error return from SGEQRF;
+*                = 3: error return from SORMQR;
+*                = 4: error return from SORGQR;
+*                = 5: error return from SGGHRD.
 *
 *  =====================================================================
 *
 *     .. Parameters ..
-      DOUBLE PRECISION   ZERO, ONE
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0 )
+      REAL               ZERO, ONE
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0 )
 *     ..
 *     .. Local Scalars ..
       CHARACTER          COMPQ, COMPZ
       INTEGER            ICOLS, IINFO, IROWS
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DGEQRF, DGGHRD, DLACPY, DLASET, DORGQR, DORMQR
+      EXTERNAL           SGEQRF, SGGHRD, SLACPY, SLASET, SORGQR, SORMQR
 *     ..
 *     .. Executable Statements ..
 *
@@ -5303,14 +5293,14 @@ C
 *
       IROWS = IHI + 1 - ILO
       ICOLS = N + 1 - ILO
-      CALL DGEQRF( IROWS, ICOLS, B( ILO, ILO ), LDB, WORK, Z, N*LDZ,
+      CALL SGEQRF( IROWS, ICOLS, B( ILO, ILO ), LDB, WORK, Z, N*LDZ,
      $             IINFO )
       IF( IINFO.NE.0 ) THEN
          INFO = 2
          GO TO 10
       END IF
 *
-      CALL DORMQR( 'L', 'T', IROWS, ICOLS, IROWS, B( ILO, ILO ), LDB,
+      CALL SORMQR( 'L', 'T', IROWS, ICOLS, IROWS, B( ILO, ILO ), LDB,
      $             WORK, A( ILO, ILO ), LDA, Z, N*LDZ, IINFO )
       IF( IINFO.NE.0 ) THEN
          INFO = 3
@@ -5318,10 +5308,10 @@ C
       END IF
 *
       IF( ILQ ) THEN
-         CALL DLASET( 'Full', N, N, ZERO, ONE, Q, LDQ )
-         CALL DLACPY( 'L', IROWS-1, IROWS-1, B( ILO+1, ILO ), LDB,
+         CALL SLASET( 'Full', N, N, ZERO, ONE, Q, LDQ )
+         CALL SLACPY( 'L', IROWS-1, IROWS-1, B( ILO+1, ILO ), LDB,
      $                Q( ILO+1, ILO ), LDQ )
-         CALL DORGQR( IROWS, IROWS, IROWS, Q( ILO, ILO ), LDQ, WORK, Z,
+         CALL SORGQR( IROWS, IROWS, IROWS, Q( ILO, ILO ), LDQ, WORK, Z,
      $                N*LDZ, IINFO )
          IF( IINFO.NE.0 ) THEN
             INFO = 4
@@ -5343,7 +5333,7 @@ C
          COMPZ = 'N'
       END IF
 *
-      CALL DGGHRD( COMPQ, COMPZ, N, ILO, IHI, A, LDA, B, LDB, Q, LDQ, Z,
+      CALL SGGHRD( COMPQ, COMPZ, N, ILO, IHI, A, LDA, B, LDB, Q, LDQ, Z,
      $             LDZ, IINFO )
       IF( IINFO.NE.0 ) THEN
          INFO = 5
@@ -5356,10 +5346,10 @@ C
 *
       RETURN
 *
-*     End of DLAQZH
+*     End of SLAQZH
 *
       END
-      SUBROUTINE DLATM4( ITYPE, N, NZ1, NZ2, ISIGN, AMAGN, RCOND,
+      SUBROUTINE SLATM4( ITYPE, N, NZ1, NZ2, ISIGN, AMAGN, RCOND,
      $                   TRIANG, IDIST, ISEED, A, LDA )
 *
 *  -- LAPACK auxiliary test routine (version 3.0) --
@@ -5369,17 +5359,17 @@ C
 *
 *     .. Scalar Arguments ..
       INTEGER            IDIST, ISIGN, ITYPE, LDA, N, NZ1, NZ2
-      DOUBLE PRECISION   AMAGN, RCOND, TRIANG
+      REAL               AMAGN, RCOND, TRIANG
 *     ..
 *     .. Array Arguments ..
       INTEGER            ISEED( 4 )
-      DOUBLE PRECISION   A( LDA, * )
+      REAL               A( LDA, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*  DLATM4 generates basic square matrices, which may later be
+*  SLATM4 generates basic square matrices, which may later be
 *  multiplied by others in order to produce test matrices.  It is
 *  intended mainly to be used to test the generalized eigenvalue
 *  routines.
@@ -5416,7 +5406,7 @@ C
 *          = 7:  1, a, a^2, ..., a^(k-1)=RCOND
 *          = 8:  1, 1-d, 1-2*d, ..., 1-(k-1)*d=RCOND
 *          = 9:  random numbers chosen from (RCOND,1)
-*          = 10: random numbers with distribution IDIST (see DLARND.)
+*          = 10: random numbers with distribution IDIST (see SLARND.)
 *
 *  N       (input) INTEGER
 *          The order of the matrix.
@@ -5441,15 +5431,15 @@ C
 *               by distinct random orthogonal rotations.  The remaining
 *               diagonal entries will have their sign changed at random.
 *
-*  AMAGN   (input) DOUBLE PRECISION
+*  AMAGN   (input) REAL
 *          The diagonal and subdiagonal entries will be multiplied by
 *          AMAGN.
 *
-*  RCOND   (input) DOUBLE PRECISION
+*  RCOND   (input) REAL
 *          If abs(ITYPE) > 4, then the smallest diagonal entry will be
 *          entry will be RCOND.  RCOND must be between 0 and 1.
 *
-*  TRIANG  (input) DOUBLE PRECISION
+*  TRIANG  (input) REAL
 *          The entries above the diagonal will be random numbers with
 *          magnitude bounded by TRIANG (i.e., random numbers multiplied
 *          by TRIANG.)
@@ -5464,12 +5454,12 @@ C
 *  ISEED   (input/output) INTEGER array, dimension (4)
 *          On entry ISEED specifies the seed of the random number
 *          generator.  The values of ISEED are changed on exit, and can
-*          be used in the next call to DLATM4 to continue the same
+*          be used in the next call to SLATM4 to continue the same
 *          random number sequence.
 *          Note: ISEED(4) should be odd, for the random number generator
 *          used at present.
 *
-*  A       (output) DOUBLE PRECISION array, dimension (LDA, N)
+*  A       (output) REAL array, dimension (LDA, N)
 *          Array to be computed.
 *
 *  LDA     (input) INTEGER
@@ -5478,31 +5468,31 @@ C
 *  =====================================================================
 *
 *     .. Parameters ..
-      DOUBLE PRECISION   ZERO, ONE, TWO
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0, TWO = 2.0D0 )
-      DOUBLE PRECISION   HALF
+      REAL               ZERO, ONE, TWO
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0, TWO = 2.0E0 )
+      REAL               HALF
       PARAMETER          ( HALF = ONE / TWO )
 *     ..
 *     .. Local Scalars ..
       INTEGER            I, IOFF, ISDB, ISDE, JC, JD, JR, K, KBEG, KEND,
      $                   KLEN
-      DOUBLE PRECISION   ALPHA, CL, CR, SAFMIN, SL, SR, SV1, SV2, TEMP
+      REAL               ALPHA, CL, CR, SAFMIN, SL, SR, SV1, SV2, TEMP
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DLAMCH, DLARAN, DLARND
-      EXTERNAL           DLAMCH, DLARAN, DLARND
+      REAL               SLAMCH, SLARAN, SLARND
+      EXTERNAL           SLAMCH, SLARAN, SLARND
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DLASET
+      EXTERNAL           SLASET
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, EXP, LOG, MAX, MIN, MOD, SQRT
+      INTRINSIC          ABS, EXP, LOG, MAX, MIN, MOD, REAL, SQRT
 *     ..
 *     .. Executable Statements ..
 *
       IF( N.LE.0 )
      $   RETURN
-      CALL DLASET( 'Full', N, N, ZERO, ZERO, A, LDA )
+      CALL SLASET( 'Full', N, N, ZERO, ZERO, A, LDA )
 *
 *     Insure a correct ISEED
 *
@@ -5563,7 +5553,7 @@ C
 *
    80    CONTINUE
          DO 90 JD = KBEG, KEND
-            A( JD, JD ) = DBLE( JD-NZ1 )
+            A( JD, JD ) = REAL( JD-NZ1 )
    90    CONTINUE
          GO TO 220
 *
@@ -5590,7 +5580,7 @@ C
   140    CONTINUE
          A( KBEG, KBEG ) = ONE
          IF( KLEN.GT.1 ) THEN
-            ALPHA = RCOND**( ONE / DBLE( KLEN-1 ) )
+            ALPHA = RCOND**( ONE / REAL( KLEN-1 ) )
             DO 150 I = 2, KLEN
                A( NZ1+I, NZ1+I ) = ALPHA**( I-1 )
   150       CONTINUE
@@ -5602,9 +5592,9 @@ C
   160    CONTINUE
          A( KBEG, KBEG ) = ONE
          IF( KLEN.GT.1 ) THEN
-            ALPHA = ( ONE-RCOND ) / DBLE( KLEN-1 )
+            ALPHA = ( ONE-RCOND ) / REAL( KLEN-1 )
             DO 170 I = 2, KLEN
-               A( NZ1+I, NZ1+I ) = DBLE( KLEN-I )*ALPHA + RCOND
+               A( NZ1+I, NZ1+I ) = REAL( KLEN-I )*ALPHA + RCOND
   170       CONTINUE
          END IF
          GO TO 220
@@ -5614,7 +5604,7 @@ C
   180    CONTINUE
          ALPHA = LOG( RCOND )
          DO 190 JD = KBEG, KEND
-            A( JD, JD ) = EXP( ALPHA*DLARAN( ISEED ) )
+            A( JD, JD ) = EXP( ALPHA*SLARAN( ISEED ) )
   190    CONTINUE
          GO TO 220
 *
@@ -5622,7 +5612,7 @@ C
 *
   200    CONTINUE
          DO 210 JD = KBEG, KEND
-            A( JD, JD ) = DLARND( IDIST, ISEED )
+            A( JD, JD ) = SLARND( IDIST, ISEED )
   210    CONTINUE
 *
   220    CONTINUE
@@ -5630,10 +5620,10 @@ C
 *        Scale by AMAGN
 *
          DO 230 JD = KBEG, KEND
-            A( JD, JD ) = AMAGN*DBLE( A( JD, JD ) )
+            A( JD, JD ) = AMAGN*REAL( A( JD, JD ) )
   230    CONTINUE
          DO 240 JD = ISDB, ISDE
-            A( JD+1, JD ) = AMAGN*DBLE( A( JD+1, JD ) )
+            A( JD+1, JD ) = AMAGN*REAL( A( JD+1, JD ) )
   240    CONTINUE
 *
 *        If ISIGN = 1 or 2, assign random signs to diagonal and
@@ -5641,14 +5631,14 @@ C
 *
          IF( ISIGN.GT.0 ) THEN
             DO 250 JD = KBEG, KEND
-               IF( DBLE( A( JD, JD ) ).NE.ZERO ) THEN
-                  IF( DLARAN( ISEED ).GT.HALF )
+               IF( REAL( A( JD, JD ) ).NE.ZERO ) THEN
+                  IF( SLARAN( ISEED ).GT.HALF )
      $               A( JD, JD ) = -A( JD, JD )
                END IF
   250       CONTINUE
             DO 260 JD = ISDB, ISDE
-               IF( DBLE( A( JD+1, JD ) ).NE.ZERO ) THEN
-                  IF( DLARAN( ISEED ).GT.HALF )
+               IF( REAL( A( JD+1, JD ) ).NE.ZERO ) THEN
+                  IF( SLARAN( ISEED ).GT.HALF )
      $               A( JD+1, JD ) = -A( JD+1, JD )
                END IF
   260       CONTINUE
@@ -5673,22 +5663,22 @@ C
 *        random rotations to make 2x2 blocks.
 *
          IF( ISIGN.EQ.2 .AND. ITYPE.NE.2 .AND. ITYPE.NE.3 ) THEN
-            SAFMIN = DLAMCH( 'S' )
+            SAFMIN = SLAMCH( 'S' )
             DO 290 JD = KBEG, KEND - 1, 2
-               IF( DLARAN( ISEED ).GT.HALF ) THEN
+               IF( SLARAN( ISEED ).GT.HALF ) THEN
 *
 *                 Rotation on left.
 *
-                  CL = TWO*DLARAN( ISEED ) - ONE
-                  SL = TWO*DLARAN( ISEED ) - ONE
+                  CL = TWO*SLARAN( ISEED ) - ONE
+                  SL = TWO*SLARAN( ISEED ) - ONE
                   TEMP = ONE / MAX( SAFMIN, SQRT( CL**2+SL**2 ) )
                   CL = CL*TEMP
                   SL = SL*TEMP
 *
 *                 Rotation on right.
 *
-                  CR = TWO*DLARAN( ISEED ) - ONE
-                  SR = TWO*DLARAN( ISEED ) - ONE
+                  CR = TWO*SLARAN( ISEED ) - ONE
+                  SR = TWO*SLARAN( ISEED ) - ONE
                   TEMP = ONE / MAX( SAFMIN, SQRT( CR**2+SR**2 ) )
                   CR = CR*TEMP
                   SR = SR*TEMP
@@ -5716,86 +5706,86 @@ C
             IOFF = 2
             DO 300 JR = 1, N - 1
                IF( A( JR+1, JR ).EQ.ZERO )
-     $            A( JR, JR+1 ) = TRIANG*DLARND( IDIST, ISEED )
+     $            A( JR, JR+1 ) = TRIANG*SLARND( IDIST, ISEED )
   300       CONTINUE
          END IF
 *
          DO 320 JC = 2, N
             DO 310 JR = 1, JC - IOFF
-               A( JR, JC ) = TRIANG*DLARND( IDIST, ISEED )
+               A( JR, JC ) = TRIANG*SLARND( IDIST, ISEED )
   310       CONTINUE
   320    CONTINUE
       END IF
 *
       RETURN
 *
-*     End of DLATM4
+*     End of SLATM4
 *
       END
-      DOUBLE PRECISION FUNCTION DMFLOP( OPS, TIME, INFO )
+      REAL             FUNCTION SMFLOP( OPS, TIME, INFO )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       INTEGER            INFO
-      DOUBLE PRECISION   OPS, TIME
+      REAL               OPS, TIME
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DMFLOP computes the megaflop rate given the number of operations
+*     SMFLOP computes the megaflop rate given the number of operations
 *     and time in seconds.  This is basically just a divide operation,
 *     but care is taken not to divide by zero.
 *
 *  Arguments
 *  =========
 *
-*  OPS    - DOUBLE PRECISION
+*  OPS    - REAL
 *           On entry, OPS is the number of floating point operations
 *           performed by the timed routine.
 *
-*  TIME   - DOUBLE PRECISION
+*  TIME   - REAL
 *           On entry, TIME is the total time in seconds used by the
 *           timed routine.
 *
 *  INFO   - INTEGER
 *           On entry, INFO specifies the return code from the timed
-*           routine.  If INFO is not 0, then DMFLOP returns a negative
+*           routine.  If INFO is not 0, then SMFLOP returns a negative
 *           value, indicating an error.
 *
 *  =====================================================================
 *
 *     .. Parameters ..
-      DOUBLE PRECISION   ZERO
-      PARAMETER          ( ZERO = 0.0D+0 )
+      REAL               ZERO
+      PARAMETER          ( ZERO = 0.0E+0 )
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE
+      INTRINSIC          ABS, REAL
 *     ..
 *     .. Executable Statements ..
 *
       IF( TIME.LE.ZERO ) THEN
-         DMFLOP = ZERO
+         SMFLOP = ZERO
       ELSE
-         DMFLOP = OPS / ( 1.0D6*TIME )
+         SMFLOP = OPS / ( 1.0E6*TIME )
       END IF
       IF( INFO.NE.0 )
-     $   DMFLOP = -ABS( DBLE( INFO ) )
+     $   SMFLOP = -ABS( REAL( INFO ) )
       RETURN
 *
-*     End of DMFLOP
+*     End of SMFLOP
 *
       END
-      DOUBLE PRECISION FUNCTION DOPBL3( SUBNAM, M, N, K )
+      REAL             FUNCTION SOPBL3( SUBNAM, M, N, K )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     June 30, 1999
+*     March 31, 1993
 *
 *     .. Scalar Arguments ..
       CHARACTER*6        SUBNAM
@@ -5805,7 +5795,7 @@ C
 *  Purpose
 *  =======
 *
-*  DOPBL3 computes an approximation of the number of floating point
+*  SOPBL3 computes an approximation of the number of floating point
 *  operations used by a subroutine SUBNAM with the given values
 *  of the parameters M, N, and K.
 *
@@ -5837,7 +5827,7 @@ C
       CHARACTER          C1
       CHARACTER*2        C2
       CHARACTER*3        C3
-      DOUBLE PRECISION   ADDS, EK, EM, EN, MULTS
+      REAL               ADDS, EK, EM, EN, MULTS
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME, LSAMEN
@@ -5847,10 +5837,10 @@ C
 *
 *     Quick return if possible
 *
-      IF( M.LE.0 .OR. .NOT.( LSAME( SUBNAM, 'S' ) .OR. LSAME( SUBNAM,
-     $    'D' ) .OR. LSAME( SUBNAM, 'C' ) .OR. LSAME( SUBNAM, 'Z' ) ) )
-     $     THEN
-         DOPBL3 = 0
+      IF( M.LE.0 .OR.
+     $   .NOT.( LSAME( SUBNAM, 'S' ) .OR. LSAME( SUBNAM, 'D' ) .OR.
+     $          LSAME( SUBNAM, 'C' ) .OR. LSAME( SUBNAM, 'Z' ) ) ) THEN
+         SOPBL3 = 0
          RETURN
       END IF
 *
@@ -5892,11 +5882,11 @@ C
          ELSE IF( LSAMEN( 2, C2, 'TR' ) ) THEN
 *
             IF( K.LE.0 ) THEN
-               MULTS = EN*EM*( EM+1.D0 ) / 2.D0
-               ADDS = EN*EM*( EM-1.D0 ) / 2.D0
+               MULTS = EN*EM*( EM+1. ) / 2.
+               ADDS = EN*EM*( EM-1. ) / 2.
             ELSE
-               MULTS = EM*EN*( EN+1.D0 ) / 2.D0
-               ADDS = EM*EN*( EN-1.D0 ) / 2.D0
+               MULTS = EM*EN*( EN+1. ) / 2.
+               ADDS = EM*EN*( EN-1. ) / 2.
             END IF
 *
          END IF
@@ -5910,8 +5900,8 @@ C
          IF( LSAMEN( 2, C2, 'SY' ) .OR. LSAMEN( 3, SUBNAM, 'CHE' ) .OR.
      $       LSAMEN( 3, SUBNAM, 'ZHE' ) ) THEN
 *
-            MULTS = EK*EM*( EM+1.D0 ) / 2.D0
-            ADDS = EK*EM*( EM+1.D0 ) / 2.D0
+            MULTS = EK*EM*( EM+1. ) / 2.
+            ADDS = EK*EM*( EM+1. ) / 2.
          END IF
 *
 *     ------------------------------------------------
@@ -5934,11 +5924,11 @@ C
       ELSE IF( LSAMEN( 5, SUBNAM( 2: 6 ), 'TRSM ' ) ) THEN
 *
          IF( K.LE.0 ) THEN
-            MULTS = EN*EM*( EM+1.D0 ) / 2.D0
-            ADDS = EN*EM*( EM-1.D0 ) / 2.D0
+            MULTS = EN*EM*( EM+1. ) / 2.
+            ADDS = EN*EM*( EM-1. ) / 2.
          ELSE
-            MULTS = EM*EN*( EN+1.D0 ) / 2.D0
-            ADDS = EM*EN*( EN-1.D0 ) / 2.D0
+            MULTS = EM*EN*( EN+1. ) / 2.
+            ADDS = EM*EN*( EN-1. ) / 2.
          END IF
 *
       END IF
@@ -5953,480 +5943,20 @@ C
 *
       IF( LSAME( C1, 'S' ) .OR. LSAME( C1, 'D' ) ) THEN
 *
-         DOPBL3 = MULTS + ADDS
+         SOPBL3 = MULTS + ADDS
 *
       ELSE
 *
-         DOPBL3 = 6*MULTS + 2*ADDS
+         SOPBL3 = 6*MULTS + 2*ADDS
 *
       END IF
 *
       RETURN
 *
-*     End of DOPBL3
+*     End of SOPBL3
 *
       END
-      DOUBLE PRECISION FUNCTION DOPLA( SUBNAM, M, N, KL, KU, NB )
-*
-*  -- LAPACK timing routine (version 3.0) --
-*     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
-*     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
-*
-*     .. Scalar Arguments ..
-      CHARACTER*6        SUBNAM
-      INTEGER            KL, KU, M, N, NB
-*     ..
-*
-*  Purpose
-*  =======
-*
-*  DOPLA computes an approximation of the number of floating point
-*  operations used by the subroutine SUBNAM with the given values
-*  of the parameters M, N, KL, KU, and NB.
-*
-*  This version counts operations for the LAPACK subroutines.
-*
-*  Arguments
-*  =========
-*
-*  SUBNAM  (input) CHARACTER*6
-*          The name of the subroutine.
-*
-*  M       (input) INTEGER
-*          The number of rows of the coefficient matrix.  M >= 0.
-*
-*  N       (input) INTEGER
-*          The number of columns of the coefficient matrix.
-*          For solve routine when the matrix is square,
-*          N is the number of right hand sides.  N >= 0.
-*
-*  KL      (input) INTEGER
-*          The lower band width of the coefficient matrix.
-*          If needed, 0 <= KL <= M-1.
-*          For xGEQRS, KL is the number of right hand sides.
-*
-*  KU      (input) INTEGER
-*          The upper band width of the coefficient matrix.
-*          If needed, 0 <= KU <= N-1.
-*
-*  NB      (input) INTEGER
-*          The block size.  If needed, NB >= 1.
-*
-*  Notes
-*  =====
-*
-*  In the comments below, the association is given between arguments
-*  in the requested subroutine and local arguments.  For example,
-*
-*  xGETRS:  N, NRHS  =>  M, N
-*
-*  means that arguments N and NRHS in DGETRS are passed to arguments
-*  M and N in this procedure.
-*
-*  =====================================================================
-*
-*     .. Local Scalars ..
-      LOGICAL            CORZ, SORD
-      CHARACTER          C1
-      CHARACTER*2        C2
-      CHARACTER*3        C3
-      INTEGER            I
-      DOUBLE PRECISION   ADDFAC, ADDS, EK, EM, EMN, EN, MULFAC, MULTS,
-     $                   WL, WU
-*     ..
-*     .. External Functions ..
-      LOGICAL            LSAME, LSAMEN
-      EXTERNAL           LSAME, LSAMEN
-*     ..
-*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
-*     ..
-*     .. Executable Statements ..
-*
-*     --------------------------------------------------------
-*     Initialize DOPLA to 0 and do a quick return if possible.
-*     --------------------------------------------------------
-*
-      DOPLA = 0
-      MULTS = 0
-      ADDS = 0
-      C1 = SUBNAM( 1: 1 )
-      C2 = SUBNAM( 2: 3 )
-      C3 = SUBNAM( 4: 6 )
-      SORD = LSAME( C1, 'S' ) .OR. LSAME( C1, 'D' )
-      CORZ = LSAME( C1, 'C' ) .OR. LSAME( C1, 'Z' )
-      IF( M.LE.0 .OR. .NOT.( SORD .OR. CORZ ) )
-     $   RETURN
-*
-*     ---------------------------------------------------------
-*     If the coefficient matrix is real, count each add as 1
-*     operation and each multiply as 1 operation.
-*     If the coefficient matrix is complex, count each add as 2
-*     operations and each multiply as 6 operations.
-*     ---------------------------------------------------------
-*
-      IF( LSAME( C1, 'S' ) .OR. LSAME( C1, 'D' ) ) THEN
-         ADDFAC = 1
-         MULFAC = 1
-      ELSE
-         ADDFAC = 2
-         MULFAC = 6
-      END IF
-      EM = M
-      EN = N
-      EK = KL
-*
-*     ---------------------------------
-*     GE:  GEneral rectangular matrices
-*     ---------------------------------
-*
-      IF( LSAMEN( 2, C2, 'GE' ) ) THEN
-*
-*        xGETRF:  M, N  =>  M, N
-*
-         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
-            EMN = MIN( M, N )
-            ADDS = EMN*( EM*EN-( EM+EN )*( EMN+1.D0 ) / 2.D0+
-     $             ( EMN+1.D0 )*( 2.D0*EMN+1.D0 ) / 6.D0 )
-            MULTS = ADDS + EMN*( EM-( EMN+1.D0 ) / 2.D0 )
-*
-*        xGETRS:  N, NRHS  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*EM*EM
-            ADDS = EN*( EM*( EM-1.D0 ) )
-*
-*        xGETRI:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
-            MULTS = EM*( 5.D0 / 6.D0+EM*( 1.D0 / 2.D0+EM*( 2.D0 /
-     $              3.D0 ) ) )
-            ADDS = EM*( 5.D0 / 6.D0+EM*( -3.D0 / 2.D0+EM*( 2.D0 /
-     $             3.D0 ) ) )
-*
-*        xGEQRF or xGEQLF:  M, N  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'QRF' ) .OR.
-     $            LSAMEN( 3, C3, 'QR2' ) .OR.
-     $            LSAMEN( 3, C3, 'QLF' ) .OR. LSAMEN( 3, C3, 'QL2' ) )
-     $             THEN
-            IF( M.GE.N ) THEN
-               MULTS = EN*( ( ( 23.D0 / 6.D0 )+EM+EN / 2.D0 )+EN*
-     $                 ( EM-EN / 3.D0 ) )
-               ADDS = EN*( ( 5.D0 / 6.D0 )+EN*
-     $                ( 1.D0 / 2.D0+( EM-EN / 3.D0 ) ) )
-            ELSE
-               MULTS = EM*( ( ( 23.D0 / 6.D0 )+2.D0*EN-EM / 2.D0 )+EM*
-     $                 ( EN-EM / 3.D0 ) )
-               ADDS = EM*( ( 5.D0 / 6.D0 )+EN-EM / 2.D0+EM*
-     $                ( EN-EM / 3.D0 ) )
-            END IF
-*
-*        xGERQF or xGELQF:  M, N  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'RQF' ) .OR.
-     $            LSAMEN( 3, C3, 'RQ2' ) .OR.
-     $            LSAMEN( 3, C3, 'LQF' ) .OR. LSAMEN( 3, C3, 'LQ2' ) )
-     $             THEN
-            IF( M.GE.N ) THEN
-               MULTS = EN*( ( ( 29.D0 / 6.D0 )+EM+EN / 2.D0 )+EN*
-     $                 ( EM-EN / 3.D0 ) )
-               ADDS = EN*( ( 5.D0 / 6.D0 )+EM+EN*
-     $                ( -1.D0 / 2.D0+( EM-EN / 3.D0 ) ) )
-            ELSE
-               MULTS = EM*( ( ( 29.D0 / 6.D0 )+2.D0*EN-EM / 2.D0 )+EM*
-     $                 ( EN-EM / 3.D0 ) )
-               ADDS = EM*( ( 5.D0 / 6.D0 )+EM / 2.D0+EM*
-     $                ( EN-EM / 3.D0 ) )
-            END IF
-*
-*        xGEQPF: M, N => M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'QPF' ) ) THEN
-            EMN = MIN( M, N )
-            MULTS = 2*EN*EN + EMN*( 3*EM+5*EN+2*EM*EN-( EMN+1 )*
-     $              ( 4+EN+EM-( 2*EMN+1 ) / 3 ) )
-            ADDS = EN*EN + EMN*( 2*EM+EN+2*EM*EN-( EMN+1 )*
-     $             ( 2+EN+EM-( 2*EMN+1 ) / 3 ) )
-*
-*        xGEQRS or xGERQS:  M, N, NRHS  =>  M, N, KL
-*
-         ELSE IF( LSAMEN( 3, C3, 'QRS' ) .OR. LSAMEN( 3, C3, 'RQS' ) )
-     $             THEN
-            MULTS = EK*( EN*( 2.D0-EK )+EM*
-     $              ( 2.D0*EN+( EM+1.D0 ) / 2.D0 ) )
-            ADDS = EK*( EN*( 1.D0-EK )+EM*
-     $             ( 2.D0*EN+( EM-1.D0 ) / 2.D0 ) )
-*
-*        xGELQS or xGEQLS:  M, N, NRHS  =>  M, N, KL
-*
-         ELSE IF( LSAMEN( 3, C3, 'LQS' ) .OR. LSAMEN( 3, C3, 'QLS' ) )
-     $             THEN
-            MULTS = EK*( EM*( 2.D0-EK )+EN*
-     $              ( 2.D0*EM+( EN+1.D0 ) / 2.D0 ) )
-            ADDS = EK*( EM*( 1.D0-EK )+EN*
-     $             ( 2.D0*EM+( EN-1.D0 ) / 2.D0 ) )
-*
-*        xGEBRD:  M, N  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'BRD' ) ) THEN
-            IF( M.GE.N ) THEN
-               MULTS = EN*( 20.D0 / 3.D0+EN*
-     $                 ( 2.D0+( 2.D0*EM-( 2.D0 / 3.D0 )*EN ) ) )
-               ADDS = EN*( 5.D0 / 3.D0+( EN-EM )+EN*
-     $                ( 2.D0*EM-( 2.D0 / 3.D0 )*EN ) )
-            ELSE
-               MULTS = EM*( 20.D0 / 3.D0+EM*
-     $                 ( 2.D0+( 2.D0*EN-( 2.D0 / 3.D0 )*EM ) ) )
-               ADDS = EM*( 5.D0 / 3.D0+( EM-EN )+EM*
-     $                ( 2.D0*EN-( 2.D0 / 3.D0 )*EM ) )
-            END IF
-*
-*        xGEHRD:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'HRD' ) ) THEN
-            IF( M.EQ.1 ) THEN
-               MULTS = 0.D0
-               ADDS = 0.D0
-            ELSE
-               MULTS = -13.D0 + EM*( -7.D0 / 6.D0+EM*
-     $                 ( 0.5D0+EM*( 5.D0 / 3.D0 ) ) )
-               ADDS = -8.D0 + EM*( -2.D0 / 3.D0+EM*
-     $                ( -1.D0+EM*( 5.D0 / 3.D0 ) ) )
-            END IF
-*
-         END IF
-*
-*     ----------------------------
-*     GB:  General Banded matrices
-*     ----------------------------
-*        Note:  The operation count is overestimated because
-*        it is assumed that the factor U fills in to the maximum
-*        extent, i.e., that its bandwidth goes from KU to KL + KU.
-*
-      ELSE IF( LSAMEN( 2, C2, 'GB' ) ) THEN
-*
-*        xGBTRF:  M, N, KL, KU  =>  M, N, KL, KU
-*
-         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
-            DO 10 I = MIN( M, N ), 1, -1
-               WL = MAX( 0, MIN( KL, M-I ) )
-               WU = MAX( 0, MIN( KL+KU, N-I ) )
-               MULTS = MULTS + WL*( 1.D0+WU )
-               ADDS = ADDS + WL*WU
-   10       CONTINUE
-*
-*        xGBTRS:  N, NRHS, KL, KU  =>  M, N, KL, KU
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            WL = MAX( 0, MIN( KL, M-1 ) )
-            WU = MAX( 0, MIN( KL+KU, M-1 ) )
-            MULTS = EN*( EM*( WL+1.D0+WU )-0.5D0*
-     $              ( WL*( WL+1.D0 )+WU*( WU+1.D0 ) ) )
-            ADDS = EN*( EM*( WL+WU )-0.5D0*
-     $             ( WL*( WL+1.D0 )+WU*( WU+1.D0 ) ) )
-*
-         END IF
-*
-*     --------------------------------------
-*     PO:  POsitive definite matrices
-*     PP:  Positive definite Packed matrices
-*     --------------------------------------
-*
-      ELSE IF( LSAMEN( 2, C2, 'PO' ) .OR. LSAMEN( 2, C2, 'PP' ) ) THEN
-*
-*        xPOTRF:  N  =>  M
-*
-         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
-            MULTS = EM*( 1.D0 / 3.D0+EM*( 1.D0 / 2.D0+EM*( 1.D0 /
-     $              6.D0 ) ) )
-            ADDS = ( 1.D0 / 6.D0 )*EM*( -1.D0+EM*EM )
-*
-*        xPOTRS:  N, NRHS  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*( EM*( EM+1.D0 ) )
-            ADDS = EN*( EM*( EM-1.D0 ) )
-*
-*        xPOTRI:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
-            MULTS = EM*( 2.D0 / 3.D0+EM*( 1.D0+EM*( 1.D0 / 3.D0 ) ) )
-            ADDS = EM*( 1.D0 / 6.D0+EM*( -1.D0 / 2.D0+EM*( 1.D0 /
-     $             3.D0 ) ) )
-*
-         END IF
-*
-*     ------------------------------------
-*     PB:  Positive definite Band matrices
-*     ------------------------------------
-*
-      ELSE IF( LSAMEN( 2, C2, 'PB' ) ) THEN
-*
-*        xPBTRF:  N, K  =>  M, KL
-*
-         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
-            MULTS = EK*( -2.D0 / 3.D0+EK*( -1.D0+EK*( -1.D0 / 3.D0 ) ) )
-     $               + EM*( 1.D0+EK*( 3.D0 / 2.D0+EK*( 1.D0 / 2.D0 ) ) )
-            ADDS = EK*( -1.D0 / 6.D0+EK*( -1.D0 / 2.D0+EK*( -1.D0 /
-     $             3.D0 ) ) ) + EM*( EK / 2.D0*( 1.D0+EK ) )
-*
-*        xPBTRS:  N, NRHS, K  =>  M, N, KL
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*( ( 2*EM-EK )*( EK+1.D0 ) )
-            ADDS = EN*( EK*( 2*EM-( EK+1.D0 ) ) )
-*
-         END IF
-*
-*     --------------------------------------------------------
-*     SY:  SYmmetric indefinite matrices
-*     SP:  Symmetric indefinite Packed matrices
-*     HE:  HErmitian indefinite matrices (complex only)
-*     HP:  Hermitian indefinite Packed matrices (complex only)
-*     --------------------------------------------------------
-*
-      ELSE IF( LSAMEN( 2, C2, 'SY' ) .OR. LSAMEN( 2, C2, 'SP' ) .OR.
-     $         LSAMEN( 3, SUBNAM, 'ZHE' ) .OR.
-     $         LSAMEN( 3, SUBNAM, 'ZHE' ) .OR.
-     $         LSAMEN( 3, SUBNAM, 'ZHP' ) .OR.
-     $         LSAMEN( 3, SUBNAM, 'ZHP' ) ) THEN
-*
-*        xSYTRF:  N  =>  M
-*
-         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
-            MULTS = EM*( 10.D0 / 3.D0+EM*
-     $              ( 1.D0 / 2.D0+EM*( 1.D0 / 6.D0 ) ) )
-            ADDS = EM / 6.D0*( -1.D0+EM*EM )
-*
-*        xSYTRS:  N, NRHS  =>  M, N
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*EM*EM
-            ADDS = EN*( EM*( EM-1.D0 ) )
-*
-*        xSYTRI:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
-            MULTS = EM*( 2.D0 / 3.D0+EM*EM*( 1.D0 / 3.D0 ) )
-            ADDS = EM*( -1.D0 / 3.D0+EM*EM*( 1.D0 / 3.D0 ) )
-*
-*        xSYTRD, xSYTD2:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRD' ) .OR. LSAMEN( 3, C3, 'TD2' ) )
-     $             THEN
-            IF( M.EQ.1 ) THEN
-               MULTS = 0.D0
-               ADDS = 0.D0
-            ELSE
-               MULTS = -15.D0 + EM*( -1.D0 / 6.D0+EM*
-     $                 ( 5.D0 / 2.D0+EM*( 2.D0 / 3.D0 ) ) )
-               ADDS = -4.D0 + EM*( -8.D0 / 3.D0+EM*
-     $                ( 1.D0+EM*( 2.D0 / 3.D0 ) ) )
-            END IF
-         END IF
-*
-*     -------------------
-*     Triangular matrices
-*     -------------------
-*
-      ELSE IF( LSAMEN( 2, C2, 'TR' ) .OR. LSAMEN( 2, C2, 'TP' ) ) THEN
-*
-*        xTRTRS:  N, NRHS  =>  M, N
-*
-         IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*EM*( EM+1.D0 ) / 2.D0
-            ADDS = EN*EM*( EM-1.D0 ) / 2.D0
-*
-*        xTRTRI:  N  =>  M
-*
-         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
-            MULTS = EM*( 1.D0 / 3.D0+EM*( 1.D0 / 2.D0+EM*( 1.D0 /
-     $              6.D0 ) ) )
-            ADDS = EM*( 1.D0 / 3.D0+EM*( -1.D0 / 2.D0+EM*( 1.D0 /
-     $             6.D0 ) ) )
-*
-         END IF
-*
-      ELSE IF( LSAMEN( 2, C2, 'TB' ) ) THEN
-*
-*        xTBTRS:  N, NRHS, K  =>  M, N, KL
-*
-         IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
-            MULTS = EN*( EM*( EM+1.D0 ) / 2.D0-( EM-EK-1.D0 )*
-     $              ( EM-EK ) / 2.D0 )
-            ADDS = EN*( EM*( EM-1.D0 ) / 2.D0-( EM-EK-1.D0 )*( EM-EK ) /
-     $             2.D0 )
-         END IF
-*
-*     --------------------
-*     Trapezoidal matrices
-*     --------------------
-*
-      ELSE IF( LSAMEN( 2, C2, 'TZ' ) ) THEN
-*
-*        xTZRQF:  M, N => M, N
-*
-         IF( LSAMEN( 3, C3, 'RQF' ) ) THEN
-            EMN = MIN( M, N )
-            MULTS = 3*EM*( EN-EM+1 ) + ( 2*EN-2*EM+3 )*
-     $              ( EM*EM-EMN*( EMN+1 ) / 2 )
-            ADDS = ( EN-EM+1 )*( EM+2*EM*EM-EMN*( EMN+1 ) )
-         END IF
-*
-*     -------------------
-*     Orthogonal matrices
-*     -------------------
-*
-      ELSE IF( ( SORD .AND. LSAMEN( 2, C2, 'OR' ) ) .OR.
-     $         ( CORZ .AND. LSAMEN( 2, C2, 'UN' ) ) ) THEN
-*
-*        -MQR, -MLQ, -MQL, or -MRQ:  M, N, K, SIDE  =>  M, N, KL, KU
-*           where KU<= 0 indicates SIDE = 'L'
-*           and   KU> 0  indicates SIDE = 'R'
-*
-         IF( LSAMEN( 3, C3, 'MQR' ) .OR. LSAMEN( 3, C3, 'MLQ' ) .OR.
-     $       LSAMEN( 3, C3, 'MQL' ) .OR. LSAMEN( 3, C3, 'MRQ' ) ) THEN
-            IF( KU.LE.0 ) THEN
-               MULTS = EK*EN*( 2.D0*EM+2.D0-EK )
-               ADDS = EK*EN*( 2.D0*EM+1.D0-EK )
-            ELSE
-               MULTS = EK*( EM*( 2.D0*EN-EK )+
-     $                 ( EM+EN+( 1.D0-EK ) / 2.D0 ) )
-               ADDS = EK*EM*( 2.D0*EN+1.D0-EK )
-            END IF
-*
-*        -GQR or -GQL:  M, N, K  =>  M, N, KL
-*
-         ELSE IF( LSAMEN( 3, C3, 'GQR' ) .OR. LSAMEN( 3, C3, 'GQL' ) )
-     $             THEN
-            MULTS = EK*( -5.D0 / 3.D0+( 2.D0*EN-EK )+
-     $              ( 2.D0*EM*EN+EK*( ( 2.D0 / 3.D0 )*EK-EM-EN ) ) )
-            ADDS = EK*( 1.D0 / 3.D0+( EN-EM )+
-     $             ( 2.D0*EM*EN+EK*( ( 2.D0 / 3.D0 )*EK-EM-EN ) ) )
-*
-*        -GLQ or -GRQ:  M, N, K  =>  M, N, KL
-*
-         ELSE IF( LSAMEN( 3, C3, 'GLQ' ) .OR. LSAMEN( 3, C3, 'GRQ' ) )
-     $             THEN
-            MULTS = EK*( -2.D0 / 3.D0+( EM+EN-EK )+
-     $              ( 2.D0*EM*EN+EK*( ( 2.D0 / 3.D0 )*EK-EM-EN ) ) )
-            ADDS = EK*( 1.D0 / 3.D0+( EM-EN )+
-     $             ( 2.D0*EM*EN+EK*( ( 2.D0 / 3.D0 )*EK-EM-EN ) ) )
-*
-         END IF
-*
-      END IF
-*
-      DOPLA = MULFAC*MULTS + ADDFAC*ADDS
-*
-      RETURN
-*
-*     End of DOPLA
-*
-      END
-      DOUBLE PRECISION FUNCTION DOPLA2( SUBNAM, OPTS, M, N, K, L, NB )
+      REAL             FUNCTION SOPLA2( SUBNAM, OPTS, M, N, K, L, NB )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
@@ -6442,7 +5972,7 @@ C
 *  Purpose
 *  =======
 *
-*  DOPLA2 computes an approximation of the number of floating point
+*  SOPLA2 computes an approximation of the number of floating point
 *  operations used by the subroutine SUBNAM with character options
 *  OPTS and parameters M, N, K, L, and NB.
 *
@@ -6497,16 +6027,16 @@ C
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME, LSAMEN
-      DOUBLE PRECISION   DOPLA
-      EXTERNAL           LSAME, LSAMEN, DOPLA
+      REAL               SOPLA
+      EXTERNAL           LSAME, LSAMEN, SOPLA
 *     ..
 *     .. Executable Statements ..
 *
 *     ---------------------------------------------------------
-*     Initialize DOPLA2 to 0 and do a quick return if possible.
+*     Initialize SOPLA2 to 0 and do a quick return if possible.
 *     ---------------------------------------------------------
 *
-      DOPLA2 = 0
+      SOPLA2 = 0
       C1 = SUBNAM( 1: 1 )
       C2 = SUBNAM( 2: 3 )
       C3 = SUBNAM( 4: 6 )
@@ -6530,16 +6060,16 @@ C
             IF( LSAME( VECT, 'Q' ) ) THEN
                SUB2 = SUBNAM( 1: 3 ) // 'GQR'
                IF( M.GE.K ) THEN
-                  DOPLA2 = DOPLA( SUB2, M, N, K, 0, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N, K, 0, NB )
                ELSE
-                  DOPLA2 = DOPLA( SUB2, M-1, M-1, M-1, 0, NB )
+                  SOPLA2 = SOPLA( SUB2, M-1, M-1, M-1, 0, NB )
                END IF
             ELSE
                SUB2 = SUBNAM( 1: 3 ) // 'GLQ'
                IF( K.LT.N ) THEN
-                  DOPLA2 = DOPLA( SUB2, M, N, K, 0, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N, K, 0, NB )
                ELSE
-                  DOPLA2 = DOPLA( SUB2, N-1, N-1, N-1, 0, NB )
+                  SOPLA2 = SOPLA( SUB2, N-1, N-1, N-1, 0, NB )
                END IF
             END IF
 *
@@ -6559,20 +6089,20 @@ C
             IF( LSAME( VECT, 'Q' ) ) THEN
                SUB2 = SUBNAM( 1: 3 ) // 'MQR'
                IF( NQ.GE.K ) THEN
-                  DOPLA2 = DOPLA( SUB2, M, N, K, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N, K, ISIDE, NB )
                ELSE IF( ISIDE.EQ.0 ) THEN
-                  DOPLA2 = DOPLA( SUB2, M-1, N, NQ-1, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M-1, N, NQ-1, ISIDE, NB )
                ELSE
-                  DOPLA2 = DOPLA( SUB2, M, N-1, NQ-1, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N-1, NQ-1, ISIDE, NB )
                END IF
             ELSE
                SUB2 = SUBNAM( 1: 3 ) // 'MLQ'
                IF( NQ.GT.K ) THEN
-                  DOPLA2 = DOPLA( SUB2, M, N, K, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N, K, ISIDE, NB )
                ELSE IF( ISIDE.EQ.0 ) THEN
-                  DOPLA2 = DOPLA( SUB2, M-1, N, NQ-1, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M-1, N, NQ-1, ISIDE, NB )
                ELSE
-                  DOPLA2 = DOPLA( SUB2, M, N-1, NQ-1, ISIDE, NB )
+                  SOPLA2 = SOPLA( SUB2, M, N-1, NQ-1, ISIDE, NB )
                END IF
             END IF
 *
@@ -6583,7 +6113,7 @@ C
             ILO = N
             IHI = K
             SUB2 = SUBNAM( 1: 3 ) // 'GQR'
-            DOPLA2 = DOPLA( SUB2, IHI-ILO, IHI-ILO, IHI-ILO, 0, NB )
+            SOPLA2 = SOPLA( SUB2, IHI-ILO, IHI-ILO, IHI-ILO, 0, NB )
 *
          ELSE IF( LSAMEN( 3, C3, 'MHR' ) ) THEN
 *
@@ -6602,7 +6132,7 @@ C
                ISIDE = 1
             END IF
             SUB2 = SUBNAM( 1: 3 ) // 'MQR'
-            DOPLA2 = DOPLA( SUB2, MI, NI, IHI-ILO, ISIDE, NB )
+            SOPLA2 = SOPLA( SUB2, MI, NI, IHI-ILO, ISIDE, NB )
 *
          ELSE IF( LSAMEN( 3, C3, 'GTR' ) ) THEN
 *
@@ -6611,10 +6141,10 @@ C
             UPLO = OPTS( 1: 1 )
             IF( LSAME( UPLO, 'U' ) ) THEN
                SUB2 = SUBNAM( 1: 3 ) // 'GQL'
-               DOPLA2 = DOPLA( SUB2, M-1, M-1, M-1, 0, NB )
+               SOPLA2 = SOPLA( SUB2, M-1, M-1, M-1, 0, NB )
             ELSE
                SUB2 = SUBNAM( 1: 3 ) // 'GQR'
-               DOPLA2 = DOPLA( SUB2, M-1, M-1, M-1, 0, NB )
+               SOPLA2 = SOPLA( SUB2, M-1, M-1, M-1, 0, NB )
             END IF
 *
          ELSE IF( LSAMEN( 3, C3, 'MTR' ) ) THEN
@@ -6637,10 +6167,10 @@ C
 *
             IF( LSAME( UPLO, 'U' ) ) THEN
                SUB2 = SUBNAM( 1: 3 ) // 'MQL'
-               DOPLA2 = DOPLA( SUB2, MI, NI, NQ-1, ISIDE, NB )
+               SOPLA2 = SOPLA( SUB2, MI, NI, NQ-1, ISIDE, NB )
             ELSE
                SUB2 = SUBNAM( 1: 3 ) // 'MQR'
-               DOPLA2 = DOPLA( SUB2, MI, NI, NQ-1, ISIDE, NB )
+               SOPLA2 = SOPLA( SUB2, MI, NI, NQ-1, ISIDE, NB )
             END IF
 *
          END IF
@@ -6648,17 +6178,446 @@ C
 *
       RETURN
 *
-*     End of DOPLA2
+*     End of SOPLA2
 *
       END
-      SUBROUTINE DPRTBE( SUBNAM, NTYPES, DOTYPE, NSIZES, NN, INPARM,
+      REAL             FUNCTION SOPLA( SUBNAM, M, N, KL, KU, NB )
+*
+*  -- LAPACK timing routine (version 3.0) --
+*     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
+*     Courant Institute, Argonne National Lab, and Rice University
+*     February 29, 1992 
+*
+*     .. Scalar Arguments ..
+      CHARACTER*6        SUBNAM
+      INTEGER            KL, KU, M, N, NB
+*     ..
+*
+*  Purpose
+*  =======
+*
+*  SOPLA computes an approximation of the number of floating point
+*  operations used by the subroutine SUBNAM with the given values
+*  of the parameters M, N, KL, KU, and NB.
+*
+*  This version counts operations for the LAPACK subroutines.
+*
+*  Arguments
+*  =========
+*
+*  SUBNAM  (input) CHARACTER*6
+*          The name of the subroutine.
+*
+*  M       (input) INTEGER
+*          The number of rows of the coefficient matrix.  M >= 0.
+*
+*  N       (input) INTEGER
+*          The number of columns of the coefficient matrix.
+*          For solve routine when the matrix is square,
+*          N is the number of right hand sides.  N >= 0.
+*
+*  KL      (input) INTEGER
+*          The lower band width of the coefficient matrix.
+*          If needed, 0 <= KL <= M-1.
+*          For xGEQRS, KL is the number of right hand sides.
+*
+*  KU      (input) INTEGER
+*          The upper band width of the coefficient matrix.
+*          If needed, 0 <= KU <= N-1.
+*
+*  NB      (input) INTEGER
+*          The block size.  If needed, NB >= 1.
+*
+*  Notes
+*  =====
+*
+*  In the comments below, the association is given between arguments
+*  in the requested subroutine and local arguments.  For example,
+*
+*  xGETRS:  N, NRHS  =>  M, N
+*
+*  means that arguments N and NRHS in SGETRS are passed to arguments
+*  M and N in this procedure.
+*
+*  =====================================================================
+*
+*     .. Local Scalars ..
+      LOGICAL            SORD, CORZ
+      CHARACTER          C1
+      CHARACTER*2        C2
+      CHARACTER*3        C3
+      INTEGER            I
+      REAL               ADDFAC, ADDS, EK, EM, EN, EMN, MULFAC, MULTS,
+     $                   WL, WU
+*     ..
+*     .. External Functions ..
+      LOGICAL            LSAME, LSAMEN
+      EXTERNAL           LSAME, LSAMEN
+*     ..
+*     .. Intrinsic Functions ..
+      INTRINSIC          MAX, MIN
+*     ..
+*     .. Executable Statements ..
+*
+*     --------------------------------------------------------
+*     Initialize SOPLA to 0 and do a quick return if possible.
+*     --------------------------------------------------------
+*
+      SOPLA = 0
+      MULTS = 0
+      ADDS = 0
+      C1 = SUBNAM( 1: 1 )
+      C2 = SUBNAM( 2: 3 )
+      C3 = SUBNAM( 4: 6 )
+      SORD = LSAME( C1, 'S' ) .OR. LSAME( C1, 'D' )
+      CORZ = LSAME( C1, 'C' ) .OR. LSAME( C1, 'Z' )
+      IF( M.LE.0 .OR. .NOT.( SORD .OR. CORZ ) )
+     $   RETURN
+*
+*     ---------------------------------------------------------
+*     If the coefficient matrix is real, count each add as 1
+*     operation and each multiply as 1 operation.
+*     If the coefficient matrix is complex, count each add as 2
+*     operations and each multiply as 6 operations.
+*     ---------------------------------------------------------
+*
+      IF( LSAME( C1, 'S' ) .OR. LSAME( C1, 'D' ) ) THEN
+         ADDFAC = 1
+         MULFAC = 1
+      ELSE
+         ADDFAC = 2
+         MULFAC = 6
+      END IF
+      EM = M
+      EN = N
+      EK = KL
+*
+*     ---------------------------------
+*     GE:  GEneral rectangular matrices
+*     ---------------------------------
+*
+      IF( LSAMEN( 2, C2, 'GE' ) ) THEN
+*
+*        xGETRF:  M, N  =>  M, N
+*
+         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
+            EMN = MIN( M, N )
+            ADDS = EMN*( EM*EN - ( EM+EN )*( EMN+1. )/2. +
+     $                   ( EMN+1. )*( 2.*EMN+1. )/6. )
+            MULTS = ADDS + EMN*( EM - ( EMN+1. )/2. )
+*
+*        xGETRS:  N, NRHS  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*EM*EM
+            ADDS = EN*( EM*( EM-1. ) )
+*
+*        xGETRI:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
+            MULTS = EM*( 5./6.+EM*( 1./2.+EM*( 2./3. ) ) )
+            ADDS = EM*( 5./6.+EM*( -3./2.+EM*( 2./3. ) ) )
+*
+*        xGEQRF or xGEQLF:  M, N  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'QRF' ) .OR. LSAMEN( 3, C3, 'QR2' )
+     $      .OR.  LSAMEN( 3, C3, 'QLF' ) .OR. LSAMEN( 3, C3, 'QL2' ) )
+     $             THEN
+            IF( M.GE.N ) THEN
+               MULTS = EN*( ( ( 23./6. )+EM+EN/2. )+EN*( EM-EN/3. ) )
+               ADDS = EN*( ( 5./6. )+EN*( 1./2.+( EM-EN/3. ) ) )
+            ELSE
+               MULTS = EM*( ( ( 23./6. )+2.*EN-EM/2. )+EM*( EN-EM/3. ) )
+               ADDS = EM*( ( 5./6. )+EN-EM/2.+EM*( EN-EM/3. ) )
+            END IF
+*
+*        xGERQF or xGELQF:  M, N  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'RQF' ) .OR. LSAMEN( 3, C3, 'RQ2' )
+     $      .OR.  LSAMEN( 3, C3, 'LQF' ) .OR. LSAMEN( 3, C3, 'LQ2' ) )
+     $             THEN
+            IF( M.GE.N ) THEN
+               MULTS = EN*( ( ( 29./6. )+EM+EN/2. )+EN*( EM-EN/3. ) )
+               ADDS = EN*( ( 5./6. )+EM+EN*( -1./2.+( EM-EN/3. ) ) )
+            ELSE
+               MULTS = EM*( ( ( 29./6. )+2.*EN-EM/2. )+EM*( EN-EM/3. ) )
+               ADDS = EM*( ( 5./6. )+EM/2.+EM*( EN-EM/3. ) )
+            END IF
+*
+*        xGEQPF: M, N => M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'QPF' ) ) THEN
+            EMN = MIN( M, N )
+            MULTS = 2*EN*EN + EMN*( 3*EM + 5*EN + 2*EM*EN -
+     $              ( EMN+1 )*( 4+EN+EM - ( 2*EMN+1 ) / 3 ) )
+            ADDS  = EN*EN + EMN*( 2*EM + EN + 2*EM*EN -
+     $              ( EMN+1 )*( 2+EN+EM - ( 2*EMN+1 ) / 3 ) )
+*
+*        xGEQRS or xGERQS:  M, N, NRHS  =>  M, N, KL
+*
+         ELSE IF( LSAMEN( 3, C3, 'QRS' ) .OR. LSAMEN( 3, C3, 'RQS' ) )
+     $      THEN
+            MULTS = EK*( EN*( 2.-EK ) +EM*( 2.*EN + (EM+1.)/2. ) )
+            ADDS = EK*( EN*( 1.-EK ) + EM*( 2.*EN + (EM-1.)/2. ) )
+*
+*        xGELQS or xGEQLS:  M, N, NRHS  =>  M, N, KL
+*
+         ELSE IF( LSAMEN( 3, C3, 'LQS' ) .OR. LSAMEN( 3, C3, 'QLS' ) )
+     $      THEN
+            MULTS = EK*( EM*( 2.-EK ) +EN*( 2.*EM + (EN+1.)/2. ) )
+            ADDS = EK*( EM*( 1.-EK ) + EN*( 2.*EM + (EN-1.)/2. ) )
+*
+*        xGEBRD:  M, N  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'BRD' ) ) THEN
+            IF( M.GE.N ) THEN
+               MULTS = EN*( 20./3.+EN*( 2.+( 2.*EM-( 2./3. )*EN ) ) )
+               ADDS = EN*( 5./3.+( EN-EM )+EN*( 2.*EM-( 2./3. )*EN ) )
+            ELSE
+               MULTS = EM*( 20./3.+EM*( 2.+( 2.*EN-( 2./3. )*EM ) ) )
+               ADDS = EM*( 5./3.+( EM-EN )+EM*( 2.*EN-( 2./3. )*EM ) )
+            END IF
+*
+*        xGEHRD:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'HRD' ) ) THEN
+            IF( M.EQ.1 ) THEN
+               MULTS = 0.
+               ADDS = 0.
+            ELSE
+               MULTS = -13. + EM*( -7./6.+EM*( 0.5+EM*( 5./3. ) ) )
+               ADDS = -8. + EM*( -2./3.+EM*( -1.+EM*( 5./3. ) ) )
+            END IF
+*
+         END IF
+*
+*     ----------------------------
+*     GB:  General Banded matrices
+*     ----------------------------
+*        Note:  The operation count is overestimated because
+*        it is assumed that the factor U fills in to the maximum
+*        extent, i.e., that its bandwidth goes from KU to KL + KU.
+*
+      ELSE IF( LSAMEN( 2, C2, 'GB' ) ) THEN
+*
+*        xGBTRF:  M, N, KL, KU  =>  M, N, KL, KU
+*
+         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
+            DO 10 I = MIN( M, N ), 1, -1
+               WL = MAX( 0, MIN( KL, M-I ) )
+               WU = MAX( 0, MIN( KL+KU, N-I ) )
+               MULTS = MULTS + WL*( 1.+WU )
+               ADDS = ADDS + WL*WU
+   10       CONTINUE
+*
+*        xGBTRS:  N, NRHS, KL, KU  =>  M, N, KL, KU
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            WL = MAX( 0, MIN( KL, M-1 ) )
+            WU = MAX( 0, MIN( KL+KU, M-1 ) )
+            MULTS = EN*( EM*( WL+1.+WU )-0.5*
+     $              ( WL*( WL+1. )+WU*( WU+1. ) ) )
+            ADDS = EN*( EM*( WL+WU )-0.5*( WL*( WL+1. )+WU*( WU+1. ) ) )
+*
+         END IF
+*
+*     --------------------------------------
+*     PO:  POsitive definite matrices
+*     PP:  Positive definite Packed matrices
+*     --------------------------------------
+*
+      ELSE IF( LSAMEN( 2, C2, 'PO' ) .OR. LSAMEN( 2, C2, 'PP' ) ) THEN
+*
+*        xPOTRF:  N  =>  M
+*
+         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
+            MULTS = EM*( 1./3.+EM*( 1./2.+EM*( 1./6. ) ) )
+            ADDS = ( 1./6. )*EM*( -1.+EM*EM )
+*
+*        xPOTRS:  N, NRHS  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*( EM*( EM+1. ) )
+            ADDS = EN*( EM*( EM-1. ) )
+*
+*        xPOTRI:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
+            MULTS = EM*( 2./3.+EM*( 1.+EM*( 1./3. ) ) )
+            ADDS = EM*( 1./6.+EM*( -1./2.+EM*( 1./3. ) ) )
+*
+         END IF
+*
+*     ------------------------------------
+*     PB:  Positive definite Band matrices
+*     ------------------------------------
+*
+      ELSE IF( LSAMEN( 2, C2, 'PB' ) ) THEN
+*
+*        xPBTRF:  N, K  =>  M, KL
+*
+         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
+            MULTS = EK*( -2./3.+EK*( -1.+EK*( -1./3. ) ) ) +
+     $              EM*( 1.+EK*( 3./2.+EK*( 1./2. ) ) )
+            ADDS = EK*( -1./6.+EK*( -1./2.+EK*( -1./3. ) ) ) +
+     $             EM*( EK/2.*( 1.+EK ) )
+*
+*        xPBTRS:  N, NRHS, K  =>  M, N, KL
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*( ( 2*EM-EK )*( EK+1. ) )
+            ADDS = EN*( EK*( 2*EM-( EK+1. ) ) )
+*
+         END IF
+*
+*     --------------------------------------------------------
+*     SY:  SYmmetric indefinite matrices
+*     SP:  Symmetric indefinite Packed matrices
+*     HE:  HErmitian indefinite matrices (complex only)
+*     HP:  Hermitian indefinite Packed matrices (complex only)
+*     --------------------------------------------------------
+*
+      ELSE IF( LSAMEN( 2, C2, 'SY' ) .OR. LSAMEN( 2, C2, 'SP' ) .OR.
+     $         LSAMEN( 3, SUBNAM, 'CHE' ) .OR.
+     $         LSAMEN( 3, SUBNAM, 'ZHE' ) .OR.
+     $         LSAMEN( 3, SUBNAM, 'CHP' ) .OR.
+     $         LSAMEN( 3, SUBNAM, 'ZHP' ) ) THEN
+*
+*        xSYTRF:  N  =>  M
+*
+         IF( LSAMEN( 3, C3, 'TRF' ) ) THEN
+            MULTS = EM*( 10./3.+EM*( 1./2.+EM*( 1./6. ) ) )
+            ADDS = EM / 6.*( -1.+EM*EM )
+*
+*        xSYTRS:  N, NRHS  =>  M, N
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*EM*EM
+            ADDS = EN*( EM*( EM-1. ) )
+*
+*        xSYTRI:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
+            MULTS = EM*( 2./3.+EM*EM*( 1./3. ) )
+            ADDS = EM*( -1./3.+EM*EM*( 1./3. ) )
+*
+*        xSYTRD, xSYTD2:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRD' ) .OR. LSAMEN( 3, C3, 'TD2' ) )
+     $      THEN
+            IF( M.EQ.1 ) THEN
+               MULTS = 0.
+               ADDS = 0.
+            ELSE
+               MULTS = -15. + EM*( -1./6.+EM*( 5./2.+EM*( 2./3. ) ) )
+               ADDS = -4. + EM*( -8./3.+EM*( 1.+EM*( 2./3. ) ) )
+            END IF
+         END IF
+*
+*     -------------------
+*     Triangular matrices
+*     -------------------
+*
+      ELSE IF( LSAMEN( 2, C2, 'TR' ) .OR. LSAMEN( 2, C2, 'TP' ) ) THEN
+*
+*        xTRTRS:  N, NRHS  =>  M, N
+*
+         IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*EM*( EM+1. ) / 2.
+            ADDS = EN*EM*( EM-1. ) / 2.
+*
+*        xTRTRI:  N  =>  M
+*
+         ELSE IF( LSAMEN( 3, C3, 'TRI' ) ) THEN
+            MULTS = EM*( 1./3.+EM*( 1./2.+EM*( 1./6. ) ) )
+            ADDS = EM*( 1./3.+EM*( -1./2.+EM*( 1./6. ) ) )
+*
+         END IF
+*
+      ELSE IF( LSAMEN( 2, C2, 'TB' ) ) THEN
+*
+*        xTBTRS:  N, NRHS, K  =>  M, N, KL
+*
+         IF( LSAMEN( 3, C3, 'TRS' ) ) THEN
+            MULTS = EN*( EM*( EM+1. ) / 2. -
+     $              ( EM-EK-1. )*( EM-EK ) / 2. )
+            ADDS = EN*( EM*( EM-1. ) / 2. -
+     $             ( EM-EK-1. )*( EM-EK ) / 2. )
+         END IF
+*
+*     --------------------
+*     Trapezoidal matrices
+*     --------------------
+*
+      ELSE IF( LSAMEN( 2, C2, 'TZ' ) ) THEN
+*
+*        xTZRQF:  M, N => M, N
+*
+         IF( LSAMEN( 3, C3, 'RQF' ) ) THEN
+            EMN = MIN( M, N )
+            MULTS = 3*EM*( EN-EM+1 ) +
+     $              ( 2*EN-2*EM+3 )*( EM*EM - EMN*( EMN+1 )/2 )
+            ADDS =  ( EN-EM+1 )*( EM + 2*EM*EM-EMN*( EMN+1 ) )
+         END IF
+*
+*     -------------------
+*     Orthogonal matrices
+*     -------------------
+*
+      ELSE IF( ( SORD .AND. LSAMEN( 2, C2, 'OR' ) ) .OR.
+     $         ( CORZ .AND. LSAMEN( 2, C2, 'UN' ) ) ) THEN
+*
+*        -MQR, -MLQ, -MQL, or -MRQ:  M, N, K, SIDE  =>  M, N, KL, KU
+*           where KU<= 0 indicates SIDE = 'L'
+*           and   KU> 0  indicates SIDE = 'R'
+*
+         IF( LSAMEN( 3, C3, 'MQR' ) .OR. LSAMEN( 3, C3, 'MLQ' ) .OR.
+     $       LSAMEN( 3, C3, 'MQL' ) .OR. LSAMEN( 3, C3, 'MRQ' ) ) THEN
+            IF( KU.LE.0 ) THEN
+               MULTS = EK*EN*( 2.*EM + 2. - EK )
+               ADDS = EK*EN*( 2.*EM + 1. - EK )
+            ELSE
+               MULTS = EK*( EM*( 2.*EN - EK )+ ( EM+EN+( 1.-EK )/2. ) )
+               ADDS = EK*EM*( 2.*EN + 1. - EK )
+            END IF
+*
+*        -GQR or -GQL:  M, N, K  =>  M, N, KL
+*
+         ELSE IF( LSAMEN( 3, C3, 'GQR' ) .OR. LSAMEN( 3, C3, 'GQL' ) )
+     $            THEN
+            MULTS = EK*( -5./3. + ( 2.*EN - EK ) +
+     $              ( 2.*EM*EN + EK*( ( 2./3. )*EK - EM - EN ) ) )
+            ADDS = EK*( 1./3. + ( EN - EM ) +
+     $              ( 2.*EM*EN + EK*( ( 2./3. )*EK - EM - EN ) ) )
+*
+*        -GLQ or -GRQ:  M, N, K  =>  M, N, KL
+*
+         ELSE IF( LSAMEN( 3, C3, 'GLQ' ) .OR. LSAMEN( 3, C3, 'GRQ' ) )
+     $            THEN
+            MULTS = EK*( -2./3. + ( EM + EN - EK ) +
+     $              ( 2.*EM*EN + EK*( ( 2./3. )*EK - EM - EN ) ) )
+            ADDS = EK*( 1./3. + ( EM - EN ) +
+     $              ( 2.*EM*EN + EK*( ( 2./3. )*EK - EM - EN ) ) )
+*
+         END IF
+*
+      END IF
+*
+      SOPLA = MULFAC*MULTS + ADDFAC*ADDS
+*
+      RETURN
+*
+*     End of SOPLA
+*
+      END
+      SUBROUTINE SPRTBE( SUBNAM, NTYPES, DOTYPE, NSIZES, NN, INPARM,
      $                   PNAMES, NPARMS, NP1, NP2, NP3, NP4, OPS, LDO1,
      $                   LDO2, TIMES, LDT1, LDT2, RWORK, LLWORK, NOUT )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       CHARACTER*( * )    SUBNAM
@@ -6670,14 +6629,14 @@ C
       CHARACTER*( * )    PNAMES( * )
       INTEGER            NN( NSIZES ), NP1( * ), NP2( * ), NP3( * ),
      $                   NP4( * )
-      DOUBLE PRECISION   OPS( LDO1, LDO2, * ), RWORK( * ),
+      REAL               OPS( LDO1, LDO2, * ), RWORK( * ),
      $                   TIMES( LDT1, LDT2, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DPRTBE prints out timing information for the eigenvalue routines.
+*     SPRTBE prints out timing information for the eigenvalue routines.
 *     The table has NTYPES block rows and NSIZES columns, with NPARMS
 *     individual rows in each block row.  There are INPARM quantities
 *     which depend on rows (currently, INPARM <= 4).
@@ -6728,7 +6687,7 @@ C
 *  NP4    - INTEGER array of dimension( NPARMS )
 *           The fourth quantity which depends on row number.
 *
-*  OPS    - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  OPS    - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The operation counts.  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -6741,7 +6700,7 @@ C
 *           The second dimension of OPS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  TIMES  - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  TIMES  - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The times (in seconds).  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -6754,7 +6713,7 @@ C
 *           The second dimension of RESLTS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  RWORK  - DOUBLE PRECISION array of dimension( NSIZES*NTYPES*NPARMS )
+*  RWORK  - REAL array of dimension( NSIZES*NTYPES*NPARMS )
 *           Real workspace.
 *           Modified.
 *
@@ -6777,11 +6736,11 @@ C
       INTEGER            I, IINFO, ILINE, ILINES, IPAR, J, JP, JS, JT
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DMFLOP
-      EXTERNAL           DMFLOP
+      REAL               SMFLOP
+      EXTERNAL           SMFLOP
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DPRTBS
+      EXTERNAL           SPRTBS
 *     ..
 *     .. Executable Statements ..
 *
@@ -6852,13 +6811,13 @@ C
 *     Execution Times
 *
       WRITE( NOUT, FMT = 9996 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, TIMES, LDT1, LDT2, NOUT )
 *
 *     Operation Counts
 *
       WRITE( NOUT, FMT = 9997 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, OPS, LDO1, LDO2, NOUT )
 *
 *     Megaflop Rates
@@ -6869,7 +6828,7 @@ C
             IF( DOTYPE( JT ) ) THEN
                DO 40 JP = 1, NPARMS
                   I = JP + NPARMS*( JT-1+NTYPES*( JS-1 ) )
-                  RWORK( I ) = DMFLOP( OPS( JP, JT, JS ),
+                  RWORK( I ) = SMFLOP( OPS( JP, JT, JS ),
      $                         TIMES( JP, JT, JS ), IINFO )
    40          CONTINUE
             END IF
@@ -6877,7 +6836,7 @@ C
    60 CONTINUE
 *
       WRITE( NOUT, FMT = 9998 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, RWORK, NPARMS, NTYPES, NOUT )
 *
  9999 FORMAT( / / / ' ****** Results for ', A, ' ******' )
@@ -6889,10 +6848,10 @@ C
      $      3( : ', ', A, '=', I5 ) )
       RETURN
 *
-*     End of DPRTBE
+*     End of SPRTBE
 *
       END
-      SUBROUTINE DPRTBG( SUBNAM, NTYPES, DOTYPE, NSIZES, NN, INPARM,
+      SUBROUTINE SPRTBG( SUBNAM, NTYPES, DOTYPE, NSIZES, NN, INPARM,
      $                   PNAMES, NPARMS, NP1, NP2, NP3, NP4, NP5, NP6,
      $                   OPS, LDO1, LDO2, TIMES, LDT1, LDT2, RWORK,
      $                   LLWORK, NOUT )
@@ -6900,7 +6859,7 @@ C
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       CHARACTER*( * )    SUBNAM
@@ -6912,14 +6871,14 @@ C
       CHARACTER*( * )    PNAMES( * )
       INTEGER            NN( NSIZES ), NP1( * ), NP2( * ), NP3( * ),
      $                   NP4( * ), NP5( * ), NP6( * )
-      DOUBLE PRECISION   OPS( LDO1, LDO2, * ), RWORK( * ),
+      REAL               OPS( LDO1, LDO2, * ), RWORK( * ),
      $                   TIMES( LDT1, LDT2, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DPRTBG prints out timing information for the eigenvalue routines.
+*     SPRTBG prints out timing information for the eigenvalue routines.
 *     The table has NTYPES block rows and NSIZES columns, with NPARMS
 *     individual rows in each block row.  There are INPARM quantities
 *     which depend on rows (currently, INPARM <= 4).
@@ -6976,7 +6935,7 @@ C
 *  NP6    - INTEGER array of dimension( NPARMS )
 *           The sixth quantity which depends on row number.
 *
-*  OPS    - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  OPS    - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The operation counts.  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -6989,7 +6948,7 @@ C
 *           The second dimension of OPS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  TIMES  - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  TIMES  - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The times (in seconds).  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -7002,7 +6961,7 @@ C
 *           The second dimension of RESLTS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  RWORK  - DOUBLE PRECISION array of dimension( NSIZES*NTYPES*NPARMS )
+*  RWORK  - REAL array of dimension( NSIZES*NTYPES*NPARMS )
 *           Real workspace.
 *           Modified.
 *
@@ -7021,20 +6980,17 @@ C
 *  =====================================================================
 *
 *     .. Local Scalars ..
-      LOGICAL            LTEMP
       CHARACTER*40       FRMATA, FRMATI
+      LOGICAL            LTEMP
       INTEGER            I, IINFO, ILINE, ILINES, IPADA, IPADI, IPAR, J,
      $                   JP, JS, JT
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DMFLOP
-      EXTERNAL           DMFLOP
+      REAL               SMFLOP
+      EXTERNAL           SMFLOP
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DPRTBS
-*     ..
-*     .. Intrinsic Functions ..
-      INTRINSIC          LEN, MAX, MIN
+      EXTERNAL           SPRTBS
 *     ..
 *     .. Executable Statements ..
 *
@@ -7097,12 +7053,12 @@ C
 *
 *        Compute output format statement.
 *
-         IPADI = MAX( LEN( PNAMES( 1 ) )-3, 1 )
-         WRITE( FRMATI, FMT = 9993 )IPADI
+         IPADI = MAX( LEN( PNAMES( 1 ) ) - 3, 1 )
+         WRITE( FRMATI, FMT = 9980 ) IPADI
          IPADA = 5 + IPADI - LEN( PNAMES( 1 ) )
-         WRITE( FRMATA, FMT = 9994 )IPADA
-         WRITE( NOUT, FMT = FRMATA )( PNAMES( J ), J = 1,
-     $      MIN( 6, INPARM ) )
+         WRITE( FRMATA, FMT = 9981 ) IPADA
+         WRITE( NOUT, FMT = FRMATA )
+     $         ( PNAMES( J ), J = 1, MIN( 6, INPARM ) )
          DO 30 J = 1, NPARMS
             IF( LLWORK( J ) ) THEN
                ILINE = ILINE + 1
@@ -7130,13 +7086,13 @@ C
 *     Execution Times
 *
       WRITE( NOUT, FMT = 9996 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, TIMES, LDT1, LDT2, NOUT )
 *
 *     Operation Counts
 *
       WRITE( NOUT, FMT = 9997 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, OPS, LDO1, LDO2, NOUT )
 *
 *     Megaflop Rates
@@ -7147,7 +7103,7 @@ C
             IF( DOTYPE( JT ) ) THEN
                DO 40 JP = 1, NPARMS
                   I = JP + NPARMS*( JT-1+NTYPES*( JS-1 ) )
-                  RWORK( I ) = DMFLOP( OPS( JP, JT, JS ),
+                  RWORK( I ) = SMFLOP( OPS( JP, JT, JS ),
      $                         TIMES( JP, JT, JS ), IINFO )
    40          CONTINUE
             END IF
@@ -7155,34 +7111,34 @@ C
    60 CONTINUE
 *
       WRITE( NOUT, FMT = 9998 )
-      CALL DPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      CALL SPRTBS( 'Type', 'N ', NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $             LLWORK, RWORK, NPARMS, NTYPES, NOUT )
 *
  9999 FORMAT( / / / ' ****** Results for ', A, ' ******' )
  9998 FORMAT( / ' *** Speed in megaflops ***' )
  9997 FORMAT( / ' *** Number of floating-point operations ***' )
  9996 FORMAT( / ' *** Time in seconds ***' )
- 9995 FORMAT( 5X, : 'with ', 4( A, '=', I5, : ', ' ), / 10X,
-     $      2( A, '=', I5, : ', ' ) )
+ 9995 FORMAT( 5X, : 'with ', 4( A, '=', I5, : ', ' ) /
+     $        10X, 2( A, '=', I5, : ', ' ) )
 *
 *     Format statements for generating format statements.
 *     9981 generates a string 21+2+11=34 characters long.
 *     9980 generates a string 16+2+12=30 characters long.
 *
- 9994 FORMAT( '( 5X, : ''line '' , 6( ', I2, 'X, A, : ) )' )
- 9993 FORMAT( '( 5X, : I5 , 6( ', I2, 'X, I5, : ) )' )
+ 9981 FORMAT( '( 5X, : ''line '' , 6( ', I2, 'X, A, : ) )' )
+ 9980 FORMAT( '( 5X, : I5 , 6( ', I2, 'X, I5, : ) )' )
       RETURN
 *
-*     End of DPRTBG
+*     End of SPRTBG
 *
       END
-      SUBROUTINE DPRTBR( LAB1, LAB2, NTYPES, DOTYPE, NSIZES, MM, NN,
+      SUBROUTINE SPRTBR( LAB1, LAB2, NTYPES, DOTYPE, NSIZES, MM, NN,
      $                   NPARMS, DOLINE, RESLTS, LDR1, LDR2, NOUT )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       CHARACTER*( * )    LAB1, LAB2
@@ -7191,13 +7147,13 @@ C
 *     .. Array Arguments ..
       LOGICAL            DOLINE( NPARMS ), DOTYPE( NTYPES )
       INTEGER            MM( NSIZES ), NN( NSIZES )
-      DOUBLE PRECISION   RESLTS( LDR1, LDR2, * )
+      REAL               RESLTS( LDR1, LDR2, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DPRTBR prints a table of timing data for the timing programs.
+*     SPRTBR prints a table of timing data for the timing programs.
 *     The table has NTYPES block rows and NSIZES columns, with NPARMS
 *     individual rows in each block row.
 *
@@ -7239,7 +7195,7 @@ C
 *           from RESLTS( i, j, k ) for all j and k) will be printed.
 *           If DOLINE(i) is .FALSE., then row i will not be printed.
 *
-*  RESLTS - DOUBLE PRECISION array of dimension( LDR1, LDR2, NSIZES )
+*  RESLTS - REAL array of dimension( LDR1, LDR2, NSIZES )
 *           The timing results.  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -7297,16 +7253,16 @@ C
  9997 FORMAT( 3X, I4, 4X, 1P, ( 12( 3X, G8.2 ) ) )
  9996 FORMAT( 11X, 1P, ( 12( 3X, G8.2 ) ) )
 *
-*     End of DPRTBR
+*     End of SPRTBR
 *
       END
-      SUBROUTINE DPRTBS( LAB1, LAB2, NTYPES, DOTYPE, NSIZES, NN, NPARMS,
+      SUBROUTINE SPRTBS( LAB1, LAB2, NTYPES, DOTYPE, NSIZES, NN, NPARMS,
      $                   DOLINE, RESLTS, LDR1, LDR2, NOUT )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       CHARACTER*( * )    LAB1, LAB2
@@ -7315,13 +7271,13 @@ C
 *     .. Array Arguments ..
       LOGICAL            DOLINE( NPARMS ), DOTYPE( NTYPES )
       INTEGER            NN( NSIZES )
-      DOUBLE PRECISION   RESLTS( LDR1, LDR2, * )
+      REAL               RESLTS( LDR1, LDR2, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DPRTBS prints a table of timing data for the timing programs.
+*     SPRTBS prints a table of timing data for the timing programs.
 *     The table has NTYPES block rows and NSIZES columns, with NPARMS
 *     individual rows in each block row.
 *
@@ -7360,7 +7316,7 @@ C
 *           from RESLTS( i, j, k ) for all j and k) will be printed.
 *           If DOLINE(i) is .FALSE., then row i will not be printed.
 *
-*  RESLTS - DOUBLE PRECISION array of dimension( LDR1, LDR2, NSIZES )
+*  RESLTS - REAL array of dimension( LDR1, LDR2, NSIZES )
 *           The timing results.  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -7417,17 +7373,17 @@ C
  9997 FORMAT( 3X, I4, 4X, 1P, 12( 1X, G8.2 ) )
  9996 FORMAT( 11X, 1P, 12( 1X, G8.2 ) )
 *
-*     End of DPRTBS
+*     End of SPRTBS
 *
       END
-      SUBROUTINE DPRTBV( SUBNAM, NTYPES, DOTYPE, NSIZES, MM, NN, INPARM,
+      SUBROUTINE SPRTBV( SUBNAM, NTYPES, DOTYPE, NSIZES, MM, NN, INPARM,
      $                   PNAMES, NPARMS, NP1, NP2, OPS, LDO1, LDO2,
      $                   TIMES, LDT1, LDT2, RWORK, LLWORK, NOUT )
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
 *     Courant Institute, Argonne National Lab, and Rice University
-*     February 29, 1992
+*     February 29, 1992 
 *
 *     .. Scalar Arguments ..
       CHARACTER*( * )    SUBNAM
@@ -7438,14 +7394,14 @@ C
       LOGICAL            DOTYPE( NTYPES ), LLWORK( NPARMS )
       CHARACTER*( * )    PNAMES( * )
       INTEGER            MM( NSIZES ), NN( NSIZES ), NP1( * ), NP2( * )
-      DOUBLE PRECISION   OPS( LDO1, LDO2, * ), RWORK( * ),
+      REAL               OPS( LDO1, LDO2, * ), RWORK( * ),
      $                   TIMES( LDT1, LDT2, * )
 *     ..
 *
 *  Purpose
 *  =======
 *
-*     DPRTBV prints out timing information for the eigenvalue routines.
+*     SPRTBV prints out timing information for the eigenvalue routines.
 *     The table has NTYPES block rows and NSIZES columns, with NPARMS
 *     individual rows in each block row.  There are INPARM quantities
 *     which depend on rows (currently, INPARM <= 4).
@@ -7493,7 +7449,7 @@ C
 *  NP2    - INTEGER array of dimension( NPARMS )
 *           The second quantity which depends on row number.
 *
-*  OPS    - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  OPS    - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The operation counts.  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -7506,7 +7462,7 @@ C
 *           The second dimension of OPS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  TIMES  - DOUBLE PRECISION array of dimension( LDT1, LDT2, NSIZES )
+*  TIMES  - REAL array of dimension( LDT1, LDT2, NSIZES )
 *           The times (in seconds).  The first index indicates the row,
 *           the second index indicates the block row, and the last
 *           indicates the column.
@@ -7519,7 +7475,7 @@ C
 *           The second dimension of RESLTS.  It must be at least
 *           min( 1, NTYPES ).
 *
-*  RWORK  - DOUBLE PRECISION array of dimension( NSIZES*NTYPES*NPARMS )
+*  RWORK  - REAL array of dimension( NSIZES*NTYPES*NPARMS )
 *           Real workspace.
 *           Modified.
 *
@@ -7542,11 +7498,11 @@ C
       INTEGER            I, IINFO, ILINE, ILINES, IPAR, J, JP, JS, JT
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DMFLOP
-      EXTERNAL           DMFLOP
+      REAL               SMFLOP
+      EXTERNAL           SMFLOP
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DPRTBR
+      EXTERNAL           SPRTBR
 *     ..
 *     .. Executable Statements ..
 *
@@ -7598,13 +7554,13 @@ C
 *     Execution Times
 *
       WRITE( NOUT, FMT = 9996 )
-      CALL DPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
+      CALL SPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
      $             NPARMS, LLWORK, TIMES, LDT1, LDT2, NOUT )
 *
 *     Operation Counts
 *
       WRITE( NOUT, FMT = 9997 )
-      CALL DPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
+      CALL SPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
      $             NPARMS, LLWORK, OPS, LDO1, LDO2, NOUT )
 *
 *     Megaflop Rates
@@ -7615,7 +7571,7 @@ C
             IF( DOTYPE( JT ) ) THEN
                DO 40 JP = 1, NPARMS
                   I = JP + NPARMS*( JT-1+NTYPES*( JS-1 ) )
-                  RWORK( I ) = DMFLOP( OPS( JP, JT, JS ),
+                  RWORK( I ) = SMFLOP( OPS( JP, JT, JS ),
      $                         TIMES( JP, JT, JS ), IINFO )
    40          CONTINUE
             END IF
@@ -7623,7 +7579,7 @@ C
    60 CONTINUE
 *
       WRITE( NOUT, FMT = 9998 )
-      CALL DPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
+      CALL SPRTBR( 'Type', 'M,N ', NTYPES, DOTYPE, NSIZES, MM, NN,
      $             NPARMS, LLWORK, RWORK, NPARMS, NTYPES, NOUT )
 *
  9999 FORMAT( / / / ' ****** Results for ', A, ' ******' )
@@ -7635,10 +7591,10 @@ C
      $      3( : ', ', A, '=', I5 ) )
       RETURN
 *
-*     End of DPRTBV
+*     End of SPRTBV
 *
       END
-      SUBROUTINE DTIM21( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
+      SUBROUTINE STIM21( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
      $                   NSHFTS, MAXBS, LDAS, TIMMIN, NOUT, ISEED, A, H,
      $                   Z, W, WORK, LWORK, LLWORK, IWORK, TIMES, LDT1,
      $                   LDT2, LDT3, OPCNTS, LDO1, LDO2, LDO3, INFO )
@@ -7652,13 +7608,13 @@ C
       CHARACTER*80       LINE
       INTEGER            INFO, LDO1, LDO2, LDO3, LDT1, LDT2, LDT3,
      $                   LWORK, NOUT, NPARMS, NSIZES, NTYPES
-      DOUBLE PRECISION   TIMMIN
+      REAL               TIMMIN
 *     ..
 *     .. Array Arguments ..
       LOGICAL            DOTYPE( * ), LLWORK( * )
       INTEGER            ISEED( * ), IWORK( * ), LDAS( * ), MAXBS( * ),
      $                   NN( * ), NNB( * ), NSHFTS( * )
-      DOUBLE PRECISION   A( * ), H( * ), OPCNTS( LDO1, LDO2, LDO3, * ),
+      REAL               A( * ), H( * ), OPCNTS( LDO1, LDO2, LDO3, * ),
      $                   TIMES( LDT1, LDT2, LDT3, * ), W( * ),
      $                   WORK( * ), Z( * )
 *     ..
@@ -7666,7 +7622,7 @@ C
 *  Purpose
 *  =======
 *
-*     DTIM21 times the LAPACK routines for the DOUBLE PRECISION
+*     STIM21 times the LAPACK routines for the REAL
 *     non-symmetric eigenvalue problem.
 *
 *     For each N value in NN(1:NSIZES) and .TRUE. value in
@@ -7680,25 +7636,25 @@ C
 *  LINE    (input) CHARACTER*80
 *          On entry, LINE contains the input line which requested
 *          this routine.  This line may contain a subroutine name,
-*          such as DGEHRD, indicating that only routine SGEHRD will
-*          be timed, or it may contain a generic name, such as DHS.
+*          such as SGEHRD, indicating that only routine SGEHRD will
+*          be timed, or it may contain a generic name, such as SHS.
 *          In this case, the rest of the line is scanned for the
 *          first 12 non-blank characters, corresponding to the twelve
 *          combinations of subroutine and options:
 *          LAPACK:
-*          1: DGEHRD
-*          2: DHSEQR(JOB='E')
-*          3: DHSEQR(JOB='S')
-*          4: DHSEQR(JOB='I')
-*          5: DTREVC(JOB='L')
-*          6: DTREVC(JOB='R')
-*          7: DHSEIN(JOB='L')
-*          8: DHSEIN(JOB='R')
+*          1: SGEHRD
+*          2: SHSEQR(JOB='E')
+*          3: SHSEQR(JOB='S')
+*          4: SHSEQR(JOB='I')
+*          5: STREVC(JOB='L')
+*          6: STREVC(JOB='R')
+*          7: SHSEIN(JOB='L')
+*          8: SHSEIN(JOB='R')
 *          EISPACK:
-*           9: ORTHES (compare with DGEHRD)
-*          10: HQR    (compare w/ DHSEQR -- JOB='E')
-*          11: HQR2   (compare w/ DHSEQR(JOB='I') plus DTREVC(JOB='R'))
-*          12: INVIT  (compare with DHSEIN)
+*           9: ORTHES (compare with SGEHRD)
+*          10: HQR    (compare w/ SHSEQR -- JOB='E')
+*          11: HQR2   (compare w/ SHSEQR(JOB='I') plus STREVC(JOB='R'))
+*          12: INVIT  (compare with SHSEIN)
 *          If a character is 'T' or 't', the corresponding routine in
 *          this path is timed.  If the entire line is blank, all the
 *          routines in the path are timed.
@@ -7747,13 +7703,13 @@ C
 *
 *  MAXBS   (input) INTEGER array, dimension( NPARMS )
 *          The values of "MAXB", the size of largest submatrix to be
-*          processed by DLAHQR (EISPACK method), to be tested.
+*          processed by SLAHQR (EISPACK method), to be tested.
 *
 *  LDAS    (input) INTEGER array, dimension( NPARMS )
 *          The values of LDA, the leading dimension of all matrices,
 *          to be tested.
 *
-*  TIMMIN  (input) DOUBLE PRECISION
+*  TIMMIN  (input) REAL
 *          The minimum time a subroutine will be timed.
 *
 *  NOUT    (input) INTEGER
@@ -7764,31 +7720,31 @@ C
 *  ISEED   (input/output) INTEGER array, dimension( 4 )
 *          The random seed used by the random number generator, used
 *          by the test matrix generator.  It is used and updated on
-*          each call to DTIM21
+*          each call to STIM21
 *
-*  A       (workspace) DOUBLE PRECISION array,
+*  A       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS) )
-*          (a) During the testing of DGEHRD, the original matrix to
+*          (a) During the testing of SGEHRD, the original matrix to
 *              be tested.
 *          (b) Later, the Schur form of the original matrix.
 *
-*  H       (workspace) DOUBLE PRECISION array,
+*  H       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS) )
 *          The Hessenberg form of the original matrix.
 *
-*  Z       (workspace) DOUBLE PRECISION array,
+*  Z       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS) )
-*          Various output arrays: from DGEHRD and DHSEQR, the
-*          orthogonal reduction matrices; from DTREVC and DHSEIN,
+*          Various output arrays: from SGEHRD and SHSEQR, the
+*          orthogonal reduction matrices; from STREVC and SHSEIN,
 *          the eigenvector matrices.
 *
-*  W       (workspace) DOUBLE PRECISION array,
+*  W       (workspace) REAL array,
 *                      dimension( 2*max(LDAS) )
 *          Treated as an LDA x 2 matrix whose 1st column holds WR, the
 *          real parts of the eigenvalues, and whose 2nd column holds
 *          WI, the imaginary parts of the eigenvalues of A.
 *
-*  WORK    (workspace) DOUBLE PRECISION array, dimension( LWORK )
+*  WORK    (workspace) REAL array, dimension( LWORK )
 *
 *  LWORK   (input) INTEGER
 *          Number of elements in WORK.  It must be at least
@@ -7803,9 +7759,9 @@ C
 *
 *  IWORK   (workspace) INTEGER array, dimension( 2*max(NN) )
 *          Workspace needed for parameters IFAILL and IFAILR in call
-*          to DHSEIN.
+*          to SHSEIN.
 *
-*  TIMES   (output) DOUBLE PRECISION array,
+*  TIMES   (output) REAL array,
 *                   dimension (LDT1,LDT2,LDT3,NSUBS)
 *          TIMES(i,j,k,l) will be set to the run time (in seconds) for
 *          subroutine l, with N=NN(k), matrix type j, and LDA=LDAS(i),
@@ -7820,7 +7776,7 @@ C
 *  LDT3    (input) INTEGER
 *          The third dimension of TIMES.  LDT3 >= min( 1, NSIZES ).
 *
-*  OPCNTS  (output) DOUBLE PRECISION array,
+*  OPCNTS  (output) REAL array,
 *                   dimension (LDO1,LDO2,LDO3,NSUBS)
 *          OPCNTS(i,j,k,l) will be set to the number of floating-point
 *          operations executed by subroutine l, with N=NN(k), matrix
@@ -7844,17 +7800,17 @@ C
 *     .. Parameters ..
       INTEGER            MAXTYP, NSUBS
       PARAMETER          ( MAXTYP = 8, NSUBS = 12 )
-      DOUBLE PRECISION   ZERO, ONE
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0 )
+      REAL               ZERO, ONE
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0 )
 *     ..
 *     .. Local Scalars ..
       LOGICAL            RUNHQR, RUNHRD, RUNORT, RUNQRE, RUNQRS
       INTEGER            IC, ICONDS, IINFO, IMODE, IN, IPAR, ISUB,
      $                   ITEMP, ITYPE, J, J1, J2, J3, J4, JC, JR, LASTL,
      $                   LASTNL, LDA, LDAMIN, LDH, LDT, LDW, MAXB,
-     $                   MBMAX, MTYPES, N, NB, NBMAX, NMAX, NSBMAX,
-     $                   NSHIFT, NSMAX
-      DOUBLE PRECISION   CONDS, RTULP, RTULPI, S1, S2, TIME, ULP,
+     $                   MBMAX, MTYPES, N, NB, NBMAX, NMAX,
+     $                   NSBMAX, NSHIFT, NSMAX
+      REAL               CONDS, RTULP, RTULPI, S1, S2, TIME, ULP,
      $                   ULPINV, UNTIME
 *     ..
 *     .. Local Arrays ..
@@ -7866,27 +7822,27 @@ C
      $                   KMODE( MAXTYP )
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DLAMCH, DOPLA, DSECND
-      EXTERNAL           DLAMCH, DOPLA, DSECND
+      REAL               SLAMCH, SECOND, SOPLA
+      EXTERNAL           SLAMCH, SECOND, SOPLA
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ATIMIN, DGEHRD, DHSEIN, DHSEQR, DLACPY, DLASET,
-     $                   DLATME, DPRTBE, DTREVC, HQR, HQR2, INVIT,
-     $                   ORTHES, XLAENV
+      EXTERNAL           ATIMIN, HQR, HQR2, INVIT, ORTHES, SGEHRD,
+     $                   SHSEIN, SHSEQR, SLACPY, SLATME, SLASET, SPRTBE,
+     $                   STREVC, XLAENV
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, MAX, MIN, SQRT
+      INTRINSIC          ABS, MAX, MIN, REAL, SQRT
 *     ..
 *     .. Scalars in Common ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     .. Common blocks ..
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. Data statements ..
-      DATA               SUBNAM / 'DGEHRD', 'DHSEQR(E)', 'DHSEQR(S)',
-     $                   'DHSEQR(V)', 'DTREVC(L)', 'DTREVC(R)',
-     $                   'DHSEIN(L)', 'DHSEIN(R)', 'ORTHES', 'HQR',
+      DATA               SUBNAM / 'SGEHRD', 'SHSEQR(E)', 'SHSEQR(S)',
+     $                   'SHSEQR(V)', 'STREVC(L)', 'STREVC(R)',
+     $                   'SHSEIN(L)', 'SHSEIN(R)', 'ORTHES', 'HQR',
      $                   'HQR2', 'INVIT' /
       DATA               INPARM / 2, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1 /
       DATA               PNAMES / 'LDA', 'NB', 'NS', 'MAXB' /
@@ -7903,7 +7859,7 @@ C
 *
 *     Extract the timing request from the input line.
 *
-      CALL ATIMIN( 'DHS', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
+      CALL ATIMIN( 'SHS', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
       IF( INFO.NE.0 )
      $   RETURN
 *
@@ -7948,11 +7904,11 @@ C
          RETURN
       END IF
 *
-*     Check to see whether DGEHRD or DHSEQR must be run.
+*     Check to see whether SGEHRD or SHSEQR must be run.
 *
-*     RUNQRE -- if DHSEQR must be run to get eigenvalues.
-*     RUNQRS -- if DHSEQR must be run to get Schur form.
-*     RUNHRD -- if DGEHRD must be run.
+*     RUNQRE -- if SHSEQR must be run to get eigenvalues.
+*     RUNQRS -- if SHSEQR must be run to get Schur form.
+*     RUNHRD -- if SGEHRD must be run.
 *
       RUNQRS = .FALSE.
       RUNQRE = .FALSE.
@@ -7986,7 +7942,7 @@ C
 *
 *     Various Constants
 *
-      ULP = DLAMCH( 'Epsilon' )*DLAMCH( 'Base' )
+      ULP = SLAMCH( 'Epsilon' )*SLAMCH( 'Base' )
       ULPINV = ONE / ULP
       RTULP = SQRT( ULP )
       RTULPI = ONE / RTULP
@@ -8040,13 +7996,13 @@ C
                   CONDS = RTULPI
                END IF
                ADUMMA( 1 ) = ' '
-               CALL DLATME( N, 'S', ISEED, WORK, IMODE, ULPINV, ONE,
+               CALL SLATME( N, 'S', ISEED, WORK, IMODE, ULPINV, ONE,
      $                      ADUMMA, 'T', 'T', 'T', WORK( N+1 ), 4,
      $                      CONDS, N, N, ONE, A, N, WORK( 2*N+1 ),
      $                      IINFO )
             END IF
 *
-*           Time DGEHRD for each pair NNB(j), LDAS(j)
+*           Time SGEHRD for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 1 ) ) THEN
                DO 110 IPAR = 1, NPARMS
@@ -8067,16 +8023,16 @@ C
                      CALL XLAENV( 2, 2 )
                      CALL XLAENV( 3, NB )
 *
-*                    Time DGEHRD
+*                    Time SGEHRD
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
    90                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N, H, LDA )
+                     CALL SLACPY( 'Full', N, N, A, N, H, LDA )
 *
-                     CALL DGEHRD( N, 1, N, H, LDA, WORK, WORK( N+1 ),
-     $                            LWORK-N, IINFO )
+                     CALL SGEHRD( N, 1, N, H, LDA, WORK,
+     $                            WORK(N+1), LWORK-N, IINFO )
 *
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 1 ), IINFO, N,
@@ -8085,25 +8041,25 @@ C
                         GO TO 610
                      END IF
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 90
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 100 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N, Z, LDA )
   100                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 1 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 1 ) = DOPLA( 'DGEHRD', N,
-     $                  1, N, 0, NB )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 1 ) = SOPLA( 'SGEHRD',
+     $                  N, 1, N, 0, NB )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 1 ) = OPCNTS( LASTNL,
      $                  ITYPE, IN, 1 )
@@ -8114,9 +8070,9 @@ C
                LDH = LDA
             ELSE
                IF( RUNHRD ) THEN
-                  CALL DLACPY( 'Full', N, N, A, N, H, N )
+                  CALL SLACPY( 'Full', N, N, A, N, H, N )
 *
-                  CALL DGEHRD( N, 1, N, H, N, WORK, WORK( N+1 ),
+                  CALL SGEHRD( N, 1, N, H, N, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
@@ -8129,7 +8085,7 @@ C
                END IF
             END IF
 *
-*           Time DHSEQR with JOB='E' for each 4-tuple
+*           Time SHSEQR with JOB='E' for each 4-tuple
 *           NNB(j), NSHFTS(j), MAXBS(j), LDAS(j)
 *
             IF( TIMSUB( 2 ) ) THEN
@@ -8141,15 +8097,15 @@ C
                   CALL XLAENV( 4, NSHIFT )
                   CALL XLAENV( 8, MAXB )
 *
-*                 Time DHSEQR with JOB='E'
+*                 Time SHSEQR with JOB='E'
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   120             CONTINUE
-                  CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
+                  CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
 *
-                  CALL DHSEQR( 'E', 'N', N, 1, N, A, LDA, W, W( LDA+1 ),
+                  CALL SHSEQR( 'E', 'N', N, 1, N, A, LDA, W, W( LDA+1 ),
      $                         Z, LDA, WORK, LWORK, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
@@ -8159,33 +8115,33 @@ C
                      GO TO 610
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 120
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 130 J = 1, IC
-                     CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
   130             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 2 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / DBLE( IC )
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / REAL( IC )
   140          CONTINUE
                LDT = 0
                LDW = LDA
             ELSE
                IF( RUNQRE ) THEN
-                  CALL DLACPY( 'Full', N, N, H, LDH, A, N )
+                  CALL SLACPY( 'Full', N, N, H, LDH, A, N )
 *
-                  CALL DHSEQR( 'E', 'N', N, 1, N, A, N, W, W( N+1 ), Z,
-     $                         N, WORK, LWORK, IINFO )
+                  CALL SHSEQR( 'E', 'N', N, 1, N, A, N, W, W( N+1 ),
+     $                         Z, N, WORK, LWORK, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 2 ), IINFO, N,
@@ -8198,7 +8154,7 @@ C
                END IF
             END IF
 *
-*           Time DHSEQR with JOB='S' for each 4-tuple
+*           Time SHSEQR with JOB='S' for each 4-tuple
 *           NNB(j), NSHFTS(j), MAXBS(j), LDAS(j)
 *
             IF( TIMSUB( 3 ) ) THEN
@@ -8210,15 +8166,15 @@ C
                   CALL XLAENV( 4, NSHIFT )
                   CALL XLAENV( 8, MAXB )
 *
-*                 Time DHSEQR with JOB='S'
+*                 Time SHSEQR with JOB='S'
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   150             CONTINUE
-                  CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
+                  CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
 *
-                  CALL DHSEQR( 'S', 'N', N, 1, N, A, LDA, W, W( LDA+1 ),
+                  CALL SHSEQR( 'S', 'N', N, 1, N, A, LDA, W, W( LDA+1 ),
      $                         Z, LDA, WORK, LWORK, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
@@ -8228,33 +8184,33 @@ C
                      GO TO 610
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 150
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 160 J = 1, IC
-                     CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
   160             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 3 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / DBLE( IC )
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / REAL( IC )
   170          CONTINUE
                LDT = LDA
                LDW = LDA
             ELSE
                IF( RUNQRS ) THEN
-                  CALL DLACPY( 'Full', N, N, H, LDH, A, N )
+                  CALL SLACPY( 'Full', N, N, H, LDH, A, N )
 *
-                  CALL DHSEQR( 'S', 'N', N, 1, N, A, N, W, W( N+1 ), Z,
-     $                         N, WORK, LWORK, IINFO )
+                  CALL SHSEQR( 'S', 'N', N, 1, N, A, N, W, W( N+1 ),
+     $                          Z, N, WORK, LWORK, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 3 ), IINFO, N,
@@ -8267,7 +8223,7 @@ C
                END IF
             END IF
 *
-*           Time DHSEQR with JOB='I' for each 4-tuple
+*           Time SHSEQR with JOB='I' for each 4-tuple
 *           NNB(j), NSHFTS(j), MAXBS(j), LDAS(j)
 *
             IF( TIMSUB( 4 ) ) THEN
@@ -8279,15 +8235,15 @@ C
                   CALL XLAENV( 4, NSHIFT )
                   CALL XLAENV( 8, MAXB )
 *
-*                 Time DHSEQR with JOB='I'
+*                 Time SHSEQR with JOB='I'
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   180             CONTINUE
-                  CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
+                  CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
 *
-                  CALL DHSEQR( 'S', 'I', N, 1, N, A, LDA, W, W( LDA+1 ),
+                  CALL SHSEQR( 'S', 'I', N, 1, N, A, LDA, W, W( LDA+1 ),
      $                         Z, LDA, WORK, LWORK, IINFO )
 *
                   IF( IINFO.NE.0 ) THEN
@@ -8297,30 +8253,30 @@ C
                      GO TO 610
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 180
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 190 J = 1, IC
-                     CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
   190             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 4 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / DBLE( IC )
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / REAL( IC )
   200          CONTINUE
                LDT = LDA
                LDW = LDA
             END IF
 *
-*           Time DTREVC and DHSEIN with various values of LDA
+*           Time STREVC and SHSEIN with various values of LDA
 *
 *           Select All Eigenvectors
 *
@@ -8340,7 +8296,7 @@ C
      $               LASTL = J
   220          CONTINUE
 *
-*              Time DTREVC
+*              Time STREVC
 *
                IF( ( TIMSUB( 5 ) .OR. TIMSUB( 6 ) ) .AND. LASTL.EQ.0 )
      $              THEN
@@ -8362,15 +8318,15 @@ C
                   END IF
                   LDT = LDA
 *
-*                 Time DTREVC for Left Eigenvectors
+*                 Time STREVC for Left Eigenvectors
 *
                   IF( TIMSUB( 5 ) ) THEN
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   270                CONTINUE
 *
-                     CALL DTREVC( 'L', 'A', LLWORK, N, A, LDA, Z, LDA,
+                     CALL STREVC( 'L', 'A', LLWORK, N, A, LDA, Z, LDA,
      $                            Z, LDA, N, ITEMP, WORK, IINFO )
 *
                      IF( IINFO.NE.0 ) THEN
@@ -8379,24 +8335,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 270
 *
-                     TIMES( IPAR, ITYPE, IN, 5 ) = TIME / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / DBLE( IC )
+                     TIMES( IPAR, ITYPE, IN, 5 ) = TIME / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / REAL( IC )
                   END IF
 *
-*                 Time DTREVC for Right Eigenvectors
+*                 Time STREVC for Right Eigenvectors
 *
                   IF( TIMSUB( 6 ) ) THEN
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   280                CONTINUE
-                     CALL DTREVC( 'R', 'A', LLWORK, N, A, LDA, Z, LDA,
+                     CALL STREVC( 'R', 'A', LLWORK, N, A, LDA, Z, LDA,
      $                            Z, LDA, N, ITEMP, WORK, IINFO )
 *
                      IF( IINFO.NE.0 ) THEN
@@ -8405,14 +8361,14 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 280
 *
-                     TIMES( IPAR, ITYPE, IN, 6 ) = TIME / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / DBLE( IC )
+                     TIMES( IPAR, ITYPE, IN, 6 ) = TIME / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / REAL( IC )
                   END IF
                ELSE
                   IF( TIMSUB( 5 ) ) THEN
@@ -8429,7 +8385,7 @@ C
                   END IF
                END IF
 *
-*              Time DHSEIN
+*              Time SHSEIN
 *
                IF( ( TIMSUB( 7 ) .OR. TIMSUB( 8 ) ) .AND. LASTL.EQ.0 )
      $              THEN
@@ -8466,15 +8422,15 @@ C
                   END IF
                   LDW = LDA
 *
-*                 Time DHSEIN for Left Eigenvectors
+*                 Time SHSEIN for Left Eigenvectors
 *
                   IF( TIMSUB( 7 ) ) THEN
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   350                CONTINUE
 *
-                     CALL DHSEIN( 'L', 'Q', 'N', LLWORK, N, H, LDA, W,
+                     CALL SHSEIN( 'L', 'Q', 'N', LLWORK, N, H, LDA, W,
      $                            W( LDA+1 ), Z, LDA, Z, LDA, N, ITEMP,
      $                            WORK, IWORK, IWORK( N+1 ), IINFO )
 *
@@ -8484,25 +8440,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 350
 *
-                     TIMES( IPAR, ITYPE, IN, 7 ) = TIME / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / DBLE( IC )
+                     TIMES( IPAR, ITYPE, IN, 7 ) = TIME / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / REAL( IC )
                   END IF
 *
-*                 Time DHSEIN for Right Eigenvectors
+*                 Time SHSEIN for Right Eigenvectors
 *
                   IF( TIMSUB( 8 ) ) THEN
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   360                CONTINUE
 *
-                     CALL DHSEIN( 'R', 'Q', 'N', LLWORK, N, H, LDA, W,
+                     CALL SHSEIN( 'R', 'Q', 'N', LLWORK, N, H, LDA, W,
      $                            W( LDA+1 ), Z, LDA, Z, LDA, N, ITEMP,
      $                            WORK, IWORK, IWORK( N+1 ), IINFO )
 *
@@ -8512,14 +8468,14 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 360
 *
-                     TIMES( IPAR, ITYPE, IN, 8 ) = TIME / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / DBLE( IC )
+                     TIMES( IPAR, ITYPE, IN, 8 ) = TIME / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / REAL( IC )
                   END IF
                ELSE
                   IF( TIMSUB( 7 ) ) THEN
@@ -8556,7 +8512,7 @@ C
                ELSE
                   CONDS = RTULPI
                END IF
-               CALL DLATME( N, 'S', ISEED, WORK, IMODE, ULPINV, ONE,
+               CALL SLATME( N, 'S', ISEED, WORK, IMODE, ULPINV, ONE,
      $                      ADUMMA, 'T', 'T', 'T', WORK( N+1 ), 4,
      $                      CONDS, N, N, ONE, A, N, WORK( 2*N+1 ),
      $                      IINFO )
@@ -8570,7 +8526,7 @@ C
 *
 *                 If this value of LDA has come up before, just use
 *                 the value previously computed.
-*
+
                   LASTL = 0
                   DO 390 J = 1, IPAR - 1
                      IF( LDA.EQ.LDAS( J ) )
@@ -8583,33 +8539,33 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
 *
   400                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N, H, LDA )
+                     CALL SLACPY( 'Full', N, N, A, N, H, LDA )
 *
                      CALL ORTHES( LDA, N, 1, N, H, WORK )
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 400
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 410 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N, Z, LDA )
   410                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
 *                     OPS1 = ( 20*N**3 - 3*N**2 - 23*N ) / 6 - 17
 *
                      TIMES( IPAR, ITYPE, IN, 9 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 9 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 9 )
@@ -8620,7 +8576,7 @@ C
   420          CONTINUE
             ELSE
                IF( RUNORT ) THEN
-                  CALL DLACPY( 'Full', N, N, A, N, H, N )
+                  CALL SLACPY( 'Full', N, N, A, N, H, N )
 *
                   CALL ORTHES( N, N, 1, N, H, WORK )
 *
@@ -8649,9 +8605,9 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   440                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
 *
                      CALL HQR( LDA, N, 1, N, A, W, W( LDA+1 ), IINFO )
 *
@@ -8661,24 +8617,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 440
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 450 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
   450                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 10 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 10 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 10 )
@@ -8689,7 +8645,7 @@ C
   460          CONTINUE
             ELSE
                IF( RUNHQR ) THEN
-                  CALL DLACPY( 'Full', N, N, A, N, H, N )
+                  CALL SLACPY( 'Full', N, N, A, N, H, N )
 *
                   CALL HQR( N, N, 1, N, A, W, W( N+1 ), IINFO )
 *
@@ -8718,10 +8674,10 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   480                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLASET( 'Full', N, N, ZERO, ONE, Z, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLASET( 'Full', N, N, ZERO, ONE, Z, LDA )
 *
                      CALL HQR2( LDA, N, 1, N, A, W, W( LDA+1 ), Z,
      $                          IINFO )
@@ -8732,24 +8688,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 480
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 490 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
   490                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 11 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 11 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 11 )
@@ -8819,7 +8775,7 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   590                CONTINUE
 *
                      CALL INVIT( LDA, N, H, W, W( LDA+1 ), LLWORK, N,
@@ -8832,20 +8788,20 @@ C
                         INFO = ABS( IINFO )
                         GO TO 610
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 590
 *
-*                    TIME = TIME / DOUBLE PRECISION( IC )
-*                    OPS1 = OPS / DOUBLE PRECISION( IC )
+*                    TIME = TIME / REAL( IC )
+*                    OPS1 = OPS / REAL( IC )
 *                    OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS1
-*                    TIMES( IPAR, ITYPE, IN, 12 ) = DMFLOP( OPS1, TIME,
+*                    TIMES( IPAR, ITYPE, IN, 12 ) = SMFLOP( OPS1, TIME,
 *     $                  IINFO )
 *
-                     TIMES( IPAR, ITYPE, IN, 12 ) = TIME / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / DBLE( IC )
+                     TIMES( IPAR, ITYPE, IN, 12 ) = TIME / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 12 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 12 )
@@ -8864,37 +8820,37 @@ C
 *
       ISUB = 1
       IF( TIMSUB( ISUB ) ) THEN
-         CALL DPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
-     $                INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB, NSHFTS,
-     $                MAXBS, OPCNTS( 1, 1, 1, ISUB ), LDO1, LDO2,
-     $                TIMES( 1, 1, 1, ISUB ), LDT1, LDT2, WORK, LLWORK,
-     $                NOUT )
+         CALL SPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
+     $                INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB,
+     $                NSHFTS, MAXBS, OPCNTS( 1, 1, 1, ISUB ), LDO1,
+     $                LDO2, TIMES( 1, 1, 1, ISUB ), LDT1, LDT2, WORK,
+     $                LLWORK, NOUT )
       END IF
 *
-      DO 630 IN = 1, NPARMS
+      DO 625 IN = 1, NPARMS
          NNB( IN ) = 1
-  630 CONTINUE
+  625 CONTINUE
 *
-      DO 640 ISUB = 2, NSUBS
+      DO 630 ISUB = 2, NSUBS
          IF( TIMSUB( ISUB ) ) THEN
-            CALL DPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
+            CALL SPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
      $                   INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB,
      $                   NSHFTS, MAXBS, OPCNTS( 1, 1, 1, ISUB ), LDO1,
      $                   LDO2, TIMES( 1, 1, 1, ISUB ), LDT1, LDT2, WORK,
      $                   LLWORK, NOUT )
          END IF
-  640 CONTINUE
+  630 CONTINUE
 *
       RETURN
 *
-*     End of DTIM21
+*     End of STIM21
 *
- 9997 FORMAT( ' DTIM21: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
+ 9997 FORMAT( ' STIM21: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
      $      I6, ', ITYPE=', I6, ', IPAR=', I6, ', ISEED=(',
      $      3( I5, ',' ), I5, ')' )
 *
       END
-      SUBROUTINE DTIM22( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
+      SUBROUTINE STIM22( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
      $                   LDAS, TIMMIN, NOUT, ISEED, A, D, E, E2, Z, Z1,
      $                   WORK, LWORK, LLWORK, IWORK, TIMES, LDT1, LDT2,
      $                   LDT3, OPCNTS, LDO1, LDO2, LDO3, INFO )
@@ -8908,13 +8864,13 @@ C
       CHARACTER*80       LINE
       INTEGER            INFO, LDO1, LDO2, LDO3, LDT1, LDT2, LDT3,
      $                   LWORK, NOUT, NPARMS, NSIZES, NTYPES
-      DOUBLE PRECISION   TIMMIN
+      REAL               TIMMIN
 *     ..
 *     .. Array Arguments ..
       LOGICAL            DOTYPE( * ), LLWORK( * )
       INTEGER            ISEED( * ), IWORK( * ), LDAS( * ), NN( * ),
      $                   NNB( * )
-      DOUBLE PRECISION   A( * ), D( * ), E( * ), E2( * ),
+      REAL               A( * ), D( * ), E( * ), E2( * ),
      $                   OPCNTS( LDO1, LDO2, LDO3, * ),
      $                   TIMES( LDT1, LDT2, LDT3, * ), WORK( * ),
      $                   Z( * ), Z1( * )
@@ -8923,7 +8879,7 @@ C
 *  Purpose
 *  =======
 *
-*     DTIM22 times the LAPACK routines for the real symmetric
+*     STIM22 times the LAPACK routines for the real symmetric
 *     eigenvalue problem.
 *
 *     For each N value in NN(1:NSIZES) and .TRUE. value in
@@ -8937,36 +8893,36 @@ C
 *  LINE    (input) CHARACTER*80
 *          On entry, LINE contains the input line which requested
 *          this routine.  This line may contain a subroutine name,
-*          such as DSYTRD, indicating that only routine SSYTRD will
-*          be timed, or it may contain a generic name, such as DST.
+*          such as SSYTRD, indicating that only routine SSYTRD will
+*          be timed, or it may contain a generic name, such as SST.
 *          In this case, the rest of the line is scanned for the
 *          first 23 non-blank characters, corresponding to the eight
 *          combinations of subroutine and options:
 *          LAPACK:
-*          1: DSYTRD
-*          2: DORGTR
-*          3: DORMTR
-*          4: DSTEQR(VECT='N')
-*          5: DSTEQR(VECT='V')
-*          6: DSTERF
-*          7: DPTEQR(VECT='N')
-*          8: DPTEQR(VECT='V')
-*          9: DSTEBZ(RANGE='I')
-*          10: DSTEBZ(RANGE='V')
-*          11: DSTEIN
-*          12: DSTEDC(COMPQ='N')
-*          13: DSTEDC(COMPQ='I')
-*          14: DSTEDC(COMPQ='V')
-*          15: DSTEGR(COMPQ='N')
-*          16: DSTEGR(COMPQ='V')
+*          1: SSYTRD
+*          2: SORGTR
+*          3: SORMTR
+*          4: SSTEQR(VECT='N')
+*          5: SSTEQR(VECT='V')
+*          6: SSTERF
+*          7: SPTEQR(VECT='N')
+*          8: SPTEQR(VECT='V')
+*          9: SSTEBZ(RANGE='I')
+*          10: SSTEBZ(RANGE='V')
+*          11: SSTEIN
+*          12: SSTEDC(COMPQ='N')
+*          13: SSTEDC(COMPQ='I')
+*          14: SSTEDC(COMPQ='V')
+*          15: SSTEGR(COMPQ='N')
+*          16: SSTEGR(COMPQ='V')
 *          EISPACK:
-*          17: TRED1  (compare with DSYTRD)
-*          18: IMTQL1 (compare w/ DSTEQR -- VECT='N')
-*          19: IMTQL2 (compare w/ DSTEQR -- VECT='V')
-*          20: TQLRAT (compare with DSTERF)
-*          21: TRIDIB (compare with DSTEBZ -- RANGE='I')
-*          22: BISECT (compare with DSTEBZ -- RANGE='V')
-*          23: TINVIT (compare with DSTEIN)
+*          17: TRED1  (compare with SSYTRD)
+*          18: IMTQL1 (compare w/ SSTEQR -- VECT='N')
+*          19: IMTQL2 (compare w/ SSTEQR -- VECT='V')
+*          20: TQLRAT (compare with SSTERF)
+*          21: TRIDIB (compare with SSTEBZ -- RANGE='I')
+*          22: BISECT (compare with SSTEBZ -- RANGE='V')
+*          23: TINVIT (compare with SSTEIN)
 *          If a character is 'T' or 't', the corresponding routine in
 *          this path is timed.  If the entire line is blank, all the
 *          routines in the path are timed.
@@ -9009,7 +8965,7 @@ C
 *          The values of LDA, the leading dimension of all matrices,
 *          to be tested.
 *
-*  TIMMIN  (input) DOUBLE PRECISION
+*  TIMMIN  (input) REAL
 *          The minimum time a subroutine will be timed.
 *
 *  NOUT    (input) INTEGER
@@ -9020,31 +8976,31 @@ C
 *  ISEED   (input/output) INTEGER array, dimension( 4 )
 *          The random seed used by the random number generator, used
 *          by the test matrix generator.  It is used and updated on
-*          each call to DTIM22
+*          each call to STIM22
 *
-*  A       (workspace) DOUBLE PRECISION array,
+*  A       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS) )
 *          The original matrix to be tested.
 *
-*  D       (workspace) DOUBLE PRECISION array,
+*  D       (workspace) REAL array,
 *                      dimension( max(NN) )
-*          The diagonal of the tridiagonal generated by DSYTRD/TRED1.
+*          The diagonal of the tridiagonal generated by SSYTRD/TRED1.
 *
-*  E       (workspace) DOUBLE PRECISION array,
+*  E       (workspace) REAL array,
 *                      dimension( max(NN) )
 *          The off-diagonal of the tridiagonal generated by
-*          DSYTRD/TRED1.
+*          SSYTRD/TRED1.
 *
-*  E2      (workspace) DOUBLE PRECISION array,
+*  E2      (workspace) REAL array,
 *                      dimension( max(NN) )
 *          The square of the off-diagonal of the tridiagonal generated
 *          by TRED1.  (Used by TQLRAT.)
 *
-*  Z       (workspace) DOUBLE PRECISION array,
+*  Z       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS) )
 *          Various output arrays.
 *
-*  WORK    (workspace) DOUBLE PRECISION array, dimension( LWORK )
+*  WORK    (workspace) REAL array, dimension( LWORK )
 *
 *  LWORK   (input) INTEGER
 *          Number of elements in WORK.  It must be at least
@@ -9060,7 +9016,7 @@ C
 *  IWORK   (workspace) INTEGER array of dimension
 *          6 + 6*maxNN + 5*maxNN*log2(maxNN)
 *
-*  TIMES   (output) DOUBLE PRECISION array,
+*  TIMES   (output) REAL array,
 *                   dimension (LDT1,LDT2,LDT3,NSUBS)
 *          TIMES(i,j,k,l) will be set to the run time (in seconds) for
 *          subroutine l, with N=NN(k), matrix type j, and LDA=LDAS(i),
@@ -9075,7 +9031,7 @@ C
 *  LDT3    (input) INTEGER
 *          The third dimension of TIMES.  LDT3 >= min( 1, NSIZES ).
 *
-*  OPCNTS  (output) DOUBLE PRECISION array,
+*  OPCNTS  (output) REAL array,
 *                   dimension (LDO1,LDO2,LDO3,NSUBS)
 *          OPCNTS(i,j,k,l) will be set to the number of floating-point
 *          operations executed by subroutine l, with N=NN(k), matrix
@@ -9098,8 +9054,8 @@ C
 *     .. Parameters ..
       INTEGER            MAXTYP, NSUBS
       PARAMETER          ( MAXTYP = 4, NSUBS = 23 )
-      DOUBLE PRECISION   ZERO, ONE, TWO
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0, TWO = 2.0D0 )
+      REAL               ZERO, ONE, TWO
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0, TWO = 2.0E0 )
 *     ..
 *     .. Local Scalars ..
       LOGICAL            RUNTR1, RUNTRD
@@ -9108,7 +9064,7 @@ C
      $                   IPAR, ISUB, ITYPE, IU, J, J1, J2, J3, J4,
      $                   LASTL, LDA, LGN, LIWEDC, LIWEVR, LWEDC, LWEVR,
      $                   M, M11, MM, MMM, MTYPES, N, NANSOK, NB, NSPLIT
-      DOUBLE PRECISION   ABSTOL, EPS1, RLB, RUB, S1, S2, TIME, ULP,
+      REAL               ABSTOL, EPS1, RLB, RUB, S1, S2, TIME, ULP,
      $                   ULPINV, UNTIME, VL, VU
 *     ..
 *     .. Local Arrays ..
@@ -9120,31 +9076,31 @@ C
 *     ..
 *     .. External Functions ..
       INTEGER            ILAENV
-      DOUBLE PRECISION   DLAMCH, DOPLA, DSECND, DOPLA2
-      EXTERNAL           DLAMCH, DOPLA, DSECND, DOPLA2, ILAENV
+      REAL               SECOND, SLAMCH, SOPLA, SOPLA2
+      EXTERNAL           ILAENV, SECOND, SLAMCH, SOPLA, SOPLA2
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ATIMIN, BISECT, DCOPY, DLACPY, DLASET, DLATMS,
-     $                   DORGTR, DORMTR, DPRTBE, DPTEQR, DSTEBZ, DSTEDC,
-     $                   DSTEGR, DSTEIN, DSTEQR, DSTERF, DSYTRD, IMTQL1,
-     $                   IMTQL2, TINVIT, TQLRAT, TRED1, TRIDIB, XLAENV
+      EXTERNAL           ATIMIN, BISECT, IMTQL1, IMTQL2, SCOPY, SLACPY, 
+     $                   SLASET, SLATMS, SORGTR, SORMTR, SPRTBE, SPTEQR, 
+     $                   SSTEBZ, SSTEDC, SSTEGR, SSTEIN, SSTEQR, SSTERF, 
+     $                   SSYTRD, TINVIT, TQLRAT, TRED1, TRIDIB, XLAENV
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, INT, LOG, MAX, MIN
+      INTRINSIC          ABS, INT, LOG, MAX, MIN, REAL
 *     ..
 *     .. Common blocks ..
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. Scalars in Common ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     .. Data statements ..
-      DATA               SUBNAM / 'DSYTRD', 'DORGTR', 'DORMTR',
-     $                   'DSTEQR(N)', 'DSTEQR(V)', 'DSTERF',
-     $                   'DPTEQR(N)', 'DPTEQR(V)', 'DSTEBZ(I)',
-     $                   'DSTEBZ(V)', 'DSTEIN', 'DSTEDC(N)',
-     $                   'DSTEDC(I)', 'DSTEDC(V)', 'DSTEGR(N)',
-     $                   'DSTEGR(V)', 'TRED1', 'IMTQL1', 'IMTQL2',
+      DATA               SUBNAM / 'SSYTRD', 'SORGTR', 'SORMTR',
+     $                   'SSTEQR(N)', 'SSTEQR(V)', 'SSTERF',
+     $                   'SPTEQR(N)', 'SPTEQR(V)', 'SSTEBZ(I)',
+     $                   'SSTEBZ(V)', 'SSTEIN', 'SSTEDC(N)',
+     $                   'SSTEDC(I)', 'SSTEDC(V)', 'SSTEGR(N)',
+     $                   'SSTEGR(V)', 'TRED1', 'IMTQL1', 'IMTQL2',
      $                   'TQLRAT', 'TRIDIB', 'BISECT', 'TINVIT' /
       DATA               INPARM / 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
      $                   1, 1, 1, 1, 1, 1, 1, 1, 1, 1 /
@@ -9156,12 +9112,12 @@ C
 *
 *     Extract the timing request from the input line.
 *
-      CALL ATIMIN( 'DST', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
+      CALL ATIMIN( 'SST', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
 *
-*     Disable timing of DSTEGR if we're non-IEEE-754 compliant.
+*     Disable timing of SSTEGR if we're non-IEEE-754 compliant.
 *
-      NANSOK = ILAENV( 10, 'DSTEGR', ' ', 0, 0, 0, 0 )
-      INFSOK = ILAENV( 11, 'DSTEGR', ' ', 0, 0, 0, 0 )
+      NANSOK = ILAENV( 10, 'SSTEGR', ' ', 0, 0, 0, 0 )
+      INFSOK = ILAENV( 11, 'SSTEGR', ' ', 0, 0, 0, 0 )
       IF( NANSOK.NE.1 .OR. INFSOK.NE.1 )  THEN
          TIMSUB(15) = .FALSE.
          TIMSUB(16) = .FALSE.
@@ -9199,16 +9155,17 @@ C
          RETURN
       END IF
 *
-*     Check to see whether DSYTRD must be run.
+*     Check to see whether SSYTRD must be run.
 *
-*     RUNTRD -- if DSYTRD must be run.
+*     RUNTRD -- if SSYTRD must be run.
 *
       RUNTRD = .FALSE.
       IF( TIMSUB( 4 ) .OR. TIMSUB( 5 ) .OR. TIMSUB( 6 ) .OR.
      $    TIMSUB( 7 ) .OR. TIMSUB( 8 ) .OR. TIMSUB( 9 ) .OR.
      $    TIMSUB( 10 ) .OR. TIMSUB( 11 ) .OR. TIMSUB( 12 ) .OR.
      $    TIMSUB( 13 ) .OR. TIMSUB( 14 ) .OR. TIMSUB( 15 ) .OR.
-     $    TIMSUB( 16 ) )RUNTRD = .TRUE.
+     $    TIMSUB( 16 ) )
+     $    RUNTRD = .TRUE.
 *
 *     Check to see whether TRED1 must be run.
 *
@@ -9217,11 +9174,12 @@ C
       RUNTR1 = .FALSE.
       IF( TIMSUB( 17 ) .OR. TIMSUB( 18 ) .OR. TIMSUB( 19 ) .OR.
      $    TIMSUB( 20 ) .OR. TIMSUB( 21 ) .OR. TIMSUB( 22 ) .OR.
-     $    TIMSUB( 23 ) )RUNTR1 = .TRUE.
+     $    TIMSUB( 23 ) )
+     $    RUNTR1 = .TRUE.
 *
 *     Various Constants
 *
-      ULP = DLAMCH( 'Epsilon' )*DLAMCH( 'Base' )
+      ULP = SLAMCH( 'Epsilon' )*SLAMCH( 'Base' )
       ULPINV = ONE / ULP
       CALL XLAENV( 9, 25 )
 *
@@ -9244,20 +9202,20 @@ C
 *
          N = NN( IN )
          IF( N.GT.0 ) THEN
-            LGN = INT( LOG( DBLE( N ) ) / LOG( TWO ) )
+            LGN = INT( LOG( REAL( N ) ) / LOG( TWO ) )
             IF( 2**LGN.LT.N )
      $         LGN = LGN + 1
             IF( 2**LGN.LT.N )
      $         LGN = LGN + 1
             LWEDC = 1 + 4*N + 2*N*LGN + 3*N**2
             LIWEDC = 6 + 6*N + 5*N*LGN
-            LWEVR = 18*N
-            LIWEVR = 10*N
+            LWEVR = 18*N 
+            LIWEVR = 10*N 
          ELSE
             LWEDC = 8
             LIWEDC = 12
-            LWEVR = 1
-            LIWEVR = 1
+            LWEVR = 1 
+            LIWEVR = 1 
          END IF
 *
 *        Do for each .TRUE. value in DOTYPE:
@@ -9284,11 +9242,11 @@ C
             UPLO = 'L'
             IF( ITYPE.LE.MAXTYP ) THEN
                IMODE = KMODE( ITYPE )
-               CALL DLATMS( N, N, 'S', ISEED, 'S', WORK, IMODE, ULPINV,
+               CALL SLATMS( N, N, 'S', ISEED, 'S', WORK, IMODE, ULPINV,
      $                      ONE, N, N, UPLO, A, N, WORK( N+1 ), IINFO )
             END IF
 *
-*           Time DSYTRD for each pair NNB(j), LDAS(j)
+*           Time SSYTRD for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 1 ) ) THEN
                DO 110 IPAR = 1, NPARMS
@@ -9298,14 +9256,14 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DSYTRD
+*                 Time SSYTRD
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
    90             CONTINUE
-                  CALL DLACPY( UPLO, N, N, A, N, Z, LDA )
-                  CALL DSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
+                  CALL SLACPY( UPLO, N, N, A, N, Z, LDA )
+                  CALL SSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 1 ), IINFO, N,
@@ -9314,30 +9272,30 @@ C
                      GO TO 590
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 90
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 100 J = 1, IC
-                     CALL DLACPY( UPLO, N, N, A, N, Z, LDA )
+                     CALL SLACPY( UPLO, N, N, A, N, Z, LDA )
   100             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 1 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 1 ) = DOPLA( 'DSYTRD', N, 0,
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 1 ) = SOPLA( 'SSYTRD', N, 0,
      $               0, 0, NB )
   110          CONTINUE
             ELSE
                IF( RUNTRD ) THEN
-                  CALL DLACPY( UPLO, N, N, A, N, Z, N )
-                  CALL DSYTRD( UPLO, N, Z, N, D, E, WORK, WORK( N+1 ),
+                  CALL SLACPY( UPLO, N, N, A, N, Z, N )
+                  CALL SSYTRD( UPLO, N, Z, N, D, E, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 1 ), IINFO, N,
@@ -9348,7 +9306,7 @@ C
                END IF
             END IF
 *
-*           Time DORGTR for each pair NNB(j), LDAS(j)
+*           Time SORGTR for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 2 ) ) THEN
                DO 140 IPAR = 1, NPARMS
@@ -9358,17 +9316,17 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DORGTR
+*                 Time SORGTR
 *
-                  CALL DLACPY( UPLO, N, N, A, N, Z, LDA )
-                  CALL DSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
+                  CALL SLACPY( UPLO, N, N, A, N, Z, LDA )
+                  CALL SSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   120             CONTINUE
-                  CALL DLACPY( 'F', N, N, Z, LDA, Z1, LDA )
-                  CALL DORGTR( UPLO, N, Z1, LDA, WORK, WORK( N+1 ),
+                  CALL SLACPY( 'F', N, N, Z, LDA, Z1, LDA )
+                  CALL SORGTR( UPLO, N, Z1, LDA, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 2 ), IINFO, N,
@@ -9377,29 +9335,29 @@ C
                      GO TO 590
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 120
 *
-*                 Subtract the time used in DLACPY
+*                 Subtract the time used in SLACPY
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 130 J = 1, IC
-                     CALL DLACPY( 'F', N, N, Z, LDA, Z1, LDA )
+                     CALL SLACPY( 'F', N, N, Z, LDA, Z1, LDA )
   130             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 2 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 2 ) = DOPLA2( 'DORGTR', UPLO,
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 2 ) = SOPLA2( 'SORGTR', UPLO,
      $               N, N, N, 0, NB )
   140          CONTINUE
             END IF
 *
-*           Time DORMTR for each pair NNB(j), LDAS(j)
+*           Time SORMTR for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 3 ) ) THEN
                DO 170 IPAR = 1, NPARMS
@@ -9409,21 +9367,21 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DORMTR
+*                 Time SORMTR
 *
-                  CALL DLACPY( UPLO, N, N, A, N, Z, LDA )
-                  CALL DSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
+                  CALL SLACPY( UPLO, N, N, A, N, Z, LDA )
+                  CALL SSYTRD( UPLO, N, Z, LDA, D, E, WORK, WORK( N+1 ),
      $                         LWORK-N, IINFO )
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   150             CONTINUE
-                  CALL DCOPY( N, D, 1, WORK( LDA+1 ), 1 )
-                  CALL DCOPY( N-1, E, 1, WORK( 2*LDA+1 ), 1 )
-                  CALL DSTEDC( 'N', N, WORK( LDA+1 ), WORK( 2*LDA+1 ),
+                  CALL SCOPY( N, D, 1, WORK( LDA+1 ), 1 )
+                  CALL SCOPY( N-1, E, 1, WORK( 2*LDA+1 ), 1 )
+                  CALL SSTEDC( 'N', N, WORK( LDA+1 ), WORK( 2*LDA+1 ),
      $                         Z1, LDA, WORK( 3*LDA+1 ), LWEDC, IWORK,
      $                         LIWEDC, IINFO )
-                  CALL DORMTR( 'L', UPLO, 'N', N, N, Z, LDA, WORK, Z1,
+                  CALL SORMTR( 'L', UPLO, 'N', N, N, Z, LDA, WORK, Z1,
      $                         LDA, WORK( N+1 ), LWORK-N, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9997 )SUBNAM( 3 ), IINFO, N,
@@ -9432,34 +9390,34 @@ C
                      GO TO 590
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 150
 *
-*                 Subtract the time used in DCOPY and DSTEDC
+*                 Subtract the time used in SCOPY and SSTEDC
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 160 J = 1, IC
-                     CALL DCOPY( N, D, 1, WORK( LDA+1 ), 1 )
-                     CALL DCOPY( N-1, E, 1, WORK( 2*LDA+1 ), 1 )
-                     CALL DSTEDC( 'N', N, WORK( LDA+1 ),
+                     CALL SCOPY( N, D, 1, WORK( LDA+1 ), 1 )
+                     CALL SCOPY( N-1, E, 1, WORK( 2*LDA+1 ), 1 )
+                     CALL SSTEDC( 'N', N, WORK( LDA+1 ),
      $                            WORK( 2*LDA+1 ), Z1, LDA,
      $                            WORK( 3*LDA+1 ), LWEDC, IWORK, LIWEDC,
      $                            IINFO )
   160             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 3 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 3 ) = DOPLA2( 'DORMTR',
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 3 ) = SOPLA2( 'SORMTR',
      $               UPLO//UPLO, N, N, N, 0, NB )
   170          CONTINUE
             END IF
 *
-*           Time DSTEQR, SSTERF, DPTEQR, SSTEBZ, SSTEIN, SSTEDC, SSTERV
+*           Time SSTEQR, SSTERF, SPTEQR, SSTEBZ, SSTEIN, SSTEDC, SSTERV
 *           for each distinct LDA=LDAS(j)
 *
             IF( TIMSUB( 4 ) .OR. TIMSUB( 5 ) .OR. TIMSUB( 6 ) .OR.
@@ -9480,16 +9438,16 @@ C
   180             CONTINUE
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DSTEQR with VECT='N'
+*                    Time SSTEQR with VECT='N'
 *
                      IF( TIMSUB( 4 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   190                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DSTEQR( 'N', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SSTEQR( 'N', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), IINFO )
                         IF( IINFO.NE.0 ) THEN
                            WRITE( NOUT, FMT = 9997 )SUBNAM( 4 ), IINFO,
@@ -9497,39 +9455,39 @@ C
                            INFO = ABS( IINFO )
                            GO TO 210
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 190
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 200 J = 1, IC
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   200                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 4 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEQR with VECT='V'
+*                    Time SSTEQR with VECT='V'
 *
   210                CONTINUE
                      IF( TIMSUB( 5 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   220                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
-                        CALL DSTEQR( 'V', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
+                        CALL SSTEQR( 'V', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), IINFO )
                         IF( IINFO.NE.0 ) THEN
                            WRITE( NOUT, FMT = 9997 )SUBNAM( 5 ), IINFO,
@@ -9537,68 +9495,68 @@ C
                            INFO = ABS( IINFO )
                            GO TO 240
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 220
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 230 J = 1, IC
-                           CALL DLASET( 'Full', LDA, N, ONE, TWO, Z,
+                           CALL SLASET( 'Full', LDA, N, ONE, TWO, Z,
      $                                  LDA )
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   230                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 5 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTERF
+*                    Time SSTERF
 *
   240                CONTINUE
                      IF( TIMSUB( 6 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   250                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DSTERF( N, WORK, WORK( LDA+1 ), IINFO )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SSTERF( N, WORK, WORK( LDA+1 ), IINFO )
                         IF( IINFO.NE.0 ) THEN
                            WRITE( NOUT, FMT = 9997 )SUBNAM( 6 ), IINFO,
      $                        N, ITYPE, IPAR, IOLDSD
                            INFO = ABS( IINFO )
                            GO TO 270
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 250
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 260 J = 1, IC
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   260                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 6 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DPTEQR with VECT='N'
+*                    Time SPTEQR with VECT='N'
 *
   270                CONTINUE
                      IF( TIMSUB( 7 ) ) THEN
@@ -9613,11 +9571,11 @@ C
                         E2( N ) = ABS( D( N ) ) + ABS( E( N-1 ) )
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   290                   CONTINUE
-                        CALL DCOPY( N, E2, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DPTEQR( 'N', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, E2, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SPTEQR( 'N', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), IINFO )
                         IF( IINFO.NE.0 ) THEN
                            WRITE( NOUT, FMT = 9997 )SUBNAM( 7 ), IINFO,
@@ -9625,28 +9583,28 @@ C
                            INFO = ABS( IINFO )
                            GO TO 310
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 290
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 300 J = 1, IC
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   300                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 7 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DPTEQR with VECT='V'
+*                    Time SPTEQR with VECT='V'
 *
   310                CONTINUE
                      IF( TIMSUB( 8 ) ) THEN
@@ -9661,11 +9619,11 @@ C
                         E2( N ) = ABS( D( N ) ) + ABS( E( N-1 ) )
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   330                   CONTINUE
-                        CALL DCOPY( N, E2, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DPTEQR( 'V', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, E2, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SPTEQR( 'V', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), IINFO )
                         IF( IINFO.NE.0 ) THEN
                            WRITE( NOUT, FMT = 9997 )SUBNAM( 8 ), IINFO,
@@ -9673,28 +9631,28 @@ C
                            INFO = ABS( IINFO )
                            GO TO 350
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 330
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 340 J = 1, IC
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   340                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 8 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEBZ(I)
+*                    Time SSTEBZ(I)
 *
   350                CONTINUE
                      IF( TIMSUB( 9 ) ) THEN
@@ -9703,9 +9661,9 @@ C
                         ABSTOL = ZERO
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   360                   CONTINUE
-                        CALL DSTEBZ( 'I', 'B', N, VL, VU, IL, IU,
+                        CALL SSTEBZ( 'I', 'B', N, VL, VU, IL, IU,
      $                               ABSTOL, D, E, MM, NSPLIT, WORK,
      $                               IWORK, IWORK( LDA+1 ),
      $                               WORK( 2*LDA+1 ), IWORK( 2*LDA+1 ),
@@ -9716,7 +9674,7 @@ C
                            INFO = ABS( IINFO )
                            GO TO 370
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
@@ -9724,11 +9682,11 @@ C
                         UNTIME = ZERO
 *
                         TIMES( IPAR, ITYPE, IN, 9 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEBZ(V)
+*                    Time SSTEBZ(V)
 *
   370                CONTINUE
                      IF( TIMSUB( 10 ) ) THEN
@@ -9750,9 +9708,9 @@ C
                         ABSTOL = ZERO
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   390                   CONTINUE
-                        CALL DSTEBZ( 'V', 'B', N, VL, VU, IL, IU,
+                        CALL SSTEBZ( 'V', 'B', N, VL, VU, IL, IU,
      $                               ABSTOL, D, E, MM, NSPLIT, WORK,
      $                               IWORK, IWORK( LDA+1 ),
      $                               WORK( 2*LDA+1 ), IWORK( 2*LDA+1 ),
@@ -9763,7 +9721,7 @@ C
                            INFO = ABS( IINFO )
                            GO TO 400
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
@@ -9771,19 +9729,19 @@ C
                         UNTIME = ZERO
 *
                         TIMES( IPAR, ITYPE, IN, 10 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEIN
+*                    Time SSTEIN
 *
   400                CONTINUE
                      IF( TIMSUB( 11 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   410                   CONTINUE
-                        CALL DSTEIN( N, D, E, MM, WORK, IWORK,
+                        CALL SSTEIN( N, D, E, MM, WORK, IWORK,
      $                               IWORK( LDA+1 ), Z, LDA,
      $                               WORK( LDA+1 ), IWORK( 2*LDA+1 ),
      $                               IWORK( 3*LDA+1 ), IINFO )
@@ -9793,7 +9751,7 @@ C
                            INFO = ABS( IINFO )
                            GO TO 420
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
@@ -9801,21 +9759,21 @@ C
                         UNTIME = ZERO
 *
                         TIMES( IPAR, ITYPE, IN, 11 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEDC with COMPQ='N'
+*                    Time SSTEDC with COMPQ='N'
 *
   420                CONTINUE
                      IF( TIMSUB( 12 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   430                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DSTEDC( 'N', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SSTEDC( 'N', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), LWEDC, IWORK,
      $                               LIWEDC, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -9824,39 +9782,39 @@ C
                            INFO = ABS( IINFO )
                            GO TO 450
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 430
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 440 J = 1, IC
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   440                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 12 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DSTEDC with COMPQ='I'
+*                    Time SSTEDC with COMPQ='I'
 *
   450                CONTINUE
                      IF( TIMSUB( 13 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   460                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
-                        CALL DSTEDC( 'I', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
+                        CALL SSTEDC( 'I', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), LWEDC, IWORK,
      $                               LIWEDC, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -9865,41 +9823,41 @@ C
                            INFO = ABS( IINFO )
                            GO TO 480
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 460
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 470 J = 1, IC
-                           CALL DLASET( 'Full', LDA, N, ONE, TWO, Z,
+                           CALL SLASET( 'Full', LDA, N, ONE, TWO, Z,
      $                                  LDA )
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   470                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 13 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / REAL( IC )
                      END IF
   480                CONTINUE
 *
-*                    Time DSTEDC with COMPQ='V'
+*                    Time SSTEDC with COMPQ='V'
 *
                      IF( TIMSUB( 14 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   490                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
-                        CALL DSTEDC( 'V', N, WORK, WORK( LDA+1 ), Z,
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SLASET( 'Full', LDA, N, ONE, TWO, Z, LDA )
+                        CALL SSTEDC( 'V', N, WORK, WORK( LDA+1 ), Z,
      $                               LDA, WORK( 2*LDA+1 ), LWEDC, IWORK,
      $                               LIWEDC, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -9908,31 +9866,31 @@ C
                            INFO = ABS( IINFO )
                            GO TO 510
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 490
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 500 J = 1, IC
-                           CALL DLASET( 'Full', LDA, N, ONE, TWO, Z,
+                           CALL SLASET( 'Full', LDA, N, ONE, TWO, Z,
      $                                  LDA )
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   500                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 14 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / REAL( IC )
                      END IF
   510                CONTINUE
 *
-*                    Time DSTEGR with COMPQ='N'
+*                    Time SSTEGR with COMPQ='N'
 *
                      IF( TIMSUB( 15 ) ) THEN
                         ABSTOL = ZERO
@@ -9942,11 +9900,11 @@ C
                         IU = N
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   520                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DSTEGR( 'N', 'A', N, WORK, WORK( LDA+1 ),
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SSTEGR( 'N', 'A', N, WORK, WORK( LDA+1 ),
      $                               VL, VU, IL, IU, ABSTOL, M,
      $                               WORK( 2*LDA+1 ), Z, LDA, IWORK,
      $                               WORK( 3*LDA+1 ), LWEVR,
@@ -9957,31 +9915,31 @@ C
                            INFO = ABS( IINFO )
                            GO TO 540
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 520
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 530 J = 1, IC
-                           CALL DLASET( 'Full', LDA, N, ONE, TWO, Z,
+                           CALL SLASET( 'Full', LDA, N, ONE, TWO, Z,
      $                                  LDA )
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   530                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 15 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / REAL( IC )
                      END IF
   540                CONTINUE
 *
-*                    Time DSTEGR with COMPQ='V'
+*                    Time SSTEGR with COMPQ='V'
 *
                      IF( TIMSUB( 16 ) ) THEN
                         ABSTOL = ZERO
@@ -9991,11 +9949,11 @@ C
                         IU = N
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   550                   CONTINUE
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DSTEGR( 'V', 'A', N, WORK, WORK( LDA+1 ),
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SSTEGR( 'V', 'A', N, WORK, WORK( LDA+1 ),
      $                               VL, VU, IL, IU, ABSTOL, M,
      $                               WORK( 2*LDA+1 ), Z, LDA, IWORK,
      $                               WORK( 3*LDA+1 ), LWEVR,
@@ -10006,27 +9964,27 @@ C
                            INFO = ABS( IINFO )
                            GO TO 570
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 550
 *
-*                       Subtract the time used in DCOPY.
+*                       Subtract the time used in SCOPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 560 J = 1, IC
-                           CALL DLASET( 'Full', LDA, N, ONE, TWO, Z,
+                           CALL SLASET( 'Full', LDA, N, ONE, TWO, Z,
      $                                  LDA )
-                           CALL DCOPY( N, D, 1, WORK, 1 )
-                           CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                           CALL SCOPY( N, D, 1, WORK, 1 )
+                           CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   560                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 16 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / REAL( IC )
                      END IF
   570                CONTINUE
 *
@@ -10144,28 +10102,28 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   610                CONTINUE
-                     CALL DLACPY( 'L', N, N, A, N, Z, LDA )
+                     CALL SLACPY( 'L', N, N, A, N, Z, LDA )
                      CALL TRED1( LDA, N, Z, D, E, E2 )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 610
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 620 J = 1, IC
-                        CALL DLACPY( 'L', N, N, A, N, Z, LDA )
+                        CALL SLACPY( 'L', N, N, A, N, Z, LDA )
   620                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 17 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 17 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 17 )
@@ -10175,7 +10133,7 @@ C
   630          CONTINUE
             ELSE
                IF( RUNTR1 ) THEN
-                  CALL DLACPY( 'L', N, N, A, N, Z, LDA )
+                  CALL SLACPY( 'L', N, N, A, N, Z, LDA )
                   CALL TRED1( LDA, N, Z, D, E, E2 )
                END IF
             END IF
@@ -10201,10 +10159,10 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   650                CONTINUE
-                     CALL DCOPY( N, D, 1, WORK, 1 )
-                     CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                     CALL SCOPY( N, D, 1, WORK, 1 )
+                     CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
                      CALL IMTQL1( N, WORK, WORK( LDA+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 18 ), IINFO,
@@ -10212,25 +10170,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 680
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 650
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 660 J = 1, IC
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
   660                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 18 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 18 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 18 )
@@ -10262,11 +10220,11 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   700                CONTINUE
-                     CALL DCOPY( N, D, 1, WORK, 1 )
-                     CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                     CALL DLASET( 'Full', N, N, ONE, TWO, Z, LDA )
+                     CALL SCOPY( N, D, 1, WORK, 1 )
+                     CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                     CALL SLASET( 'Full', N, N, ONE, TWO, Z, LDA )
                      CALL IMTQL2( LDA, N, WORK, WORK( LDA+1 ), Z,
      $                            IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -10275,26 +10233,26 @@ C
                         INFO = ABS( IINFO )
                         GO TO 730
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 700
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 710 J = 1, IC
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DLASET( 'Full', N, N, ONE, TWO, Z, LDA )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SLASET( 'Full', N, N, ONE, TWO, Z, LDA )
   710                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 19 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 19 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 19 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 19 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 19 )
@@ -10326,10 +10284,10 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   750                CONTINUE
-                     CALL DCOPY( N, D, 1, WORK, 1 )
-                     CALL DCOPY( N-1, E2, 1, WORK( LDA+1 ), 1 )
+                     CALL SCOPY( N, D, 1, WORK, 1 )
+                     CALL SCOPY( N-1, E2, 1, WORK( LDA+1 ), 1 )
                      CALL TQLRAT( N, WORK, WORK( LDA+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 20 ), IINFO,
@@ -10337,25 +10295,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 780
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 750
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 760 J = 1, IC
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E2, 1, WORK( LDA+1 ), 1 )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E2, 1, WORK( LDA+1 ), 1 )
   760                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 20 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 20 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 20 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 20 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 20 )
@@ -10392,11 +10350,11 @@ C
                      RUB = ZERO
                      M11 = 1
                      MM = N
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   800                CONTINUE
-                     CALL DCOPY( N, D, 1, WORK, 1 )
-                     CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                     CALL DCOPY( N-1, E2, 1, WORK( 2*LDA+1 ), 1 )
+                     CALL SCOPY( N, D, 1, WORK, 1 )
+                     CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                     CALL SCOPY( N-1, E2, 1, WORK( 2*LDA+1 ), 1 )
                      CALL TRIDIB( N, EPS1, WORK( 1 ), WORK( LDA+1 ),
      $                            WORK( 2*LDA+1 ), RLB, RUB, M11, MM,
      $                            WORK( 3*LDA+1 ), IWORK, IINFO,
@@ -10407,26 +10365,26 @@ C
                         INFO = ABS( IINFO )
                         GO TO 830
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 800
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 810 J = 1, IC
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DCOPY( N-1, E2, 1, WORK( 2*LDA+1 ), 1 )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N-1, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SCOPY( N-1, E2, 1, WORK( 2*LDA+1 ), 1 )
   810                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 21 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 21 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 21 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 21 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 21 )
@@ -10471,11 +10429,11 @@ C
                      EPS1 = ZERO
                      MM = N
                      MMM = 0
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   860                CONTINUE
-                     CALL DCOPY( N, D, 1, WORK, 1 )
-                     CALL DCOPY( N, E, 1, WORK( LDA+1 ), 1 )
-                     CALL DCOPY( N, E2, 1, WORK( 2*LDA+1 ), 1 )
+                     CALL SCOPY( N, D, 1, WORK, 1 )
+                     CALL SCOPY( N, E, 1, WORK( LDA+1 ), 1 )
+                     CALL SCOPY( N, E2, 1, WORK( 2*LDA+1 ), 1 )
                      CALL BISECT( N, EPS1, WORK( 1 ), WORK( LDA+1 ),
      $                            WORK( 2*LDA+1 ), VL, VU, MM, MMM,
      $                            WORK( 3*LDA+1 ), IWORK, IINFO,
@@ -10486,26 +10444,26 @@ C
                         INFO = ABS( IINFO )
                         GO TO 890
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 860
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 870 J = 1, IC
-                        CALL DCOPY( N, D, 1, WORK, 1 )
-                        CALL DCOPY( N, E, 1, WORK( LDA+1 ), 1 )
-                        CALL DCOPY( N, E2, 1, WORK( 2*LDA+1 ), 1 )
+                        CALL SCOPY( N, D, 1, WORK, 1 )
+                        CALL SCOPY( N, E, 1, WORK( LDA+1 ), 1 )
+                        CALL SCOPY( N, E2, 1, WORK( 2*LDA+1 ), 1 )
   870                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 22 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 22 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 22 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 22 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 22 )
@@ -10519,7 +10477,7 @@ C
 *
   890       CONTINUE
             IF( TIMSUB( 23 ) ) THEN
-               CALL DCOPY( N, WORK( 3*LDA+1 ), 1, WORK( 1 ), 1 )
+               CALL SCOPY( N, WORK( 3*LDA+1 ), 1, WORK( 1 ), 1 )
                DO 920 IPAR = 1, NPARMS
                   LDA = LDAS( IPAR )
 *
@@ -10538,7 +10496,7 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   910                CONTINUE
                      CALL TINVIT( LDA, N, D, E, E2, MMM, WORK, IWORK, Z,
      $                            IINFO, WORK( LDA+1 ), WORK( 2*LDA+1 ),
@@ -10550,7 +10508,7 @@ C
                         INFO = ABS( IINFO )
                         GO TO 930
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
@@ -10558,8 +10516,8 @@ C
                      UNTIME = ZERO
 *
                      TIMES( IPAR, ITYPE, IN, 23 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 23 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 23 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 23 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 23 )
@@ -10578,7 +10536,7 @@ C
 *
       DO 950 ISUB = 1, NSUBS
          IF( TIMSUB( ISUB ) ) THEN
-            CALL DPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
+            CALL SPRTBE( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
      $                   INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB,
      $                   IDUMMA, IDUMMA, OPCNTS( 1, 1, 1, ISUB ), LDO1,
      $                   LDO2, TIMES( 1, 1, 1, ISUB ), LDT1, LDT2, WORK,
@@ -10586,16 +10544,16 @@ C
          END IF
   950 CONTINUE
 *
- 9997 FORMAT( ' DTIM22: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
+ 9997 FORMAT( ' STIM22: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
      $      I6, ', ITYPE=', I6, ', IPAR=', I6, ', ISEED=(',
      $      3( I5, ',' ), I5, ')' )
 *
       RETURN
 *
-*     End of DTIM22
+*     End of STIM22
 *
       END
-      SUBROUTINE DTIM26( LINE, NSIZES, NN, MM, NTYPES, DOTYPE, NPARMS,
+      SUBROUTINE STIM26( LINE, NSIZES, NN, MM, NTYPES, DOTYPE, NPARMS,
      $                   NNB, LDAS, TIMMIN, NOUT, ISEED, A, H, U, VT, D,
      $                   E, TAUP, TAUQ, WORK, LWORK, IWORK, LLWORK,
      $                   TIMES, LDT1, LDT2, LDT3, OPCNTS, LDO1, LDO2,
@@ -10610,13 +10568,13 @@ C
       CHARACTER*80       LINE
       INTEGER            INFO, LDO1, LDO2, LDO3, LDT1, LDT2, LDT3,
      $                   LWORK, NOUT, NPARMS, NSIZES, NTYPES
-      DOUBLE PRECISION   TIMMIN
+      REAL               TIMMIN
 *     ..
 *     .. Array Arguments ..
       LOGICAL            DOTYPE( * ), LLWORK( * )
       INTEGER            ISEED( * ), IWORK( * ), LDAS( * ), MM( * ),
      $                   NN( * ), NNB( * )
-      DOUBLE PRECISION   A( * ), D( * ), E( * ), H( * ),
+      REAL               A( * ), D( * ), E( * ), H( * ),
      $                   OPCNTS( LDO1, LDO2, LDO3, * ), TAUP( * ),
      $                   TAUQ( * ), TIMES( LDT1, LDT2, LDT3, * ),
      $                   U( * ), VT( * ), WORK( * )
@@ -10625,7 +10583,7 @@ C
 *  Purpose
 *  =======
 *
-*     DTIM26 times the LAPACK routines for the DOUBLE PRECISION
+*     STIM26 times the LAPACK routines for the REAL
 *     singular value decomposition.
 *
 *     For each N value in NN(1:NSIZES), M value in MM(1:NSIZES),
@@ -10639,65 +10597,65 @@ C
 *  LINE    (input) CHARACTER*80
 *          On entry, LINE contains the input line which requested
 *          this routine.  This line may contain a subroutine name,
-*          such as DGEBRD, indicating that only routine SGEBRD will
-*          be timed, or it may contain a generic name, such as DBD.
+*          such as SGEBRD, indicating that only routine SGEBRD will
+*          be timed, or it may contain a generic name, such as SBD.
 *          In this case, the rest of the line is scanned for the
 *          first 11 non-blank characters, corresponding to the eleven
 *          combinations of subroutine and options:
 *          LAPACK:
-*           1: DGEBRD
-*              (labeled DGEBRD in the output)
-*           2: DBDSQR (singular values only)
-*              (labeled DBDSQR in the output)
-*           3: DBDSQR (singular values and left singular vectors;
+*           1: SGEBRD
+*              (labeled SGEBRD in the output)
+*           2: SBDSQR (singular values only)
+*              (labeled SBDSQR in the output)
+*           3: SBDSQR (singular values and left singular vectors;
 *                      assume original matrix M by N)
-*              (labeled DBDSQR(L) in the output)
-*           4: DBDSQR (singular values and right singular vectors;
+*              (labeled SBDSQR(L) in the output)
+*           4: SBDSQR (singular values and right singular vectors;
 *                      assume original matrix M by N)
-*              (labeled DBDSQR(R) in the output)
-*           5: DBDSQR (singular values and left and right singular
+*              (labeled SBDSQR(R) in the output)
+*           5: SBDSQR (singular values and left and right singular
 *                      vectors; assume original matrix M by N)
-*              (labeled DBDSQR(B) in the output)
-*           6: DBDSQR (singular value and multiply square MIN(M,N)
+*              (labeled SBDSQR(B) in the output)
+*           6: SBDSQR (singular value and multiply square MIN(M,N)
 *                      matrix by transpose of left singular vectors)
-*              (labeled DBDSQR(V) in the output)
-*           7: DGEBRD+DBDSQR (singular values only)
+*              (labeled SBDSQR(V) in the output)
+*           7: SGEBRD+SBDSQR (singular values only)
 *              (labeled LAPSVD in the output)
-*           8: DGEBRD+DORGBR+DBDSQR(L) (singular values and min(M,N)
+*           8: SGEBRD+SORGBR+SBDSQR(L) (singular values and min(M,N)
 *                                       left singular vectors)
 *              (labeled LAPSVD(l) in the output)
-*           9: DGEBRD+DORGBR+DBDSQR(L) (singular values and M left
+*           9: SGEBRD+SORGBR+SBDSQR(L) (singular values and M left
 *                                       singular vectors)
 *              (labeled LAPSVD(L) in the output)
-*          10: DGEBRD+DORGBR+DBDSQR(R) (singular values and N right
+*          10: SGEBRD+SORGBR+SBDSQR(R) (singular values and N right
 *                                       singular vectors)
 *              (labeled LAPSVD(R) in the output)
-*          11: DGEBRD+DORGBR+DBDSQR(B) (singular values and min(M,N)
+*          11: SGEBRD+SORGBR+SBDSQR(B) (singular values and min(M,N)
 *                                       left singular vectors and N
 *                                       right singular vectors)
 *              (labeled LAPSVD(B) in the output)
-*          12: DBDSDC (singular values and left and right singular
+*          12: SBDSDC (singular values and left and right singular
 *                      vectors; assume original matrix min(M,N) by
 *                      min(M,N))
-*              (labeled DBDSDC(B) in the output)
-*          13: DGESDD (singular values and min(M,N) left singular
+*              (labeled SBDSDC(B) in the output)
+*          13: SGESDD (singular values and min(M,N) left singular
 *                      vectors and N right singular vectors if M>=N,
 *                      singular values and M left singular vectors
 *                      and min(M,N) right singular vectors otherwise.)
-*              (labeled DGESDD(B) in the output)
+*              (labeled SGESDD(B) in the output)
 *          LINPACK:
-*          14: DSVDC (singular values only) (comparable to 7 above)
+*          14: SSVDC (singular values only) (comparable to 7 above)
 *              (labeled LINSVD in the output)
-*          15: DSVDC (singular values and min(M,N) left singular
+*          15: SSVDC (singular values and min(M,N) left singular
 *                     vectors) (comparable to 8 above)
 *              (labeled LINSVD(l) in the output)
-*          16: DSVDC (singular values and M left singular vectors)
+*          16: SSVDC (singular values and M left singular vectors)
 *                     (comparable to 9 above)
 *              (labeled LINSVD(L) in the output)
-*          17: DSVDC (singular values and N right singular vectors)
+*          17: SSVDC (singular values and N right singular vectors)
 *                     (comparable to 10 above)
 *              (labeled LINSVD(R) in the output)
-*          18: DSVDC (singular values and min(M,N) left singular
+*          18: SSVDC (singular values and min(M,N) left singular
 *                     vectors and N right singular vectors)
 *                     (comparable to 11 above)
 *              (labeled LINSVD(B) in the output)
@@ -10758,7 +10716,7 @@ C
 *          The values of LDA, the leading dimension of all matrices,
 *          to be tested.
 *
-*  TIMMIN  (input) DOUBLE PRECISION
+*  TIMMIN  (input) REAL
 *          The minimum time a subroutine will be timed.
 *
 *  NOUT    (input) INTEGER
@@ -10769,42 +10727,42 @@ C
 *  ISEED   (input/output) INTEGER array, dimension( 4 )
 *          The random seed used by the random number generator, used
 *          by the test matrix generator.  It is used and updated on
-*          each call to DTIM26.
+*          each call to STIM26.
 *
-*  A       (workspace) DOUBLE PRECISION array,
+*  A       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS))
-*          During the testing of DGEBRD, the original dense matrix.
+*          During the testing of SGEBRD, the original dense matrix.
 *
-*  H       (workspace) DOUBLE PRECISION array,
+*  H       (workspace) REAL array,
 *                      dimension( max(NN)*max(LDAS))
 *          The Householder vectors used to reduce A to bidiagonal
-*          form (as returned by DGEBD2.)
+*          form (as returned by SGEBD2.)
 *
-*  U       (workspace) DOUBLE PRECISION array,
+*  U       (workspace) REAL array,
 *                      dimension( max(NN,MM)*max(LDAS) )
 *          The left singular vectors of the original matrix.
 *
-*  VT      (workspace) DOUBLE PRECISION array,
+*  VT      (workspace) REAL array,
 *                      dimension( max(NN,MM)*max(LDAS) )
 *          The right singular vectors of the original matrix.
 *
-*  D       (workspace) DOUBLE PRECISION array, dimension( max(NN,MM) )
+*  D       (workspace) REAL array, dimension( max(NN,MM) )
 *          Diagonal entries of bidiagonal matrix to which A
 *          is reduced.
 *
-*  E       (workspace) DOUBLE PRECISION array, dimension( max(NN,MM) )
+*  E       (workspace) REAL array, dimension( max(NN,MM) )
 *          Offdiagonal entries of bidiagonal matrix to which A
 *          is reduced.
 *
-*  TAUP    (workspace) DOUBLE PRECISION array, dimension( max(NN,MM) )
+*  TAUP    (workspace) REAL array, dimension( max(NN,MM) )
 *          The coefficients for the Householder transformations
 *          applied on the right to reduce A to bidiagonal form.
 *
-*  TAUQ    (workspace) DOUBLE PRECISION array, dimension( max(NN,MM) )
+*  TAUQ    (workspace) REAL array, dimension( max(NN,MM) )
 *          The coefficients for the Householder transformations
 *          applied on the left to reduce A to bidiagonal form.
 *
-*  WORK    (workspace) DOUBLE PRECISION array, dimension( LWORK )
+*  WORK    (workspace) REAL array, dimension( LWORK )
 *
 *  LWORK   (input) INTEGER
 *          Number of elements in WORK. Must be at least
@@ -10814,7 +10772,7 @@ C
 *
 *  LLWORK  (workspace) LOGICAL array, dimension( NPARMS ),
 *
-*  TIMES   (output) DOUBLE PRECISION array,
+*  TIMES   (output) REAL array,
 *                   dimension (LDT1,LDT2,LDT3,NSUBS)
 *          TIMES(i,j,k,l) will be set to the run time (in seconds) for
 *          subroutine/path l, with N=NN(k), M=MM(k), matrix type j,
@@ -10829,7 +10787,7 @@ C
 *  LDT3    (input) INTEGER
 *          The third dimension of TIMES.  LDT3 >= min( 1, NSIZES ).
 *
-*  OPCNTS  (output) DOUBLE PRECISION array,
+*  OPCNTS  (output) REAL array,
 *                   dimension (LDO1,LDO2,LDO3,NSUBS)
 *          OPCNTS(i,j,k,l) will be set to the number of floating-point
 *          operations executed by subroutine/path l, with N=NN(k),
@@ -10852,16 +10810,16 @@ C
 *     .. Parameters ..
       INTEGER            MAXTYP, NSUBS
       PARAMETER          ( MAXTYP = 5, NSUBS = 18 )
-      DOUBLE PRECISION   ZERO, ONE, TWO
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0, TWO = 2.0D0 )
+      REAL               ZERO, ONE, TWO
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0, TWO = 2.0E0 )
 *     ..
 *     .. Local Scalars ..
       LOGICAL            RUNBRD, TRNBRD
       CHARACTER          UPLO
-      INTEGER            IC, IINFO, IMODE, IN, IPAR, ISUB, ITYPE, J, J1,
-     $                   J2, J3, J4, KU, KVT, LASTNL, LDA, LDH, M,
-     $                   MINMN, MTYPES, N, NB
-      DOUBLE PRECISION   CONDS, ESUM, S1, S2, TIME, ULP, ULPINV, UNTIME
+      INTEGER            IC, IINFO, IMODE, IN, IPAR, ISUB, ITYPE,
+     $                   J, J1, J2, J3, J4, KU, KVT, LASTNL, LDA,
+     $                   LDH, M, MINMN, MTYPES, N, NB
+      REAL               CONDS, ESUM, S1, S2, TIME, ULP, ULPINV, UNTIME
 *     ..
 *     .. Local Arrays ..
       LOGICAL            TIMSUB( NSUBS )
@@ -10869,32 +10827,35 @@ C
       CHARACTER*9        SUBNAM( NSUBS )
       INTEGER            INPARM( NSUBS ), IOLDSD( 4 ), JDUM( 1 ),
      $                   KMODE( 3 )
-      DOUBLE PRECISION   DUM( 1 )
+      REAL               DUM( 1 )
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DASUM, DLAMCH, DLARND, DOPLA, DSECND, DOPLA2
-      EXTERNAL           DASUM, DLAMCH, DLARND, DOPLA, DSECND, DOPLA2
+      REAL               SECOND, SASUM, SLAMCH, SLARND,
+     $                   SOPLA, SOPLA2
+      EXTERNAL           SECOND, SASUM, SLAMCH, SLARND,
+     $                   SOPLA, SOPLA2
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ATIMIN, DBDSDC, DBDSQR, DCOPY, DGEBRD, DGESDD,
-     $                   DLACPY, DLASET, DLATMR, DLATMS, DORGBR, DPRTBV,
-     $                   DSVDC, XLAENV
+      EXTERNAL           SBDSDC, SBDSQR, SCOPY, SGEBRD,
+     $                   SGESDD, SLACPY, SLASET, SLATMR,
+     $                   SLATMS, SORGBR, SPRTBV, SSVDC, 
+     $                   ATIMIN, XLAENV
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, EXP, LOG, MAX, MIN
+      INTRINSIC          REAL, ABS, EXP, LOG, MAX, MIN
 *     ..
 *     .. Common blocks ..
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. Scalars in Common ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     .. Data statements ..
-      DATA               SUBNAM / 'DGEBRD', 'DBDSQR', 'DBDSQR(L)',
-     $                   'DBDSQR(R)', 'DBDSQR(B)', 'DBDSQR(V)',
+      DATA               SUBNAM / 'SGEBRD', 'SBDSQR', 'SBDSQR(L)',
+     $                   'SBDSQR(R)', 'SBDSQR(B)', 'SBDSQR(V)',
      $                   'LAPSVD', 'LAPSVD(l)', 'LAPSVD(L)',
-     $                   'LAPSVD(R)', 'LAPSVD(B)', 'DBDSDC(B)',
-     $                   'DGESDD(B)', 'LINSVD', 'LINSVD(l)',
+     $                   'LAPSVD(R)', 'LAPSVD(B)', 'SBDSDC(B)',
+     $                   'SGESDD(B)', 'LINSVD', 'LINSVD(l)',
      $                   'LINSVD(L)', 'LINSVD(R)', 'LINSVD(B)' /
       DATA               INPARM / 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 1, 2,
      $                   1, 1, 1, 1, 1 /
@@ -10906,7 +10867,7 @@ C
 *
 *     Extract the timing request from the input line.
 *
-      CALL ATIMIN( 'DBD', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
+      CALL ATIMIN( 'SBD', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
       IF( INFO.NE.0 )
      $   RETURN
 *
@@ -10930,10 +10891,10 @@ C
    10    CONTINUE
    20 CONTINUE
 *
-*     Check to see whether DGEBRD must be run.
+*     Check to see whether SGEBRD must be run.
 *
-*     RUNBRD -- if DGEBRD must be run without timing.
-*     TRNBRD -- if DGEBRD must be run with timing.
+*     RUNBRD -- if SGEBRD must be run without timing.
+*     TRNBRD -- if SGEBRD must be run with timing.
 *
       RUNBRD = .FALSE.
       TRNBRD = .FALSE.
@@ -10946,7 +10907,7 @@ C
 *
 *     Various Constants
 *
-      ULP = DLAMCH( 'Epsilon' )*DLAMCH( 'Base' )
+      ULP = SLAMCH( 'Epsilon' )*SLAMCH( 'Base' )
       ULPINV = ONE / ULP
       CALL XLAENV( 9, 25 )
 *
@@ -11004,37 +10965,37 @@ C
             IF( ITYPE.LE.MAXTYP ) THEN
                IF( ITYPE.GE.1 .AND. ITYPE.LE.3 ) THEN
                   IMODE = KMODE( ITYPE )
-                  CALL DLATMS( M, N, 'U', ISEED, 'N', D, IMODE, ULPINV,
+                  CALL SLATMS( M, N, 'U', ISEED, 'N', D, IMODE, ULPINV,
      $                         ONE, M, N, 'N', A, M, WORK, INFO )
                ELSE IF( ITYPE.GE.4 .AND. ITYPE.LE.5 ) THEN
                   IF( ITYPE.EQ.4 )
      $               CONDS = -ONE
                   IF( ITYPE.EQ.5 )
      $               CONDS = ULP
-                  CALL DLATMR( M, N, 'S', ISEED, 'N', D, 6, ZERO, ONE,
+                  CALL SLATMR( M, N, 'S', ISEED, 'N', D, 6, ZERO, ONE,
      $                         'T', 'N', D, 0, ONE, D, 0, ONE, 'N',
      $                         JDUM, M, N, ZERO, CONDS, 'N', A, M, JDUM,
      $                         INFO )
                   IF( ITYPE.EQ.5 ) THEN
                      CONDS = -TWO*LOG( ULP )
                      DO 80 J = 1, ( MINMN-1 )*M + MINMN, M + 1
-                        A( J ) = EXP( CONDS*DLARND( 1, ISEED ) )
+                        A( J ) = EXP( CONDS*SLARND( 1, ISEED ) )
    80                CONTINUE
                      IF( M.GE.N ) THEN
                         DO 90 J = M + 1, ( MINMN-1 )*M + MINMN - 1,
      $                          M + 1
-                           A( J ) = EXP( CONDS*DLARND( 1, ISEED ) )
+                           A( J ) = EXP( CONDS*SLARND( 1, ISEED ) )
    90                   CONTINUE
                      ELSE
                         DO 100 J = 2, ( MINMN-2 )*M + MINMN, M + 1
-                           A( J ) = EXP( CONDS*DLARND( 1, ISEED ) )
+                           A( J ) = EXP( CONDS*SLARND( 1, ISEED ) )
   100                   CONTINUE
                      END IF
                   END IF
                END IF
             END IF
 *
-*           Time DGEBRD for each pair NNB(j), LDAS(j)
+*           Time SGEBRD for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 1 ) .OR. TRNBRD ) THEN
                DO 130 IPAR = 1, NPARMS
@@ -11044,14 +11005,14 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGEBRD
+*                 Time SGEBRD
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   110             CONTINUE
-                  CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                  CALL DGEBRD( M, N, H, LDA, D, E, TAUQ, TAUP, WORK,
+                  CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                  CALL SGEBRD( M, N, H, LDA, D, E, TAUQ, TAUP, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 1 ), IINFO, M, N,
@@ -11060,31 +11021,31 @@ C
                      GO TO 740
                   END IF
 *
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 110
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 120 J = 1, IC
-                     CALL DLACPY( 'Full', M, N, A, M, U, LDA )
+                     CALL SLACPY( 'Full', M, N, A, M, U, LDA )
   120             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 1 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 1 ) = DOPLA( 'DGEBRD', M, N,
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 1 ) = SOPLA( 'SGEBRD', M, N,
      $               0, 0, NB )
   130          CONTINUE
                LDH = LDA
             ELSE
                IF( RUNBRD ) THEN
-                  CALL DLACPY( 'Full', M, N, A, M, H, M )
-                  CALL DGEBRD( M, N, H, M, D, E, TAUQ, TAUP, WORK,
+                  CALL SLACPY( 'Full', M, N, A, M, H, M )
+                  CALL SGEBRD( M, N, H, M, D, E, TAUQ, TAUP, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 1 ), IINFO, M, N,
@@ -11096,7 +11057,7 @@ C
                END IF
             END IF
 *
-*           Time DBDSQR (singular values only) for each pair
+*           Time SBDSQR (singular values only) for each pair
 *           NNB(j), LDAS(j)
 *
             IF( TIMSUB( 2 ) .OR. TIMSUB( 7 ) ) THEN
@@ -11115,15 +11076,15 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSQR (singular values only)
+*                    Time SBDSQR (singular values only)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   150                CONTINUE
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSQR( UPLO, MINMN, 0, 0, 0, WORK,
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSQR( UPLO, MINMN, 0, 0, 0, WORK,
      $                            WORK( MINMN+1 ), VT, LDA, U, LDA, U,
      $                            LDA, WORK( 2*MINMN+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -11132,25 +11093,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 150
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 160 J = 1, IC
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   160                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 2 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11162,7 +11123,7 @@ C
   170          CONTINUE
             END IF
 *
-*           Time DBDSQR (singular values and left singular vectors,
+*           Time SBDSQR (singular values and left singular vectors,
 *           assume original matrix square) for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 3 ) .OR. TIMSUB( 8 ) .OR. TIMSUB( 9 ) ) THEN
@@ -11181,17 +11142,17 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSQR (singular values and left singular
+*                    Time SBDSQR (singular values and left singular
 *                    vectors, assume original matrix square)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   190                CONTINUE
-                     CALL DLASET( 'Full', M, MINMN, ONE, TWO, U, LDA )
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSQR( UPLO, MINMN, 0, M, 0, WORK,
+                     CALL SLASET( 'Full', M, MINMN, ONE, TWO, U, LDA )
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSQR( UPLO, MINMN, 0, M, 0, WORK,
      $                            WORK( MINMN+1 ), VT, LDA, U, LDA, U,
      $                            LDA, WORK( 2*MINMN+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -11200,27 +11161,27 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 190
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 200 J = 1, IC
-                        CALL DLASET( 'Full', M, MINMN, ONE, TWO, U,
+                        CALL SLASET( 'Full', M, MINMN, ONE, TWO, U,
      $                               LDA )
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   200                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 3 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11232,7 +11193,7 @@ C
   210          CONTINUE
             END IF
 *
-*           Time DBDSQR (singular values and right singular vectors,
+*           Time SBDSQR (singular values and right singular vectors,
 *           assume original matrix square) for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 4 ) .OR. TIMSUB( 10 ) ) THEN
@@ -11251,17 +11212,17 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSQR (singular values and right singular
+*                    Time SBDSQR (singular values and right singular
 *                    vectors, assume original matrix square)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   230                CONTINUE
-                     CALL DLASET( 'Full', MINMN, N, ONE, TWO, VT, LDA )
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSQR( UPLO, MINMN, N, 0, 0, WORK,
+                     CALL SLASET( 'Full', MINMN, N, ONE, TWO, VT, LDA )
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSQR( UPLO, MINMN, N, 0, 0, WORK,
      $                            WORK( MINMN+1 ), VT, LDA, U, LDA, U,
      $                            LDA, WORK( 2*MINMN+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -11270,27 +11231,27 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 230
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 240 J = 1, IC
-                        CALL DLASET( 'Full', MINMN, N, ONE, TWO, VT,
+                        CALL SLASET( 'Full', MINMN, N, ONE, TWO, VT,
      $                               LDA )
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   240                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 4 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11302,7 +11263,7 @@ C
   250          CONTINUE
             END IF
 *
-*           Time DBDSQR (singular values and left and right singular
+*           Time SBDSQR (singular values and left and right singular
 *           vectors,assume original matrix square) for each pair
 *           NNB(j), LDAS(j)
 *
@@ -11322,18 +11283,18 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSQR (singular values and left and right
+*                    Time SBDSQR (singular values and left and right
 *                    singular vectors, assume original matrix square)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   270                CONTINUE
-                     CALL DLASET( 'Full', MINMN, N, ONE, TWO, VT, LDA )
-                     CALL DLASET( 'Full', M, MINMN, ONE, TWO, U, LDA )
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSQR( UPLO, MINMN, N, M, 0, WORK,
+                     CALL SLASET( 'Full', MINMN, N, ONE, TWO, VT, LDA )
+                     CALL SLASET( 'Full', M, MINMN, ONE, TWO, U, LDA )
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSQR( UPLO, MINMN, N, M, 0, WORK,
      $                            WORK( MINMN+1 ), VT, LDA, U, LDA, U,
      $                            LDA, WORK( 2*MINMN+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -11342,29 +11303,29 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 270
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 280 J = 1, IC
-                        CALL DLASET( 'Full', MINMN, N, ONE, TWO, VT,
+                        CALL SLASET( 'Full', MINMN, N, ONE, TWO, VT,
      $                               LDA )
-                        CALL DLASET( 'Full', M, MINMN, ONE, TWO, U,
+                        CALL SLASET( 'Full', M, MINMN, ONE, TWO, U,
      $                               LDA )
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   280                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 5 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11376,7 +11337,7 @@ C
   290          CONTINUE
             END IF
 *
-*           Time DBDSQR (singular values and multiply square matrix
+*           Time SBDSQR (singular values and multiply square matrix
 *           by transpose of left singular vectors) for each pair
 *           NNB(j), LDAS(j)
 *
@@ -11396,18 +11357,18 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSQR (singular values and multiply square
+*                    Time SBDSQR (singular values and multiply square
 *                    matrix by transpose of left singular vectors)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   310                CONTINUE
-                     CALL DLASET( 'Full', MINMN, MINMN, ONE, TWO, U,
+                     CALL SLASET( 'Full', MINMN, MINMN, ONE, TWO, U,
      $                            LDA )
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSQR( UPLO, MINMN, 0, 0, MINMN, WORK,
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSQR( UPLO, MINMN, 0, 0, MINMN, WORK,
      $                            WORK( MINMN+1 ), VT, LDA, U, LDA, U,
      $                            LDA, WORK( 2*MINMN+1 ), IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -11416,27 +11377,27 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 310
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 320 J = 1, IC
-                        CALL DLASET( 'Full', MINMN, MINMN, ONE, TWO, U,
+                        CALL SLASET( 'Full', MINMN, MINMN, ONE, TWO, U,
      $                               LDA )
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   320                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 6 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11448,9 +11409,9 @@ C
   330          CONTINUE
             END IF
 *
-*           Time DGEBRD+DBDSQR (singular values only) for each pair
+*           Time SGEBRD+SBDSQR (singular values only) for each pair
 *           NNB(j), LDAS(j)
-*           Use previously computed timings for DGEBRD & DBDSQR
+*           Use previously computed timings for SGEBRD & SBDSQR
 *
             IF( TIMSUB( 7 ) ) THEN
                DO 340 IPAR = 1, NPARMS
@@ -11461,10 +11422,10 @@ C
   340          CONTINUE
             END IF
 *
-*           Time DGEBRD+DORGBR+DBDSQR (singular values and min(M,N)
+*           Time SGEBRD+SORGBR+SBDSQR (singular values and min(M,N)
 *           left singular vectors) for each pair NNB(j), LDAS(j)
 *
-*           Use previously computed timings for DGEBRD & DBDSQR
+*           Use previously computed timings for SGEBRD & SBDSQR
 *
             IF( TIMSUB( 8 ) ) THEN
                DO 370 IPAR = 1, NPARMS
@@ -11474,15 +11435,15 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGEBRD+DORGBR+DBDSQR (singular values and
+*                 Time SGEBRD+SORGBR+SBDSQR (singular values and
 *                 min(M,N) left singular vectors)
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   350             CONTINUE
-                  CALL DLACPY( 'L', M, MINMN, H, LDH, U, LDA )
-                  CALL DORGBR( 'Q', M, MINMN, KU, U, LDA, TAUQ, WORK,
+                  CALL SLACPY( 'L', M, MINMN, H, LDH, U, LDA )
+                  CALL SORGBR( 'Q', M, MINMN, KU, U, LDA, TAUQ, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 8 ), IINFO, M, N,
@@ -11490,34 +11451,34 @@ C
                      INFO = ABS( IINFO )
                      GO TO 740
                   END IF
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 350
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 360 J = 1, IC
-                     CALL DLACPY( 'L', M, MINMN, H, LDH, U, LDA )
+                     CALL SLACPY( 'L', M, MINMN, H, LDH, U, LDA )
   360             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 8 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
+     $               ZERO ) / REAL( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
      $               TIMES( IPAR, ITYPE, IN, 3 )
-                  OPCNTS( IPAR, ITYPE, IN, 8 ) = DOPLA2( 'DORGBR', 'Q',
+                  OPCNTS( IPAR, ITYPE, IN, 8 ) = SOPLA2( 'SORGBR', 'Q',
      $               M, MINMN, KU, 0, NB ) + OPCNTS( IPAR, ITYPE, IN,
      $               1 ) + OPCNTS( IPAR, ITYPE, IN, 3 )
   370          CONTINUE
             END IF
 *
-*           Time DGEBRD+DORGBR+DBDSQR (singular values and M
+*           Time SGEBRD+SORGBR+SBDSQR (singular values and M
 *           left singular vectors) for each pair NNB(j), LDAS(j)
 *
-*           Use previously computed timings for DGEBRD & DBDSQR
+*           Use previously computed timings for SGEBRD & SBDSQR
 *
             IF( TIMSUB( 9 ) ) THEN
                DO 400 IPAR = 1, NPARMS
@@ -11527,15 +11488,15 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGEBRD+DORGBR+DBDSQR (singular values and
+*                 Time SGEBRD+SORGBR+SBDSQR (singular values and
 *                 M left singular vectors)
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   380             CONTINUE
-                  CALL DLACPY( 'L', M, MINMN, H, LDH, U, LDA )
-                  CALL DORGBR( 'Q', M, M, KU, U, LDA, TAUQ, WORK, LWORK,
+                  CALL SLACPY( 'L', M, MINMN, H, LDH, U, LDA )
+                  CALL SORGBR( 'Q', M, M, KU, U, LDA, TAUQ, WORK, LWORK,
      $                         IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 9 ), IINFO, M, N,
@@ -11543,34 +11504,34 @@ C
                      INFO = ABS( IINFO )
                      GO TO 740
                   END IF
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 380
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 390 J = 1, IC
-                     CALL DLACPY( 'L', M, MINMN, H, LDH, U, LDA )
+                     CALL SLACPY( 'L', M, MINMN, H, LDH, U, LDA )
   390             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 9 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
+     $               ZERO ) / REAL( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
      $               TIMES( IPAR, ITYPE, IN, 3 )
-                  OPCNTS( IPAR, ITYPE, IN, 9 ) = DOPLA2( 'DORGBR', 'Q',
+                  OPCNTS( IPAR, ITYPE, IN, 9 ) = SOPLA2( 'SORGBR', 'Q',
      $               M, M, KU, 0, NB ) + OPCNTS( IPAR, ITYPE, IN, 1 ) +
      $               OPCNTS( IPAR, ITYPE, IN, 3 )
   400          CONTINUE
             END IF
 *
-*           Time DGEBRD+DORGBR+DBDSQR (singular values and N
+*           Time SGEBRD+SORGBR+SBDSQR (singular values and N
 *           right singular vectors) for each pair NNB(j), LDAS(j)
 *
-*           Use previously computed timings for DGEBRD & DBDSQR
+*           Use previously computed timings for SGEBRD & SBDSQR
 *
             IF( TIMSUB( 10 ) ) THEN
                DO 430 IPAR = 1, NPARMS
@@ -11580,15 +11541,15 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGEBRD+DORGBR+DBDSQR (singular values and
+*                 Time SGEBRD+SORGBR+SBDSQR (singular values and
 *                 N right singular vectors)
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   410             CONTINUE
-                  CALL DLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
-                  CALL DORGBR( 'P', N, N, KVT, VT, LDA, TAUP, WORK,
+                  CALL SLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
+                  CALL SORGBR( 'P', N, N, KVT, VT, LDA, TAUP, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 10 ), IINFO, M,
@@ -11596,35 +11557,35 @@ C
                      INFO = ABS( IINFO )
                      GO TO 740
                   END IF
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 410
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 420 J = 1, IC
-                     CALL DLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
+                     CALL SLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
   420             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 10 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
+     $               ZERO ) / REAL( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
      $               TIMES( IPAR, ITYPE, IN, 4 )
-                  OPCNTS( IPAR, ITYPE, IN, 10 ) = DOPLA2( 'DORGBR', 'P',
+                  OPCNTS( IPAR, ITYPE, IN, 10 ) = SOPLA2( 'SORGBR', 'P',
      $               N, N, KVT, 0, NB ) + OPCNTS( IPAR, ITYPE, IN, 1 ) +
      $               OPCNTS( IPAR, ITYPE, IN, 4 )
   430          CONTINUE
             END IF
 *
-*           Time DGEBRD+DORGBR+DBDSQR (singular values and min(M,N) left
+*           Time SGEBRD+SORGBR+SBDSQR (singular values and min(M,N) left
 *           singular vectors and N right singular vectors) for each pair
 *           NNB(j), LDAS(j)
 *
-*           Use previously computed timings for DGEBRD & DBDSQR
+*           Use previously computed timings for SGEBRD & SBDSQR
 *
             IF( TIMSUB( 11 ) ) THEN
                DO 460 IPAR = 1, NPARMS
@@ -11634,16 +11595,16 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGEBRD+DORGBR+DBDSQR (singular values and
+*                 Time SGEBRD+SORGBR+SBDSQR (singular values and
 *                 min(M,N) left singular vectors and N right singular
 *                 vectors)
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   440             CONTINUE
-                  CALL DLACPY( 'L', M, MINMN, H, LDH, U, LDA )
-                  CALL DORGBR( 'Q', M, MINMN, KU, U, LDA, TAUQ, WORK,
+                  CALL SLACPY( 'L', M, MINMN, H, LDH, U, LDA )
+                  CALL SORGBR( 'Q', M, MINMN, KU, U, LDA, TAUQ, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 11 ), IINFO, M,
@@ -11651,8 +11612,8 @@ C
                      INFO = ABS( IINFO )
                      GO TO 740
                   END IF
-                  CALL DLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
-                  CALL DORGBR( 'P', N, N, KVT, VT, LDA, TAUP, WORK,
+                  CALL SLACPY( 'U', MINMN, N, H, LDH, VT, LDA )
+                  CALL SORGBR( 'P', N, N, KVT, VT, LDA, TAUP, WORK,
      $                         LWORK, IINFO )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 11 ), IINFO, M,
@@ -11660,40 +11621,40 @@ C
                      INFO = ABS( IINFO )
                      GO TO 740
                   END IF
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   TIME = S2 - S1
                   IC = IC + 1
                   IF( TIME.LT.TIMMIN )
      $               GO TO 440
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 450 J = 1, IC
-                     CALL DLACPY( 'L', MINMN, MINMN, H, LDH, VT, LDA )
+                     CALL SLACPY( 'L', MINMN, MINMN, H, LDH, VT, LDA )
   450             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 11 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
+     $               ZERO ) / REAL( IC ) + TIMES( IPAR, ITYPE, IN, 1 ) +
      $               TIMES( IPAR, ITYPE, IN, 5 )
-                  OPCNTS( IPAR, ITYPE, IN, 11 ) = DOPLA2( 'DORGBR', 'Q',
-     $               M, MINMN, KU, 0, NB ) + DOPLA2( 'DORGBR', 'P', N,
+                  OPCNTS( IPAR, ITYPE, IN, 11 ) = SOPLA2( 'SORGBR', 'Q',
+     $               M, MINMN, KU, 0, NB ) + SOPLA2( 'SORGBR', 'P', N,
      $               N, KVT, 0, NB ) + OPCNTS( IPAR, ITYPE, IN, 1 ) +
      $               OPCNTS( IPAR, ITYPE, IN, 5 )
   460          CONTINUE
             END IF
 *
-*           Time DBDSDC (singular values and left and right singular
+*           Time SBDSDC (singular values and left and right singular
 *           vectors,assume original matrix square) for each pair
 *           NNB(j), LDAS(j)
 *
             IF( TIMSUB( 12 ) ) THEN
-               ESUM = DASUM( MINMN-1, E, 1 )
+               ESUM = SASUM( MINMN-1, E, 1 )
                IF( ESUM.EQ.ZERO ) THEN
-                  CALL DLACPY( 'Full', M, N, A, M, H, M )
-                  CALL DGEBRD( M, N, H, M, D, E, TAUQ, TAUP, WORK,
+                  CALL SLACPY( 'Full', M, N, A, M, H, M )
+                  CALL SGEBRD( M, N, H, M, D, E, TAUQ, TAUP, WORK,
      $                         LWORK, IINFO )
                END IF
                DO 500 IPAR = 1, NPARMS
@@ -11711,16 +11672,16 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DBDSDC (singular values and left and right
+*                    Time SBDSDC (singular values and left and right
 *                    singular vectors, assume original matrix square).
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   480                CONTINUE
-                     CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                     CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
-                     CALL DBDSDC( UPLO, 'I', MINMN, WORK,
+                     CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                     CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                     CALL SBDSDC( UPLO, 'I', MINMN, WORK,
      $                            WORK( MINMN+1 ), U, LDA, VT, LDA, DUM,
      $                            JDUM, WORK( 2*MINMN+1 ), IWORK,
      $                            IINFO )
@@ -11730,25 +11691,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 480
 *
-*                    Subtract the time used in DCOPY.
+*                    Subtract the time used in SCOPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 490 J = 1, IC
-                        CALL DCOPY( MINMN, D, 1, WORK, 1 )
-                        CALL DCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
+                        CALL SCOPY( MINMN, D, 1, WORK, 1 )
+                        CALL SCOPY( MINMN-1, E, 1, WORK( MINMN+1 ), 1 )
   490                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 12 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11760,7 +11721,7 @@ C
   500          CONTINUE
             END IF
 *
-*           Time DGESDD( singular values and min(M,N) left singular
+*           Time SGESDD( singular values and min(M,N) left singular
 *           vectors and N right singular vectors when M>=N,
 *           singular values and M left singular vectors and min(M,N)
 *           right singular vectors otherwise) for each pair
@@ -11774,20 +11735,20 @@ C
                   CALL XLAENV( 2, 2 )
                   CALL XLAENV( 3, NB )
 *
-*                 Time DGESDD(singular values and min(M,N) left singular
+*                 Time SGESDD(singular values and min(M,N) left singular
 *                 vectors and N right singular vectors when M>=N;
 *                 singular values and M left singular vectors and
 *                 min(M,N) right singular vectors)
 *
                   IC = 0
                   OPS = ZERO
-                  S1 = DSECND( )
+                  S1 = SECOND( )
   510             CONTINUE
-                  CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                  CALL DGESDD( 'S', M, N, H, LDA, WORK, U, LDA, VT, LDA,
+                  CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                  CALL SGESDD( 'S', M, N, H, LDA, WORK, U, LDA, VT, LDA,
      $                         WORK( MINMN+1 ), LWORK-MINMN, IWORK,
      $                         IINFO )
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   IF( IINFO.NE.0 ) THEN
                      WRITE( NOUT, FMT = 9998 )SUBNAM( 13 ), IINFO, M,
      $                  N, ITYPE, IPAR, IOLDSD
@@ -11799,22 +11760,22 @@ C
                   IF( TIME.LT.TIMMIN )
      $               GO TO 510
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                  S1 = DSECND( )
+                  S1 = SECOND( )
                   DO 520 J = 1, IC
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   520             CONTINUE
-                  S2 = DSECND( )
+                  S2 = SECOND( )
                   UNTIME = S2 - S1
 *
                   TIMES( IPAR, ITYPE, IN, 13 ) = MAX( TIME-UNTIME,
-     $               ZERO ) / DBLE( IC )
-                  OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / DBLE( IC )
+     $               ZERO ) / REAL( IC )
+                  OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / REAL( IC )
   530          CONTINUE
             END IF
 *
-*           Time DSVDC (singular values only) for each pair
+*           Time SSVDC (singular values only) for each pair
 *           NNB(j), LDAS(j)
 *
             IF( TIMSUB( 14 ) ) THEN
@@ -11832,14 +11793,14 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DSVDC (singular values only)
+*                    Time SSVDC (singular values only)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   550                CONTINUE
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                     CALL DSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
      $                           WORK, 0, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9998 )SUBNAM( 14 ), IINFO,
@@ -11847,24 +11808,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 550
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 560 J = 1, IC
-                        CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                        CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   560                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 14 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11876,7 +11837,7 @@ C
   570          CONTINUE
             END IF
 *
-*           Time DSVDC (singular values and min(M,N) left singular
+*           Time SSVDC (singular values and min(M,N) left singular
 *           vectors) for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 15 ) ) THEN
@@ -11894,15 +11855,15 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DSVDC (singular values and min(M,N) left
+*                    Time SSVDC (singular values and min(M,N) left
 *                    singular vectors)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   590                CONTINUE
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                     CALL DSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
      $                           WORK, 20, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9998 )SUBNAM( 15 ), IINFO,
@@ -11910,24 +11871,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 590
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 600 J = 1, IC
-                        CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                        CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   600                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 15 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -11939,7 +11900,7 @@ C
   610          CONTINUE
             END IF
 *
-*           Time DSVDC (singular values and M left singular
+*           Time SSVDC (singular values and M left singular
 *           vectors) for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 16 ) ) THEN
@@ -11957,15 +11918,15 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DSVDC (singular values and M left singular
+*                    Time SSVDC (singular values and M left singular
 *                    vectors)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   630                CONTINUE
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                     CALL DSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
      $                           WORK, 10, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9998 )SUBNAM( 16 ), IINFO,
@@ -11973,24 +11934,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 630
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 640 J = 1, IC
-                        CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                        CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   640                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 16 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -12002,7 +11963,7 @@ C
   650          CONTINUE
             END IF
 *
-*           Time DSVDC (singular values and N right singular
+*           Time SSVDC (singular values and N right singular
 *           vectors) for each pair NNB(j), LDAS(j)
 *
             IF( TIMSUB( 17 ) ) THEN
@@ -12020,15 +11981,15 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DSVDC (singular values and N right singular
+*                    Time SSVDC (singular values and N right singular
 *                    vectors)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   670                CONTINUE
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                     CALL DSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
      $                           WORK, 1, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9998 )SUBNAM( 17 ), IINFO,
@@ -12036,24 +11997,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 670
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 680 J = 1, IC
-                        CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                        CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   680                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 17 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -12065,7 +12026,7 @@ C
   690          CONTINUE
             END IF
 *
-*           Time DSVDC (singular values and min(M,N) left singular
+*           Time SSVDC (singular values and min(M,N) left singular
 *           vectors and N right singular vectors) for each pair
 *           NNB(j), LDAS(j)
 *
@@ -12084,15 +12045,15 @@ C
 *
                   IF( LASTNL.EQ.0 ) THEN
 *
-*                    Time DSVDC (singular values and min(M,N) left
+*                    Time SSVDC (singular values and min(M,N) left
 *                    singular vectors and N right singular vectors)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   710                CONTINUE
-                     CALL DLACPY( 'Full', M, N, A, M, H, LDA )
-                     CALL DSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
+                     CALL SLACPY( 'Full', M, N, A, M, H, LDA )
+                     CALL SSVDC( H, LDA, M, N, D, E, U, LDA, VT, LDA,
      $                           WORK, 21, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9998 )SUBNAM( 18 ), IINFO,
@@ -12100,24 +12061,24 @@ C
                         INFO = ABS( IINFO )
                         GO TO 740
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 710
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 720 J = 1, IC
-                        CALL DLACPY( 'Full', M, N, A, M, H, LDA )
+                        CALL SLACPY( 'Full', M, N, A, M, H, LDA )
   720                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 18 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / REAL( IC )
 *
                   ELSE
 *
@@ -12138,7 +12099,7 @@ C
 *
       DO 760 ISUB = 1, NSUBS
          IF( TIMSUB( ISUB ) ) THEN
-            CALL DPRTBV( SUBNAM( ISUB ), NTYPES, DOTYPE, NSIZES, MM, NN,
+            CALL SPRTBV( SUBNAM( ISUB ), NTYPES, DOTYPE, NSIZES, MM, NN,
      $                   INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB,
      $                   OPCNTS( 1, 1, 1, ISUB ), LDO1, LDO2,
      $                   TIMES( 1, 1, 1, ISUB ), LDT1, LDT2, WORK,
@@ -12148,14 +12109,14 @@ C
 *
       RETURN
 *
-*     End of DTIM26
+*     End of STIM26
 *
- 9998 FORMAT( ' DTIM26: ', A, ' returned INFO=', I6, '.', / 9X, 'M=',
+ 9998 FORMAT( ' STIM26: ', A, ' returned INFO=', I6, '.', / 9X, 'M=',
      $      I6, ', N=', I6, ', ITYPE=', I6, ', IPAR=', I6, ',         ',
      $      '        ISEED=(', 4( I5, ',' ), I5, ')' )
 *
       END
-      SUBROUTINE DTIM51( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
+      SUBROUTINE STIM51( LINE, NSIZES, NN, NTYPES, DOTYPE, NPARMS, NNB,
      $                   NSHFTS, NEISPS, MINNBS, MINBKS, LDAS, TIMMIN,
      $                   NOUT, ISEED, A, B, H, T, Q, Z, W, WORK, LWORK,
      $                   LLWORK, TIMES, LDT1, LDT2, LDT3, OPCNTS, LDO1,
@@ -12170,14 +12131,14 @@ C
       CHARACTER*80       LINE
       INTEGER            INFO, LDO1, LDO2, LDO3, LDT1, LDT2, LDT3,
      $                   LWORK, NOUT, NPARMS, NSIZES, NTYPES
-      DOUBLE PRECISION   TIMMIN
+      REAL               TIMMIN
 *     ..
 *     .. Array Arguments ..
       LOGICAL            DOTYPE( * ), LLWORK( * )
       INTEGER            ISEED( * ), LDAS( * ), MINBKS( * ),
      $                   MINNBS( * ), NEISPS( * ), NN( * ), NNB( * ),
      $                   NSHFTS( * )
-      DOUBLE PRECISION   A( * ), B( * ), H( * ),
+      REAL               A( * ), B( * ), H( * ),
      $                   OPCNTS( LDO1, LDO2, LDO3, * ), Q( * ), T( * ),
      $                   TIMES( LDT1, LDT2, LDT3, * ), W( * ),
      $                   WORK( * ), Z( * )
@@ -12186,7 +12147,7 @@ C
 *  Purpose
 *  =======
 *
-*  DTIM51 times the LAPACK routines for the real non-symmetric
+*  STIM51 times the LAPACK routines for the real non-symmetric
 *  generalized eigenvalue problem   A x = w B x.
 *
 *  For each N value in NN(1:NSIZES) and .TRUE. value in
@@ -12199,26 +12160,26 @@ C
 *
 *  LINE    (input) CHARACTER*80
 *          The input line which requested this routine.  This line may
-*          contain a subroutine name, such as DGGHRD, indicating that
-*          only routine DGGHRD will be timed, or it may contain a
-*          generic name, such as DHG.  In this case, the rest of the
+*          contain a subroutine name, such as SGGHRD, indicating that
+*          only routine SGGHRD will be timed, or it may contain a
+*          generic name, such as SHG.  In this case, the rest of the
 *          line is scanned for the first 18 non-blank characters,
 *          corresponding to the eighteen combinations of subroutine and
 *          options:
 *          LAPACK:                                     Table Heading:
-*           1: DGGHRD(no Q, no Z) (+DGEQRF, etc.)      'SGGHRD(N)'
-*           2: DGGHRD(Q only)     (+DGEQRF, etc.)      'SGGHRD(Q)'
-*           3: DGGHRD(Z only)     (+DGEQRF, etc.)      'SGGHRD(Z)'
-*           4: DGGHRD(Q and Z)    (+DGEQRF, etc.)      'SGGHRD(Q,Z)'
-*           5: DHGEQZ(Eigenvalues only)                'SHGEQZ(E)'
-*           6: DHGEQZ(Schur form only)                 'SHGEQZ(S)'
-*           7: DHGEQZ(Schur form and Q)                'SHGEQZ(Q)'
-*           8: DHGEQZ(Schur form and Z)                'SHGEQZ(Z)'
-*           9: DHGEQZ(Schur form, Q and Z)             'SHGEQZ(Q,Z)'
-*          10: DTGEVC(SIDE='L', HOWMNY='A')            'STGEVC(L,A)'
-*          11: DTGEVC(SIDE='L', HOWMNY='B')            'STGEVC(L,B)'
-*          12: DTGEVC(SIDE='R', HOWMNY='A')            'STGEVC(R,A)'
-*          13: DTGEVC(SIDE='R', HOWMNY='B')            'STGEVC(R,B)'
+*           1: SGGHRD(no Q, no Z) (+SGEQRF, etc.)      'SGGHRD(N)'
+*           2: SGGHRD(Q only)     (+SGEQRF, etc.)      'SGGHRD(Q)'
+*           3: SGGHRD(Z only)     (+SGEQRF, etc.)      'SGGHRD(Z)'
+*           4: SGGHRD(Q and Z)    (+SGEQRF, etc.)      'SGGHRD(Q,Z)'
+*           5: SHGEQZ(Eigenvalues only)                'SHGEQZ(E)'
+*           6: SHGEQZ(Schur form only)                 'SHGEQZ(S)'
+*           7: SHGEQZ(Schur form and Q)                'SHGEQZ(Q)'
+*           8: SHGEQZ(Schur form and Z)                'SHGEQZ(Z)'
+*           9: SHGEQZ(Schur form, Q and Z)             'SHGEQZ(Q,Z)'
+*          10: STGEVC(SIDE='L', HOWMNY='A')            'STGEVC(L,A)'
+*          11: STGEVC(SIDE='L', HOWMNY='B')            'STGEVC(L,B)'
+*          12: STGEVC(SIDE='R', HOWMNY='A')            'STGEVC(R,A)'
+*          13: STGEVC(SIDE='R', HOWMNY='B')            'STGEVC(R,B)'
 *          EISPACK:                       Compare w/:  Table Heading:
 *          14: QZHES w/ matz=.false.            1      'QZHES(F)'
 *          15: QZHES w/ matz=.true.             3      'QZHES(T)'
@@ -12229,9 +12190,9 @@ C
 *          this path is timed.  If the entire line is blank, all the
 *          routines in the path are timed.
 *
-*          Note that since QZHES does more than DGGHRD, the
-*          "DGGHRD" timing also includes the time for the calls
-*          to DGEQRF, DORMQR, and (if Q is computed) DORGQR
+*          Note that since QZHES does more than SGGHRD, the
+*          "SGGHRD" timing also includes the time for the calls
+*          to SGEQRF, SORMQR, and (if Q is computed) SORGQR
 *          which are necessary to get the same functionality
 *          as QZHES.
 *
@@ -12276,8 +12237,8 @@ C
 *
 *  NNB     (input) INTEGER array, dimension (NPARMS)
 *          The values of the blocksize ("NB") to be tested.  They must
-*          be at least 1.  Currently, this is only used by DGEQRF,
-*          etc., in the timing of DGGHRD.
+*          be at least 1.  Currently, this is only used by SGEQRF,
+*          etc., in the timing of SGGHRD.
 *
 *  NSHFTS  (input) INTEGER array, dimension (NPARMS)
 *          The values of the number of shifts ("NSHIFT") to be tested.
@@ -12285,7 +12246,7 @@ C
 *
 *  NEISPS  (input) INTEGER array, dimension (NPARMS)
 *          The values of "NEISP", the size of largest submatrix to be
-*          processed by DLAEQZ (EISPACK method), to be tested.
+*          processed by SLAEQZ (EISPACK method), to be tested.
 *          (Currently not used.)
 *
 *  MINNBS  (input) INTEGER array, dimension (NPARMS)
@@ -12302,7 +12263,7 @@ C
 *          The values of LDA, the leading dimension of all matrices,
 *          to be tested.
 *
-*  TIMMIN  (input) DOUBLE PRECISION
+*  TIMMIN  (input) REAL
 *          The minimum time a subroutine will be timed.
 *
 *  NOUT    (input) INTEGER
@@ -12313,47 +12274,47 @@ C
 *  ISEED   (input/output) INTEGER array, dimension (4)
 *          The random seed used by the random number generator, used
 *          by the test matrix generator.  It is used and updated on
-*          each call to DTIM51
+*          each call to STIM51
 *
-*  A       (workspace) DOUBLE PRECISION array, dimension
+*  A       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          (a) During the testing of DGGHRD, "A", the original
+*          (a) During the testing of SGGHRD, "A", the original
 *              left-hand-side matrix to be tested.
 *          (b) Later, "S", the Schur form of the original "A" matrix.
 *
-*  B       (workspace) DOUBLE PRECISION array, dimension
+*  B       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          (a) During the testing of DGGHRD, "B", the original
+*          (a) During the testing of SGGHRD, "B", the original
 *              right-hand-side matrix to be tested.
 *          (b) Later, "P", the Schur form of the original "B" matrix.
 *
-*  H       (workspace) DOUBLE PRECISION array, dimension
+*  H       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          (a) During the testing of DGGHRD and DHGEQZ, "H", the
+*          (a) During the testing of SGGHRD and SHGEQZ, "H", the
 *              Hessenberg form of the original "A" matrix.
-*          (b) During the testing of DTGEVC, "L", the matrix of left
+*          (b) During the testing of STGEVC, "L", the matrix of left
 *              eigenvectors.
 *
-*  T       (workspace) DOUBLE PRECISION array, dimension
+*  T       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          (a) During the testing of DGGHRD and DHGEQZ, "T", the
+*          (a) During the testing of SGGHRD and SHGEQZ, "T", the
 *              triangular form of the original "B" matrix.
-*          (b) During the testing of DTGEVC, "R", the matrix of right
+*          (b) During the testing of STGEVC, "R", the matrix of right
 *              eigenvectors.
 *
-*  Q       (workspace) DOUBLE PRECISION array, dimension
+*  Q       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          The orthogonal matrix on the left generated by DGGHRD.  If
-*          DHGEQZ computes only Q or Z, then that matrix is stored here.
+*          The orthogonal matrix on the left generated by SGGHRD.  If
+*          SHGEQZ computes only Q or Z, then that matrix is stored here.
 *          If both Q and Z are computed, the Q matrix goes here.
 *
-*  Z       (workspace) DOUBLE PRECISION array, dimension
+*  Z       (workspace) REAL array, dimension
 *                      (max(NN)*max(LDAS))
-*          The orthogonal matrix on the right generated by DGGHRD.
-*          If DHGEQZ computes both Q and Z, the Z matrix is stored here.
-*          Also used as scratch space for timing the DLACPY calls.
+*          The orthogonal matrix on the right generated by SGGHRD.
+*          If SHGEQZ computes both Q and Z, the Z matrix is stored here.
+*          Also used as scratch space for timing the SLACPY calls.
 *
-*  W       (workspace) DOUBLE PRECISION array, dimension (3*max(LDAS))
+*  W       (workspace) REAL array, dimension (3*max(LDAS))
 *          Treated as an LDA x 3 matrix whose 1st and 2nd columns hold
 *          ALPHAR and ALPHAI, the real and imaginary parts of the
 *          diagonal entries of "S" that would result from reducing "S"
@@ -12361,7 +12322,7 @@ C
 *          column holds BETA, the diagonal entries of "P" that would so
 *          result.
 *
-*  WORK    (workspace) DOUBLE PRECISION array, dimension (LWORK)
+*  WORK    (workspace) REAL array, dimension (LWORK)
 *
 *  LWORK   (input) INTEGER
 *          Number of elements in WORK.  It must be at least
@@ -12370,7 +12331,7 @@ C
 *
 *  LLWORK  (workspace) LOGICAL array, dimension (max( max(NN), NPARMS ))
 *
-*  TIMES   (output) DOUBLE PRECISION array, dimension
+*  TIMES   (output) REAL array, dimension
 *                   (LDT1,LDT2,LDT3,NSUBS)
 *          TIMES(i,j,k,l) will be set to the run time (in seconds) for
 *          subroutine l, with N=NN(k), matrix type j, and LDA=LDAS(i),
@@ -12386,7 +12347,7 @@ C
 *  LDT3    (input) INTEGER
 *          The third dimension of TIMES.  LDT3 >= min( 1, NSIZES ).
 *
-*  OPCNTS  (output) DOUBLE PRECISION array, dimension
+*  OPCNTS  (output) REAL array, dimension
 *                   (LDO1,LDO2,LDO3,NSUBS)
 *          OPCNTS(i,j,k,l) will be set to the number of floating-point
 *          operations executed by subroutine l, with N=NN(k), matrix
@@ -12410,8 +12371,8 @@ C
 *     .. Parameters ..
       INTEGER            MAXTYP, NSUBS
       PARAMETER          ( MAXTYP = 4, NSUBS = 18 )
-      DOUBLE PRECISION   ZERO, ONE
-      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0 )
+      REAL               ZERO, ONE
+      PARAMETER          ( ZERO = 0.0E0, ONE = 1.0E0 )
 *     ..
 *     .. Local Scalars ..
       LOGICAL            RUNEQ, RUNES, RUNHES, RUNHRD, RUNQZ
@@ -12419,7 +12380,7 @@ C
      $                   J2, J3, J4, JC, JR, LASTL, LDA, LDAMIN, LDH,
      $                   LDQ, LDS, LDW, MINBLK, MINNB, MTYPES, N, N1,
      $                   NB, NBSMAX, NEISP, NMAX, NSHIFT
-      DOUBLE PRECISION   S1, S2, TIME, ULP, UNTIME
+      REAL               S1, S2, TIME, ULP, UNTIME
 *     ..
 *     .. Local Arrays ..
       LOGICAL            TIMSUB( NSUBS )
@@ -12428,29 +12389,29 @@ C
       INTEGER            INPARM( NSUBS ), IOLDSD( 4 ), KATYPE( MAXTYP )
 *     ..
 *     .. External Functions ..
-      DOUBLE PRECISION   DLAMCH, DLARND, DOPLA, DSECND
-      EXTERNAL           DLAMCH, DLARND, DOPLA, DSECND
+      REAL               SECOND, SLAMCH, SLARND, SOPLA
+      EXTERNAL           SECOND, SLAMCH, SLARND, SOPLA
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ATIMIN, DHGEQZ, DLACPY, DLAQZH, DLARFG, DLASET,
-     $                   DLATM4, DORM2R, DPRTBG, DTGEVC, QZHES, QZIT,
-     $                   QZVAL, QZVEC, XLAENV
+      EXTERNAL           ATIMIN, QZHES, QZIT, QZVAL, QZVEC, SHGEQZ,
+     $                   SLACPY, SLAQZH, SLARFG, SLATM4, SLASET, SORM2R,
+     $                   SPRTBG, STGEVC, XLAENV
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, MAX, MIN, SIGN
+      INTRINSIC          ABS, MAX, MIN, REAL, SIGN
 *     ..
 *     .. Common blocks ..
       COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. Scalars in Common ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     .. Data statements ..
-      DATA               SUBNAM / 'DGGHRD(N)', 'DGGHRD(Q)', 'DGGHRD(Z)',
-     $                   'DGGHRD(Q,Z)', 'DHGEQZ(E)', 'DHGEQZ(S)',
-     $                   'DHGEQZ(Q)', 'DHGEQZ(Z)', 'DHGEQZ(Q,Z)',
-     $                   'DTGEVC(L,A)', 'DTGEVC(L,B)', 'DTGEVC(R,A)',
-     $                   'DTGEVC(R,B)', 'QZHES(F)', 'QZHES(T)',
+      DATA               SUBNAM / 'SGGHRD(N)', 'SGGHRD(Q)', 'SGGHRD(Z)',
+     $                   'SGGHRD(Q,Z)', 'SHGEQZ(E)', 'SHGEQZ(S)',
+     $                   'SHGEQZ(Q)', 'SHGEQZ(Z)', 'SHGEQZ(Q,Z)',
+     $                   'STGEVC(L,A)', 'STGEVC(L,B)', 'STGEVC(R,A)',
+     $                   'STGEVC(R,B)', 'QZHES(F)', 'QZHES(T)',
      $                   'QZIT(F)', 'QZIT(T)', 'QZVEC' /
       DATA               INPARM / 4*2, 5*1, 4*1, 5*1 /
       DATA               PNAMES / '   LDA', '    NB', '    NS',
@@ -12467,7 +12428,7 @@ C
 *
 *     Extract the timing request from the input line.
 *
-      CALL ATIMIN( 'DHG', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
+      CALL ATIMIN( 'SHG', LINE, NSUBS, SUBNAM, TIMSUB, NOUT, INFO )
       IF( INFO.NE.0 )
      $   RETURN
 *
@@ -12505,10 +12466,10 @@ C
          RETURN
       END IF
 *
-*     Check to see whether DGGHRD or DHGEQZ must be run.
-*        RUNHRD -- if DGGHRD must be run.
-*        RUNES  -- if DHGEQZ must be run to get Schur form.
-*        RUNEQ  -- if DHGEQZ must be run to get Schur form and Q.
+*     Check to see whether SGGHRD or SHGEQZ must be run.
+*        RUNHRD -- if SGGHRD must be run.
+*        RUNES  -- if SHGEQZ must be run to get Schur form.
+*        RUNEQ  -- if SHGEQZ must be run to get Schur form and Q.
 *
       RUNHRD = .FALSE.
       RUNES = .FALSE.
@@ -12548,7 +12509,7 @@ C
 *
 *     Various Constants
 *
-      ULP = DLAMCH( 'Epsilon' )*DLAMCH( 'Base' )
+      ULP = SLAMCH( 'Epsilon' )*SLAMCH( 'Base' )
 *
 *     Zero out OPCNTS, TIMES
 *
@@ -12593,14 +12554,14 @@ C
 *
 *              Generate A (w/o rotation)
 *
-               CALL DLATM4( KATYPE( ITYPE ), N, 3, 1, 2, ONE, ULP, ONE,
+               CALL SLATM4( KATYPE( ITYPE ), N, 3, 1, 2, ONE, ULP, ONE,
      $                      2, ISEED, A, N1 )
                IF( 3.LE.N )
      $            A( 3+2*N1 ) = ONE
 *
 *              Generate B (w/o rotation)
 *
-               CALL DLATM4( 8, N, 3, 1, 0, ONE, ONE, ONE, 2, ISEED, B,
+               CALL SLATM4( 8, N, 3, 1, 0, ONE, ONE, ONE, 2, ISEED, B,
      $                      N1 )
                IF( 2.LE.N )
      $            B( 2+N1 ) = ONE
@@ -12615,14 +12576,14 @@ C
                   DO 90 JC = 1, N - 1
                      IC = ( JC-1 )*N1
                      DO 80 JR = JC, N
-                        Q( JR+IC ) = DLARND( 3, ISEED )
-                        Z( JR+IC ) = DLARND( 3, ISEED )
+                        Q( JR+IC ) = SLARND( 3, ISEED )
+                        Z( JR+IC ) = SLARND( 3, ISEED )
    80                CONTINUE
-                     CALL DLARFG( N+1-JC, Q( JC+IC ), Q( JC+1+IC ), 1,
+                     CALL SLARFG( N+1-JC, Q( JC+IC ), Q( JC+1+IC ), 1,
      $                            WORK( JC ) )
                      WORK( 2*N+JC ) = SIGN( ONE, Q( JC+IC ) )
                      Q( JC+IC ) = ONE
-                     CALL DLARFG( N+1-JC, Z( JC+IC ), Z( JC+1+IC ), 1,
+                     CALL SLARFG( N+1-JC, Z( JC+IC ), Z( JC+1+IC ), 1,
      $                            WORK( N+JC ) )
                      WORK( 3*N+JC ) = SIGN( ONE, Z( JC+IC ) )
                      Z( JC+IC ) = ONE
@@ -12630,10 +12591,10 @@ C
                   IC = ( N-1 )*N1
                   Q( N+IC ) = ONE
                   WORK( N ) = ZERO
-                  WORK( 3*N ) = SIGN( ONE, DLARND( 2, ISEED ) )
+                  WORK( 3*N ) = SIGN( ONE, SLARND( 2, ISEED ) )
                   Z( N+IC ) = ONE
                   WORK( 2*N ) = ZERO
-                  WORK( 4*N ) = SIGN( ONE, DLARND( 2, ISEED ) )
+                  WORK( 4*N ) = SIGN( ONE, SLARND( 2, ISEED ) )
 *
 *                 Apply the diagonal matrices
 *
@@ -12645,19 +12606,19 @@ C
      $                               B( JR+IC )
   100                CONTINUE
   110             CONTINUE
-                  CALL DORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, A, N1,
+                  CALL SORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, A, N1,
      $                         WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 120
-                  CALL DORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
+                  CALL SORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
      $                         A, N1, WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 120
-                  CALL DORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, B, N1,
+                  CALL SORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, B, N1,
      $                         WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 120
-                  CALL DORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
+                  CALL SORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
      $                         B, N1, WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 120
@@ -12667,9 +12628,9 @@ C
 *
 * . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 *
-*           Time DGGHRD
+*           Time SGGHRD
 *
-*           Time DGEQRF+DGGHRD('N','N',...) for each pair
+*           Time SGEQRF+SGGHRD('N','N',...) for each pair
 *           (LDAS(j),NNB(j))
 *
             IF( TIMSUB( 1 ) ) THEN
@@ -12693,17 +12654,17 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DGGHRD, computing neither Q nor Z
-*                    (Actually, time DGEQRF + DORMQR + DGGHRD.)
+*                    Time SGGHRD, computing neither Q nor Z
+*                    (Actually, time SGEQRF + SORMQR + SGGHRD.)
 *
                      CALL XLAENV( 1, NB )
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   140                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
-                     CALL DLAQZH( .FALSE., .FALSE., N, 1, N, H, LDA, T,
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLAQZH( .FALSE., .FALSE., N, 1, N, H, LDA, T,
      $                            LDA, Q, LDA, Z, LDA, WORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 1 ), IINFO, N,
@@ -12712,27 +12673,27 @@ C
                         GO TO 920
                      END IF
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 140
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 150 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   150                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 1 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 1 ) = OPS / DBLE( IC ) +
-     $                  DOPLA( 'DGEQRF', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORMQR', N, N, 0, 0, NB )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 1 ) = OPS / REAL( IC ) +
+     $                  SOPLA( 'SGEQRF', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORMQR', N, N, 0, 0, NB )
                      LDH = LDA
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 1 ) = OPCNTS( LASTL,
@@ -12742,9 +12703,9 @@ C
                   END IF
   160          CONTINUE
             ELSE IF( RUNHRD ) THEN
-               CALL DLACPY( 'Full', N, N, A, N1, H, N1 )
-               CALL DLACPY( 'Full', N, N, B, N1, T, N1 )
-               CALL DLAQZH( .FALSE., .FALSE., N, 1, N, H, N1, T, N1, Q,
+               CALL SLACPY( 'Full', N, N, A, N1, H, N1 )
+               CALL SLACPY( 'Full', N, N, B, N1, T, N1 )
+               CALL SLAQZH( .FALSE., .FALSE., N, 1, N, H, N1, T, N1, Q,
      $                      N1, Z, N1, WORK, IINFO )
                IF( IINFO.NE.0 ) THEN
                   WRITE( NOUT, FMT = 9997 )SUBNAM( 1 ), IINFO, N,
@@ -12755,7 +12716,7 @@ C
                LDH = N
             END IF
 *
-*           Time DGGHRD('I','N',...) for each pair (LDAS(j),NNB(j))
+*           Time SGGHRD('I','N',...) for each pair (LDAS(j),NNB(j))
 *
             IF( TIMSUB( 2 ) ) THEN
                DO 200 IPAR = 1, NPARMS
@@ -12778,17 +12739,17 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DGGHRD, computing Q but not Z
-*                    (Actually, DGEQRF + DORMQR + DORGQR + DGGHRD.)
+*                    Time SGGHRD, computing Q but not Z
+*                    (Actually, SGEQRF + SORMQR + SORGQR + SGGHRD.)
 *
                      CALL XLAENV( 1, NB )
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   180                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
-                     CALL DLAQZH( .TRUE., .FALSE., N, 1, N, H, LDA, T,
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLAQZH( .TRUE., .FALSE., N, 1, N, H, LDA, T,
      $                            LDA, Q, LDA, Z, LDA, WORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 2 ), IINFO, N,
@@ -12797,28 +12758,28 @@ C
                         GO TO 920
                      END IF
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 180
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 190 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   190                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 2 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / DBLE( IC ) +
-     $                  DOPLA( 'DGEQRF', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORMQR', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORGQR', N, N, 0, 0, NB )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 2 ) = OPS / REAL( IC ) +
+     $                  SOPLA( 'SGEQRF', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORMQR', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORGQR', N, N, 0, 0, NB )
                      LDH = LDA
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 2 ) = OPCNTS( LASTL,
@@ -12829,7 +12790,7 @@ C
   200          CONTINUE
             END IF
 *
-*           Time DGGHRD('N','I',...) for each pair (LDAS(j),NNB(j))
+*           Time SGGHRD('N','I',...) for each pair (LDAS(j),NNB(j))
 *
             IF( TIMSUB( 3 ) ) THEN
                DO 240 IPAR = 1, NPARMS
@@ -12852,17 +12813,17 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DGGHRD, computing Z but not Q
-*                    (Actually, DGEQRF + DORMQR + DGGHRD.)
+*                    Time SGGHRD, computing Z but not Q
+*                    (Actually, SGEQRF + SORMQR + SGGHRD.)
 *
                      CALL XLAENV( 1, NB )
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   220                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
-                     CALL DLAQZH( .FALSE., .TRUE., N, 1, N, H, LDA, T,
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLAQZH( .FALSE., .TRUE., N, 1, N, H, LDA, T,
      $                            LDA, Q, LDA, Z, LDA, WORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 3 ), IINFO, N,
@@ -12871,27 +12832,27 @@ C
                         GO TO 920
                      END IF
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 220
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 230 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   230                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 3 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / DBLE( IC ) +
-     $                  DOPLA( 'DGEQRF', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORMQR', N, N, 0, 0, NB )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 3 ) = OPS / REAL( IC ) +
+     $                  SOPLA( 'SGEQRF', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORMQR', N, N, 0, 0, NB )
                      LDH = LDA
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 3 ) = OPCNTS( LASTL,
@@ -12902,7 +12863,7 @@ C
   240          CONTINUE
             END IF
 *
-*           Time DGGHRD('I','I',...) for each pair (LDAS(j),NNB(j))
+*           Time SGGHRD('I','I',...) for each pair (LDAS(j),NNB(j))
 *
             IF( TIMSUB( 4 ) ) THEN
                DO 280 IPAR = 1, NPARMS
@@ -12925,17 +12886,17 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DGGHRD, computing Q and Z
-*                    (Actually, DGEQRF + DORMQR + DORGQR + DGGHRD.)
+*                    Time SGGHRD, computing Q and Z
+*                    (Actually, SGEQRF + SORMQR + SORGQR + SGGHRD.)
 *
                      CALL XLAENV( 1, NB )
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   260                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
-                     CALL DLAQZH( .TRUE., .TRUE., N, 1, N, H, LDA, T,
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLAQZH( .TRUE., .TRUE., N, 1, N, H, LDA, T,
      $                            LDA, Q, LDA, Z, LDA, WORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 4 ), IINFO, N,
@@ -12944,28 +12905,28 @@ C
                         GO TO 920
                      END IF
 *
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 260
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 270 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   270                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 4 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / DBLE( IC ) +
-     $                  DOPLA( 'DGEQRF', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORMQR', N, N, 0, 0, NB ) +
-     $                  DOPLA( 'DORGQR', N, N, 0, 0, NB )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 4 ) = OPS / REAL( IC ) +
+     $                  SOPLA( 'SGEQRF', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORMQR', N, N, 0, 0, NB ) +
+     $                  SOPLA( 'SORGQR', N, N, 0, 0, NB )
                      LDH = LDA
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 4 ) = OPCNTS( LASTL,
@@ -12978,9 +12939,9 @@ C
 *
 * . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 *
-*           Time DHGEQZ
+*           Time SHGEQZ
 *
-*           Time DHGEQZ with JOB='E' for each value of LDAS(j)
+*           Time SHGEQZ with JOB='E' for each value of LDAS(j)
 *
             IF( TIMSUB( 5 ) ) THEN
                DO 320 IPAR = 1, NPARMS
@@ -13002,15 +12963,15 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                    Time DHGEQZ with JOB='E'
+*                    Time SHGEQZ with JOB='E'
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   300                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DHGEQZ( 'E', 'N', 'N', N, 1, N, A, LDA, B,
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SHGEQZ( 'E', 'N', 'N', N, 1, N, A, LDA, B,
      $                            LDA, W, W( LDA+1 ), W( 2*LDA+1 ), Q,
      $                            LDA, Z, LDA, WORK, LWORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -13019,25 +12980,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 920
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 300
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 310 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   310                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 5 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 5 ) = OPS / REAL( IC )
                      LDS = 0
                      LDQ = 0
                   ELSE
@@ -13049,7 +13010,7 @@ C
   320          CONTINUE
             END IF
 *
-*           Time DHGEQZ with JOB='S', COMPQ=COMPZ='N' for each value
+*           Time SHGEQZ with JOB='S', COMPQ=COMPZ='N' for each value
 *           of LDAS(j)
 *
             IF( TIMSUB( 6 ) ) THEN
@@ -13072,15 +13033,15 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                 Time DHGEQZ with JOB='S', COMPQ=COMPZ='N'
+*                 Time SHGEQZ with JOB='S', COMPQ=COMPZ='N'
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   340                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DHGEQZ( 'S', 'N', 'N', N, 1, N, A, LDA, B,
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SHGEQZ( 'S', 'N', 'N', N, 1, N, A, LDA, B,
      $                            LDA, W, W( LDA+1 ), W( 2*LDA+1 ), Q,
      $                            LDA, Z, LDA, WORK, LWORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -13089,25 +13050,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 920
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 340
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 350 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   350                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 6 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 6 ) = OPS / REAL( IC )
                      LDS = LDA
                      LDQ = 0
                   ELSE
@@ -13118,9 +13079,9 @@ C
                   END IF
   360          CONTINUE
             ELSE IF( RUNES ) THEN
-               CALL DLACPY( 'Full', N, N, H, LDH, A, N1 )
-               CALL DLACPY( 'Full', N, N, T, LDH, B, N1 )
-               CALL DHGEQZ( 'S', 'N', 'N', N, 1, N, A, N1, B, N1, W,
+               CALL SLACPY( 'Full', N, N, H, LDH, A, N1 )
+               CALL SLACPY( 'Full', N, N, T, LDH, B, N1 )
+               CALL SHGEQZ( 'S', 'N', 'N', N, 1, N, A, N1, B, N1, W,
      $                      W( N1+1 ), W( 2*N1+1 ), Q, N1, Z, N1, WORK,
      $                      LWORK, IINFO )
                IF( IINFO.NE.0 ) THEN
@@ -13133,7 +13094,7 @@ C
                LDQ = 0
             END IF
 *
-*           Time DHGEQZ with JOB='S', COMPQ='I', COMPZ='N' for each
+*           Time SHGEQZ with JOB='S', COMPQ='I', COMPZ='N' for each
 *           value of LDAS(j)
 *
             IF( TIMSUB( 7 ) ) THEN
@@ -13156,15 +13117,15 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                 Time DHGEQZ with JOB='S', COMPQ='I', COMPZ='N'
+*                 Time SHGEQZ with JOB='S', COMPQ='I', COMPZ='N'
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   380                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DHGEQZ( 'S', 'I', 'N', N, 1, N, A, LDA, B,
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SHGEQZ( 'S', 'I', 'N', N, 1, N, A, LDA, B,
      $                            LDA, W, W( LDA+1 ), W( 2*LDA+1 ), Q,
      $                            LDA, Z, LDA, WORK, LWORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -13173,25 +13134,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 920
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 380
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 390 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   390                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 7 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 7 ) = OPS / REAL( IC )
                      LDS = LDA
                      LDQ = LDA
                   ELSE
@@ -13202,9 +13163,9 @@ C
                   END IF
   400          CONTINUE
             ELSE IF( RUNEQ ) THEN
-               CALL DLACPY( 'Full', N, N, H, LDH, A, N1 )
-               CALL DLACPY( 'Full', N, N, T, LDH, B, N1 )
-               CALL DHGEQZ( 'S', 'I', 'N', N, 1, N, A, N1, B, N1, W,
+               CALL SLACPY( 'Full', N, N, H, LDH, A, N1 )
+               CALL SLACPY( 'Full', N, N, T, LDH, B, N1 )
+               CALL SHGEQZ( 'S', 'I', 'N', N, 1, N, A, N1, B, N1, W,
      $                      W( N1+1 ), W( 2*N1+1 ), Q, N1, Z, N1, WORK,
      $                      LWORK, IINFO )
                IF( IINFO.NE.0 ) THEN
@@ -13217,7 +13178,7 @@ C
                LDQ = N1
             END IF
 *
-*           Time DHGEQZ with JOB='S', COMPQ='N', COMPZ='I' for each
+*           Time SHGEQZ with JOB='S', COMPQ='N', COMPZ='I' for each
 *           value of LDAS(j)
 *
             IF( TIMSUB( 8 ) ) THEN
@@ -13246,16 +13207,16 @@ C
                      MINNB = MINNBS( IPAR )
                      MINBLK = MINBKS( IPAR )
 *
-*                 Time DHGEQZ with JOB='S', COMPQ='N', COMPZ='I'
+*                 Time SHGEQZ with JOB='S', COMPQ='N', COMPZ='I'
 *                 (Note that the "Z" matrix is stored in the array Q)
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   420                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DHGEQZ( 'S', 'N', 'I', N, 1, N, A, LDA, B,
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SHGEQZ( 'S', 'N', 'I', N, 1, N, A, LDA, B,
      $                            LDA, W, W( LDA+1 ), W( 2*LDA+1 ), Z,
      $                            LDA, Q, LDA, WORK, LWORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -13264,25 +13225,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 920
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 420
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 430 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   430                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 8 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 8 ) = OPS / REAL( IC )
                      LDS = LDA
                      LDQ = LDA
                   ELSE
@@ -13294,7 +13255,7 @@ C
   440          CONTINUE
             END IF
 *
-*           Time DHGEQZ with JOB='S', COMPQ='I', COMPZ='I' for each
+*           Time SHGEQZ with JOB='S', COMPQ='I', COMPZ='I' for each
 *           value of LDAS(j)
 *
             IF( TIMSUB( 9 ) ) THEN
@@ -13317,15 +13278,15 @@ C
 *
                   IF( LASTL.EQ.0 ) THEN
 *
-*                 Time DHGEQZ with JOB='S', COMPQ='I', COMPZ='I'
+*                 Time SHGEQZ with JOB='S', COMPQ='I', COMPZ='I'
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   460                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DHGEQZ( 'S', 'I', 'I', N, 1, N, A, LDA, B,
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SHGEQZ( 'S', 'I', 'I', N, 1, N, A, LDA, B,
      $                            LDA, W, W( LDA+1 ), W( 2*LDA+1 ), Q,
      $                            LDA, Z, LDA, WORK, LWORK, IINFO )
                      IF( IINFO.NE.0 ) THEN
@@ -13334,25 +13295,25 @@ C
                         INFO = ABS( IINFO )
                         GO TO 920
                      END IF
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 460
 *
-*                 Subtract the time used in DLACPY.
+*                 Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 470 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   470                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 9 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 9 ) = OPS / REAL( IC )
                      LDS = LDA
                      LDQ = LDA
                   ELSE
@@ -13366,7 +13327,7 @@ C
 *
 * . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 *
-*           Time DTGEVC
+*           Time STGEVC
 *
             IF( TIMSUB( 10 ) .OR. TIMSUB( 11 ) .OR. TIMSUB( 12 ) .OR.
      $          TIMSUB( 13 ) ) THEN
@@ -13391,7 +13352,7 @@ C
      $                  LASTL = J
   500             CONTINUE
 *
-*                 Time DTGEVC if this is a new value of LDA
+*                 Time STGEVC if this is a new value of LDA
 *
                   IF( LASTL.EQ.0 ) THEN
 *
@@ -13419,15 +13380,15 @@ C
                      END IF
                      LDS = LDA
 *
-*                    Time DTGEVC for Left Eigenvectors only,
+*                    Time STGEVC for Left Eigenvectors only,
 *                    without back transforming
 *
                      IF( TIMSUB( 10 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   550                   CONTINUE
-                        CALL DTGEVC( 'L', 'A', LLWORK, N, A, LDA, B,
+                        CALL STGEVC( 'L', 'A', LLWORK, N, A, LDA, B,
      $                               LDA, H, LDA, T, LDA, N, ITEMP,
      $                               WORK, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -13436,26 +13397,26 @@ C
                            INFO = ABS( IINFO )
                            GO TO 920
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 550
 *
-                        TIMES( IPAR, ITYPE, IN, 10 ) = TIME / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / DBLE( IC )
+                        TIMES( IPAR, ITYPE, IN, 10 ) = TIME / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 10 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DTGEVC for Left Eigenvectors only,
+*                    Time STGEVC for Left Eigenvectors only,
 *                    with back transforming
 *
                      IF( TIMSUB( 11 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   560                   CONTINUE
-                        CALL DLACPY( 'Full', N, N, Q, LDQ, H, LDA )
-                        CALL DTGEVC( 'L', 'B', LLWORK, N, A, LDA, B,
+                        CALL SLACPY( 'Full', N, N, Q, LDQ, H, LDA )
+                        CALL STGEVC( 'L', 'B', LLWORK, N, A, LDA, B,
      $                               LDA, H, LDA, T, LDA, N, ITEMP,
      $                               WORK, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -13464,35 +13425,35 @@ C
                            INFO = ABS( IINFO )
                            GO TO 920
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 560
 *
-*                       Subtract the time used in DLACPY.
+*                       Subtract the time used in SLACPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 570 J = 1, IC
-                           CALL DLACPY( 'Full', N, N, Q, LDQ, H, LDA )
+                           CALL SLACPY( 'Full', N, N, Q, LDQ, H, LDA )
   570                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 11 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 11 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DTGEVC for Right Eigenvectors only,
+*                    Time STGEVC for Right Eigenvectors only,
 *                    without back transforming
 *
                      IF( TIMSUB( 12 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   580                   CONTINUE
-                        CALL DTGEVC( 'R', 'A', LLWORK, N, A, LDA, B,
+                        CALL STGEVC( 'R', 'A', LLWORK, N, A, LDA, B,
      $                               LDA, H, LDA, T, LDA, N, ITEMP,
      $                               WORK, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -13501,26 +13462,26 @@ C
                            INFO = ABS( IINFO )
                            GO TO 920
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 580
 *
-                        TIMES( IPAR, ITYPE, IN, 12 ) = TIME / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / DBLE( IC )
+                        TIMES( IPAR, ITYPE, IN, 12 ) = TIME / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 12 ) = OPS / REAL( IC )
                      END IF
 *
-*                    Time DTGEVC for Right Eigenvectors only,
+*                    Time STGEVC for Right Eigenvectors only,
 *                    with back transforming
 *
                      IF( TIMSUB( 13 ) ) THEN
                         IC = 0
                         OPS = ZERO
-                        S1 = DSECND( )
+                        S1 = SECOND( )
   590                   CONTINUE
-                        CALL DLACPY( 'Full', N, N, Q, LDQ, T, LDA )
-                        CALL DTGEVC( 'R', 'B', LLWORK, N, A, LDA, B,
+                        CALL SLACPY( 'Full', N, N, Q, LDQ, T, LDA )
+                        CALL STGEVC( 'R', 'B', LLWORK, N, A, LDA, B,
      $                               LDA, H, LDA, T, LDA, N, ITEMP,
      $                               WORK, IINFO )
                         IF( IINFO.NE.0 ) THEN
@@ -13529,24 +13490,24 @@ C
                            INFO = ABS( IINFO )
                            GO TO 920
                         END IF
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         TIME = S2 - S1
                         IC = IC + 1
                         IF( TIME.LT.TIMMIN )
      $                     GO TO 590
 *
-*                       Subtract the time used in DLACPY.
+*                       Subtract the time used in SLACPY.
 *
-                        S1 = DSECND( )
+                        S1 = SECOND( )
                         DO 600 J = 1, IC
-                           CALL DLACPY( 'Full', N, N, Q, LDQ, T, LDA )
+                           CALL SLACPY( 'Full', N, N, Q, LDQ, T, LDA )
   600                   CONTINUE
-                        S2 = DSECND( )
+                        S2 = SECOND( )
                         UNTIME = S2 - S1
 *
                         TIMES( IPAR, ITYPE, IN, 13 ) = MAX( TIME-UNTIME,
-     $                     ZERO ) / DBLE( IC )
-                        OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / DBLE( IC )
+     $                     ZERO ) / REAL( IC )
+                        OPCNTS( IPAR, ITYPE, IN, 13 ) = OPS / REAL( IC )
                      END IF
 *
                   ELSE
@@ -13596,14 +13557,14 @@ C
 *
 *              Generate A (w/o rotation)
 *
-               CALL DLATM4( KATYPE( ITYPE ), N, 3, 1, 2, ONE, ULP, ONE,
+               CALL SLATM4( KATYPE( ITYPE ), N, 3, 1, 2, ONE, ULP, ONE,
      $                      2, ISEED, A, N1 )
                IF( 3.LE.N )
      $            A( 3+2*N1 ) = ONE
 *
 *              Generate B (w/o rotation)
 *
-               CALL DLATM4( 8, N, 3, 1, 0, ONE, ONE, ONE, 2, ISEED, B,
+               CALL SLATM4( 8, N, 3, 1, 0, ONE, ONE, ONE, 2, ISEED, B,
      $                      N1 )
                IF( 2.LE.N )
      $            B( 2+N1 ) = ONE
@@ -13618,14 +13579,14 @@ C
                   DO 640 JC = 1, N - 1
                      IC = ( JC-1 )*N1
                      DO 630 JR = JC, N
-                        Q( JR+IC ) = DLARND( 3, ISEED )
-                        Z( JR+IC ) = DLARND( 3, ISEED )
+                        Q( JR+IC ) = SLARND( 3, ISEED )
+                        Z( JR+IC ) = SLARND( 3, ISEED )
   630                CONTINUE
-                     CALL DLARFG( N+1-JC, Q( JC+IC ), Q( JC+1+IC ), 1,
+                     CALL SLARFG( N+1-JC, Q( JC+IC ), Q( JC+1+IC ), 1,
      $                            WORK( JC ) )
                      WORK( 2*N+JC ) = SIGN( ONE, Q( JC+IC ) )
                      Q( JC+IC ) = ONE
-                     CALL DLARFG( N+1-JC, Z( JC+IC ), Z( JC+1+IC ), 1,
+                     CALL SLARFG( N+1-JC, Z( JC+IC ), Z( JC+1+IC ), 1,
      $                            WORK( N+JC ) )
                      WORK( 3*N+JC ) = SIGN( ONE, Z( JC+IC ) )
                      Z( JC+IC ) = ONE
@@ -13633,10 +13594,10 @@ C
                   IC = ( N-1 )*N1
                   Q( N+IC ) = ONE
                   WORK( N ) = ZERO
-                  WORK( 3*N ) = SIGN( ONE, DLARND( 2, ISEED ) )
+                  WORK( 3*N ) = SIGN( ONE, SLARND( 2, ISEED ) )
                   Z( N+IC ) = ONE
                   WORK( 2*N ) = ZERO
-                  WORK( 4*N ) = SIGN( ONE, DLARND( 2, ISEED ) )
+                  WORK( 4*N ) = SIGN( ONE, SLARND( 2, ISEED ) )
 *
 *                 Apply the diagonal matrices
 *
@@ -13648,19 +13609,19 @@ C
      $                               B( JR+IC )
   650                CONTINUE
   660             CONTINUE
-                  CALL DORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, A, N1,
+                  CALL SORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, A, N1,
      $                         WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 670
-                  CALL DORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
+                  CALL SORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
      $                         A, N1, WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 670
-                  CALL DORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, B, N1,
+                  CALL SORM2R( 'L', 'N', N, N, N-1, Q, N1, WORK, B, N1,
      $                         WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 670
-                  CALL DORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
+                  CALL SORM2R( 'R', 'T', N, N, N-1, Z, N1, WORK( N+1 ),
      $                         B, N1, WORK( 2*N+1 ), IINFO )
                   IF( IINFO.NE.0 )
      $               GO TO 670
@@ -13694,30 +13655,30 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   690                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
                      CALL QZHES( LDA, N, H, T, .FALSE., Q )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 690
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 700 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   700                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 14 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 14 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 14 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 14 )
@@ -13727,8 +13688,8 @@ C
                   LDH = LDA
   710          CONTINUE
             ELSE IF( RUNHES ) THEN
-               CALL DLACPY( 'Full', N, N, A, N1, H, N1 )
-               CALL DLACPY( 'Full', N, N, B, N1, T, N1 )
+               CALL SLACPY( 'Full', N, N, A, N1, H, N1 )
+               CALL SLACPY( 'Full', N, N, B, N1, T, N1 )
                CALL QZHES( N1, N, H, T, .FALSE., Q )
                LDH = N1
             END IF
@@ -13759,30 +13720,30 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   730                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, N1, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, N1, T, LDA )
+                     CALL SLACPY( 'Full', N, N, A, N1, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, N1, T, LDA )
                      CALL QZHES( LDA, N, H, T, .TRUE., Q )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 730
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 740 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, N1, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, N1, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, N1, Z, LDA )
   740                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 15 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 15 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 15 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 15 )
@@ -13819,10 +13780,10 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   770                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
                      CALL QZIT( LDA, N, A, B, ZERO, .FALSE., Q, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 16 ), IINFO,
@@ -13833,25 +13794,25 @@ C
 *
                      CALL QZVAL( LDA, N, A, B, W, W( LDA+1 ),
      $                           W( 2*LDA+1 ), .FALSE., Q )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 770
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 780 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
   780                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 16 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 16 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 16 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 16 )
@@ -13888,11 +13849,11 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   810                CONTINUE
-                     CALL DLACPY( 'Full', N, N, H, LDH, A, LDA )
-                     CALL DLACPY( 'Full', N, N, T, LDH, B, LDA )
-                     CALL DLASET( 'Full', N, N, ZERO, ONE, Q, LDA )
+                     CALL SLACPY( 'Full', N, N, H, LDH, A, LDA )
+                     CALL SLACPY( 'Full', N, N, T, LDH, B, LDA )
+                     CALL SLASET( 'Full', N, N, ZERO, ONE, Q, LDA )
                      CALL QZIT( LDA, N, A, B, ZERO, .TRUE., Q, IINFO )
                      IF( IINFO.NE.0 ) THEN
                         WRITE( NOUT, FMT = 9997 )SUBNAM( 17 ), IINFO,
@@ -13903,26 +13864,26 @@ C
 *
                      CALL QZVAL( LDA, N, A, B, W, W( LDA+1 ),
      $                           W( 2*LDA+1 ), .TRUE., Q )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 810
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 820 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, H, LDH, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, T, LDH, Z, LDA )
-                        CALL DLASET( 'Full', N, N, ZERO, ONE, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, H, LDH, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, T, LDH, Z, LDA )
+                        CALL SLASET( 'Full', N, N, ZERO, ONE, Z, LDA )
   820                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 17 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 17 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 17 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 17 )
@@ -13933,9 +13894,9 @@ C
                   LDW = LDA
   830          CONTINUE
             ELSE IF( RUNQZ ) THEN
-               CALL DLACPY( 'Full', N, N, H, LDH, A, N1 )
-               CALL DLACPY( 'Full', N, N, T, LDH, B, N1 )
-               CALL DLASET( 'Full', N, N, ZERO, ONE, Q, N1 )
+               CALL SLACPY( 'Full', N, N, H, LDH, A, N1 )
+               CALL SLACPY( 'Full', N, N, T, LDH, B, N1 )
+               CALL SLASET( 'Full', N, N, ZERO, ONE, Q, N1 )
                CALL QZIT( N1, N, A, B, ZERO, .TRUE., Q, IINFO )
                IF( IINFO.NE.0 ) THEN
                   WRITE( NOUT, FMT = 9997 )SUBNAM( 17 ), IINFO, N,
@@ -13995,33 +13956,33 @@ C
 *
                      IC = 0
                      OPS = ZERO
-                     S1 = DSECND( )
+                     S1 = SECOND( )
   890                CONTINUE
-                     CALL DLACPY( 'Full', N, N, A, LDS, H, LDA )
-                     CALL DLACPY( 'Full', N, N, B, LDS, T, LDA )
-                     CALL DLACPY( 'Full', N, N, Q, LDS, Z, LDA )
+                     CALL SLACPY( 'Full', N, N, A, LDS, H, LDA )
+                     CALL SLACPY( 'Full', N, N, B, LDS, T, LDA )
+                     CALL SLACPY( 'Full', N, N, Q, LDS, Z, LDA )
                      CALL QZVEC( LDA, N, H, T, W, W( LDA+1 ),
      $                           W( 2*LDA+1 ), Z )
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      TIME = S2 - S1
                      IC = IC + 1
                      IF( TIME.LT.TIMMIN )
      $                  GO TO 890
 *
-*                    Subtract the time used in DLACPY.
+*                    Subtract the time used in SLACPY.
 *
-                     S1 = DSECND( )
+                     S1 = SECOND( )
                      DO 900 J = 1, IC
-                        CALL DLACPY( 'Full', N, N, A, LDS, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, B, LDS, Z, LDA )
-                        CALL DLACPY( 'Full', N, N, Q, LDS, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, A, LDS, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, B, LDS, Z, LDA )
+                        CALL SLACPY( 'Full', N, N, Q, LDS, Z, LDA )
   900                CONTINUE
-                     S2 = DSECND( )
+                     S2 = SECOND( )
                      UNTIME = S2 - S1
 *
                      TIMES( IPAR, ITYPE, IN, 18 ) = MAX( TIME-UNTIME,
-     $                  ZERO ) / DBLE( IC )
-                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / DBLE( IC )
+     $                  ZERO ) / REAL( IC )
+                     OPCNTS( IPAR, ITYPE, IN, 18 ) = OPS / REAL( IC )
                   ELSE
                      OPCNTS( IPAR, ITYPE, IN, 18 ) = OPCNTS( LASTL,
      $                  ITYPE, IN, 18 )
@@ -14038,7 +13999,7 @@ C
 *
       DO 940 ISUB = 1, NSUBS
          IF( TIMSUB( ISUB ) ) THEN
-            CALL DPRTBG( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
+            CALL SPRTBG( SUBNAM( ISUB ), MTYPES, DOTYPE, NSIZES, NN,
      $                   INPARM( ISUB ), PNAMES, NPARMS, LDAS, NNB,
      $                   NSHFTS, NEISPS, MINNBS, MINBKS,
      $                   OPCNTS( 1, 1, 1, ISUB ), LDO1, LDO2,
@@ -14049,14 +14010,14 @@ C
 *
       RETURN
 *
-*     End of DTIM51
+*     End of STIM51
 *
- 9997 FORMAT( ' DTIM51: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
+ 9997 FORMAT( ' STIM51: ', A, ' returned INFO=', I6, '.', / 9X, 'N=',
      $      I6, ', ITYPE=', I6, ', IPAR=', I6, ', ISEED=(',
      $      3( I5, ',' ), I5, ')' )
 *
       END
-      PROGRAM DTIMEE
+      PROGRAM STIMEE
 *
 *  -- LAPACK timing routine (version 3.0) --
 *     Univ. of Tennessee, Univ. of California Berkeley, NAG Ltd.,
@@ -14066,23 +14027,23 @@ C
 *  Purpose
 *  =======
 *
-*  DTIMEE is the main timing program for the DOUBLE PRECISION matrix
+*  STIMEE is the main timing program for the REAL matrix
 *  eigenvalue routines in LAPACK.
 *
 *  There are four sets of routines that can be timed:
 *
 *  NEP (Nonsymmetric Eigenvalue Problem):
-*      Includes DGEHRD, DHSEQR, DTREVC, and DHSEIN
+*      Includes SGEHRD, SHSEQR, STREVC, and SHSEIN
 *
 *  SEP (Symmetric Eigenvalue Problem):
-*      Includes DSYTRD, DORGTR, DORMTR, DSTEQR, DSTERF, DPTEQR, DSTEBZ,
-*      DSTEIN, and DSTEDC
+*      Includes SSYTRD, SORGTR, SORMTR, SSTEQR, SSTERF, SPTEQR, SSTEBZ,
+*      SSTEIN, and SSTEDC
 *
 *  SVD (Singular Value Decomposition):
-*      Includes DGEBRD, DBDSQR, DORGBR, DBDSDC and DGESDD
+*      Includes SGEBRD, SBDSQR, SORGBR, SBDSDC and SGESDD
 *
 *  GEP (Generalized nonsymmetric Eigenvalue Problem):
-*      Includes DGGHRD, DHGEQZ, and DTGEVC
+*      Includes SGGHRD, SHGEQZ, and STGEVC
 *
 *  Each test path has a different input file.  The first line of the
 *  input file should contain the characters NEP, SEP, SVD, or GEP in
@@ -14115,7 +14076,7 @@ C
 *  line 8:  LDAVAL, INTEGER array, dimension (NPARM)
 *           The values for the leading dimension LDA.
 *
-*  line 9:  TIMMIN, DOUBLE PRECISION
+*  line 9:  TIMMIN, REAL
 *           The minimum time (in seconds) that a subroutine will be
 *           timed.  If TIMMIN is zero, each routine should be timed only
 *           once.
@@ -14129,15 +14090,15 @@ C
 *
 *  The remaining lines specify a path name and the specific routines to
 *  be timed.  For the nonsymmetric eigenvalue problem, the path name is
-*  'DHS'.  A line to request all the routines in this path has the form
-*     DHS   T T T T T T T T T T T T
+*  'SHS'.  A line to request all the routines in this path has the form
+*     SHS   T T T T T T T T T T T T
 *  where the first 3 characters specify the path name, and up to MAXTYP
 *  nonblank characters may appear in columns 4-80.  If the k-th such
 *  character is 'T' or 't', the k-th routine will be timed.  If at least
 *  one but fewer than 12 nonblank characters are specified, the
 *  remaining routines will not be timed.  If columns 4-80 are blank, all
 *  the routines will be timed, so the input line
-*     DHS
+*     SHS
 *  is equivalent to the line above.
 *
 *-----------------------------------------------------------------------
@@ -14159,7 +14120,7 @@ C
 *  line 6:  LDAVAL, INTEGER array, dimension (NPARM)
 *           The values for the leading dimension LDA.
 *
-*  line 7:  TIMMIN, DOUBLE PRECISION
+*  line 7:  TIMMIN, REAL
 *           The minimum time (in seconds) that a subroutine will be
 *           timed.  If TIMMIN is zero, each routine should be timed only
 *           once.
@@ -14173,7 +14134,7 @@ C
 *
 *  The remaining lines specify a path name and the specific routines to
 *  be timed as for the NEP input file.  For the symmetric eigenvalue
-*  problem, the path name is 'DST' and up to 8 routines may be timed.
+*  problem, the path name is 'SST' and up to 8 routines may be timed.
 *
 *-----------------------------------------------------------------------
 *
@@ -14197,7 +14158,7 @@ C
 *  line 7:  LDAVAL, INTEGER array, dimension (NPARM)
 *           The values for the leading dimension LDA.
 *
-*  line 8:  TIMMIN, DOUBLE PRECISION
+*  line 8:  TIMMIN, REAL
 *           The minimum time (in seconds) that a subroutine will be
 *           timed.  If TIMMIN is zero, each routine should be timed only
 *           once.
@@ -14211,7 +14172,7 @@ C
 *
 *  The remaining lines specify a path name and the specific routines to
 *  be timed as for the NEP input file.  For the singular value
-*  decomposition the path name is 'DBD' and up to 16 routines may be
+*  decomposition the path name is 'SBD' and up to 16 routines may be
 *  timed.
 *
 *-----------------------------------------------------------------------
@@ -14247,7 +14208,7 @@ C
 *  line 10: LDAVAL, INTEGER array, dimension (NPARM)
 *           The values for the leading dimension LDA.
 *
-*  line 11: TIMMIN, DOUBLE PRECISION
+*  line 11: TIMMIN, REAL
 *           The minimum time (in seconds) that a subroutine will be
 *           timed.  If TIMMIN is zero, each routine should be timed only
 *           once.
@@ -14261,15 +14222,15 @@ C
 *
 *  The remaining lines specify a path name and the specific routines to
 *  be timed.  For the nonsymmetric eigenvalue problem, the path name is
-*  'DHG'.  A line to request all the routines in this path has the form
-*     DHG   T T T T T T T T T T T T T T T T T T
+*  'SHG'.  A line to request all the routines in this path has the form
+*     SHG   T T T T T T T T T T T T T T T T T T
 *  where the first 3 characters specify the path name, and up to MAXTYP
 *  nonblank characters may appear in columns 4-80.  If the k-th such
 *  character is 'T' or 't', the k-th routine will be timed.  If at least
 *  one but fewer than 18 nonblank characters are specified, the
 *  remaining routines will not be timed.  If columns 4-80 are blank, all
 *  the routines will be timed, so the input line
-*     DHG
+*     SHG
 *  is equivalent to the line above.
 *
 *=======================================================================
@@ -14313,7 +14274,7 @@ C
       CHARACTER*6        VNAME
       CHARACTER*80       LINE
       INTEGER            I, INFO, MAXTYP, NN, NPARMS, NTYPES
-      DOUBLE PRECISION   S1, S2, TIMMIN
+      REAL               S1, S2, TIMMIN
 *     ..
 *     .. Local Arrays ..
       LOGICAL            DOTYPE( MAXT ), LOGWRK( MAXN )
@@ -14322,28 +14283,28 @@ C
      $                   MXBVAL( MAXPRM ), MXTYPE( 4 ),
      $                   NBKVAL( MAXPRM ), NBMVAL( MAXPRM ),
      $                   NBVAL( MAXPRM ), NSVAL( MAXPRM ), NVAL( MAXIN )
-      DOUBLE PRECISION   A( LDAMAX*MAXN, NEED ), D( MAXN, 4 ),
+      REAL               A( LDAMAX*MAXN, NEED ), D( MAXN, 4 ),
      $                   OPCNTS( MAXPRM, MAXT, MAXIN, MAXSUB ),
      $                   RESULT( MAXPRM, MAXT, MAXIN, MAXSUB ),
      $                   WORK( LWORK )
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAMEN
-      DOUBLE PRECISION   DSECND
-      EXTERNAL           LSAMEN, DSECND
+      REAL               SECOND
+      EXTERNAL           LSAMEN, SECOND
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DTIM21, DTIM22, DTIM26, DTIM51
+      EXTERNAL           STIM21, STIM22, STIM26, STIM51
 *     ..
 *     .. Scalars in Common ..
-      DOUBLE PRECISION   ITCNT, OPS
+      REAL               ITCNT, OPS
 *     ..
 *     .. Arrays in Common ..
       INTEGER            IPARMS( 100 )
 *     ..
 *     .. Common blocks ..
-      COMMON             / LATIME / OPS, ITCNT
       COMMON             / CLAENV / IPARMS
+      COMMON             / LATIME / OPS, ITCNT
 *     ..
 *     .. Save statement ..
       SAVE               / CLAENV /
@@ -14357,7 +14318,7 @@ C
 *     ..
 *     .. Executable Statements ..
 *
-      S1 = DSECND( )
+      S1 = SECOND( )
       FATAL = .FALSE.
       NEP = .FALSE.
       SEP = .FALSE.
@@ -14367,10 +14328,10 @@ C
 *     Read the 3-character test path
 *
       READ( NIN, FMT = '(A3)', END = 160 )PATH
-      NEP = LSAMEN( 3, PATH, 'NEP' ) .OR. LSAMEN( 3, PATH, 'DHS' )
-      SEP = LSAMEN( 3, PATH, 'SEP' ) .OR. LSAMEN( 3, PATH, 'DST' )
-      SVD = LSAMEN( 3, PATH, 'SVD' ) .OR. LSAMEN( 3, PATH, 'DBD' )
-      GEP = LSAMEN( 3, PATH, 'GEP' ) .OR. LSAMEN( 3, PATH, 'DHG' )
+      NEP = LSAMEN( 3, PATH, 'NEP' ) .OR. LSAMEN( 3, PATH, 'SHS' )
+      SEP = LSAMEN( 3, PATH, 'SEP' ) .OR. LSAMEN( 3, PATH, 'SST' )
+      SVD = LSAMEN( 3, PATH, 'SVD' ) .OR. LSAMEN( 3, PATH, 'SBD' )
+      GEP = LSAMEN( 3, PATH, 'GEP' ) .OR. LSAMEN( 3, PATH, 'SHG' )
 *
 *     Report values of parameters as they are read.
 *
@@ -14607,55 +14568,55 @@ C
 *     NEP:  Nonsymmetric Eigenvalue Problem
 *     -------------------------------------
 *
-      IF( LSAMEN( 3, C3, 'DHS' ) .OR. LSAMEN( 3, C3, 'NEP' ) ) THEN
-         CALL DTIM21( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
+      IF( LSAMEN( 3, C3, 'SHS' ) .OR. LSAMEN( 3, C3, 'NEP' ) ) THEN
+         CALL STIM21( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
      $                NSVAL, MXBVAL, LDAVAL, TIMMIN, NOUT, ISEED,
      $                A( 1, 1 ), A( 1, 2 ), A( 1, 3 ), D( 1, 1 ), WORK,
      $                LWORK, LOGWRK, IWORK2, RESULT, MAXPRM, MAXT,
      $                MAXIN, OPCNTS, MAXPRM, MAXT, MAXIN, INFO )
          IF( INFO.NE.0 )
-     $      WRITE( NOUT, FMT = 9986 )'DTIM21', INFO
+     $      WRITE( NOUT, FMT = 9986 )'STIM21', INFO
 *
 *     ----------------------------------
 *     SEP:  Symmetric Eigenvalue Problem
 *     ----------------------------------
 *
-      ELSE IF( LSAMEN( 3, C3, 'DST' ) .OR. LSAMEN( 3, C3, 'SEP' ) ) THEN
-         CALL DTIM22( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
+      ELSE IF( LSAMEN( 3, C3, 'SST' ) .OR. LSAMEN( 3, C3, 'SEP' ) ) THEN
+         CALL STIM22( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
      $                LDAVAL, TIMMIN, NOUT, ISEED, A( 1, 1 ), D( 1, 1 ),
      $                D( 1, 2 ), D( 1, 3 ), A( 1, 2 ), A( 1, 3 ), WORK,
      $                LWORK, LOGWRK, IWORK2, RESULT, MAXPRM, MAXT,
      $                MAXIN, OPCNTS, MAXPRM, MAXT, MAXIN, INFO )
          IF( INFO.NE.0 )
-     $      WRITE( NOUT, FMT = 9986 )'DTIM22', INFO
+     $      WRITE( NOUT, FMT = 9986 )'STIM22', INFO
 *
 *     ----------------------------------
 *     SVD:  Singular Value Decomposition
 *     ----------------------------------
 *
-      ELSE IF( LSAMEN( 3, C3, 'DBD' ) .OR. LSAMEN( 3, C3, 'SVD' ) ) THEN
-         CALL DTIM26( LINE, NN, NVAL, MVAL, MAXTYP, DOTYPE, NPARMS,
+      ELSE IF( LSAMEN( 3, C3, 'SBD' ) .OR. LSAMEN( 3, C3, 'SVD' ) ) THEN
+         CALL STIM26( LINE, NN, NVAL, MVAL, MAXTYP, DOTYPE, NPARMS,
      $                NBVAL, LDAVAL, TIMMIN, NOUT, ISEED, A( 1, 1 ),
      $                A( 1, 2 ), A( 1, 3 ), A( 1, 4 ), D( 1, 1 ),
      $                D( 1, 2 ), D( 1, 3 ), D( 1, 4 ), WORK, LWORK,
      $                IWORK2, LOGWRK, RESULT, MAXPRM, MAXT, MAXIN,
      $                OPCNTS, MAXPRM, MAXT, MAXIN, INFO )
          IF( INFO.NE.0 )
-     $      WRITE( NOUT, FMT = 9986 )'DTIM26', INFO
+     $      WRITE( NOUT, FMT = 9986 )'STIM26', INFO
 *
 *     -------------------------------------------------
 *     GEP:  Generalized Nonsymmetric Eigenvalue Problem
 *     -------------------------------------------------
 *
-      ELSE IF( LSAMEN( 3, C3, 'DHG' ) .OR. LSAMEN( 3, C3, 'GEP' ) ) THEN
-         CALL DTIM51( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
+      ELSE IF( LSAMEN( 3, C3, 'SHG' ) .OR. LSAMEN( 3, C3, 'GEP' ) ) THEN
+         CALL STIM51( LINE, NN, NVAL, MAXTYP, DOTYPE, NPARMS, NBVAL,
      $                NSVAL, MXBVAL, NBMVAL, NBKVAL, LDAVAL, TIMMIN,
      $                NOUT, ISEED, A( 1, 1 ), A( 1, 2 ), A( 1, 3 ),
      $                A( 1, 4 ), A( 1, 5 ), A( 1, 6 ), D( 1, 1 ), WORK,
      $                LWORK, LOGWRK, RESULT, MAXPRM, MAXT, MAXIN,
      $                OPCNTS, MAXPRM, MAXT, MAXIN, INFO )
          IF( INFO.NE.0 )
-     $      WRITE( NOUT, FMT = 9986 )'DTIM51', INFO
+     $      WRITE( NOUT, FMT = 9986 )'STIM51', INFO
       ELSE
          WRITE( NOUT, FMT = * )
          WRITE( NOUT, FMT = * )
@@ -14665,7 +14626,7 @@ C
   160 CONTINUE
       WRITE( NOUT, FMT = 9998 )
  9998 FORMAT( / / ' End of timing run' )
-      S2 = DSECND( )
+      S2 = SECOND( )
       WRITE( NOUT, FMT = 9997 )S2 - S1
 *
  9997 FORMAT( ' Total time used = ', F12.2, ' seconds', / )
@@ -14675,13 +14636,13 @@ C
  9994 FORMAT( ' *** Invalid input value: ', A6, '=', I6, '; must be <=',
      $      I6 )
  9993 FORMAT( ' Timing the Nonsymmetric Eigenvalue Problem routines',
-     $      / '    DGEHRD, DHSEQR, DTREVC, and DHSEIN' )
+     $      / '    SGEHRD, SHSEQR, STREVC, and SHSEIN' )
  9992 FORMAT( ' Timing the Symmetric Eigenvalue Problem routines',
-     $      / '    DSYTRD, DSTEQR, and DSTERF' )
+     $      / '    SSYTRD, SSTEQR, and SSTERF' )
  9991 FORMAT( ' Timing the Singular Value Decomposition routines',
-     $      / '    DGEBRD, DBDSQR, DORGBR, DBDSDC and DGESDD' )
+     $      / '    SGEBRD, SBDSQR, SORGBR, SBDSDC and SGESDD' )
  9990 FORMAT( ' Timing the Generalized Eigenvalue Problem routines',
-     $      / '    DGGHRD, DHGEQZ, and DTGEVC ' )
+     $      / '    SGGHRD, SHGEQZ, and STGEVC ' )
  9989 FORMAT( / ' The following parameter values will be used:' )
  9988 FORMAT( '    Values of ', A5, ':  ', 10I6, / 19X, 10I6 )
  9987 FORMAT( / ' Minimum time a subroutine will be timed = ', F8.2,
@@ -14689,6 +14650,6 @@ C
  9986 FORMAT( ' *** Error code from ', A6, ' = ', I4 )
  9985 FORMAT( / ' LAPACK VERSION 3.0, released June 30, 1999 ' )
 *
-*     End of DTIMEE
+*     End of STIMEE
 *
       END

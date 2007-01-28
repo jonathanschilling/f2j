@@ -171,8 +171,25 @@ LINTEST_PDIR=org/netlib/lapack/testing/lin
 SLINTEST_PACKAGE=org.netlib.lapack.testing.lin
 SLINTEST_PDIR=org/netlib/lapack/testing/lin
 
+EIGTIME_DIR=$(TIMING_DIR)/eig
+SEIGTIME_DIR=$(TIMING_DIR)/seig
+LINTIME_DIR=$(TIMING_DIR)/lin
+SLINTIME_DIR=$(TIMING_DIR)/slin
+
+EIGTIME_OBJ=$(EIGTIME_DIR)/$(OUTDIR)
+SEIGTIME_OBJ=$(SEIGTIME_DIR)/$(OUTDIR)
+LINTIME_OBJ=$(LINTIME_DIR)/$(OUTDIR)
+SLINTIME_OBJ=$(SLINTIME_DIR)/$(OUTDIR)
+
+EIGTIME_IDX=$(EIGTIME_OBJ)/Eigtime.f2j
+SEIGTIME_IDX=$(SEIGTIME_OBJ)/Seigtime.f2j
+LINTIME_IDX=$(LINTIME_OBJ)/Lintime.f2j
+SLINTIME_IDX=$(SLINTIME_OBJ)/Slintime.f2j
+
 EIGTIME_PACKAGE=org.netlib.lapack.timing.eig
 EIGTIME_PDIR=org/netlib/lapack/timing/eig
+SEIGTIME_PACKAGE=org.netlib.lapack.timing.eig
+SEIGTIME_PDIR=org/netlib/lapack/timing/eig
 
 LINTIME_PACKAGE=org.netlib.lapack.timing.lin
 LINTIME_PDIR=org/netlib/lapack/timing/lin

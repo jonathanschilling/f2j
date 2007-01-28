@@ -111,6 +111,9 @@ extern enum _opcode icmp_opcode[];
 /* comparison ops for relational expressions.  */
 extern enum _opcode dcmp_opcode[];
 
+/* comparison ops for floating point comparison.  */
+extern enum _opcode cmpg_opcode[];
+
 /* The following is a table of type conversion opcodes. */
 extern enum _opcode typeconv_matrix[MAX_RETURNS+1][MAX_RETURNS+1];
 

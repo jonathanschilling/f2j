@@ -7760,8 +7760,8 @@ arithmeticif_emit (JVM_METHOD *meth, AST * root)
   }
   else {
     bc_gen_load_op(meth, lvar, jvm_data_types[root->astnode.arithmeticif.cond->vartype]);
-    bc_append(meth, jvm_dconst_0);
-    bc_append(meth, jvm_dcmpg);
+    bc_append(meth, init_opcodes[root->astnode.arithmeticif.cond->vartype]);
+    bc_append(meth, cmpg_opcode[root->astnode.arithmeticif.cond->vartype]);
     if_node = bc_append(meth, jvm_ifge);
 
     goto_node = bc_append(meth, jvm_goto);
@@ -7770,8 +7770,8 @@ arithmeticif_emit (JVM_METHOD *meth, AST * root)
 
     bc_set_branch_target(if_node, 
        bc_gen_load_op(meth, lvar, jvm_data_types[root->astnode.arithmeticif.cond->vartype]));
-    bc_append(meth, jvm_dconst_0);
-    bc_append(meth, jvm_dcmpg);
+    bc_append(meth, init_opcodes[root->astnode.arithmeticif.cond->vartype]);
+    bc_append(meth, cmpg_opcode[root->astnode.arithmeticif.cond->vartype]);
   }
 
   if_node = bc_append(meth, jvm_ifne);

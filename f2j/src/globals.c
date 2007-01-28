@@ -899,6 +899,24 @@ enum _opcode dcmp_opcode[] = {
   jvm_ifge
 };
 
+/*
+ * Comparison ops for floating point.  I'm adding this to support 
+ * code gen for "Arithmetic IF" statements, which is already split
+ * into integer and non-integer cases, so here I only put the single
+ * and double versions.
+ */
+
+enum _opcode cmpg_opcode[MAX_RETURNS+1] =
+{
+  jvm_nop,
+  jvm_nop,
+  jvm_nop,
+  jvm_dcmpg,
+  jvm_fcmpg,
+  jvm_nop,
+  jvm_nop
+};
+
 /* The following is a table of type conversion opcodes.  to find the
  * appropriate opcode for the conversion, go to the row of the type to
  * convert FROM and scan across to the column of the type to convert TO.

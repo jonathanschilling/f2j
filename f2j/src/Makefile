@@ -16,7 +16,7 @@ F2J_LIBS= -L $(BYTE_DIR) -lbytecode $(LIBS)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
 #  The main executable.
-f2java: f2j.h f2jparse.y $(OBJS)
+f2java: f2j.h f2jparse.y $(OBJS) $(BYTE_DIR)/libbytecode.a
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(OBJS) $(F2J_LIBS)
 
 #  The purify version...

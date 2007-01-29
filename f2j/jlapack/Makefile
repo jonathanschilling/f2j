@@ -11,6 +11,8 @@ default:
 	@echo "  libdist_tgz - a gzipped tar file of the BLAS and LAPACK libraries"
 	@echo "  testers_dist - a zipped distribution of the BLAS and LAPACK test routines"
 	@echo "  testers_dist_tgz - a gzipped tar file of the BLAS and LAPACK test routines"
+	@echo "  timers_dist - a zipped distribution of the BLAS and LAPACK timing routines"
+	@echo "  timers_dist_tgz - a gzipped tar file of the BLAS and LAPACK timing routines"
 	@echo ""
 	@echo "Translated from Fortran to Java source:"
 	@echo "  javasrc - BLAS and LAPACK libraries"
@@ -34,6 +36,15 @@ all:
 
 testers: lib
 	cd $(TESTING_DIR); $(MAKE) testers
+
+matgen:
+	cd $(MATGEN_DIR); $(MAKE)
+
+smatgen:
+	cd $(SMATGEN_DIR); $(MAKE)
+
+timers: lib matgen smatgen
+	cd $(TIMING_DIR); $(MAKE) timers
 
 testers_javasrc: javasrc
 	cd $(TESTING_DIR); $(MAKE) -f Makefile_javasrc testers
@@ -117,7 +128,7 @@ testers_dist_common:
 	-/bin/cp $(SLINTEST_INPUT) $(VERSION)/testing
 	-/bin/cp $(EIGTEST_INPUT) $(VERSION)/testing
 	-/bin/cp $(SEIGTEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(DISTDIR)/*.sh $(DISTDIR)/*.bat $(DISTDIR)/README $(VERSION)/testing
+	-/bin/cp $(DISTDIR_TESTING)/*.sh $(DISTDIR_TESTING)/*.bat $(DISTDIR_TESTING)/README $(VERSION)/testing
 	-ln -s ../../$(BLAS1TEST_DIR)/$(BLAS1TEST_JAR) $(VERSION)/testing/$(BLAS1TEST_JAR)
 	-ln -s ../../$(BLAS2TEST_DIR)/$(BLAS2TEST_JAR) $(VERSION)/testing/$(BLAS2TEST_JAR)
 	-ln -s ../../$(BLAS3TEST_DIR)/$(BLAS3TEST_JAR) $(VERSION)/testing/$(BLAS3TEST_JAR)
@@ -130,6 +141,27 @@ testers_dist_common:
 	-ln -s ../../$(SLINTEST_DIR)/$(SLINTEST_JAR) $(VERSION)/testing/$(SLINTEST_JAR)
 	-ln -s ../../$(EIGTEST_DIR)/$(EIGTEST_JAR) $(VERSION)/testing/$(EIGTEST_JAR)
 	-ln -s ../../$(SEIGTEST_DIR)/$(SEIGTEST_JAR) $(VERSION)/testing/$(SEIGTEST_JAR)
+
+timers_dist: timers timers_dist_common
+	$(ZIP) -r9 $(TIMERS_DIST_ZIP) $(VERSION)/timing
+
+timers_dist_tgz: timers timers_dist_common
+	$(TAR) $(TARFLAGS) - $(VERSION)/timing | $(GZIP) > $(TIMERS_DIST_TGZ)
+
+timers_dist_common:
+	/bin/rm -rf $(VERSION)/timing
+	mkdir -p $(VERSION)/timing
+	-/bin/cp $(LINTIME_INPUT) $(VERSION)/timing
+	-/bin/cp $(SLINTIME_INPUT) $(VERSION)/timing
+	-/bin/cp $(EIGTIME_INPUT) $(VERSION)/timing
+	-/bin/cp $(SEIGTIME_INPUT) $(VERSION)/timing
+	-/bin/cp $(DISTDIR_TIMING)/*.sh $(DISTDIR_TIMING)/*.bat $(DISTDIR_TIMING)/README $(VERSION)/timing
+	-ln -s ../../$(MATGEN_DIR)/$(MATGEN_JAR) $(VERSION)/timing/$(MATGEN_JAR)
+	-ln -s ../../$(SMATGEN_DIR)/$(SMATGEN_JAR) $(VERSION)/timing/$(SMATGEN_JAR)
+	-ln -s ../../$(LINTIME_DIR)/$(LINTIME_JAR) $(VERSION)/timing/$(LINTIME_JAR)
+	-ln -s ../../$(SLINTIME_DIR)/$(SLINTIME_JAR) $(VERSION)/timing/$(SLINTIME_JAR)
+	-ln -s ../../$(EIGTIME_DIR)/$(EIGTIME_JAR) $(VERSION)/timing/$(EIGTIME_JAR)
+	-ln -s ../../$(SEIGTIME_DIR)/$(SEIGTIME_JAR) $(VERSION)/timing/$(SEIGTIME_JAR)
 
 examples:
 	cd examples; $(MAKE)

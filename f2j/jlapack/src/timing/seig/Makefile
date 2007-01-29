@@ -13,6 +13,9 @@ XERBLAFLAGS= -c .:$(ROOT)/$(SBLAS_OBJ) -p $(ERR_PACKAGE)
 F2JFLAGS=-c .:eigsrc/$(OUTDIR):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(SMATGEN_OBJ) -p $(SEIGTIME_PACKAGE) -o $(OUTDIR)
 
 timer: $(SBLAS) $(SLAPACK) $(SMATGEN) eigsrc/$(OUTDIR)/Seigsrc.f2j $(OUTDIR)/Seigtime.f2j util
+	/bin/rm -f $(SEIGTIME_JAR)
+	cd eigsrc/$(OUTDIR); $(JAR) cvf ../../$(SEIGTIME_JAR) `find . -name "*.class"`
+	cd $(OUTDIR); $(JAR) uvf ../$(SEIGTIME_JAR) `find . -name "*.class"`
 
 eigsrc/$(OUTDIR)/Seigsrc.f2j:
 	cd eigsrc;$(MAKE)
@@ -32,11 +35,15 @@ $(SMATGEN):
 util:
 	cd $(ROOT)/$(UTIL_DIR); $(MAKE)
 
-runtimer:	timer *.in
+runtimer: small
+
+small:	timer s*.in
+
+large:	timer S*.in
 
 *.in:	DUMMY
 	java -cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(SMATGEN_OBJ):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(SEIGTIME_PACKAGE).Stimee < $@
 
 clean:
 	cd eigsrc;$(MAKE) clean
-	/bin/rm -rf *.java *.class *.f2j $(OUTDIR)
+	/bin/rm -rf *.java *.class *.f2j $(OUTDIR) $(SEIGTIME_JAR)

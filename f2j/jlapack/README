@@ -1,13 +1,17 @@
 
 JLAPACK 0.7
 January 31, 2007
+----------------
 
-This directory should contain:
+This directory should contain the following files:
 
   README               - this file
   INSTALL              - installation details
   CHANGES              - what has changed in this version
   examples             - directory containing a few examples of calling JLAPACK
+
+The following jar files should exist:
+
   blas.jar             - the BLAS library (in double precision)
   blas_simple.jar      - the simplified interfaces to BLAS (double)
   sblas.jar            - the BLAS library (in single precision)
@@ -19,6 +23,19 @@ This directory should contain:
   xerbla.jar           - LAPACK error reporting routine
   f2jutil.jar          - utilities required for running f2j translated code
 
+If you downloaded the 'strict' distribution, there will be
+four subdirectories:
+
+  strict_math_lib      - calls java.lang.StrictMath instead of java.lang.Math,
+                         but the methods are not declared as strictfp
+  strict_fp            - methods are declared strictfp, but does not call
+                         java.lang.StrictMath
+  strict_both          - methods are declared strictfp and calls 
+                         java.lang.StrictMath
+  plain                - not strict
+
+Each of the subdirectories will contain all of the jar files mentioned
+above.
 
 In addition to raw translations of the numerical routines, the blas_simple
 and lapack_simple jar files contain classes that provide a more Java-like
@@ -41,11 +58,11 @@ NOTES:
 1.  This release has not been tuned for performance - it is a simple,
     automatic translation.
 
-2.  Some scalars must be wrapped in objects.  The objects are
+2.  Some scalars must be wrapped in objects.  The wrapper classes are
     located in the org.netlib.util package.  Therefore, your code 
     should contain "import org.netlib.util.*;" to have access to the
-    wrappers.  The source code may be found in:
-       jlapack-0.3a/src/org/netlib/util/
+    wrappers.
+
     In addition, your code should import org.netlib.lapack.Blah or
     org.netlib.blas.Blah, where Blah represents the routine your
     code calls.  See the files DdotTest.java and DlaruvTest.java
@@ -57,13 +74,14 @@ NOTES:
     fault in calling JLAPACK, try turning off the JIT and report
     the problem to f2j@cs.utk.edu.
 
-5.  The appropriate jar files should be in your classpath.
+5.  The appropriate jar files should be in your CLASSPATH.
       f2jutil.jar - should always be included
       blas.jar - include if calling BLAS routines
       lapack.jar - include if calling LAPACK routines
       xerbla.jar - include for LAPACK error handling
-    Note that if calling LAPACK, you'll want to include
-    lapack.jar, blas.jar, and xerbla.jar in your classpath.
+
+    So, if calling LAPACK, you'll want to include all four 
+    jar files in your CLASSPATH.
  
     You may customize your error handling by replacing xerbla.jar
     with your own error reporting package.

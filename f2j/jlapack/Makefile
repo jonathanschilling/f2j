@@ -1,6 +1,9 @@
 include make.def
 
 default:
+	@echo ""
+	@echo "JLAPACK (version: $(VERSION))"
+	@echo ""
 	@echo "The possible targets are as follows:"
 	@echo ""
 	@echo "Translated from Fortran directly to bytecode:"
@@ -9,8 +12,11 @@ default:
 	@echo "  alltests - build and run the test routines"
 	@echo "  libdist - a zipped distribution of the BLAS and LAPACK libraries"
 	@echo "  libdist_tgz - a gzipped tar file of the BLAS and LAPACK libraries"
+	@echo "  libdist_strict - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
+	@echo "  libdist_strict_tgz - a tarball of BLAS/LAPACK containing all strictfp versions"
 	@echo "  testers_dist - a zipped distribution of the BLAS and LAPACK test routines"
 	@echo "  testers_dist_tgz - a gzipped tar file of the BLAS and LAPACK test routines"
+	@echo "  timers - BLAS and LAPACK timing routines"
 	@echo "  timers_dist - a zipped distribution of the BLAS and LAPACK timing routines"
 	@echo "  timers_dist_tgz - a gzipped tar file of the BLAS and LAPACK timing routines"
 	@echo ""
@@ -20,13 +26,18 @@ default:
 	@echo "  alltests_javasrc - build and run the test routines"
 	@echo "  libdist_javasrc - a zipped distribution of the BLAS and LAPACK libraries"
 	@echo "  libdist_tgz_javasrc - a gzipped tar file of the BLAS and LAPACK libraries"
+	@echo "  libdist_strict_javasrc - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
+	@echo "  libdist_strict_tgz_javasrc - a tarball of BLAS/LAPACK containing all strictfp versions"
 	@echo "  testers_dist_javasrc - a zipped distribution of the BLAS and LAPACK test routines"
 	@echo "  testers_dist_tgz_javasrc - a gzipped tar file of the BLAS and LAPACK test routines"
 	@echo ""
 	@echo "Documentation:"
-	@echo "  javadoc - documentation in javadoc format"
+	@echo "  javadoc - documentation in javadoc HTML format"
 	@echo "  javadoc_dist - zipped distribution of the documentation"
 	@echo "  javadoc_dist_tgz - gzipped tar file of the documentation"
+	@echo ""
+	@echo "Other:"
+	@echo "  clean - remove all jar files, generated code, etc."
 
 lib:
 	cd $(SRCDIR); $(MAKE)
@@ -88,22 +99,55 @@ libdist_tgz_javasrc: javasrc libdist_common
 
 libdist_common:
 	/bin/rm -rf $(VERSION)
-	mkdir -p $(VERSION)
-	-ln -s ../$(BLAS_DIR)/$(BLAS_JAR) $(VERSION)/$(BLAS_JAR)
-	-ln -s ../$(BLAS_DIR)/$(SIMPLE_BLAS_JAR) $(VERSION)/$(SIMPLE_BLAS_JAR)
-	-ln -s ../$(SBLAS_DIR)/$(SBLAS_JAR) $(VERSION)/$(SBLAS_JAR)
-	-ln -s ../$(SBLAS_DIR)/$(SIMPLE_SBLAS_JAR) $(VERSION)/$(SIMPLE_SBLAS_JAR)
-	-ln -s ../$(LAPACK_DIR)/$(LAPACK_JAR) $(VERSION)/$(LAPACK_JAR)
-	-ln -s ../$(LAPACK_DIR)/$(SIMPLE_LAPACK_JAR) $(VERSION)/$(SIMPLE_LAPACK_JAR)
-	-ln -s ../$(SLAPACK_DIR)/$(SLAPACK_JAR) $(VERSION)/$(SLAPACK_JAR)
-	-ln -s ../$(SLAPACK_DIR)/$(SIMPLE_SLAPACK_JAR) $(VERSION)/$(SIMPLE_SLAPACK_JAR)
-	-ln -s ../$(UTIL_DIR)/$(UTIL_JAR) $(VERSION)/$(UTIL_JAR)
-	-ln -s ../$(ERR_DIR)/$(ERR_JAR) $(VERSION)/$(ERR_JAR)
-	-ln -s ../README $(VERSION)/README
-	-ln -s ../INSTALL $(VERSION)/INSTALL
-	-ln -s ../CHANGES $(VERSION)/CHANGES
+	mkdir -p $(VERSION)/examples
+	cp README INSTALL CHANGES $(VERSION)
+	cp examples/*.java examples/Makefile examples/README $(VERSION)/examples
+	$(MAKE) STRICT_DIR="" libdist_copy_jar_files
+
+libdist_strict:
+	$(MAKE) LIB_TARGET=lib libdist_strict_common
+	$(ZIP) -r9 $(LIBDIST_STRICT_ZIP) $(VERSION)
+
+libdist_strict_tgz:
+	$(MAKE) LIB_TARGET=lib libdist_strict_common
+	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_STRICT_TGZ)
+
+libdist_strict_javasrc:
+	$(MAKE) LIB_TARGET=javasrc libdist_strict_common
+	$(ZIP) -r9 $(LIBDIST_STRICT_ZIP) $(VERSION)
+
+libdist_strict_tgz_javasrc:
+	$(MAKE) LIB_TARGET=javasrc libdist_strict_common
+	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_STRICT_TGZ)
+
+libdist_strict_common:
+	$(MAKE) clean
+	/bin/rm -rf $(VERSION)
+	mkdir -p $(VERSION)/plain
+	mkdir -p $(VERSION)/strict_both
+	mkdir -p $(VERSION)/strict_fp
+	mkdir -p $(VERSION)/strict_math_lib
+	$(MAKE) STATIC=-fb $(LIB_TARGET)
+	$(MAKE) STRICT_DIR=strict_both libdist_copy_jar_files
+	cd src; $(MAKE) clean
+	$(MAKE) STATIC=-fm $(LIB_TARGET)
+	$(MAKE) STRICT_DIR=strict_math_lib libdist_copy_jar_files
+	cd src; $(MAKE) clean
+	$(MAKE) STATIC=-fs $(LIB_TARGET)
+	$(MAKE) STRICT_DIR=strict_fp libdist_copy_jar_files
+	cd src; $(MAKE) clean
+	$(MAKE) $(LIB_TARGET)
+	$(MAKE) STRICT_DIR=plain libdist_copy_jar_files
+	cp README INSTALL CHANGES $(VERSION)
 	mkdir -p $(VERSION)/examples
 	cp examples/*.java examples/Makefile examples/README $(VERSION)/examples
+
+libdist_copy_jar_files:
+	cp $(BLAS_DIR)/$(BLAS_JAR) $(BLAS_DIR)/$(SIMPLE_BLAS_JAR) \
+           $(SBLAS_DIR)/$(SBLAS_JAR) $(SBLAS_DIR)/$(SIMPLE_SBLAS_JAR) \
+           $(LAPACK_DIR)/$(LAPACK_JAR) $(LAPACK_DIR)/$(SIMPLE_LAPACK_JAR) \
+           $(SLAPACK_DIR)/$(SLAPACK_JAR) $(SLAPACK_DIR)/$(SIMPLE_SLAPACK_JAR) \
+           $(UTIL_DIR)/$(UTIL_JAR) $(ERR_DIR)/$(ERR_JAR) $(VERSION)/$(STRICT_DIR)
 
 testers_dist: testers testers_dist_common
 	$(ZIP) -r9 $(TESTERS_DIST_ZIP) $(VERSION)/testing

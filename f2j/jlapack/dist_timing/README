@@ -42,14 +42,6 @@ This directory should contain:
     dtime.in
     dtime2.in
 
-  Double Precision Linear Equation Timer Input Files (large sizes):
-    DBAND.in
-    DBLASB.in
-    DTIME.in
-    DBLASA.in
-    DBLASC.in
-    DTIME2.in
-
   Single Precision Linear Equation Timer Input Files (small sizes):
     sband.in
     sblasa.in
@@ -57,6 +49,29 @@ This directory should contain:
     sblasc.in
     stime.in
     stime2.in
+
+  Double Precision Eigenvalue Timer Input Files (small sizes):
+    dgeptim.in
+    dseptim.in
+    dneptim.in
+    dsvdtim.in
+
+  Single Precision Eigenvalue Timer Input Files (small sizes):
+    sgeptim.in
+    sseptim.in
+    sneptim.in
+    ssvdtim.in
+
+  The following input files for large matrix sizes are located in the
+  subdirectory named "input_files_large":
+
+  Double Precision Linear Equation Timer Input Files (large sizes):
+    DBAND.in
+    DBLASB.in
+    DTIME.in
+    DBLASA.in
+    DBLASC.in
+    DTIME2.in
 
   Single Precision Linear Equation Timer Input Files (large sizes):
     SBAND.in
@@ -66,23 +81,11 @@ This directory should contain:
     STIME.in
     STIME2.in
 
-  Double Precision Eigenvalue Timer Input Files (small sizes):
-    dgeptim.in
-    dseptim.in
-    dneptim.in
-    dsvdtim.in
-
   Double Precision Eigenvalue Timer Input Files (large sizes):
     DGEPTIM.in
     DSEPTIM.in
     DNEPTIM.in
     DSVDTIM.in
-
-  Single Precision Eigenvalue Timer Input Files (small sizes):
-    sgeptim.in
-    sseptim.in
-    sneptim.in
-    ssvdtim.in
 
   Single Precision Eigenvalue Timer Input Files (large sizes):
     SGEPTIM.in

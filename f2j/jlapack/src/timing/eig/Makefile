@@ -12,12 +12,14 @@ MATGEN=$(ROOT)/$(MATGEN_IDX)
 XERBLAFLAGS= -c .:$(ROOT)/$(BLAS_OBJ) -p $(ERR_PACKAGE)
 F2JFLAGS=-c .:eigsrc/$(OUTDIR):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(MATGEN_OBJ) -p $(EIGTIME_PACKAGE) -o $(OUTDIR)
 
+TIMER_CLASSPATH=-cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
+
 timer: $(BLAS) $(LAPACK) $(MATGEN) eigsrc/$(OUTDIR)/Eigsrc.f2j $(OUTDIR)/Eigtime.f2j util
 	/bin/rm -f $(EIGTIME_JAR)
 	cd eigsrc/$(OUTDIR); $(JAR) cvf ../../$(EIGTIME_JAR) `find . -name "*.class"`
 	cd $(OUTDIR); $(JAR) uvf ../$(EIGTIME_JAR) `find . -name "*.class"`
 
-eigsrc/$(OUTDIR)/Eigsrc.f2j:
+eigsrc/$(OUTDIR)/Eigsrc.f2j: eigsrc/eigsrc.f
 	cd eigsrc;$(MAKE)
 
 $(OUTDIR)/Eigtime.f2j: eigtime.f
@@ -39,10 +41,13 @@ runtimer: small
 
 small:	timer d*.in
 
-large:	timer D*.in
+large:	timer input_files_large/D*.in
 
 *.in:	DUMMY
-	java -cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(EIGTIME_PACKAGE).Dtimee < $@
+	java $(MORE_MEM_FLAG) $(TIMER_CLASSPATH) $(EIGTIME_PACKAGE).Dtimee < $@
+
+input_files_large/*.in:	DUMMY
+	java $(MORE_MEM_FLAG) $(TIMER_CLASSPATH) $(EIGTIME_PACKAGE).Dtimee < $@
 
 clean:
 	cd eigsrc;$(MAKE) clean

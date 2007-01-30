@@ -164,15 +164,11 @@ testers_dist_tgz_javasrc: testers_javasrc testers_dist_common
 testers_dist_common:
 	/bin/rm -rf $(VERSION)/testing
 	mkdir -p $(VERSION)/testing
-	-/bin/cp $(BLAS2TEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(BLAS3TEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(SBLAS2TEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(SBLAS3TEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(LINTEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(SLINTEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(EIGTEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(SEIGTEST_INPUT) $(VERSION)/testing
-	-/bin/cp $(DISTDIR_TESTING)/*.sh $(DISTDIR_TESTING)/*.bat $(DISTDIR_TESTING)/README $(VERSION)/testing
+	-/bin/cp $(BLAS2TEST_DIR)/*.in $(BLAS3TEST_DIR)/*.in $(SBLAS2TEST_DIR)/*.in \
+                 $(SBLAS3TEST_DIR)/*.in $(LINTEST_DIR)/*.in $(SLINTEST_DIR)/*.in \
+                 $(EIGTEST_DIR)/*.in $(SEIGTEST_DIR)/*.in $(VERSION)/testing
+	-/bin/cp $(DISTDIR_TESTING)/*.sh $(DISTDIR_TESTING)/*.bat \
+                 $(DISTDIR_TESTING)/README $(VERSION)/testing
 	-ln -s ../../$(BLAS1TEST_DIR)/$(BLAS1TEST_JAR) $(VERSION)/testing/$(BLAS1TEST_JAR)
 	-ln -s ../../$(BLAS2TEST_DIR)/$(BLAS2TEST_JAR) $(VERSION)/testing/$(BLAS2TEST_JAR)
 	-ln -s ../../$(BLAS3TEST_DIR)/$(BLAS3TEST_JAR) $(VERSION)/testing/$(BLAS3TEST_JAR)
@@ -194,12 +190,16 @@ timers_dist_tgz: timers timers_dist_common
 
 timers_dist_common:
 	/bin/rm -rf $(VERSION)/timing
-	mkdir -p $(VERSION)/timing
-	-/bin/cp $(LINTIME_INPUT) $(VERSION)/timing
-	-/bin/cp $(SLINTIME_INPUT) $(VERSION)/timing
-	-/bin/cp $(EIGTIME_INPUT) $(VERSION)/timing
-	-/bin/cp $(SEIGTIME_INPUT) $(VERSION)/timing
-	-/bin/cp $(DISTDIR_TIMING)/*.sh $(DISTDIR_TIMING)/*.bat $(DISTDIR_TIMING)/README $(VERSION)/timing
+	mkdir -p $(VERSION)/timing/input_files_large
+	-/bin/cp $(LINTIME_DIR)/*.in $(SLINTIME_DIR)/*.in $(EIGTIME_DIR)/*.in \
+                 $(SEIGTIME_DIR)/*.in $(VERSION)/timing
+	-/bin/cp $(LINTIME_DIR)/input_files_large/*.in \
+                 $(SLINTIME_DIR)/input_files_large/*.in \
+                 $(EIGTIME_DIR)/input_files_large/*.in \
+                 $(SEIGTIME_DIR)/input_files_large/*.in \
+                 $(VERSION)/timing/input_files_large
+	-/bin/cp $(DISTDIR_TIMING)/*.sh $(DISTDIR_TIMING)/*.bat \
+                 $(DISTDIR_TIMING)/README $(VERSION)/timing
 	-ln -s ../../$(MATGEN_DIR)/$(MATGEN_JAR) $(VERSION)/timing/$(MATGEN_JAR)
 	-ln -s ../../$(SMATGEN_DIR)/$(SMATGEN_JAR) $(VERSION)/timing/$(SMATGEN_JAR)
 	-ln -s ../../$(LINTIME_DIR)/$(LINTIME_JAR) $(VERSION)/timing/$(LINTIME_JAR)
@@ -215,4 +215,4 @@ clean:
 	cd examples; $(MAKE) clean
 	/bin/rm -rf doc $(VERSION) $(LIBDIST_ZIP) $(LIBDIST_TGZ) \
 		$(TESTERS_DIST_ZIP) $(TESTERS_DIST_TGZ) $(JAVADOC_DIST_ZIP) \
-		$(JAVADOC_DIST_TGZ)
+		$(JAVADOC_DIST_TGZ) $(TIMERS_DIST_ZIP) $(TIMERS_DIST_TGZ)

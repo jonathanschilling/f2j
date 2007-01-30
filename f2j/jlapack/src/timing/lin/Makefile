@@ -12,12 +12,14 @@ MATGEN=$(ROOT)/$(MATGEN_IDX)
 XERBLAFLAGS= -c .:$(ROOT)/$(BLAS_OBJ) -p $(ERR_PACKAGE)
 F2JFLAGS=-c .:$(OUTDIR):linsrc/$(OUTDIR):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(ERR_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(MATGEN_OBJ) -p $(LINTIME_PACKAGE) -o $(OUTDIR)
 
+TIMER_CLASSPATH=-cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
+
 timer: $(BLAS) $(LAPACK) $(MATGEN) linsrc/$(OUTDIR)/Linsrc.f2j $(OUTDIR)/Lintime.f2j util 
 	/bin/rm -f $(LINTIME_JAR)
 	cd linsrc/$(OUTDIR); $(JAR) cvf ../../$(LINTIME_JAR) `find . -name "*.class"`
 	cd $(OUTDIR); $(JAR) uvf ../$(LINTIME_JAR) `find . -name "*.class"`
 
-linsrc/$(OUTDIR)/Linsrc.f2j:
+linsrc/$(OUTDIR)/Linsrc.f2j: linsrc/linsrc.f
 	cd linsrc;$(MAKE)
 
 $(OUTDIR)/Lintime.f2j:	$(OUTDIR)/Lsamen.f2j lintime.f
@@ -42,10 +44,13 @@ runtimer: small
 
 small:	timer d*.in
 
-large:	timer D*.in
+large:	timer input_files_large/D*.in
 
 *.in:	DUMMY
-	java -server -Xmx500M -cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(MATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(LINTIME_PACKAGE).Dtimaa < $@
+	java $(MORE_MEM_FLAG) $(TIMER_CLASSPATH) $(LINTIME_PACKAGE).Dtimaa < $@
+
+input_files_large/*.in:	DUMMY
+	java $(MORE_MEM_FLAG) $(TIMER_CLASSPATH) $(LINTIME_PACKAGE).Dtimaa < $@
 
 clean:
 	cd linsrc;$(MAKE) clean

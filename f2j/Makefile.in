@@ -49,7 +49,7 @@ srcdist_common:
 	cp README install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
 
 clean:
-	/bin/rm -rf $(F2J_PACKAGE_NAME) f2jsrc.tgz f2jsrc.zip
+	/bin/rm -rf $(F2J_PACKAGE_NAME) $(F2J_PACKAGE_NAME).tgz f2jsrc.tgz f2jsrc.zip
 	cd goto_trans; $(MAKE) realclean
 	cd libbytecode; $(MAKE) clean
 	cd src; $(MAKE) clean

@@ -2,7 +2,7 @@ VERSION=jlapack-0.7
 
 F2J=f2java
 JAVA=java
-MORE_MEM_FLAG=-Xmx256M
+MORE_MEM_FLAG=-Xmx500M
 JAVAC=javac
 JAVAB=javab
 JAR=jar
@@ -229,91 +229,3 @@ UTIL_CLASSES=$(OUTDIR)/$(UTIL_PDIR)/Dsign.class \
         $(OUTDIR)/$(UTIL_PDIR)/doubleW.class \
         $(OUTDIR)/$(UTIL_PDIR)/floatW.class \
         $(OUTDIR)/$(UTIL_PDIR)/intW.class
-
-BLAS2TEST_INPUT=$(BLAS2TEST_DIR)/dblat2.in
-BLAS3TEST_INPUT=$(BLAS3TEST_DIR)/dblat3.in
-SBLAS2TEST_INPUT=$(SBLAS2TEST_DIR)/sblat2.in
-SBLAS3TEST_INPUT=$(SBLAS3TEST_DIR)/sblat3.in
-
-LINTEST_INPUT=$(LINTEST_DIR)/dtest.in
-SLINTEST_INPUT=$(SLINTEST_DIR)/stest.in
-
-EIGTEST_INPUT= $(EIGTEST_DIR)/dbak.in \
-        $(EIGTEST_DIR)/dsg.in \
-        $(EIGTEST_DIR)/dbal.in  \
-        $(EIGTEST_DIR)/glm.in \
-        $(EIGTEST_DIR)/dec.in  \
-        $(EIGTEST_DIR)/gqr.in \
-        $(EIGTEST_DIR)/ded.in \
-        $(EIGTEST_DIR)/gsv.in \
-        $(EIGTEST_DIR)/dgbak.in \
-        $(EIGTEST_DIR)/lse.in \
-        $(EIGTEST_DIR)/dgbal.in \
-        $(EIGTEST_DIR)/nep.in \
-        $(EIGTEST_DIR)/dgg.in \
-        $(EIGTEST_DIR)/sep.in \
-        $(EIGTEST_DIR)/dsb.in \
-        $(EIGTEST_DIR)/svd.in
-
-SEIGTEST_INPUT=$(SEIGTEST_DIR)/glm.in \
-        $(SEIGTEST_DIR)/lse.in \
-        $(SEIGTEST_DIR)/sbal.in \
-        $(SEIGTEST_DIR)/sed.in \
-        $(SEIGTEST_DIR)/sgbal.in \
-        $(SEIGTEST_DIR)/ssb.in \
-        $(SEIGTEST_DIR)/gqr.in \
-        $(SEIGTEST_DIR)/nep.in \
-        $(SEIGTEST_DIR)/sbb.in \
-        $(SEIGTEST_DIR)/sep.in \
-        $(SEIGTEST_DIR)/sgd.in \
-        $(SEIGTEST_DIR)/ssg.in \
-        $(SEIGTEST_DIR)/gsv.in \
-        $(SEIGTEST_DIR)/sbak.in \
-        $(SEIGTEST_DIR)/sec.in \
-        $(SEIGTEST_DIR)/sgbak.in \
-        $(SEIGTEST_DIR)/sgg.in \
-        $(SEIGTEST_DIR)/svd.in
-
-LINTIME_INPUT= $(LINTIME_DIR)/DBAND.in \
-        $(LINTIME_DIR)/DBLASB.in \
-        $(LINTIME_DIR)/DTIME.in \
-        $(LINTIME_DIR)/dband.in \
-        $(LINTIME_DIR)/dblasb.in \
-        $(LINTIME_DIR)/dtime.in \
-        $(LINTIME_DIR)/DBLASA.in \
-        $(LINTIME_DIR)/DBLASC.in \
-        $(LINTIME_DIR)/DTIME2.in \
-        $(LINTIME_DIR)/dblasa.in \
-        $(LINTIME_DIR)/dblasc.in \
-        $(LINTIME_DIR)/dtime2.in
-
-SLINTIME_INPUT= $(SLINTIME_DIR)/SBAND.in \
-        $(SLINTIME_DIR)/SBLASB.in \
-        $(SLINTIME_DIR)/STIME.in \
-        $(SLINTIME_DIR)/sband.in \
-        $(SLINTIME_DIR)/sblasb.in \
-        $(SLINTIME_DIR)/stime.in \
-        $(SLINTIME_DIR)/SBLASA.in \
-        $(SLINTIME_DIR)/SBLASC.in \
-        $(SLINTIME_DIR)/STIME2.in \
-        $(SLINTIME_DIR)/sblasa.in \
-        $(SLINTIME_DIR)/sblasc.in \
-        $(SLINTIME_DIR)/stime2.in
-
-EIGTIME_INPUT= $(EIGTIME_DIR)/DGEPTIM.in \
-        $(EIGTIME_DIR)/DSEPTIM.in \
-        $(EIGTIME_DIR)/DNEPTIM.in \
-        $(EIGTIME_DIR)/DSVDTIM.in \
-        $(EIGTIME_DIR)/dgeptim.in \
-        $(EIGTIME_DIR)/dneptim.in \
-        $(EIGTIME_DIR)/dseptim.in \
-        $(EIGTIME_DIR)/dsvdtim.in
-
-SEIGTIME_INPUT= $(SEIGTIME_DIR)/SGEPTIM.in \
-        $(SEIGTIME_DIR)/SSEPTIM.in \
-        $(SEIGTIME_DIR)/sgeptim.in \
-        $(SEIGTIME_DIR)/sseptim.in \
-        $(SEIGTIME_DIR)/SNEPTIM.in \
-        $(SEIGTIME_DIR)/SSVDTIM.in \
-        $(SEIGTIME_DIR)/sneptim.in \
-        $(SEIGTIME_DIR)/ssvdtim.in

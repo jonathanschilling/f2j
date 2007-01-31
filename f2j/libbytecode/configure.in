@@ -47,4 +47,4 @@ AC_SUBST(DOXYGEN)
 
 AC_CONFIG_HEADER(bytecode.h)
 
-AC_OUTPUT(Makefile make.def testing/Makefile)
+AC_OUTPUT(Makefile make.def)

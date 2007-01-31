@@ -1,0 +1,54 @@
+Compiled from "asdf.f"
+public class LocalVariables extends java.lang.Object{
+public LocalVariables();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	bipush	12
+   2:	istore_1
+   3:	bipush	34
+   5:	istore_2
+   6:	bipush	56
+   8:	istore_3
+   9:	bipush	78
+   11:	istore	4
+   13:	iload	4
+   15:	istore_3
+   16:	iload_1
+   17:	iload_2
+   18:	imul
+   19:	iload_3
+   20:	iconst_2
+   21:	isub
+   22:	iadd
+   23:	istore_3
+   24:	iload_3
+   25:	sipush	666
+   28:	iadd
+   29:	istore_3
+   30:	return
+
+  LineNumberTable: 
+   line 13: 0
+   line 14: 3
+   line 15: 6
+   line 18: 9
+   line 19: 15
+   line 21: 16
+   line 21: 24
+   line 23: 30
+  LocalVariableTable: 
+   Start  Length  Slot  Name   Signature
+   0      31      0    args       Ljava/lang/String;
+   3      28      1    x       I
+   6      25      2    y       I
+   9      22      3    z       I
+   13      3      4    a       I
+
+}
+

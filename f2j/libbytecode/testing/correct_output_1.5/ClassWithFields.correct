@@ -1,0 +1,44 @@
+Compiled from "asdf.f"
+public class ClassWithFields extends java.lang.Object{
+public int public_int;
+
+protected int protected_int;
+
+static int static_int;
+
+final int final_int;
+
+volatile int volatile_int;
+
+transient int transient_int;
+
+public static int public_static_int;
+
+public final int public_final_int;
+
+public java.lang.String public_object;
+
+public int[] public_int_array;
+
+public static int int_with_constantval_attr;
+
+public static double dbl_with_constantval_attr;
+
+public int int_with_synthetic_attr;
+
+public int int_deprecated;
+
+public ClassWithFields();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	return
+
+
+}
+

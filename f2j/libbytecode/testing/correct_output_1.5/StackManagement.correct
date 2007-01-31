@@ -1,0 +1,96 @@
+Compiled from "asdf.f"
+public class StackManagement extends java.lang.Object{
+public StackManagement();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	sipush	300
+   3:	pop
+   4:	sipush	400
+   7:	sipush	500
+   10:	pop2
+   11:	ldc2_w	#14; //double 34.61d
+   14:	pop2
+   15:	sipush	300
+   18:	dup
+   19:	pop2
+   20:	bipush	100
+   22:	sipush	200
+   25:	dup_x1
+   26:	pop
+   27:	pop2
+   28:	bipush	100
+   30:	sipush	200
+   33:	sipush	300
+   36:	dup_x2
+   37:	pop2
+   38:	pop2
+   39:	ldc2_w	#14; //double 34.61d
+   42:	sipush	200
+   45:	dup_x2
+   46:	pop
+   47:	pop2
+   48:	pop
+   49:	sipush	200
+   52:	sipush	300
+   55:	dup2
+   56:	pop2
+   57:	pop2
+   58:	ldc2_w	#14; //double 34.61d
+   61:	dup2
+   62:	pop2
+   63:	sipush	200
+   66:	sipush	300
+   69:	sipush	400
+   72:	dup2_x1
+   73:	pop2
+   74:	pop2
+   75:	pop
+   76:	sipush	400
+   79:	ldc2_w	#14; //double 34.61d
+   82:	dup2_x1
+   83:	pop2
+   84:	pop
+   85:	pop2
+   86:	bipush	100
+   88:	sipush	200
+   91:	sipush	300
+   94:	sipush	400
+   97:	dup2_x2
+   98:	pop2
+   99:	pop2
+   100:	pop2
+   101:	sipush	300
+   104:	sipush	400
+   107:	ldc2_w	#14; //double 34.61d
+   110:	dup2_x2
+   111:	pop2
+   112:	pop2
+   113:	pop2
+   114:	ldc2_w	#14; //double 34.61d
+   117:	sipush	300
+   120:	sipush	400
+   123:	dup2_x2
+   124:	pop2
+   125:	pop2
+   126:	pop2
+   127:	ldc2_w	#14; //double 34.61d
+   130:	ldc2_w	#14; //double 34.61d
+   133:	dup2_x2
+   134:	pop2
+   135:	pop2
+   136:	pop2
+   137:	sipush	300
+   140:	sipush	400
+   143:	swap
+   144:	pop2
+   145:	return
+
+
+}
+

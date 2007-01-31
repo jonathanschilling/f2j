@@ -17,5 +17,8 @@ f2j_ug.ps: f2j_ug.dvi
 f2j_ug.pdf: f2j_ug.ps
 	ps2pdf f2j_ug.ps
 
-clean:
+almost_clean:
 	rm -f f2j_ug.dvi f2j_ug.ps *.aux *.log *.out
+	
+clean:
+	rm -f f2j_ug.dvi f2j_ug.ps f2j_ug.pdf *.aux *.log *.out

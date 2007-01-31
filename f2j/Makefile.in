@@ -37,24 +37,26 @@ srcdist_common:
 	cd src; $(MAKE) y.tab.c
 	mkdir -p $(F2J_PACKAGE_NAME)/bin
 	mkdir -p $(F2J_PACKAGE_NAME)/src
-	mkdir -p $(F2J_PACKAGE_NAME)/libbytecode/testing
+	mkdir -p $(F2J_PACKAGE_NAME)/doc
 	mkdir -p $(F2J_PACKAGE_NAME)/goto_trans
+	mkdir -p $(F2J_PACKAGE_NAME)/libbytecode
 	mkdir -p $(F2J_PACKAGE_NAME)/util/org/netlib/util
 	cd goto_trans; cp *.[ch] make.def.in README LICENSE Makefile ../$(F2J_PACKAGE_NAME)/goto_trans
 	cd libbytecode; cp *.[ch] *.in configure ../$(F2J_PACKAGE_NAME)/libbytecode
-	cd libbytecode/testing; cp *.c *.correct *.output *.java Makefile.in ../../$(F2J_PACKAGE_NAME)/libbytecode/testing
 	cd src; cp *.[chy] make.def.in LICENSE Makefile ../$(F2J_PACKAGE_NAME)/src
 	cd util; cp make.def.in Makefile ../$(F2J_PACKAGE_NAME)/util
 	cd util; cp -r org ../$(F2J_PACKAGE_NAME)/util
+	cd doc; $(MAKE) f2j_ug.pdf; $(MAKE) almost_clean
+	cp doc/Makefile doc/*.tex doc/f2j_ug.pdf $(F2J_PACKAGE_NAME)/doc
 	cp README install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
 
 clean:
-	/bin/rm -rf $(F2J_PACKAGE_NAME) $(F2J_PACKAGE_NAME).tgz f2jsrc.tgz f2jsrc.zip
+	/bin/rm -rf $(F2J_PACKAGE_NAME) $(F2J_PACKAGE_NAME).zip $(F2J_PACKAGE_NAME).tgz f2jsrc.tgz f2jsrc.zip
 	cd goto_trans; $(MAKE) realclean
 	cd libbytecode; $(MAKE) clean
 	cd src; $(MAKE) clean
 	cd util; $(MAKE) clean
-	cd doc; $(MAKE) clean
+	cd doc; $(MAKE) almost_clean
 
 configclean: clean
 	cd libbytecode; $(MAKE) configclean

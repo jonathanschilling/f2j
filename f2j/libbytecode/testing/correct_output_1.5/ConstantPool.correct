@@ -1,0 +1,41 @@
+Compiled from "asdf.f"
+public class ConstantPool extends java.lang.Object{
+public ConstantPool();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#41; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	ldc2_w	#7; //double 2.2d
+   3:	pop2
+   4:	ldc2_w	#11; //long 123456l
+   7:	pop2
+   8:	new	#15; //class java/lang/String
+   11:	pop
+   12:	ldc	#9; //float 1.1f
+   14:	pop
+   15:	ldc	#10; //int 666
+   17:	pop
+   18:	ldc	#17; //String hello world
+   20:	pop
+   21:	getstatic	#23; //Field java/lang/Boolean.TRUE:Ljava/lang/Boolean;
+   24:	pop
+   25:	ldc	#17; //String hello world
+   27:	invokestatic	#27; //Method java/lang/Boolean.getBoolean:(Ljava/lang/String;)Z
+   30:	pop
+   31:	return
+
+
+public static void test(java.util.Enumeration);
+  Code:
+   0:	aload_0
+   1:	invokeinterface	#33,  1; //InterfaceMethod java/util/Enumeration.hasMoreElements:()Z
+   6:	pop
+   7:	return
+
+
+}
+

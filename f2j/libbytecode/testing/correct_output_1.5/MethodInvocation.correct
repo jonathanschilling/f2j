@@ -1,0 +1,86 @@
+Compiled from "asdf.f"
+public class MethodInvocation extends java.lang.Object{
+public MethodInvocation();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+public static int int_method();
+  Code:
+   0:	sipush	1234
+   3:	ireturn
+
+
+public static long long_method();
+  Code:
+   0:	ldc2_w	#16; //long 4321l
+   3:	lreturn
+
+
+public static float float_method();
+  Code:
+   0:	ldc	#20; //float 9.9f
+   2:	freturn
+
+
+public static double double_method();
+  Code:
+   0:	ldc2_w	#23; //double 8.8d
+   3:	dreturn
+
+
+public static java.lang.String obj_method();
+  Code:
+   0:	ldc	#28; //String blah
+   2:	areturn
+
+
+public static int int_method_nodesc();
+  Code:
+   0:	sipush	1234
+   3:	ireturn
+
+
+public static long long_method_nodesc();
+  Code:
+   0:	ldc2_w	#16; //long 4321l
+   3:	lreturn
+
+
+public static float float_method_nodesc();
+  Code:
+   0:	ldc	#20; //float 9.9f
+   2:	freturn
+
+
+public static double double_method_nodesc();
+  Code:
+   0:	ldc2_w	#23; //double 8.8d
+   3:	dreturn
+
+
+public static java.lang.String obj_method_nodesc();
+  Code:
+   0:	ldc	#28; //String blah
+   2:	areturn
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	invokestatic	#37; //Method int_method:()I
+   3:	invokestatic	#39; //Method long_method:()J
+   6:	invokestatic	#41; //Method float_method:()F
+   9:	invokestatic	#43; //Method double_method:()D
+   12:	invokestatic	#45; //Method obj_method:()Ljava/lang/String;
+   15:	invokestatic	#47; //Method int_method_nodesc:()I
+   18:	invokestatic	#49; //Method long_method_nodesc:()J
+   21:	invokestatic	#51; //Method float_method_nodesc:()F
+   24:	invokestatic	#53; //Method double_method_nodesc:()D
+   27:	invokestatic	#55; //Method obj_method_nodesc:()Ljava/lang/String;
+   30:	return
+
+
+}
+

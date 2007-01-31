@@ -7,7 +7,7 @@ JAVA_HOME=""
 
 if [ -f "$1" ]; then
   if ./"$1"; then
-    if ${JAVAP} "$1" | diff - "$1".correct > /dev/null; then
+    if ${JAVAP} "$1" | diff - "$2" > /dev/null; then
       if ${JAVAC} "$1"Driver.java > /dev/null; then
         if ${JAVA} "$1"Driver | diff - "$1".output > /dev/null; then
           exit 0

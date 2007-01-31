@@ -1,4 +1,6 @@
 
+VER=correct_output_1.6
+
 BYTECODE_LIBDIR=..
 
 include $(BYTECODE_LIBDIR)/make.def
@@ -15,14 +17,14 @@ PURECOV=purecov
 	$(PURIFY) $(CC) $(CFLAGS) $@.c $(LDFLAGS) -o $@
 
 default:
-	@for testcase in *.correct ; do \
-		$(MAKE) PURIFY=$(PURIFY) `echo $$testcase | sed s/\.correct//` ; \
+	@for testcase in $(VER)/*.correct ; do \
+		$(MAKE) PURIFY=$(PURIFY) `basename $$testcase | sed s/\.correct//` ; \
 	done
 
 test: default
-	@for testcase in *.correct ; do \
-		tc=`echo $$testcase | sed s/\.correct//` ; \
-		if ./runtest $$tc > /dev/null 2>&1 ; then \
+	@for testcase in $(VER)/*.correct ; do \
+		tc=`basename $$testcase | sed s/\.correct//` ; \
+		if ./runtest $$tc $$testcase > /dev/null 2>&1 ; then \
 			echo "$$tc 		OK"; \
 		else \
 			echo "$$tc 		Failed"; \
@@ -35,6 +37,9 @@ coverage_test: coverage_test.c
 clean:
 	/bin/rm -f *.o *.f2j *.class *.pcv coverage_test
 	/bin/rm -rf coverage
-	@for testcase in *.correct ; do \
-		/bin/rm -f `echo $$testcase | sed s/\.correct//` ; \
+	@for testcase in $(VER)/*.correct ; do \
+		echo `basename $$testcase | sed s/\.correct//` ; \
 	done
+#	@for testcase in $(VER)/*.correct ; do \
+#		/bin/rm -f `basename $$testcase | sed s/\.correct//` ; \
+#	done

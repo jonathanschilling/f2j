@@ -1,0 +1,565 @@
+Compiled from "asdf.f"
+public class Arithmetic extends java.lang.Object{
+public Arithmetic();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	invokestatic	#16; //Method test_add:()V
+   3:	invokestatic	#19; //Method test_sub:()V
+   6:	invokestatic	#22; //Method test_mul:()V
+   9:	invokestatic	#25; //Method test_div:()V
+   12:	invokestatic	#28; //Method test_rem:()V
+   15:	invokestatic	#31; //Method test_neg:()V
+   18:	invokestatic	#34; //Method test_shift:()V
+   21:	invokestatic	#37; //Method test_bitwise_or:()V
+   24:	invokestatic	#40; //Method test_bitwise_and:()V
+   27:	invokestatic	#43; //Method test_bitwise_xor:()V
+   30:	invokestatic	#46; //Method test_comparison:()V
+   33:	return
+
+
+
+
+public static void test_add();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	lconst_1
+   5:	lstore_2
+   6:	ldc2_w	#47; //long 2l
+   9:	lstore	4
+   11:	fconst_1
+   12:	fstore	6
+   14:	fconst_2
+   15:	fstore	7
+   17:	dconst_1
+   18:	dstore	8
+   20:	ldc2_w	#49; //double 2.0d
+   23:	dstore	10
+   25:	iload_0
+   26:	iload_0
+   27:	iadd
+   28:	iload_1
+   29:	if_icmpne	72
+   32:	lload_2
+   33:	lload_2
+   34:	ladd
+   35:	lload	4
+   37:	lcmp
+   38:	ifne	72
+   41:	fload	6
+   43:	fload	6
+   45:	fadd
+   46:	fload	7
+   48:	fcmpl
+   49:	ifne	72
+   52:	dload	8
+   54:	dload	8
+   56:	dadd
+   57:	dload	10
+   59:	dcmpl
+   60:	ifne	72
+   63:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   66:	ldc	#58; //String Addition:          OK
+   68:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   71:	return
+   72:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   75:	ldc	#66; //String Addition:          Failed
+   77:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   80:	return
+
+
+
+
+public static void test_sub();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_0
+   3:	istore_1
+   4:	lconst_1
+   5:	lstore_2
+   6:	lconst_0
+   7:	lstore	4
+   9:	fconst_1
+   10:	fstore	6
+   12:	fconst_0
+   13:	fstore	7
+   15:	dconst_1
+   16:	dstore	8
+   18:	dconst_0
+   19:	dstore	10
+   21:	iload_0
+   22:	iload_0
+   23:	isub
+   24:	iload_1
+   25:	if_icmpne	68
+   28:	lload_2
+   29:	lload_2
+   30:	lsub
+   31:	lload	4
+   33:	lcmp
+   34:	ifne	68
+   37:	fload	6
+   39:	fload	6
+   41:	fsub
+   42:	fload	7
+   44:	fcmpl
+   45:	ifne	68
+   48:	dload	8
+   50:	dload	8
+   52:	dsub
+   53:	dload	10
+   55:	dcmpl
+   56:	ifne	68
+   59:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   62:	ldc	#68; //String Subtraction:       OK
+   64:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   67:	return
+   68:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   71:	ldc	#70; //String Subtraction:       Failed
+   73:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   76:	return
+
+
+
+
+public static void test_mul();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	lconst_1
+   5:	lstore_2
+   6:	ldc2_w	#47; //long 2l
+   9:	lstore	4
+   11:	fconst_1
+   12:	fstore	6
+   14:	fconst_2
+   15:	fstore	7
+   17:	dconst_1
+   18:	dstore	8
+   20:	ldc2_w	#49; //double 2.0d
+   23:	dstore	10
+   25:	iload_0
+   26:	iload_1
+   27:	imul
+   28:	iload_1
+   29:	if_icmpne	73
+   32:	lload_2
+   33:	lload	4
+   35:	lmul
+   36:	lload	4
+   38:	lcmp
+   39:	ifne	73
+   42:	fload	6
+   44:	fload	7
+   46:	fmul
+   47:	fload	7
+   49:	fcmpl
+   50:	ifne	73
+   53:	dload	8
+   55:	dload	10
+   57:	dmul
+   58:	dload	10
+   60:	dcmpl
+   61:	ifne	73
+   64:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   67:	ldc	#72; //String Multiplication:    OK
+   69:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   72:	return
+   73:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   76:	ldc	#74; //String Multiplication:    Failed
+   78:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   81:	return
+
+
+
+
+public static void test_div();
+  Code:
+   0:	iconst_4
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	ldc2_w	#75; //long 4l
+   7:	lstore_2
+   8:	ldc2_w	#47; //long 2l
+   11:	lstore	4
+   13:	ldc	#77; //float 4.0f
+   15:	fstore	6
+   17:	fconst_2
+   18:	fstore	7
+   20:	ldc2_w	#78; //double 4.0d
+   23:	dstore	8
+   25:	ldc2_w	#49; //double 2.0d
+   28:	dstore	10
+   30:	iload_0
+   31:	iload_1
+   32:	idiv
+   33:	iload_1
+   34:	if_icmpne	78
+   37:	lload_2
+   38:	lload	4
+   40:	ldiv
+   41:	lload	4
+   43:	lcmp
+   44:	ifne	78
+   47:	fload	6
+   49:	fload	7
+   51:	fdiv
+   52:	fload	7
+   54:	fcmpl
+   55:	ifne	78
+   58:	dload	8
+   60:	dload	10
+   62:	ddiv
+   63:	dload	10
+   65:	dcmpl
+   66:	ifne	78
+   69:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   72:	ldc	#81; //String Division:          OK
+   74:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   77:	return
+   78:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   81:	ldc	#83; //String Division:          Failed
+   83:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   86:	return
+
+
+
+
+public static void test_rem();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	bipush	11
+   6:	istore_2
+   7:	lconst_1
+   8:	lstore_3
+   9:	ldc2_w	#47; //long 2l
+   12:	lstore	5
+   14:	ldc2_w	#84; //long 11l
+   17:	lstore	7
+   19:	fconst_1
+   20:	fstore	9
+   22:	fconst_2
+   23:	fstore	10
+   25:	ldc	#86; //float 11.0f
+   27:	fstore	11
+   29:	dconst_1
+   30:	dstore	12
+   32:	ldc2_w	#49; //double 2.0d
+   35:	dstore	14
+   37:	ldc2_w	#87; //double 11.0d
+   40:	dstore	16
+   42:	iload_2
+   43:	iload_1
+   44:	irem
+   45:	iload_0
+   46:	if_icmpne	90
+   49:	lload	7
+   51:	lload	5
+   53:	lrem
+   54:	lload_3
+   55:	lcmp
+   56:	ifne	90
+   59:	fload	11
+   61:	fload	10
+   63:	frem
+   64:	fload	9
+   66:	fcmpl
+   67:	ifne	90
+   70:	dload	16
+   72:	dload	14
+   74:	drem
+   75:	dload	12
+   77:	dcmpl
+   78:	ifne	90
+   81:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   84:	ldc	#90; //String Remainder:         OK
+   86:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   89:	return
+   90:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   93:	ldc	#92; //String Remainder:         Failed
+   95:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   98:	return
+
+
+
+
+public static void test_neg();
+  Code:
+   0:	bipush	-2
+   2:	istore_0
+   3:	iconst_2
+   4:	istore_1
+   5:	ldc2_w	#93; //long -2l
+   8:	lstore_2
+   9:	ldc2_w	#47; //long 2l
+   12:	lstore	4
+   14:	ldc	#95; //float -2.0f
+   16:	fstore	6
+   18:	fconst_2
+   19:	fstore	7
+   21:	ldc2_w	#96; //double -2.0d
+   24:	dstore	8
+   26:	ldc2_w	#49; //double 2.0d
+   29:	dstore	10
+   31:	iload_1
+   32:	ineg
+   33:	iload_0
+   34:	if_icmpne	72
+   37:	lload	4
+   39:	lneg
+   40:	lload_2
+   41:	lcmp
+   42:	ifne	72
+   45:	fload	7
+   47:	fneg
+   48:	fload	6
+   50:	fcmpl
+   51:	ifne	72
+   54:	dload	10
+   56:	dneg
+   57:	dload	8
+   59:	dcmpl
+   60:	ifne	72
+   63:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   66:	ldc	#99; //String Negation:          OK
+   68:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   71:	return
+   72:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   75:	ldc	#101; //String Negation:          Failed
+   77:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   80:	return
+
+
+
+
+public static void test_shift();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	lconst_1
+   5:	lstore_2
+   6:	ldc2_w	#47; //long 2l
+   9:	lstore	4
+   11:	iload_0
+   12:	iload_0
+   13:	ishl
+   14:	iload_1
+   15:	if_icmpne	68
+   18:	lload_2
+   19:	iload_0
+   20:	lshl
+   21:	lload	4
+   23:	lcmp
+   24:	ifne	68
+   27:	iload_1
+   28:	iload_0
+   29:	ishr
+   30:	iload_0
+   31:	if_icmpne	68
+   34:	lload	4
+   36:	iload_0
+   37:	lshr
+   38:	lload_2
+   39:	lcmp
+   40:	ifne	68
+   43:	iload_1
+   44:	iload_0
+   45:	iushr
+   46:	iload_0
+   47:	if_icmpne	68
+   50:	lload	4
+   52:	iload_0
+   53:	lushr
+   54:	lload_2
+   55:	lcmp
+   56:	ifne	68
+   59:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   62:	ldc	#103; //String Shift:             OK
+   64:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   67:	return
+   68:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   71:	ldc	#105; //String Shift:             Failed
+   73:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   76:	return
+
+
+
+
+public static void test_bitwise_or();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	iconst_3
+   5:	istore_2
+   6:	lconst_1
+   7:	lstore_3
+   8:	ldc2_w	#47; //long 2l
+   11:	lstore	5
+   13:	ldc2_w	#106; //long 3l
+   16:	lstore	7
+   18:	iload_0
+   19:	iload_1
+   20:	ior
+   21:	iload_2
+   22:	if_icmpne	44
+   25:	lload_3
+   26:	lload	5
+   28:	lor
+   29:	lload	7
+   31:	lcmp
+   32:	ifne	44
+   35:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   38:	ldc	#109; //String Bitwise OR:        OK
+   40:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   43:	return
+   44:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   47:	ldc	#111; //String Bitwise OR:        Failed
+   49:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   52:	return
+
+
+
+
+public static void test_bitwise_and();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	iconst_0
+   5:	istore_2
+   6:	lconst_1
+   7:	lstore_3
+   8:	ldc2_w	#47; //long 2l
+   11:	lstore	5
+   13:	lconst_0
+   14:	lstore	7
+   16:	iload_0
+   17:	iload_1
+   18:	iand
+   19:	iload_2
+   20:	if_icmpne	42
+   23:	lload_3
+   24:	lload	5
+   26:	land
+   27:	lload	7
+   29:	lcmp
+   30:	ifne	42
+   33:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   36:	ldc	#113; //String Bitwise AND:       OK
+   38:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   41:	return
+   42:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   45:	ldc	#115; //String Bitwise AND:       Failed
+   47:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   50:	return
+
+
+
+
+public static void test_bitwise_xor();
+  Code:
+   0:	iconst_1
+   1:	istore_0
+   2:	iconst_2
+   3:	istore_1
+   4:	iconst_3
+   5:	istore_2
+   6:	lconst_1
+   7:	lstore_3
+   8:	ldc2_w	#47; //long 2l
+   11:	lstore	5
+   13:	ldc2_w	#106; //long 3l
+   16:	lstore	7
+   18:	iload_0
+   19:	iload_1
+   20:	ixor
+   21:	iload_2
+   22:	if_icmpne	44
+   25:	lload_3
+   26:	lload	5
+   28:	lxor
+   29:	lload	7
+   31:	lcmp
+   32:	ifne	44
+   35:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   38:	ldc	#117; //String Bitwise XOR:       OK
+   40:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   43:	return
+   44:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   47:	ldc	#119; //String Bitwise XOR:       Failed
+   49:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   52:	return
+
+
+
+
+public static void test_comparison();
+  Code:
+   0:	ldc2_w	#47; //long 2l
+   3:	lstore_0
+   4:	ldc2_w	#84; //long 11l
+   7:	lstore_2
+   8:	fconst_2
+   9:	fstore	4
+   11:	ldc	#86; //float 11.0f
+   13:	fstore	5
+   15:	ldc2_w	#49; //double 2.0d
+   18:	dstore	6
+   20:	ldc2_w	#87; //double 11.0d
+   23:	dstore	8
+   25:	lload_2
+   26:	lload_0
+   27:	lcmp
+   28:	ifle	72
+   31:	fload	5
+   33:	fload	4
+   35:	fcmpl
+   36:	ifle	72
+   39:	fload	4
+   41:	fload	5
+   43:	fcmpg
+   44:	ifge	72
+   47:	dload	8
+   49:	dload	6
+   51:	dcmpl
+   52:	ifle	72
+   55:	dload	6
+   57:	dload	8
+   59:	dcmpg
+   60:	ifge	72
+   63:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   66:	ldc	#121; //String Comparison:        OK
+   68:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   71:	return
+   72:	getstatic	#56; //Field java/lang/System.out:Ljava/io/PrintStream;
+   75:	ldc	#123; //String Comparison:        Failed
+   77:	invokevirtual	#64; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   80:	return
+
+
+
+
+}
+

@@ -1,0 +1,9 @@
+Compiled from "asdf.f"
+public interface ClassNonEmptyInterface{
+public abstract void foo(java.lang.String[]);
+
+
+
+
+}
+

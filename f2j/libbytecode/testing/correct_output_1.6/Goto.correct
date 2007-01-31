@@ -1,0 +1,34 @@
+Compiled from "asdf.f"
+public class Goto extends java.lang.Object{
+public Goto();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	goto	11
+   3:	getstatic	#19; //Field java/lang/System.out:Ljava/io/PrintStream;
+   6:	ldc	#27; //String bad
+   8:	invokevirtual	#25; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   11:	getstatic	#19; //Field java/lang/System.out:Ljava/io/PrintStream;
+   14:	ldc	#29; //String good
+   16:	invokevirtual	#25; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   19:	goto	30
+   22:	getstatic	#19; //Field java/lang/System.out:Ljava/io/PrintStream;
+   25:	ldc	#27; //String bad
+   27:	invokevirtual	#25; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   30:	getstatic	#19; //Field java/lang/System.out:Ljava/io/PrintStream;
+   33:	ldc	#29; //String good
+   35:	invokevirtual	#25; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   38:	return
+
+
+
+
+}
+

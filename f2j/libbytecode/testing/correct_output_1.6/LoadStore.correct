@@ -1,0 +1,206 @@
+Compiled from "asdf.f"
+public class LoadStore extends java.lang.Object{
+public LoadStore();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	return
+
+
+
+
+public static void loadstore();
+  Code:
+   0:	bipush	10
+   2:	sipush	300
+   5:	ldc	#15; //int 999999
+   7:	iconst_m1
+   8:	iconst_0
+   9:	iconst_1
+   10:	iconst_2
+   11:	iconst_3
+   12:	iconst_4
+   13:	iconst_5
+   14:	aconst_null
+   15:	fconst_0
+   16:	fconst_1
+   17:	fconst_2
+   18:	ldc	#16; //float 9.9f
+   20:	ldc	#18; //String foo
+   22:	dconst_0
+   23:	dconst_1
+   24:	ldc2_w	#19; //double 3.3d
+   27:	lconst_0
+   28:	lconst_1
+   29:	ldc2_w	#21; //long 55l
+   32:	ldc_w	#527; //int 888888
+   35:	ldc_w	#528; //float 8.8f
+   38:	ldc_w	#530; //String bar
+   41:	iconst_0
+   42:	istore_0
+   43:	iload_0
+   44:	iconst_0
+   45:	istore_1
+   46:	iload_1
+   47:	iconst_0
+   48:	istore_2
+   49:	iload_2
+   50:	iconst_0
+   51:	istore_3
+   52:	iload_3
+   53:	iconst_0
+   54:	istore	4
+   56:	iload	4
+   58:	lconst_0
+   59:	lstore_0
+   60:	lload_0
+   61:	lconst_0
+   62:	lstore_1
+   63:	lload_1
+   64:	lconst_0
+   65:	lstore_2
+   66:	lload_2
+   67:	lconst_0
+   68:	lstore_3
+   69:	lload_3
+   70:	lconst_0
+   71:	lstore	4
+   73:	lload	4
+   75:	fconst_0
+   76:	fstore_0
+   77:	fload_0
+   78:	fconst_0
+   79:	fstore_1
+   80:	fload_1
+   81:	fconst_0
+   82:	fstore_2
+   83:	fload_2
+   84:	fconst_0
+   85:	fstore_3
+   86:	fload_3
+   87:	fconst_0
+   88:	fstore	4
+   90:	fload	4
+   92:	dconst_0
+   93:	dstore_0
+   94:	dload_0
+   95:	dconst_0
+   96:	dstore_1
+   97:	dload_1
+   98:	dconst_0
+   99:	dstore_2
+   100:	dload_2
+   101:	dconst_0
+   102:	dstore_3
+   103:	dload_3
+   104:	dconst_0
+   105:	dstore	4
+   107:	dload	4
+   109:	aconst_null
+   110:	astore_0
+   111:	aload_0
+   112:	aconst_null
+   113:	astore_1
+   114:	aload_1
+   115:	aconst_null
+   116:	astore_2
+   117:	aload_2
+   118:	aconst_null
+   119:	astore_3
+   120:	aload_3
+   121:	aconst_null
+   122:	astore	4
+   124:	aload	4
+   126:	bipush	10
+   128:	newarray byte
+   130:	dup
+   131:	iconst_0
+   132:	bipush	22
+   134:	bastore
+   135:	iconst_0
+   136:	baload
+   137:	bipush	10
+   139:	newarray short
+   141:	dup
+   142:	iconst_0
+   143:	bipush	22
+   145:	sastore
+   146:	iconst_0
+   147:	saload
+   148:	bipush	10
+   150:	newarray int
+   152:	dup
+   153:	iconst_0
+   154:	bipush	22
+   156:	iastore
+   157:	iconst_0
+   158:	iaload
+   159:	bipush	10
+   161:	newarray long
+   163:	dup
+   164:	iconst_0
+   165:	ldc2_w	#531; //long 22l
+   168:	lastore
+   169:	iconst_0
+   170:	laload
+   171:	bipush	10
+   173:	newarray char
+   175:	dup
+   176:	iconst_0
+   177:	bipush	22
+   179:	castore
+   180:	iconst_0
+   181:	caload
+   182:	bipush	10
+   184:	newarray float
+   186:	dup
+   187:	iconst_0
+   188:	ldc_w	#533; //float 22.2f
+   191:	fastore
+   192:	iconst_0
+   193:	faload
+   194:	bipush	10
+   196:	newarray double
+   198:	dup
+   199:	iconst_0
+   200:	ldc2_w	#534; //double 22.2d
+   203:	dastore
+   204:	iconst_0
+   205:	daload
+   206:	bipush	10
+   208:	anewarray	#537; //class java/lang/String
+   211:	dup
+   212:	iconst_0
+   213:	aconst_null
+   214:	aastore
+   215:	iconst_0
+   216:	aaload
+   217:	iconst_0
+   218:	istore_w 300
+   222:	iload_w 300
+   226:	lconst_0
+   227:	lstore_w 300
+   231:	lload_w 300
+   235:	fconst_0
+   236:	fstore_w 300
+   240:	fload_w 300
+   244:	dconst_0
+   245:	dstore_w 300
+   249:	dload_w 300
+   253:	aconst_null
+   254:	astore_w 300
+   258:	aload_w 300
+   262:	return
+
+
+
+
+}
+

@@ -1,0 +1,66 @@
+Compiled from "asdf.f"
+public class ExceptionTable extends java.lang.Object{
+public ExceptionTable();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#11; //Method java/lang/Object."<init>":()V
+   4:	return
+
+
+
+
+public static void a(int)   throws java.io.IOException, java.lang.ArithmeticException;
+  Code:
+   0:	iload_0
+   1:	ifne	14
+   4:	new	#15; //class java/io/IOException
+   7:	dup
+   8:	ldc	#20; //String io exception
+   10:	invokespecial	#23; //Method java/io/IOException."<init>":(Ljava/lang/String;)V
+   13:	athrow
+   14:	iload_0
+   15:	iconst_1
+   16:	if_icmpne	29
+   19:	new	#18; //class java/lang/ArithmeticException
+   22:	dup
+   23:	ldc	#25; //String arithmetic exception
+   25:	invokespecial	#26; //Method java/lang/ArithmeticException."<init>":(Ljava/lang/String;)V
+   28:	athrow
+   29:	return
+
+
+
+
+public static void main(java.lang.String[]);
+  Code:
+   0:	iconst_0
+   1:	invokestatic	#30; //Method a:(I)V
+   4:	goto	16
+   7:	astore_1
+   8:	getstatic	#36; //Field java/lang/System.out:Ljava/io/PrintStream;
+   11:	ldc	#38; //String caught io exception
+   13:	invokevirtual	#43; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   16:	iconst_1
+   17:	invokestatic	#30; //Method a:(I)V
+   20:	goto	33
+   23:	astore_2
+   24:	getstatic	#36; //Field java/lang/System.out:Ljava/io/PrintStream;
+   27:	ldc	#45; //String caught arithmetic exception
+   29:	invokevirtual	#43; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   32:	return
+   33:	getstatic	#36; //Field java/lang/System.out:Ljava/io/PrintStream;
+   36:	ldc	#47; //String after handler
+   38:	invokevirtual	#43; //Method java/io/PrintStream.println:(Ljava/lang/String;)V
+   41:	return
+  Exception table:
+   from   to  target type
+     0     4     7   Class java/io/IOException
+
+    16    20    23   Class java/lang/ArithmeticException
+
+
+
+
+
+}
+

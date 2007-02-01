@@ -1,0 +1,18 @@
+---------------------------------------------------------------------------
+f2j 0.7 -- released January 31, 2007
+
+-improved support for Fortran intrinsic functions
+-added support for generating strictfp code and code that calls StrictMath
+-added support for single precision
+-added support for implicit typing
+-implemented ASSIGN and assigned GOTO statements
+-split off the bytecode generator into an independent library for
+ generating class files.
+-using a rudimentary autoconf build process
+-added a user's guide
+-various other bug fixes
+
+---------------------------------------------------------------------------
+f2j 0.6 -- released May 29, 2002
+
+-this was the first version released on SourceForge

@@ -1,4 +1,4 @@
-JLAPACK testing routines README
+JLAPACK 0.7 testing routines README
 January 31, 2007
 
 This directory should contain:
@@ -87,17 +87,43 @@ would be (e.g. some arrays are printed as "NULL", but that is
 only a limitation of the f2j I/O handling), however this
 does not affect the running of the tests.  As long as the
 test results say "All tests passed the threshold", then things
-are fine.
+are fine (see the note below, however).
 
 Test results
 ------------
 
-We observed no testcase failures on the following platforms:
+We tested JLAPACK on the following platforms:
 
--Solaris sparc / Sun JDK 1.3.1 / Hotspot 
--Solaris sparc / Sun JDK 1.2.2
--Linux x86 (Redhat 7.1) / Sun JDK 1.3.1 / Hotspot
--Win2000 x86 / Sun JDK 1.3.1 / Hotspot
+-Solaris 9 (sparc), Java version:
+
+   java version "1.5.0_02"
+   Java(TM) 2 Runtime Environment, Standard Edition (build 1.5.0_02-b09)
+   Java HotSpot(TM) Client VM (build 1.5.0_02-b09, mixed mode, sharing)
+
+-Solaris 9 (x86), Java version:
+
+   java version "1.4.2_05"
+   Java(TM) 2 Runtime Environment, Standard Edition (build 1.4.2_05-b04)
+   Java HotSpot(TM) Client VM (build 1.4.2_05-b04, mixed mode)
+
+-Linux x86 (Debian 3.1), Java version:
+
+   java version "1.6.0"
+   Java(TM) SE Runtime Environment (build 1.6.0-b105)
+   Java HotSpot(TM) Client VM (build 1.6.0-b105, mixed mode, sharing)
+
+-Linux x86 (Fedora Core 4), Java version:
+
+   java version "1.4.2"
+   gij (GNU libgcj) version 4.0.0 20050519 (Red Hat 4.0.0-8)
+
+-Mac OS X 10.4.7 (ppc), Java version:
+
+   java version "1.5.0_06"
+   Java(TM) 2 Runtime Environment, Standard Edition (build 1.5.0_06-112)
+   Java HotSpot(TM) Client VM (build 1.5.0_06-64, mixed mode, sharing)
+
+-Win2000 x86 / Sun JDK 1.6
 
 Note: in single precision, the eigenvalue testers will report
 some failures, but they match the failures observed during execution 

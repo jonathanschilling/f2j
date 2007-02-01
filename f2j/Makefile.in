@@ -48,7 +48,7 @@ srcdist_common:
 	cd util; cp -r org ../$(F2J_PACKAGE_NAME)/util
 	cd doc; $(MAKE) f2j_ug.pdf; $(MAKE) almost_clean
 	cp doc/Makefile doc/*.tex doc/f2j_ug.pdf $(F2J_PACKAGE_NAME)/doc
-	cp README install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
+	cp README CHANGES install-sh configure configure.in f2j_TODO.txt Makefile.in $(F2J_PACKAGE_NAME)
 
 clean:
 	/bin/rm -rf $(F2J_PACKAGE_NAME) $(F2J_PACKAGE_NAME).zip $(F2J_PACKAGE_NAME).tgz f2jsrc.tgz f2jsrc.zip

@@ -836,7 +836,7 @@ prelex (BUFFER * bufstruct)
     {
       if(lexdebug)
         printf("the line is [%s](%d)\n",bufstruct->stmt,
-           strlen(bufstruct->stmt));
+           (int)strlen(bufstruct->stmt));
 
       /* truncate anything beyond 72 characters */
       bufstruct->stmt[72] = '\n';
@@ -1262,7 +1262,7 @@ check_continued_lines (FILE * fp, char *current_line)
 
       if(lexdebug)
         printf("the next_line is [%s](%d)\n",next_line,
-           strlen(next_line));
+           (int)strlen(next_line));
 
       /* rws August 21, 2003
        * added next four lines

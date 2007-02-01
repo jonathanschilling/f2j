@@ -10,7 +10,7 @@ include make.def
 OBJS=y.tab.o f2jlex.o f2jmain.o  symtab.o  \
      codegen.o vcg_emitter.o dlist.o typecheck.o \
      optimize.o globals.o f2jmem.o
-F2J_LIBS= -L $(BYTE_DIR) -lbytecode $(LIBS)
+F2J_LIBS= -L$(BYTE_DIR) -lbytecode $(LIBS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<

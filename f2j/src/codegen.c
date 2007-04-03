@@ -4538,12 +4538,15 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
       fprintf(stderr,"scalar_emit(): NO PARENT! (%s)\n", name);
     } else {
       if (root->parent->nodetype == Call) {
+        JVM_METHODREF *user_method;
         char *tempname;
 
         if(gendebug)
           printf("in scalar_emit CALL, '%s' <- '%s'\n", 
             root->parent->astnode.ident.name,
             name);
+
+        user_method = find_method(root->parent->astnode.ident.name, descriptor_table);
 
         tempname = strdup(root->parent->astnode.ident.name);
         uppercase(tempname);
@@ -4560,8 +4563,8 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
          * obtained by appending ".val" to the wrapper object.
          */
 
-        if((methodscan (intrinsic_toks, tempname) == NULL) &&
-           (type_lookup(cur_array_table,
+        if(((methodscan(intrinsic_toks, tempname) == NULL) || user_method) &&
+            (type_lookup(cur_array_table,
                root->parent->astnode.ident.name) == NULL))
         {
           /* parent is not a call to an intrinsic and not an array access */
@@ -6105,25 +6108,31 @@ power_emit(JVM_METHOD *meth, AST *root)
    */
   BOOL gencast = (root->parent != NULL)
              && (root->parent->nodetype == ArrayDec);
+  char pow_cast[32];
+
+  if(gencast)
+    sprintf(pow_cast, "(int)");
+  else if(root->vartype != Double)
+    sprintf(pow_cast, "(%s)", returnstring[root->vartype]);
+  else
+    sprintf(pow_cast, " ");
 
   if(strictMath)
-    fprintf (curfp, "%sStrictMath.pow(", gencast ? "(int) " : "");
+    fprintf(curfp, "%sStrictMath.pow(", pow_cast);
   else
-    fprintf (curfp, "%sMath.pow(", gencast ? "(int) " : "");
+    fprintf(curfp, "%sMath.pow(", pow_cast);
 
   /* the args to pow must be doubles, so cast if necessary */
 
-  expr_emit (meth, root->astnode.expression.lhs);
+  expr_emit(meth, root->astnode.expression.lhs);
 
   if(root->astnode.expression.lhs->vartype != Double)
-    bc_append(meth, typeconv_matrix[root->astnode.expression.lhs->vartype]
-                             [Double]);
-  fprintf (curfp, ", ");
-  expr_emit (meth, root->astnode.expression.rhs);
+    bc_append(meth, typeconv_matrix[root->astnode.expression.lhs->vartype][Double]);
+  fprintf(curfp, ", ");
+  expr_emit(meth, root->astnode.expression.rhs);
   if(root->astnode.expression.rhs->vartype != Double)
-    bc_append(meth, typeconv_matrix[root->astnode.expression.rhs->vartype]
-                             [Double]);
-  fprintf (curfp, ")");
+    bc_append(meth, typeconv_matrix[root->astnode.expression.rhs->vartype][Double]);
+  fprintf(curfp, ")");
 
   if(strictMath)
     ct = bc_new_methodref(cur_class_file, "java/lang/StrictMath", "pow", "(DD)D");
@@ -6135,7 +6144,7 @@ power_emit(JVM_METHOD *meth, AST *root)
   if(gencast)
     bc_append(meth, jvm_d2i);
   else if(root->vartype != Double)
-    bc_append(meth, typeconv_matrix[root->vartype][Double]);
+    bc_append(meth, typeconv_matrix[Double][root->vartype]);
 
   return;
 }

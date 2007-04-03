@@ -1170,11 +1170,16 @@ expr_check (AST * root)
 
       expr_check (root->astnode.expression.rhs);
 
-      /*  vartype should always be double for pow since it is 
-       *  translated to Math.pow(), which returns double.
+      /* 
+       * if the exponent is integer, the expression type should inherit the
+       * type of the LHS, otherwise it would be the wider of the two.
        */
+      if(root->astnode.expression.rhs->vartype == Integer)
+        root->vartype = root->astnode.expression.lhs->vartype;
+      else
+        root->vartype = MIN(root->astnode.expression.lhs->vartype,
+                            root->astnode.expression.rhs->vartype);
 
-      root->vartype = Double;
       break;
     case Binaryop:
       if(root->astnode.expression.lhs == NULL)

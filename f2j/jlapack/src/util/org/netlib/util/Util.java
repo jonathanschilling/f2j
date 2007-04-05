@@ -37,6 +37,14 @@ public class Util {
     return tmp;
   }
 
+  public static String stringInsert(String x, String y, int E1) {
+    return stringInsert(x, y, E1, E1);
+  }
+
+  public static String strCharAt(String s, int idx) {
+    return String.valueOf(s.charAt(idx-1));
+  }
+
   public static int max(int x, int y, int z) {
     return Math.max( x > y ? x : y, Math.max(y,z));
   }

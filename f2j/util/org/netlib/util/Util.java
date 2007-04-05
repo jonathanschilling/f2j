@@ -61,7 +61,7 @@ public class Util {
     tmp = new String(
            x.substring(0,E1-1) +
            y.substring(0,E2-E1+1) +
-           x.substring(E2));
+           x.substring(E2,x.length()));
     return tmp;
   }
 

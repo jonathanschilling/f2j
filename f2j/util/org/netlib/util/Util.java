@@ -61,8 +61,35 @@ public class Util {
     tmp = new String(
            x.substring(0,E1-1) +
            y.substring(0,E2-E1+1) +
-           x.substring(E2,x.length()));
+           x.substring(E2));
     return tmp;
+  }
+
+  /**
+   * Inserts a string into a single character substring of another string.
+   *
+   * @param x dest (string to be inserted into)
+   * @param y source (substring to insert into 'x')
+   * @param E1 expression representing the index of the character
+   *
+   * @return the string containing the complete string after inserting the
+   *    substring
+   */
+  public static String stringInsert(String x, String y, int E1) {
+    return stringInsert(x, y, E1, E1);
+  }
+
+  /**
+   * Returns a string representation of the character at the given index.
+   * Note: this is based on the Fortran index (1..N).
+   *
+   * @param s the string
+   * @param idx the index
+   *
+   * @return new string containing a single character (from s[idx])
+   */
+  public static String strCharAt(String s, int idx) {
+    return String.valueOf(s.charAt(idx-1));
   }
 
   /**

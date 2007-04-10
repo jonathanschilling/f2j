@@ -628,8 +628,12 @@ expr_optimize (AST * root, AST *rptr)
       expr_optimize (root->astnode.expression.rhs, rptr);
       break;
     case Substring:
-      expr_optimize(root->astnode.ident.arraylist, rptr);
-      expr_optimize(root->astnode.ident.arraylist->nextstmt, rptr);
+      if(root->astnode.ident.startDim[0])
+        expr_optimize(root->astnode.ident.startDim[0], rptr);
+      if(root->astnode.ident.endDim[0])
+        expr_optimize(root->astnode.ident.endDim[0], rptr);
+      if(root->astnode.ident.startDim[1])
+        expr_optimize(root->astnode.ident.startDim[1], rptr);
       break;
     default:
       fprintf(stderr,"Warning: Unknown nodetype in expr_optimize(): %s\n",
@@ -1265,10 +1269,6 @@ assign_optimize (AST * root, AST *rptr)
   AST *lhs;
 
   lhs = root->astnode.assignment.lhs;
-
-  /* handle lhs substring operations elsewhere */
-  if(lhs->nodetype == Substring)
-    return;
 
   name_optimize (lhs, rptr);
   

@@ -381,7 +381,9 @@ yylex ()
     printf("func_stmt_num = %d, firsttoken = %d, and tokennumber = %d\n",
       func_stmt_num,firsttoken,tokennumber);
 
-  if(func_stmt_num == 1 && firsttoken == TYPE && tokennumber ==1)
+  if((func_stmt_num == 1) && 
+     ((firsttoken == ARITH_TYPE) || (firsttoken == CHAR_TYPE)) && 
+      (tokennumber ==1))
   {
     token = keyscan (tab_stmt, &buffer);
 
@@ -1332,7 +1334,7 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
        * from Levine's quick and dirty lexer.  
        */
 
-      if(tab->ktok == TYPE) 
+      if((tab->ktok == ARITH_TYPE) || (tab->ktok == CHAR_TYPE))
         yylval.type = tab->klex;
       if(tab->ktok == RELOP)
         yylval.tok = tab->klex;
@@ -1863,8 +1865,10 @@ tok2str(int tok)
       return("CALL");
     case RETURN:
       return("RETURN");
-    case TYPE:
-      return("TYPE");
+    case ARITH_TYPE:
+      return("ARITH_TYPE");
+    case CHAR_TYPE:
+      return("CHAR_TYPE");
     case DIMENSION:
       return("DIMENSION");
     case COMMON:

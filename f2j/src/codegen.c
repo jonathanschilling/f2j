@@ -1945,7 +1945,7 @@ is_static(AST *root)
     if(ht == NULL)
       return FALSE;
 
-    if(!ht->variable->astnode.ident.needs_declaration){
+    if(!ht->variable->astnode.ident.needs_declaration) {
       if(gendebug)
         printf("is_static: declared data statement\n");
       return FALSE;
@@ -2532,7 +2532,7 @@ vardec_emit(JVM_METHOD *meth, AST *root, enum returntype returns,
 
   ainf = get_var_info(root);
 
-  if(gendebug){ 
+  if(gendebug) {
     printf("vardec emit %s\n", root->astnode.ident.name);
     printf("ident = %s, prefix = %s\n",root->astnode.ident.name,prefix);
   } 
@@ -2545,9 +2545,9 @@ vardec_emit(JVM_METHOD *meth, AST *root, enum returntype returns,
 
   name = getMergedName(root);
   desc = getMergedDescriptor(root, returns);
-  if(gendebug){
-      if(!name)printf("!name\n");
-      if(!desc)printf("!desc\n");
+  if(gendebug) {
+    if(!name) printf("!name\n");
+    if(!desc) printf("!desc\n");
   }
   /* 
    * check to see if this is an array declaration or not. 
@@ -2646,7 +2646,6 @@ vardec_emit(JVM_METHOD *meth, AST *root, enum returntype returns,
         fprintf (curfp, "%s%s ", prefix, returnstring[returns]);
       else
         fprintf (curfp, "%s%s ", prefix, wrapper_returns[returns]);
-     
 
       if (gendebug)
         printf ("%s\n", returnstring[returns]);
@@ -2745,6 +2744,56 @@ print_string_initializer(JVM_METHOD *meth, AST *root)
   }
   else
   {
+    /* check if this is a Fortran character array.  it will have been
+     * allocated as a Java String, so don't treat it as an array.
+     */
+
+    if((ht->variable->astnode.ident.len == 1) &&
+       (ht->variable->astnode.ident.dim == 0) &&
+       (ht->variable->astnode.ident.arraylist == NULL) &&
+       (ht->variable->astnode.ident.startDim[2] != NULL))
+    {
+      AST *temp_node, *save_parent;
+      int c;
+
+      temp_node = addnode();
+      if(!temp_node) {
+        fprintf(stderr, "Internal error: Failed to alloc temporary node.\n");
+        exit(EXIT_FAILURE);
+      }
+
+      save_parent = ht->variable->astnode.ident.startDim[2]->parent;
+
+      ht->variable->astnode.ident.startDim[2]->parent = temp_node;
+
+      temp_node->astnode.expression.rhs = ht->variable->astnode.ident.startDim[2];
+      temp_node->astnode.expression.lhs = NULL;
+      temp_node->astnode.expression.minus = '+';
+      temp_node->nodetype = Unaryop;
+      temp_node->vartype = ht->variable->astnode.ident.startDim[2]->vartype;
+
+      fprintf(curfp, "= new String(new char[");
+
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_STRING);
+
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
+      expr_emit (meth, ht->variable->astnode.ident.startDim[2]);
+      bc_append(meth, jvm_newarray, JVM_T_CHAR);
+
+      c = bc_new_methodref(cur_class_file, JL_STRING, "<init>", CHAR_ARRAY_DESC);
+
+      bc_append(meth, jvm_invokespecial, c);
+
+      fprintf(curfp, "])");
+
+      ht->variable->astnode.ident.startDim[2]->parent = save_parent;
+
+      f2jfree(temp_node, sizeof(AST));
+
+      return;
+    }
+
     /* We know how long this string is supposed to be, so we
      * allocate a blank string with that many characters.  For
      * example, CHARACTER*5 blah is translated to:
@@ -3006,6 +3055,34 @@ data_var_emit(JVM_METHOD *meth, AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   else
     is_array = FALSE;
 
+  if((hashtemp->variable->vartype == String) &&
+     (hashtemp->variable->astnode.ident.len == 1) &&
+     (hashtemp->variable->astnode.ident.dim == 0) &&
+     (hashtemp->variable->astnode.ident.arraylist == NULL) &&
+     (hashtemp->variable->astnode.ident.startDim[2] != NULL))
+  {
+    /* this is a Fortran character array generated as a Java String.
+     * copy the original dimension info to the arraylist field and
+     * call determine_var_length(), then set it back to NULL before
+     * emitting the string initializer.
+     */
+
+    hashtemp->variable->astnode.ident.arraylist = 
+       hashtemp->variable->astnode.ident.startDim[2];
+    length = determine_var_length(hashtemp);
+    hashtemp->variable->astnode.ident.arraylist = NULL;
+
+    fprintf(curfp,"public static %s ",
+       returnstring[ hashtemp->variable->vartype]);
+
+    if(gendebug)
+      printf("VAR STRING going to data_string_emit\n");
+
+    Ctemp = data_string_emit(meth, length, Ctemp, Ntemp);
+
+    return Ctemp;
+  }
+
   if( hashtemp->variable->astnode.ident.leaddim != NULL )
   {
     if(gendebug)
@@ -3121,6 +3198,98 @@ determine_var_length(HASHNODE *var)
     printf("VAR returning length = %d\n", length);
 
   return length;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * data_string_emit                                                          *
+ *                                                                           *
+ * This function generates data statements that are used to initialize       *
+ * character arrays, e.g.:                                                   *
+ *                                                                           *
+ *      CHARACTER          TRANSS( NTRAN )                                   *
+ *      DATA TRANSS / 'N', 'T', 'C' /                                        *
+ *                                                                           *
+ * This is a horrible hack and probably won't work well for most things.     *
+ * I think the character handling needs to be totally rewritten.             *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+data_string_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
+{
+  unsigned int count, size = 0;
+  HASHNODE *ht;
+  int i, str_idx;
+  struct var_info *ainf;
+  char *init_string;
+
+  ainf = get_var_info(Ntemp);
+
+  if(gendebug)
+    printf("VAR here we are in data_string_emit, length = %d\n",length);
+
+  ht=type_lookup(cur_type_table, Ntemp->astnode.ident.name);
+  if(!ht) {
+    fprintf(stderr,"type table may be screwed.  Can't find '%s'.",
+            Ntemp->astnode.ident.name);
+    exit(EXIT_FAILURE);
+  }
+
+  fprintf(curfp,"%s = \"",Ntemp->astnode.ident.name);
+
+  /* for bytecode, we have to determine the number of elements
+   * prior to emitting the elements themselves because we must
+   * push the array size on the stack first.  if the length is
+   * not known, we count the number of actual data items.
+   * otherwise, we set the array size equal to the given length.  
+   */
+  if(length == -1) {
+    AST *tmp;
+    for(tmp = Ctemp;tmp != NULL;tmp=tmp->nextstmt)
+      size++;
+  }
+  else
+    size = length;
+  
+  init_string = (char *)f2jalloc(size+1);
+
+  str_idx = 0;
+  init_string[str_idx] = 0;
+
+  for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++) {
+
+    if(Ctemp->nodetype == Binaryop) {
+      fprintf(stderr, "repeated characters in data stmts not supported\n");
+      exit(EXIT_FAILURE);
+    }
+    else {
+
+      if(Ctemp->token == STRING) {
+        init_string[str_idx] = Ctemp->astnode.constant.number[0];
+      }
+      else {
+        init_string[str_idx] = '?';
+        fprintf(stderr, "expected a string constant in data statement\n");
+      }
+
+      str_idx++;
+    }
+
+    if((Ctemp = Ctemp->nextstmt) == NULL)
+      break;
+  }
+
+  init_string[str_idx] = 0;
+ 
+  fprintf(curfp,"%s\";\n", init_string);
+
+  bc_push_string_const(meth, init_string);
+
+  storeVar(cur_class_file, meth, Ntemp->vartype, ainf->is_arg, ainf->class,
+    ainf->name, "Ljava/lang/String;", ainf->localvar, FALSE);
+
+  return Ctemp;
 }
 
 /*****************************************************************************
@@ -3273,36 +3442,38 @@ data_repeat_emit(JVM_METHOD *meth, AST *root, AST *Ntemp, unsigned int idx)
 
   /* emit the all but the last with a comma.. the last one without */
   for(j=0;j<repeat-1;j++) {
-
     /* This code checks to see if the value we are putting in the array
      * index matches the type of the array. If the values don't match
      * we must cast the array.
      */
  
-    if((Ntemp->vartype != root->astnode.expression.rhs->vartype)||(keep_going)){
-       root->astnode.expression.rhs->token = cast_data_stmt(Ntemp,
-                                             root->astnode.expression.rhs->token);
-       root->astnode.expression.rhs->vartype = Ntemp->vartype;
-       keep_going = TRUE;    /* Used because the vartype is the same now */
+    if((Ntemp->vartype != root->astnode.expression.rhs->vartype)||(keep_going)) {
+      root->astnode.expression.rhs->token = cast_data_stmt(Ntemp,
+        root->astnode.expression.rhs->token);
+      root->astnode.expression.rhs->vartype = Ntemp->vartype;
+      keep_going = TRUE;    /* Used because the vartype is the same now */
     }
+
     fprintf(curfp,"%s, ", ditem);
     bc_append(meth, jvm_dup);
     bc_push_int_const(meth, idx++);
     pushConst(meth, root->astnode.expression.rhs);
     bc_gen_array_store_op(meth, jvm_data_types[root->astnode.expression.rhs->vartype]);
- }
- if((Ntemp->vartype != root->astnode.expression.rhs->vartype)||(keep_going)){
-     root->astnode.expression.rhs->token = cast_data_stmt(Ntemp,
-                                           root->astnode.expression.rhs->token);
-     root->astnode.expression.rhs->vartype = Ntemp->vartype;
- }
- fprintf(curfp,"%s ", ditem);
- bc_append(meth, jvm_dup);
- bc_push_int_const(meth, idx++);
- pushConst(meth, root->astnode.expression.rhs);
- bc_gen_array_store_op(meth, jvm_data_types[root->astnode.expression.rhs->vartype]);
+  }
 
- return idx;
+  if((Ntemp->vartype != root->astnode.expression.rhs->vartype)||(keep_going)) {
+    root->astnode.expression.rhs->token = cast_data_stmt(Ntemp,
+      root->astnode.expression.rhs->token);
+    root->astnode.expression.rhs->vartype = Ntemp->vartype;
+  }
+
+  fprintf(curfp,"%s ", ditem);
+  bc_append(meth, jvm_dup);
+  bc_push_int_const(meth, idx++);
+  pushConst(meth, root->astnode.expression.rhs);
+  bc_gen_array_store_op(meth, jvm_data_types[root->astnode.expression.rhs->vartype]);
+ 
+  return idx;
 }
 
 /*****************************************************************************
@@ -3316,7 +3487,7 @@ data_repeat_emit(JVM_METHOD *meth, AST *root, AST *Ntemp, unsigned int idx)
 
 void
 data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp, 
-                                                                             int needs_dec)
+  int needs_dec)
 {
   int c;
 
@@ -3474,7 +3645,7 @@ invoke_constructor(JVM_METHOD *meth, char *classname, AST *constant, char *desc)
     printf("invoke_constructor(): classname = %s, constant = '%s'\n", 
            classname, constant->astnode.constant.number);
 
-  c = cp_find_or_insert(cur_class_file,CONSTANT_Class, classname);
+  c = cp_find_or_insert(cur_class_file, CONSTANT_Class, classname);
 
   bc_append(meth, jvm_new,c);
   bc_append(meth, jvm_dup);
@@ -3534,19 +3705,23 @@ name_emit (JVM_METHOD *meth, AST * root)
       printf("EQV %s is equivalenced\n",root->astnode.ident.name);
 
   /* 
-   * If the name is in the external table, then check to see if
-   * it is an intrinsic function instead (e.g. SQRT, ABS, etc).  
+   * If this is not a substring operation and the name is in the 
+   * external table, then check to see if it is an intrinsic function
+   * instead (e.g. SQRT, ABS, etc).  
    */
 
-  hashtemp = type_lookup (cur_array_table, root->astnode.ident.name); 
-  if((root->astnode.ident.arraylist == NULL)
-    &&(!type_lookup(cur_external_table, root->astnode.ident.name))){
-      scalar_emit(meth, root, hashtemp);
-      return;
-  }
-  else if(hashtemp){
-      array_emit(meth, root);
-      return;
+  if(root->nodetype != Substring) {
+    hashtemp = type_lookup (cur_array_table, root->astnode.ident.name); 
+    if((root->astnode.ident.arraylist == NULL)
+      && (!type_lookup(cur_external_table, root->astnode.ident.name))) {
+        scalar_emit(meth, root, hashtemp);
+        return;
+    }
+    else if(hashtemp || (!hashtemp && (root->astnode.ident.arraylist != NULL)
+      && (root->vartype == String))) {
+        array_emit(meth, root);
+        return;
+    }
   }
   
   /* 
@@ -3639,7 +3814,8 @@ substring_emit(JVM_METHOD *meth, AST *root)
     return;
   }
 
-  fprintf(curfp,".substring(");
+  if(root->astnode.ident.startDim[0] || root->astnode.ident.endDim[0])
+    fprintf(curfp,".substring(");
 
   return;
 }
@@ -4099,14 +4275,43 @@ array_emit(JVM_METHOD *meth, AST *root)
   AST *temp;
   struct var_info *arrayinf;
 
-  if (gendebug)
-    printf ("Array... %s, My node type is %s\n", 
-      root->astnode.ident.name,
+  if(gendebug)
+    printf ("Array... %s, My node type is %s\n", root->astnode.ident.name,
       print_nodetype(root));
 
-  arrayinf = push_array_var(meth, root);
-
   temp = root->astnode.ident.arraylist;
+
+  if((root->vartype == String) && temp && !temp->nextstmt && 
+     !type_lookup(cur_array_table, root->astnode.ident.name))
+  {
+    int c, charat_ref;
+
+    /* special handling for single dimension string array reference */
+
+    fprintf(curfp, "String.valueOf(");
+    arrayinf = push_array_var(meth, root);
+
+    fprintf(curfp, ".charAt((");
+
+    c = bc_new_methodref(cur_class_file, "java/lang/String",
+              "valueOf", "(C)Ljava/lang/String;");
+
+    expr_emit(meth, temp);
+    bc_append(meth, jvm_iconst_1);
+    bc_append(meth, jvm_isub);
+
+    charat_ref = bc_new_methodref(cur_class_file,JL_STRING,
+               "charAt", CHARAT_DESC);
+    bc_append(meth, jvm_invokevirtual, charat_ref);
+
+    bc_append(cur_method, jvm_invokestatic, c);
+
+    fprintf(curfp, ")-1))");
+
+    return;
+  }
+
+  arrayinf = push_array_var(meth, root);
 
   if(root->parent == NULL) {
 
@@ -4131,7 +4336,7 @@ array_emit(JVM_METHOD *meth, AST *root)
       }
       else {
         func_array_emit(meth, temp, root->astnode.ident.name, 
-           arrayinf->is_arg,FALSE);
+           arrayinf->is_arg, FALSE);
         bc_gen_array_load_op(meth, jvm_data_types[root->vartype]);
       }
     }
@@ -6703,10 +6908,75 @@ relationalop_emit(JVM_METHOD *meth, AST *root)
 
 /*****************************************************************************
  *                                                                           *
+ * emit_default_substring_start                                              *
+ *                                                                           *
+ * This handles substring operations with an unspecified starting index.     *
+ * For example, "str(:10)".  The implicit starting index is 1.               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_default_substring_start(JVM_METHOD *meth, AST *root)
+{
+  fprintf(curfp, "1");
+  bc_append(meth, jvm_iconst_1);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_default_substring_end                                                *
+ *                                                                           *
+ * This handles substring operations with an unspecified ending index.       *
+ * For example, "str(5:)".  The implicit ending index is the last character  *
+ * of the string.                                                            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_default_substring_end(JVM_METHOD *meth, AST *root)
+{
+  int c;
+  AST *tmp_parent, *tmp_node;
+
+  /* For a substring operation of the form "str(5:)", here we are trying to
+   * emit the implicit end index expression, which would be "str.length()".
+   * The problem is that when we pass the root node to scalar_emit() to emit
+   * the instruction to load "str" (necessary before the method can be
+   * invoked), it can get confused since the parent node type could be
+   * something like 'Assignment', so it's thinking that we're looking at the
+   * LHS of an assignment and therefore it erroneously omits the load
+   * instruction.
+   *
+   * To get around that, we just fudge things a bit here and duplicate the
+   * root node, make a dummy parent node of type 'Write', and set it as the
+   * new node's parent.
+   */
+
+  tmp_node = clone_ident(root);
+
+  tmp_parent = addnode();
+  tmp_parent->nodetype = Write;
+  tmp_parent->astnode.io_stmt.arg_list = tmp_node;
+
+  tmp_node->parent = tmp_parent;
+
+  scalar_emit(meth, tmp_node, NULL);
+
+  fprintf(curfp, ".length()");
+  c = bc_new_methodref(cur_class_file, JL_STRING,
+         "length", STRLEN_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
+
+  f2jfree(tmp_node, sizeof(AST));
+  f2jfree(tmp_parent, sizeof(AST));
+}
+
+/*****************************************************************************
+ *                                                                           *
  * substring_expr_emit                                                       *
  *                                                                           *
  * This function emits the code for a substring expression.  I think this    *
- * only handle RHS substring expressions.  Use java.lang.String.substring()  *
+ * only handles RHS substring expressions.  Use java.lang.String.substring() *
  *                                                                           *
  *****************************************************************************/
 
@@ -6715,18 +6985,42 @@ substring_expr_emit(JVM_METHOD *meth, AST *root)
 {
   int c;
 
+  /* Check if this is a single character substring */
+  if((root->astnode.ident.startDim[0] == NULL) &&
+     (root->astnode.ident.endDim[0] == NULL) &&
+     (root->astnode.ident.startDim[1] != NULL))
+  {
+    fprintf(curfp, "Util.strCharAt(");    
+    name_emit(meth, root);
+    fprintf(curfp,",");
+    expr_emit(meth, root->astnode.ident.startDim[1]);
+    fprintf(curfp,")");
+
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS,
+           "strCharAt", STRCHARAT_DESC);
+    bc_append(meth, jvm_invokestatic, c);
+
+    return;
+  }
+
   /* Substring operations are handled with java.lang.String.substring */
 
   name_emit(meth, root);
 
   fprintf(curfp,"(");
-  expr_emit(meth, root->astnode.ident.arraylist);
+  if(root->astnode.ident.startDim[0])
+    expr_emit(meth, root->astnode.ident.startDim[0]);
+  else
+    emit_default_substring_start(meth, root);
   fprintf(curfp,")-1,");
 
   bc_append(meth, jvm_iconst_m1);  /* decrement start idx by one */
   bc_append(meth, jvm_iadd);
 
-  expr_emit(meth, root->astnode.ident.arraylist->nextstmt);
+  if(root->astnode.ident.endDim[0])
+    expr_emit(meth, root->astnode.ident.endDim[0]);
+  else
+    emit_default_substring_end(meth, root);
   fprintf(curfp,")");
 
   c = bc_new_methodref(cur_class_file,JL_STRING,
@@ -6779,11 +7073,6 @@ open_output_file(AST *root, char *classname)
   
   if(import_reflection)
     strcat(import_stmt,"import java.lang.reflect.*;\n");
-
-/*
- *if(import_blas)
- *  strcat(import_stmt,"import org.netlib.blas.*;\n");
- */
 
   javaheader(javafp,import_stmt);
 
@@ -10462,6 +10751,20 @@ assign_emit (JVM_METHOD *meth, AST * root)
   if(root->astnode.assignment.lhs->nodetype == Substring) {
     substring_assign_emit(meth, root);
   }
+  else if((root->astnode.assignment.lhs->vartype == String) 
+    && root->astnode.assignment.lhs->astnode.ident.arraylist 
+    && !root->astnode.assignment.lhs->astnode.ident.arraylist->nextstmt 
+    && !type_lookup(cur_array_table, root->astnode.assignment.lhs->astnode.ident.name))
+  {
+     /* this handles cases like:
+      *   character a(1)
+      *   a(1) = 'x'
+      * which technically isn't a substring operation, but we treat it as such.
+      */
+     root->astnode.assignment.lhs->astnode.ident.startDim[1] = 
+            root->astnode.assignment.lhs->astnode.ident.arraylist;
+     substring_assign_emit(meth, root);
+  }
   else {
     name_emit (meth, root->astnode.assignment.lhs);
     fprintf (curfp, " = ");
@@ -10682,10 +10985,21 @@ substring_assign_emit(JVM_METHOD *meth, AST *root)
 {
   AST *lhs = root->astnode.assignment.lhs;
   AST *rhs = root->astnode.assignment.rhs;
-  int c;
+  int c, single_sub = 0;
 
   if(gendebug)
     printf("substring_assign_emit\n");
+
+  /* check if this is a single character array reference, e.g.:
+   *    character x(10)
+   *    x(3) = 'f'
+   */
+  if((lhs->astnode.ident.startDim[0] == NULL) &&
+     (lhs->astnode.ident.endDim[0] == NULL) &&
+     (lhs->astnode.ident.startDim[1] != NULL))
+    single_sub = 1;
+
+  lhs->nodetype = Substring;
 
   name_emit(meth, lhs);
 
@@ -10751,13 +11065,27 @@ substring_assign_emit(JVM_METHOD *meth, AST *root)
     fprintf(curfp,"),");
   }
 
-  expr_emit(meth, lhs->astnode.ident.arraylist);
-  fprintf(curfp,",");
-  expr_emit(meth, lhs->astnode.ident.arraylist->nextstmt);
+  if(single_sub) {
+    expr_emit(meth, lhs->astnode.ident.startDim[1]);
+  }
+  else {
+    if(lhs->astnode.ident.startDim[0])
+      expr_emit(meth, lhs->astnode.ident.startDim[0]);
+    else
+      emit_default_substring_start(meth, lhs);
+    fprintf(curfp,",");
+    if(lhs->astnode.ident.endDim[0])
+      expr_emit(meth, lhs->astnode.ident.endDim[0]);
+    else
+      emit_default_substring_end(meth, lhs);
+  }
 
   fprintf(curfp,")");
 
-  c = bc_new_methodref(cur_class_file, UTIL_CLASS, "stringInsert", INS_DESC);
+  if(single_sub)
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "stringInsert", SINGLE_INS_DESC);
+  else
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "stringInsert", INS_DESC);
   bc_append(meth, jvm_invokestatic, c);
 }
 

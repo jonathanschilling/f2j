@@ -404,7 +404,9 @@ struct _ident
 
   struct ast_node 
     *startDim[MAX_ARRAY_DIM],       /* start expression for each dimension   */
+                                    /* also used as start exp idx for substr */
     *endDim[MAX_ARRAY_DIM],         /* ending expression for each dimension  */
+                                    /* also used as end exp idx for substr   */
     *arraylist;                     /* expression representing array size    */
 
   char 

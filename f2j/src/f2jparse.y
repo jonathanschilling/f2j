@@ -53,6 +53,9 @@ Dlist
   subroutine_names,               /* holds the names of subroutines          */
   do_labels;                      /* generated labels for 'do..end do' loops */
 
+enum returntype
+  typedec_context;                /* what kind of type dec we are parsing    */
+
 /*****************************************************************************
  * Function prototypes:                                                      *
  *****************************************************************************/
@@ -102,7 +105,10 @@ AST
   * switchem(AST *),
   * gen_incr_expr(AST *, AST *),
   * gen_iter_expr(AST *, AST *, AST *),
-  * initialize_name(char *);
+  * initialize_name(char *),
+  * process_typestmt(enum returntype, AST *),
+  * process_array_declaration(AST *, AST *),
+  * process_subroutine_call(AST *, AST *);
 
 SYMTABLE 
   * new_symtable (int );
@@ -135,7 +141,7 @@ ITAB_ENTRY implicit_table[26];
 %token RDWR END ENDDO STRING CHAR  PAUSE
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
 %token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
-%token <type> TYPE  
+%token <type> ARITH_TYPE CHAR_TYPE 
 %token DIMENSION INCLUDE
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
@@ -180,8 +186,10 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Statement StmtLabelAssign Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
 %type <ptnode> String  Subroutine Stop SubstringOp Pause
-%type <ptnode> Typestmt Typevar Typevarlist
-%type <type>   Types Type 
+%type <ptnode> Typestmt ArithTypevar ArithTypevarlist
+%type <ptnode> CharTypevar CharTypevarlist
+%type <type>   ArithTypes ArithSimpleType CharTypes CharSimpleType
+%type <type>   AnySimpleType AnyTypes
 %type <ptnode> Write WriteFileDesc FormatSpec EndSpec
 %type <ptnode> Format FormatExplist FormatExp FormatSeparator
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
@@ -541,9 +549,6 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
                  if($3 != NULL)
                    $3->parent = $$; /* 9-4-97 - Keith */
 
-        /*         lowercase($2->astnode.ident.name);
-                      commented out 11-7-97 - Keith */
-
                  $$->astnode.source.name = $2; 
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
@@ -562,8 +567,6 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
                  $$ = addnode();
                  $2->parent = $$; /* 9-4-97 - Keith */
 
-        /*         lowercase($2->astnode.ident.name);  
-                       commented out 11-7-97 - Keith */
                  $$->astnode.source.name = $2; 
                  $$->nodetype = Subroutine;
                  $$->token = SUBROUTINE;
@@ -573,10 +576,10 @@ Subroutine: SUBROUTINE UndeclaredName Functionargs NL
               }
 ;
 
-Function:  Type FUNCTION UndeclaredName Functionargs NL 
+Function:  AnySimpleType FUNCTION UndeclaredName Functionargs NL 
            {
              if(debug)
-               printf("Function ->  Type FUNCTION UndeclaredName Functionargs NL\n");
+               printf("Function ->  AnySimpleType FUNCTION UndeclaredName Functionargs NL\n");
 
              unit_args = $4;
 
@@ -818,7 +821,7 @@ CommonList: CommonSpec
             }
 ;
 
-CommonSpec: DIV UndeclaredName DIV Typevarlist
+CommonSpec: DIV UndeclaredName DIV ArithTypevarlist
            {
               AST *temp;
               int pos;
@@ -854,7 +857,7 @@ CommonSpec: DIV UndeclaredName DIV Typevarlist
               type_insert(global_common_table, $$, Float, $$->astnode.common.name);
               free_ast_node($2);
            }
-         | CAT Typevarlist     /* CAT is // */
+         | CAT ArithTypevarlist     /* CAT is // */
            {
               AST *temp;
 
@@ -966,7 +969,7 @@ ImplicitSpecList: ImplicitSpecItem
                   }
 ;
 
-ImplicitSpecItem:  Types OP ImplicitLetterList CP
+ImplicitSpecItem:  AnyTypes OP ImplicitLetterList CP
                    {
                      AST *temp;
 
@@ -1497,77 +1500,83 @@ Namelist:   Name
  * to load a local variable table for opcode generation.
  */
 
-Typestmt:      Types Typevarlist NL
-              {
-                 AST *temp;
-                 enum returntype ret;
-                 HASHNODE *hashtemp, *hashtemp2;
-
-                 $$ = addnode();
-                 free_ast_node($2->parent);
-                 $2 = switchem($2);
-                 $$->nodetype = Typedec;
-
-                 for(temp = $2; temp != NULL; temp = temp->nextstmt)
-                 { 
-                   temp->vartype = $1;
-                   ret = $1;
-                   temp->astnode.ident.len = len;
-                   temp->parent = $$;
-
-                   hashtemp = type_lookup(args_table, temp->astnode.ident.name);
-                   if(hashtemp)
-                     hashtemp->variable->vartype = $1;
-
-                   hashtemp2 = type_lookup(type_table,  temp->astnode.ident.name);
-                   if(hashtemp2) {
-                     temp->vartype = $1;
-                     temp->astnode.ident.explicit=TRUE;
-                     hashtemp2->variable = temp;
-                     if(debug) printf("explicit: %s\n", 
-                       hashtemp2->variable->astnode.ident.name);
-                   }
-
-                   if(hashtemp) {
-                     if(temp->vartype!=hashtemp->variable->vartype){
-                       if(debug) printf("different vartypes\n");
-                       hashtemp->variable->vartype=temp->vartype;
-                       hashtemp2->variable->vartype=temp->vartype;
-                     }
-                   }
-                 }
-
-                 $$->astnode.typeunit.declist = $2;
-                 $$->astnode.typeunit.returns = $1; 
-	       }
+Typestmt:  ArithTypes ArithTypevarlist NL
+           {
+             $$ = process_typestmt($1, $2);
+           }
+        |  CharTypes CharTypevarlist NL
+           {
+             $$ = process_typestmt($1, $2);
+           }
 ;
 
-
-Types:       Type 
+ArithTypes:  ArithSimpleType 
              {
                $$ = $1;
                len = 1;
              }
-          |  Type Star Integer
+          |  ArithSimpleType Star Integer
              {
                $$ = $1;
                len = atoi($3->astnode.constant.number);
                free_ast_node($2);
                free_ast_node($3);
              }
-	  |  Type Star OP Star CP
-             {
-               $$ = $1;
-               len = -1;
-               free_ast_node($2);
-               free_ast_node($4);
-             }
 ;
 
-Type:  TYPE
-       { 
-         $$ = yylval.type;
-       }
+ArithSimpleType:  ARITH_TYPE
+                  { 
+                    $$ = yylval.type;
+                    typedec_context = $$;
+                  }
+;
+
+CharTypes:  CharSimpleType
+            {
+              $$ = $1;
+              len = 1;
+            }
+         |  CharSimpleType Star Integer
+            {
+              $$ = $1;
+              len = atoi($3->astnode.constant.number);
+              free_ast_node($2);
+              free_ast_node($3);
+            }
+         |  CharSimpleType Star OP Star CP
+            {
+              $$ = $1;
+              len = -1;
+              free_ast_node($2);
+              free_ast_node($4);
+            }
+;
+
+CharSimpleType:  CHAR_TYPE
+                 {
+                   $$ = yylval.type;
+                   typedec_context = $$;
+                 }
+;
+
+AnySimpleType: ArithSimpleType
+               {
+                 $$ = $1;
+               }
+             | CharSimpleType
+               {
+                 $$ = $1;
+               }
+;
+
+AnyTypes: ArithTypes
+          {
+            $$ = $1;
+          }
+        | CharTypes
+          {
+            $$ = $1;
+          }
 ;
 
 /* Here I'm going to do the same thing I did with Explist.  That is,
@@ -1576,29 +1585,73 @@ Type:  TYPE
  * declaration.  --Keith 
  */
 
-Typevarlist: Typevar
-             {
-               $1->parent = addnode();
-               $1->parent->nodetype = Typedec;
+ArithTypevarlist: ArithTypevar
+                  {
+                    $1->parent = addnode();
+                    $1->parent->nodetype = Typedec;
 
-               $$ = $1;
-             }
-          |  Typevarlist CM  Typevar
-             {
-               $3->prevstmt = $1;
-               $3->parent = $1->parent;
-               $$ = $3;
-             }
+                    $$ = $1;
+                  }
+               |  ArithTypevarlist CM  ArithTypevar
+                  {
+                    $3->prevstmt = $1;
+                    $3->parent = $1->parent;
+                    $$ = $3;
+                  }
 ;
 
-Typevar:   Name 
-           {
-             $$ = $1;
-           }
-         | Arraydeclaration 
-           {
-             $$ = $1;
-           }
+ArithTypevar:   Name 
+                {
+                  $$ = $1;
+                  $$->astnode.ident.len = -1;
+                }
+              | Name Star Integer
+                {
+                  $$ = $1;
+                  $$->astnode.ident.len = atoi($3->astnode.constant.number);
+                }
+              | Arraydeclaration 
+                {
+                  $$ = $1;
+                  $$->astnode.ident.len = -1;
+                }
+;
+
+CharTypevarlist: CharTypevar
+                 {
+                   $1->parent = addnode();
+                   $1->parent->nodetype = Typedec;
+
+                   $$ = $1;
+                 }
+              |  CharTypevarlist CM  CharTypevar
+                 {
+                   $3->prevstmt = $1;
+                   $3->parent = $1->parent;
+                   $$ = $3;
+                 }
+;
+
+CharTypevar:   Name
+               {
+                 $$ = $1;
+                 $$->astnode.ident.len = -1;
+               }
+             | Name Star Integer
+               {
+                 $$ = $1;
+                 $$->astnode.ident.len = atoi($3->astnode.constant.number);
+               }
+             | Name Star OP Star CP
+               {
+                 $$ = $1;
+                 $$->astnode.ident.len = -1;
+               }
+             | Arraydeclaration
+               {
+                 $$ = $1;
+                 $$->astnode.ident.len = -1;
+               }
 ;
 
 /*  Deleted the Type REAL hack...  Need to take care of that in the 
@@ -1733,99 +1786,7 @@ String:  STRING
 
 Arraydeclaration: Name OP Arraynamelist CP 
                   {
-                    AST *temp, *tmp, *tnode;
-                    int count, i;
-                    char *tempname, *id;
-                    enum returntype ret;
- 
-		    /*
-                     *  $$ = addnode();
-                     *  $$->nodetype = Identifier;
-                     *  strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-		     */
-                    if(debug){
-                      printf("we have an array declaration %s\n", $1->astnode.ident.name);
-                    }
-                    tempname = strdup($1->astnode.ident.name);
-                    uppercase(tempname);
-               
-                    /* put in type table. we now know this intrinsic name is an array */
-                    if(methodscan(intrinsic_toks, tempname)!=NULL) {
-                      tmp=addnode();
-                      tmp->token = NAME;
-                      tmp->nodetype = Identifier;
-                      tmp->astnode.ident.needs_declaration = FALSE;
-                      tmp->astnode.ident.explicit = FALSE;
-                      tmp->astnode.ident.localvnum = -1;
-                      id = strdup($1->astnode.ident.name);
-                      strcpy(tmp->astnode.ident.name, id);
-                      ret = implicit_table[tolower(id[0]) - 'a'].type;
-                      tmp->vartype = ret; 
-                      tnode = clone_ident(tmp);
-                      tnode->nodetype = Identifier;
-                      tnode->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
-                      type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
-                    }
-
-
-		    $$ = $1;
-                    if(debug)
-                      printf("reduced arraydeclaration... calling switchem\n");
-		    $$->astnode.ident.arraylist = switchem($3);
-                  
-                    count = 0;
-                    for(temp = $$->astnode.ident.arraylist; temp != NULL; 
-                        temp=temp->nextstmt)
-                      count++;
-
-                    if(count > MAX_ARRAY_DIM) {
-                      fprintf(stderr,"Error: array %s exceeds maximum ",
-                         $$->astnode.ident.name);
-                      fprintf(stderr,"number of dimensions: %d\n", 
-                         MAX_ARRAY_DIM);
-                      exit(EXIT_FAILURE);
-                    }
-
-                    $$->astnode.ident.dim = count;
-
-                    for(temp = $$->astnode.ident.arraylist, i = 0;
-                        temp != NULL; 
-                        temp=temp->nextstmt, i++)
-                    {
-                      /* if this dimension is an implied size, then set both
-                       * start and end to NULL.
-                       */
-
-                      if((temp->nodetype == Identifier) && 
-                        (temp->astnode.ident.name[0] == '*'))
-                      {
-                        $$->astnode.ident.startDim[i] = NULL;
-                        $$->astnode.ident.endDim[i] = NULL;
-                      }
-                      else if(temp->nodetype == ArrayIdxRange) {
-                        $$->astnode.ident.startDim[i] = temp->astnode.expression.lhs;
-                        $$->astnode.ident.endDim[i] = temp->astnode.expression.rhs;
-                      }
-                      else {
-                        $$->astnode.ident.startDim[i] = NULL;
-                        $$->astnode.ident.endDim[i] = temp;
-                      }
-                    }
-                       
- 	            $$->astnode.ident.leaddim = NULL;
-   
-                    /* leaddim might be a constant, so check for that.  --keith */
-                    if($$->astnode.ident.arraylist->nodetype == Constant) 
-                    {
- 	              $$->astnode.ident.leaddim = 
-                       strdup($$->astnode.ident.arraylist->astnode.constant.number);
-                    }
-                    else {
- 	              $$->astnode.ident.leaddim = 
-                       strdup($$->astnode.ident.arraylist->astnode.ident.name);
-                    }
-
-		    store_array_var($$);
+                    $$ = process_array_declaration($1, $3);
                   }
 ;
 
@@ -1965,20 +1926,9 @@ Lhs:     Name
            $$->astnode.ident.arraylist = switchem($3);
            free_ast_node($1);
          }
-      |  Name OP Exp COLON Exp CP
+      |  SubstringOp
          {
-           $$=addnode();
-           $1->parent = $$;
-           $3->parent = $$;
-           $5->parent = $$;
-           strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-           $$->nodetype = Substring;
-           $$->token = NAME;
-           $$->prevstmt = NULL;
-           $$->nextstmt = NULL;
-           $$->astnode.ident.arraylist = $3;
-           $3->nextstmt = $5;
-           free_ast_node($1);
+           $$ = $1;
          }
 ;
 
@@ -2628,6 +2578,10 @@ Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
 	     $$->nodetype = Else;
 	     $$->astnode.blockif.stmts = switchem($3);
           }
+        | ELSE NL
+          {
+            $$ = 0;
+          }
 ;
 
 
@@ -2673,93 +2627,66 @@ Arithmeticif: IF OP Exp CP Integer CM Integer CM Integer NL
 
 Subroutinecall:   Name OP Explist CP
                   {
-                    /* Use the following declarations in case we 
-                     * need to switch index order.
-                     * 
-                     * HASHNODE * hashtemp;  
-                     * HASHNODE * ht;
-                     */
-                    char *tempname;
-
-                    $$ = addnode();
-                    $1->parent = $$;  /* 9-4-97 - Keith */
-
-                    if($3 != NULL)
-                      strcpy($3->parent->astnode.ident.name, 
-                        $1->astnode.ident.name);
-
-                    /*
-                     *  Here we could look up the name in the array table and set 
-                     *  the nodetype to ArrayAccess if it is found.  Then the code 
-                     *  generator could easily distinguish between array accesses 
-                     *  and function calls.  I'll have to implement the rest of 
-                     *  this soon.  -- Keith
-                     *
-                     *     if(type_lookup(array_table, $1->astnode.ident.name))
-                     *       $$->nodetype = ArrayAccess;
-                     *     else
-                     *       $$->nodetype = Identifier;
-                     */
-
-                    $$->nodetype = Identifier;
-
-                    strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-
-                    /*  This is in case we want to switch index order later.
-                     *
-                     *  hashtemp = type_lookup(array_table, $1->astnode.ident.name);
-                     *  if(hashtemp != NULL)
-                     *    $$->astnode.ident.arraylist = $3;
-                     *  else
-                     */
-
-                    /* We don't switch index order.  */
-                    if($3 == NULL) {
-                      $$->astnode.ident.arraylist = addnode();
-                      $$->astnode.ident.arraylist->nodetype = EmptyArgList;
-                    }
-                    else
-                      $$->astnode.ident.arraylist = switchem($3);
-
-                    tempname = strdup($$->astnode.ident.name);
-                    uppercase(tempname);
-
-                    if(!type_lookup(external_table, $$->astnode.ident.name) &&
-                       !type_lookup(array_table, $$->astnode.ident.name) &&
-                       methodscan(intrinsic_toks, tempname))
-                    {
-                      HASHNODE *ife;
-
-                      /* this must be an intrinsic function call, so remove
-                       * the entry from the type table (because the code
-                       * generator checks whether something is an intrinsic
-                       * or not by checking whether it's in the type table).
-                       */
-                      ife = type_lookup(type_table, $$->astnode.ident.name);
-                      if(ife)
-                        ife = hash_delete(type_table, $$->astnode.ident.name);
-                    }
-
-                    free_ast_node($1);
-                    free(tempname);
+                    $$ = process_subroutine_call($1, $3);
                   }
 ;
 
 SubstringOp: Name OP Exp COLON Exp CP
-           {
-              if(debug)
-                printf("SubString!\n");
-              $$ = addnode();
-              $1->parent = $$;
-              $3->parent = $$;
-              $5->parent = $$;
-              strcpy($$->astnode.ident.name, $1->astnode.ident.name);
-              $$->nodetype = Substring;
-              $$->token = NAME;
-              $$->astnode.ident.arraylist = $3;
-              $3->nextstmt = $5;
-              free_ast_node($1);
-           }
+             {
+               if(debug)
+                 printf("SubString! format = c(e1:e2)\n");
+               $$ = addnode();
+               $1->parent = $$;
+               $3->parent = $$;
+               $5->parent = $$;
+               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+               $$->nodetype = Substring;
+               $$->token = NAME;
+               $$->astnode.ident.startDim[0] = $3;
+               $$->astnode.ident.endDim[0] = $5;
+               free_ast_node($1);
+             }
+           | Name OP COLON Exp CP
+             {
+               if(debug)
+                 printf("SubString! format = c(:e2)\n");
+               $$ = addnode();
+               $1->parent = $$;
+               $4->parent = $$;
+               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+               $$->nodetype = Substring;
+               $$->token = NAME;
+               $$->astnode.ident.startDim[0] = NULL;
+               $$->astnode.ident.endDim[0] = $4;
+               free_ast_node($1);
+             }
+           | Name OP Exp COLON CP
+             {
+               if(debug)
+                 printf("SubString! format = c(e1:)\n");
+               $$ = addnode();
+               $1->parent = $$;
+               $3->parent = $$;
+               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+               $$->nodetype = Substring;
+               $$->token = NAME;
+               $$->astnode.ident.startDim[0] = $3;
+               $$->astnode.ident.endDim[0] = NULL;
+               free_ast_node($1);
+             }
+           | Name OP COLON CP
+             {
+               if(debug)
+                 printf("SubString! format = c(:)\n");
+               $$ = addnode();
+               $1->parent = $$;
+               strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+               $$->nodetype = Substring;
+               $$->token = NAME;
+               $$->astnode.ident.startDim[0] = NULL;
+               $$->astnode.ident.endDim[0] = NULL;
+               free_ast_node($1);
+             }
 ;
 
 
@@ -4848,4 +4775,252 @@ in_dlist_stmt_label(Dlist list, AST *label)
   }
 
   return 0;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * process_typestmt                                                          *
+ *                                                                           *
+ * Performs processing to handle a list of variable declarations.            *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+process_typestmt(enum returntype this_type, AST *tvlist)
+{
+  AST *temp, *new;
+  enum returntype ret;
+  HASHNODE *hashtemp, *hashtemp2;
+
+  new = addnode();
+  free_ast_node(tvlist->parent);
+  tvlist = switchem(tvlist);
+  new->nodetype = Typedec;
+
+  for(temp = tvlist; temp != NULL; temp = temp->nextstmt)
+  {
+    temp->vartype = this_type;
+    ret = this_type;
+    if(temp->astnode.ident.len < 0)
+      temp->astnode.ident.len = len;
+    temp->parent = new;
+
+    hashtemp = type_lookup(args_table, temp->astnode.ident.name);
+    if(hashtemp)
+      hashtemp->variable->vartype = this_type;
+
+    hashtemp2 = type_lookup(type_table, temp->astnode.ident.name);
+    if(hashtemp2) {
+      temp->vartype = this_type;
+      temp->astnode.ident.explicit = TRUE;
+      hashtemp2->variable = temp;
+      if(debug) printf("explicit: %s\n",
+        hashtemp2->variable->astnode.ident.name);
+    }
+
+    if(hashtemp) {
+      if(temp->vartype != hashtemp->variable->vartype){
+        if(debug) printf("different vartypes\n");
+        hashtemp->variable->vartype=temp->vartype;
+        hashtemp2->variable->vartype=temp->vartype;
+      }
+    }
+  }
+
+  new->astnode.typeunit.declist = tvlist;
+  new->astnode.typeunit.returns = this_type;
+
+  return new;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * process_array_declaration                                                 *
+ *                                                                           *
+ * Performs processing to handle an array declaration.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+process_array_declaration(AST *varname, AST *dimlist)
+{
+  AST *new, *temp, *tmp, *tnode;
+  int count, i;
+  char *tempname, *id;
+  enum returntype ret;
+ 
+  if(debug)
+    printf("we have an array declaration %s\n", varname->astnode.ident.name);
+
+  tempname = strdup(varname->astnode.ident.name);
+  uppercase(tempname);
+               
+  /* put in type table. we now know this intrinsic name is an array */
+  if(methodscan(intrinsic_toks, tempname) != NULL) {
+    tmp=addnode();
+
+    tmp->token = NAME;
+    tmp->nodetype = Identifier;
+    tmp->astnode.ident.needs_declaration = FALSE;
+    tmp->astnode.ident.explicit = FALSE;
+    tmp->astnode.ident.localvnum = -1;
+
+    id = strdup(varname->astnode.ident.name);
+    strcpy(tmp->astnode.ident.name, id);
+
+    ret = implicit_table[tolower(id[0]) - 'a'].type;
+    tmp->vartype = ret; 
+
+    tnode = clone_ident(tmp);
+    tnode->nodetype = Identifier;
+    tnode->astnode.ident.which_implicit = INTRIN_NAMED_ARRAY;
+
+    type_insert(type_table, tnode, ret, tnode->astnode.ident.name);
+  }
+
+  new = varname;
+
+  if(debug)
+    printf("reduced arraydeclaration... calling switchem\n");
+  new->astnode.ident.arraylist = switchem(dimlist);
+                  
+  count = 0;
+  for(temp=new->astnode.ident.arraylist; temp != NULL; temp=temp->nextstmt)
+    count++;
+
+  if(count > MAX_ARRAY_DIM) {
+    fprintf(stderr,"Error: array %s exceeds max ", new->astnode.ident.name);
+    fprintf(stderr,"number of dimensions: %d\n", MAX_ARRAY_DIM);
+    exit(EXIT_FAILURE);
+  }
+
+  new->astnode.ident.dim = count;
+
+  /*
+   * If this is a one-dimensional one-length character array, for example:
+   *    character foo(12)
+   *    character*1 bar(12)
+   * then don't treat as an array.  Set dimension to zero and arraylist
+   * to NULL.  Save the arraylist in startDim[2] since we will need it
+   * during code generation.
+   */
+
+  if((typedec_context == String) && (len == 1) && (count == 1)) {
+    new->astnode.ident.dim = 0;
+    new->astnode.ident.startDim[2] = new->astnode.ident.arraylist;
+    new->astnode.ident.arraylist = NULL;
+    return new;
+  }
+
+  for(temp = new->astnode.ident.arraylist, i = 0;
+      temp != NULL; 
+      temp=temp->nextstmt, i++)
+  {
+    /* if this dimension is an implied size, then set both
+     * start and end to NULL.
+     */
+
+    if((temp->nodetype == Identifier) && 
+      (temp->astnode.ident.name[0] == '*'))
+    {
+      new->astnode.ident.startDim[i] = NULL;
+      new->astnode.ident.endDim[i] = NULL;
+    }
+    else if(temp->nodetype == ArrayIdxRange) {
+      new->astnode.ident.startDim[i] = temp->astnode.expression.lhs;
+      new->astnode.ident.endDim[i] = temp->astnode.expression.rhs;
+    }
+    else {
+      new->astnode.ident.startDim[i] = NULL;
+      new->astnode.ident.endDim[i] = temp;
+    }
+  }
+                       
+  new->astnode.ident.leaddim = NULL;
+   
+  /* leaddim might be a constant, so check for that.  --keith */
+  if(new->astnode.ident.arraylist->nodetype == Constant) 
+  {
+    new->astnode.ident.leaddim = 
+      strdup(new->astnode.ident.arraylist->astnode.constant.number);
+  }
+  else {
+    new->astnode.ident.leaddim = 
+      strdup(new->astnode.ident.arraylist->astnode.ident.name);
+  }
+
+  store_array_var(new);
+
+  return new;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * process_subroutine_call                                                   *
+ *                                                                           *
+ * Performs processing to handle a subroutine/function call or array access. *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+process_subroutine_call(AST *varname, AST *explist)
+{
+  char *tempname;
+  AST *new;
+
+  new = addnode();
+  varname->parent = new;
+
+  if(explist != NULL)
+    strcpy(explist->parent->astnode.ident.name, 
+      varname->astnode.ident.name);
+
+  /*
+   *  Here we could look up the name in the array table and set 
+   *  the nodetype to ArrayAccess if it is found.  Then the code 
+   *  generator could easily distinguish between array accesses 
+   *  and function calls.  I'll have to implement the rest of 
+   *  this soon.  -- Keith
+   *
+   *     if(type_lookup(array_table, varname->astnode.ident.name))
+   *       new->nodetype = ArrayAccess;
+   *     else
+   *       new->nodetype = Identifier;
+   */
+
+  new->nodetype = Identifier;
+
+  strcpy(new->astnode.ident.name, varname->astnode.ident.name);
+
+  /* We don't switch index order.  */
+  if(explist == NULL) {
+    new->astnode.ident.arraylist = addnode();
+    new->astnode.ident.arraylist->nodetype = EmptyArgList;
+  }
+  else
+    new->astnode.ident.arraylist = switchem(explist);
+
+  tempname = strdup(new->astnode.ident.name);
+  uppercase(tempname);
+
+  if(!type_lookup(external_table, new->astnode.ident.name) &&
+     !type_lookup(array_table, new->astnode.ident.name) &&
+     methodscan(intrinsic_toks, tempname))
+  {
+    HASHNODE *ife;
+
+    /* this must be an intrinsic function call, so remove
+     * the entry from the type table (because the code
+     * generator checks whether something is an intrinsic
+     * or not by checking whether it's in the type table).
+     */
+    ife = type_lookup(type_table, new->astnode.ident.name);
+    if(ife)
+      ife = hash_delete(type_table, new->astnode.ident.name);
+  }
+
+  free_ast_node(varname);
+  free(tempname);
+
+  return new;
 }

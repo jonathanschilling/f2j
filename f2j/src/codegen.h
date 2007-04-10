@@ -47,6 +47,7 @@
 #define JL_CHAR "java/lang/Character"
 #define JL_OBJECT "java/lang/Object"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
+#define CHAR_ARRAY_DESC "([C)V"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "(Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
@@ -55,6 +56,7 @@
 #define UTIL_CLASS "org/netlib/util/Util"
 #define STRICT_UTIL_CLASS "org/netlib/util/StrictUtil"
 #define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"
+#define SINGLE_INS_DESC "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;"
 #define JL_SYSTEM "java/lang/System"
 #define PRINTSTREAM "java/io/PrintStream"
 #define OUT_DESC "Ljava/io/PrintStream;"
@@ -78,6 +80,7 @@
 #define THROWABLE_CLASS "java/lang/Throwable"
 #define GETMSG_DESC "()Ljava/lang/String;"
 #define TOLOWER_DESC "()Ljava/lang/String;"
+#define STRCHARAT_DESC "(Ljava/lang/String;I)Ljava/lang/String;"
 #define EXIT_DESC "(I)V"
 #define PAUSE_DESC "(Ljava/lang/String;)V"
 #define PAUSE_NOARG_DESC "()V"
@@ -290,6 +293,7 @@ AST
   * data_var_emit(JVM_METHOD *, AST *, AST *, HASHNODE *),
   * data_implied_loop_emit(JVM_METHOD *, AST * , AST *),
   * data_array_emit(JVM_METHOD *, int , AST *, AST *),
+  * data_string_emit(JVM_METHOD *, int , AST *, AST *),
   * format_item_emit(JVM_METHOD *, AST *, AST **);
 
 enum returntype

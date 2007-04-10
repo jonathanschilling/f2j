@@ -829,7 +829,8 @@ name_check (AST * root)
         if((ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
         {
           if(checkdebug)
-            printf("@# Found!\n");
+            printf("@# Found!  setting type to %s\n", 
+                returnstring[ht->variable->vartype]);
           root->vartype = ht->variable->vartype;
         }
         else if( (cur_check_unit->nodetype == Function) &&
@@ -860,7 +861,8 @@ name_check (AST * root)
 
         if (root->astnode.ident.arraylist == NULL)
           ; /* nothin for now */
-        else if (hashtemp != NULL)
+        else if ((hashtemp != NULL) || ((root->vartype == String) && 
+              root->astnode.ident.arraylist != NULL))
           array_check(root);
         else if (root->nodetype == Substring)
           root->vartype = String;
@@ -1238,15 +1240,15 @@ expr_check (AST * root)
       root->vartype = Logical;
       break;
     case Substring:
-      if(root->astnode.ident.arraylist == NULL)
-        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
 
-      expr_check(root->astnode.ident.arraylist);
+      if(root->astnode.ident.startDim[0])
+        expr_check(root->astnode.ident.startDim[0]);
 
-      if(root->astnode.ident.arraylist->nextstmt == NULL)
-        fprintf(stderr,"expr_check: calling expr_check with null pointer!\n");
+      if(root->astnode.ident.endDim[0])
+        expr_check(root->astnode.ident.endDim[0]);
 
-      expr_check(root->astnode.ident.arraylist->nextstmt);
+      if(root->astnode.ident.startDim[1])
+        expr_check(root->astnode.ident.startDim[1]);
 
       root->vartype = String;
       break;

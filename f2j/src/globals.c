@@ -137,23 +137,23 @@ KWDTAB tab_stmt[] =
 
 KWDTAB tab_type[] =
 {
-    {"DOUBLEPRECISION", TYPE, Double},
-    {"REAL*8", TYPE, Double},
-    {"REAL*4", TYPE, Float},
-    {"REAL", TYPE, Float},
+    {"DOUBLEPRECISION", ARITH_TYPE, Double},
+    {"REAL*8", ARITH_TYPE, Double},
+    {"REAL*4", ARITH_TYPE, Float},
+    {"REAL", ARITH_TYPE, Float},
 
-    {"INTEGER*4", TYPE, Integer},
-    {"INTEGER", TYPE, Integer},
+    {"INTEGER*4", ARITH_TYPE, Integer},
+    {"INTEGER", ARITH_TYPE, Integer},
 
-    {"LOGICAL*4", TYPE, Logical},
-    {"LOGICAL", TYPE, Logical},
+    {"LOGICAL*4", ARITH_TYPE, Logical},
+    {"LOGICAL", ARITH_TYPE, Logical},
 
-    {"DOUBLECOMPLEX", TYPE, Complex},
-    {"COMPLEX*16", TYPE, Complex},
-    {"COMPLEX*8", TYPE, Complex},
-    {"COMPLEX", TYPE, Complex},
+    {"DOUBLECOMPLEX", ARITH_TYPE, Complex},
+    {"COMPLEX*16", ARITH_TYPE, Complex},
+    {"COMPLEX*8", ARITH_TYPE, Complex},
+    {"COMPLEX", ARITH_TYPE, Complex},
 
-    {"CHARACTER", TYPE, String},
+    {"CHARACTER", CHAR_TYPE, String},
     { NULL, 0, 0}  /* Ends a scanning loop.  See comment above. */
 };
 

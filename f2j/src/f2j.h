@@ -283,6 +283,7 @@ struct _source
 
   BOOL 
     needs_input,                    /* does this unit read any data          */
+    needs_output,                   /* does this unit write any data         */
     needs_reflection,               /* does this unit call a passed-in func  */
     needs_blas;                     /* does this unit call any BLAS routines */
  
@@ -394,6 +395,7 @@ struct _ident
     dim,                            /* number of dimensions (for arrays)     */
     position,                       /* ident's position in COMMON block      */
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
+    array_len,                      /* num elements in array (if not implied)*/
     localvnum,                      /* local variable number (for Jasmin)    */
     which_implicit;                 /* default 0, array 1, var 2, lfunc 3, intrin 4 */ 
 

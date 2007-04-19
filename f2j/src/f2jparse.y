@@ -343,6 +343,7 @@ Fprogram:   Program Specstmts Statements End
                 /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
 
@@ -410,6 +411,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
 
@@ -478,6 +480,7 @@ Ffunction:   Function Specstmts Statements  End
                 /* initialize some values in this node */
 
                 $$->astnode.source.needs_input = FALSE;
+                $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
                 if(omitWrappers)
@@ -2395,6 +2398,28 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = -1;
 
+         if($5->nodetype == Constant)
+         {
+           if($5->astnode.constant.number[0] == '*') {
+             $$->astnode.io_stmt.format_num = -1;
+             free_ast_node($5);
+           }
+           else if($5->token == STRING) {
+             $$->astnode.io_stmt.format_num = -1;
+             $$->astnode.io_stmt.fmt_list = $5;
+           }
+           else {
+             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+             free_ast_node($5);
+           }
+         }
+         else
+         {
+           /* is this case ever reached??  i don't think so.  --kgs */
+           $$->astnode.io_stmt.format_num = -1;
+           $$->astnode.io_stmt.fmt_list = $5;
+         }
+
          $$->astnode.io_stmt.arg_list = switchem($7);
 
          if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
@@ -2405,7 +2430,6 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          /* currently ignoring the file descriptor and format spec. */
          free_ast_node($3);
-         free_ast_node($5);
       }
     | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
       {
@@ -2414,6 +2438,29 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
+
+         if($5->nodetype == Constant)
+         {
+           if($5->astnode.constant.number[0] == '*') {
+             $$->astnode.io_stmt.format_num = -1;
+             free_ast_node($5);
+           }
+           else if($5->token == STRING) {
+             $$->astnode.io_stmt.format_num = -1;
+             $$->astnode.io_stmt.fmt_list = $5;
+           }
+           else {
+             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
+             free_ast_node($5);
+           }
+         }
+         else
+         {
+           /* is this case ever reached??  i don't think so.  --kgs */
+           $$->astnode.io_stmt.format_num = -1;
+           $$->astnode.io_stmt.fmt_list = $5;
+         }
+
          $$->astnode.io_stmt.end_num = atoi($7->astnode.constant.number);
          free_ast_node($7);
 
@@ -2427,7 +2474,6 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          /* currently ignoring the file descriptor.. */
          free_ast_node($3);
-         free_ast_node($5);
       }
 ;
 
@@ -4427,6 +4473,7 @@ initialize_name(char *id)
   tmp->astnode.ident.explicit = FALSE;
   tmp->astnode.ident.which_implicit = INTRIN_NOT_NAMED;
   tmp->astnode.ident.localvnum = -1;
+  tmp->astnode.ident.array_len = -1;
 
   if(omitWrappers)
     tmp->astnode.ident.passByRef = FALSE;
@@ -4845,7 +4892,7 @@ AST *
 process_array_declaration(AST *varname, AST *dimlist)
 {
   AST *new, *temp, *tmp, *tnode;
-  int count, i;
+  int count, i, alen;
   char *tempname, *id;
   enum returntype ret;
  
@@ -4912,6 +4959,8 @@ process_array_declaration(AST *varname, AST *dimlist)
     return new;
   }
 
+  alen = 1;
+
   for(temp = new->astnode.ident.arraylist, i = 0;
       temp != NULL; 
       temp=temp->nextstmt, i++)
@@ -4925,17 +4974,26 @@ process_array_declaration(AST *varname, AST *dimlist)
     {
       new->astnode.ident.startDim[i] = NULL;
       new->astnode.ident.endDim[i] = NULL;
+      alen = 0;
     }
     else if(temp->nodetype == ArrayIdxRange) {
       new->astnode.ident.startDim[i] = temp->astnode.expression.lhs;
       new->astnode.ident.endDim[i] = temp->astnode.expression.rhs;
+      alen *= (int)(eval_const_expr(new->astnode.ident.endDim[i]) - 
+               eval_const_expr(new->astnode.ident.startDim[i])) + 1;
     }
     else {
       new->astnode.ident.startDim[i] = NULL;
       new->astnode.ident.endDim[i] = temp;
+      alen *= (int) eval_const_expr(new->astnode.ident.endDim[i]);
     }
   }
                        
+  if(alen)
+    new->astnode.ident.array_len = alen;
+  else
+    new->astnode.ident.array_len = -1;
+
   new->astnode.ident.leaddim = NULL;
    
   /* leaddim might be a constant, so check for that.  --keith */

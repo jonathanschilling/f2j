@@ -46,14 +46,18 @@
 #define JL_STRING "java/lang/String"
 #define JL_CHAR "java/lang/Character"
 #define JL_OBJECT "java/lang/Object"
+#define JL_NUMBER "java/lang/Number"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define CHAR_ARRAY_DESC "([C)V"
 #define TRIM_DESC "()Ljava/lang/String;"
 #define STREQV_DESC "(Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
+#define F77_READ_DESC "(Ljava/lang/String;Ljava/util/Vector;)I"
+#define F77_WRITE_DESC "(Ljava/lang/String;Ljava/util/Vector;)V"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
+#define ARRAY_SPEC_CLASS "org/netlib/util/ArraySpec"
 #define STRICT_UTIL_CLASS "org/netlib/util/StrictUtil"
 #define INS_DESC "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;"
 #define SINGLE_INS_DESC "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;"
@@ -64,8 +68,12 @@
 #define STRBUF_DESC "(Ljava/lang/String;)V"
 #define REGIONMATCHES_DESC "(ILjava/lang/String;II)Z"
 #define TOSTRING_DESC "()Ljava/lang/String;"
+#define VEC_ADD_DESC "(Ljava/lang/Object;)V"
+#define VEC_REMOVE_DESC "(I)Ljava/lang/Object;"
 #define CHARAT_DESC "(I)C"
 #define COMPARE_DESC "(Ljava/lang/String;)I"
+#define VECTOR_CLASS "java/util/Vector"
+#define VECTOR_DESC "()V"
 #define EASYIN_CLASS "org/netlib/util/EasyIn"
 #define EASYIN_DESC "()V"
 #define ETIME_CLASS "org/netlib/util/Etime"
@@ -86,6 +94,9 @@
 #define PAUSE_NOARG_DESC "()V"
 #define INVOKE_EXCEPTION "java/lang/reflect/InvocationTargetException"
 #define ACCESS_EXCEPTION "java/lang/IllegalAccessException"
+
+#define F2J_STDIN "__f2j_stdin"
+#define F2J_IO_VEC "__io_vec"
 
 #define THREEARG_MAX_FUNC          "Util.max"
 #define THREEARG_MAX_FUNC_STRICT   "StrictUtil.max"
@@ -125,6 +136,7 @@ void cfg_emit(Dlist, char *);
 
 char 
   * tok2str(int),
+  * format2str(AST *),
   * lowercase ( char * ),
   * get_common_prefix(char *),
   * getVarDescriptor(AST *),
@@ -154,6 +166,7 @@ void
   arg_assignment_emit(JVM_CLASS *, JVM_METHOD *, int, 
     int, int, BOOL, enum returntype),
   read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
+  formatted_read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   write_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   forloop_bytecode_emit(JVM_METHOD *, AST *),
   forloop_end_bytecode(JVM_METHOD *, AST *),
@@ -165,9 +178,6 @@ void
   max_intrinsic_emit (JVM_METHOD *, AST *, METHODTAB *),
   min_intrinsic_emit (JVM_METHOD *, AST *, METHODTAB *),
   while_emit(JVM_METHOD *, AST *),
-  format_name_emit(JVM_METHOD *, AST *),
-  format_list_emit(JVM_METHOD *, AST *, AST **),
-  one_arg_write_emit(JVM_METHOD *, AST *),
   substring_assign_emit(JVM_METHOD *, AST *),
   dint_intrinsic_emit(JVM_METHOD *, AST *, METHODTAB *),
   emit_call_args_known(JVM_METHOD *, AST *, char *, BOOL),
@@ -181,9 +191,9 @@ void
   intrinsic_lexical_compare_emit(JVM_METHOD *, AST *, METHODTAB *),
   intrinsic_emit(JVM_METHOD *, AST *),
   implied_loop_emit(JVM_METHOD *, AST *, void (*)(JVM_METHOD *, AST *), 
-                                                 void (*)(JVM_METHOD *, AST*)),
-  format_emit(JVM_METHOD *, AST *, AST **),
+      void (*)(JVM_METHOD *, AST*)),
   read_implied_loop_sourcecode_emit(JVM_METHOD *, AST *),
+  formatted_read_implied_loop_sourcecode_emit(JVM_METHOD *, AST *),
   scalar_emit(JVM_METHOD *, AST *, HASHNODE *),
   write_implied_loop_sourcecode_emit(JVM_METHOD *, AST *),
   array_emit(JVM_METHOD *, AST *),
@@ -217,6 +227,8 @@ void
   write_emit (JVM_METHOD *, AST *),
   common_emit(AST *),
   read_emit (JVM_METHOD *, AST *),
+  unformatted_read_emit(JVM_METHOD *, AST *),
+  formatted_read_emit(JVM_METHOD *, AST *, char *),
   emit_invocations(void),
   merge_equivalences(AST *),
   print_equivalences(AST *),
@@ -259,6 +271,7 @@ void
   arrayref_arg_emit(JVM_METHOD *, AST *, char *),
   scalar_arg_emit(JVM_METHOD *, AST *, char *, char *),
   wrapped_arg_emit(JVM_METHOD *, AST *, char *),
+  gen_clear_io_vec(JVM_METHOD *),
   initialize_lists(void),
   free_lists();
 

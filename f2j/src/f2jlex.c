@@ -361,7 +361,7 @@ yylex ()
 
       /*  Scan for a labeled (numbered) statement. */
       if (isdigit ((int) *buffer.stmt))
-        token = number_scan (&buffer,format_stmt, tokennumber);
+        token = number_scan (&buffer, format_stmt, tokennumber);
 
       if (token)
       {
@@ -1211,7 +1211,7 @@ check_continued_lines (FILE * fp, char *current_line)
 
     if (next_line[0] != ' ')
     {
-      if( fseek (fp, -6, SEEK_CUR) < 0 ) {
+      if( fseek (fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");
         perror("reason");
       }
@@ -1245,7 +1245,7 @@ check_continued_lines (FILE * fp, char *current_line)
       if(lexdebug)
         printf("no continuation marker.\n");
 
-      if( fseek (fp, -6, SEEK_CUR) < 0 ) {
+      if( fseek (fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");
         perror("reason");
       }

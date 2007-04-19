@@ -46,6 +46,9 @@ extern char * append_descriptor[MAX_RETURNS+1];
 /* descriptors for the numeric wrapper classes' toString() methods           */
 extern char * toString_descriptor[MAX_RETURNS+1];
 
+/* descriptors for the ArraySpec class */
+char * array_spec_descriptor[MAX_RETURNS+1];
+
 /* descriptors of PrintStream's print() and println() methods */
 extern char * println_descriptor[MAX_RETURNS+1];
 

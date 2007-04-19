@@ -348,6 +348,9 @@ typecheck (AST * root)
     case Write:
       if (checkdebug)
         printf ("typecheck(): Write statement.\n");
+
+      cur_check_unit->astnode.source.needs_output = TRUE;
+
       read_write_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);

@@ -592,6 +592,18 @@ char * println_descriptor[MAX_RETURNS+1] = {
   "(Ljava/lang/Object;)V",
 };
 
+/* descriptors of ArraySpec constructors */
+char * array_spec_descriptor[MAX_RETURNS+1] = {
+  "()V",     /* not implemented */
+  "()V",     /* not implemented */
+  "()V",     /* not implemented */
+  "([DII)V",
+  "([FII)V",
+  "([III)V",
+  "([ZII)V",
+  "()V"      /* not implemented */
+};
+
 /* table of numericValue methods (e.g. doubleValue(), intValue(), etc.
  * again, we do not expect to look up String data types in this table,
  * so those values may be invalid.                                          

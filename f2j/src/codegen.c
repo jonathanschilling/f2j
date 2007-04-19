@@ -74,7 +74,8 @@ BOOL
   save_all_locals;      /* should all locals be declared static?             */
 
 unsigned int 
-  stdin_lvar;           /* local var number of the EasyIn object             */
+  stdin_lvar = -1,      /* local var number of the EasyIn object             */
+  iovec_lvar = -1;      /* local var number of the input/output Vector       */
 
 JVM_METHOD
   *main_method,         /* the primary method for this fortran program unit  */
@@ -263,7 +264,7 @@ emit (AST * root)
             if(hashtemp)
               hashtemp->variable->astnode.ident.localvnum =
                 bc_get_next_local(main_method, 
-                   jvm_data_types[root->astnode.source.returns]);
+                   jvm_data_types[root->astnode.source.progtype->astnode.source.returns]);
           }
 
           cur_method = main_method;
@@ -279,7 +280,7 @@ emit (AST * root)
            */
 
           if(root->astnode.source.progtype->astnode.source.needs_input) {
-            fprintf(curfp,"  EasyIn _f2j_stdin = new EasyIn();\n");
+            fprintf(curfp,"  EasyIn %s = new EasyIn();\n", F2J_STDIN);
             stdin_lvar = bc_get_next_local(cur_method, jvm_Object);
 
             c = cp_find_or_insert(cur_class_file, CONSTANT_Class, EASYIN_CLASS);
@@ -290,6 +291,23 @@ emit (AST * root)
                    EASYIN_DESC);
             bc_append(cur_method, jvm_invokespecial, c);
             bc_gen_store_op(cur_method, stdin_lvar, jvm_Object);
+          }
+
+          /* Initialize a vector to be used for storing arguments to the
+           * formatted write routine (f77write).
+           */
+          if(root->astnode.source.progtype->astnode.source.needs_output) {
+            fprintf(curfp,"  java.util.Vector %s = new java.util.Vector();\n", F2J_IO_VEC);
+            iovec_lvar = bc_get_next_local(cur_method, jvm_Object);
+
+            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, VECTOR_CLASS);
+            bc_append(cur_method, jvm_new,c);
+            bc_append(cur_method, jvm_dup);
+
+            c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "<init>", 
+                   VECTOR_DESC);
+            bc_append(cur_method, jvm_invokespecial, c);
+            bc_gen_store_op(cur_method, iovec_lvar, jvm_Object);
           }
 
           if((type_lookup(cur_external_table, "etime") != NULL)
@@ -4941,6 +4959,20 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
           bc_append(meth, jvm_iconst_0);
         }
       }
+      else if(root->parent->nodetype == Write) {
+        if(type_lookup(cur_args_table,root->astnode.ident.name)) {
+          fprintf (curfp, "%s%s,_%s_offset", com_prefix, name, name);
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+          bc_gen_load_op(meth, typenode->variable->astnode.ident.localvnum+1, jvm_Int);
+        }
+        else {
+          fprintf (curfp, "%s%s,0", com_prefix, name);
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+          bc_append(meth, jvm_iconst_0);
+        }
+      }
       else if(((root->parent->nodetype == Assignment) ||
                (root->parent->nodetype == StmtLabelAssign))
             && (root->parent->astnode.assignment.lhs == root)) {
@@ -8199,14 +8231,50 @@ forloop_end_bytecode(JVM_METHOD *meth, AST *root)
  *                                                                           *
  * read_emit                                                                 *
  *                                                                           *
- * This function generates READ statements.  We generate calls to a          *
- * Java class called EasyIn to perform the I/O.  Also emit a try-catch       *
- * to trap IOExceptions.                                                     *
+ * Emit a READ statement.  Calls formatted_read_emit() or                    *
+ * unformatted_read_emit(), depending on whether there is a                  *
+ * corresponding FORMAT statement.                                           *
  *                                                                           *
  *****************************************************************************/
 
 void
 read_emit (JVM_METHOD *meth, AST * root)
+{
+  char *fmt_str, tmp[100];
+  HASHNODE *hnode;
+
+  /* look for a format statement */
+  sprintf(tmp,"%d", root->astnode.io_stmt.format_num);
+  if(gendebug)
+    printf("***Looking for format statement number: %s\n",tmp);
+
+  hnode = format_lookup(cur_format_table,tmp);
+
+  if(hnode)
+    fmt_str = format2str(hnode->variable->astnode.label.stmt);
+  else if(root->astnode.io_stmt.fmt_list != NULL)
+    fmt_str = strdup(root->astnode.io_stmt.fmt_list->astnode.constant.number);
+  else
+    fmt_str = NULL;
+
+  if(fmt_str)
+    formatted_read_emit(meth, root, fmt_str);
+  else
+    unformatted_read_emit(meth, root);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * unformatted_read_emit                                                     *
+ *                                                                           *
+ * This function generates unformatted READ statements.  We generate calls   *
+ * to a Java class called EasyIn to perform the I/O.  Also emit a try-catch  *
+ * to trap IOExceptions.                                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+unformatted_read_emit(JVM_METHOD *meth, AST * root)
 {
   JVM_CODE_GRAPH_NODE *goto_node1, *goto_node2, *try_start, *pop_node;
   JVM_EXCEPTION_TABLE_ENTRY *et_entry;
@@ -8221,7 +8289,7 @@ read_emit (JVM_METHOD *meth, AST * root)
    */
 
   if(root->astnode.io_stmt.arg_list == NULL) {
-    fprintf(curfp,"_f2j_stdin.readString();  // skip a line\n");
+    fprintf(curfp,"%s.readString();  // skip a line\n", F2J_STDIN);
     bc_gen_load_op(meth, stdin_lvar, jvm_Object);
     c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
           "()Ljava/lang/String;");
@@ -8264,12 +8332,12 @@ read_emit (JVM_METHOD *meth, AST * root)
 
         len = temp->astnode.ident.len < 0 ? 1 : temp->astnode.ident.len;
 
-        fprintf(curfp," = _f2j_stdin.%s(%d);\n",funcname[temp->vartype],
+        fprintf(curfp," = %s.%s(%d);\n", F2J_STDIN, funcname[temp->vartype],
            len);
         bc_push_int_const(meth, len);
       }
       else {
-        fprintf(curfp," = _f2j_stdin.%s();\n",funcname[temp->vartype]);
+        fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[temp->vartype]);
       }
 
       c = bc_new_methodref(cur_class_file, EASYIN_CLASS, funcname[temp->vartype],
@@ -8288,7 +8356,7 @@ read_emit (JVM_METHOD *meth, AST * root)
 
   free_ast_node(assign_temp);
 
-  fprintf(curfp,"_f2j_stdin.skipRemaining();\n");
+  fprintf(curfp,"%s.skipRemaining();\n", F2J_STDIN);
   bc_gen_load_op(meth, stdin_lvar, jvm_Object);
   c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "skipRemaining", "()V");
   bc_append(meth, jvm_invokevirtual, c);
@@ -8337,6 +8405,258 @@ read_emit (JVM_METHOD *meth, AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * formatted_read_assign_emit                                                *
+ *                                                                           *
+ * Emits the assignment statement of an implied loop in a READ statement.    *
+ * If emit_source is TRUE, emits both bytecode and source code.              *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+formatted_read_assign_emit(JVM_METHOD *meth, AST *temp,
+  int emit_source, int idx)
+{
+  AST *assign_temp, *idx_temp = NULL;
+  int c;
+
+  assign_temp = addnode();
+  assign_temp->nodetype = Assignment;
+
+  if(idx >= 0) {
+    idx_temp = addnode();
+    idx_temp->token = INTEGER;
+    idx_temp->nodetype = Constant;
+    sprintf(idx_temp->astnode.constant.number, "%d", idx);
+    idx_temp->vartype = Integer;
+    idx_temp->nextstmt = NULL;
+    temp->astnode.ident.arraylist = idx_temp;
+  }
+
+  temp->parent = assign_temp;
+  assign_temp->astnode.assignment.lhs = temp;
+
+  name_emit(meth, assign_temp->astnode.assignment.lhs);
+
+  bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+  bc_append(meth, jvm_iconst_0);
+
+  c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "remove",
+            VEC_REMOVE_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
+
+  if((temp->vartype == Character) || (temp->vartype == String)) {
+    /* special case for string since we don't need to call any method
+     * to get the value as with other primitive types (e.g. intValue,
+     * doubleValue, etc).
+     */
+
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
+          numeric_wrapper[temp->vartype]);
+    bc_append(meth, jvm_checkcast, c);
+
+    if(emit_source)
+      fprintf(curfp," = (%s) %s.remove(0);\n", java_wrapper[temp->vartype],
+         F2J_IO_VEC);
+  }
+  else if(temp->vartype == Logical) {
+    /* special case for boolean since java.lang.Boolean can't be cast
+     * to java.lang.Number.
+     */
+
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, 
+       numeric_wrapper[temp->vartype]);
+    bc_append(meth, jvm_checkcast, c);
+
+    if(emit_source)
+      fprintf(curfp," = ((Boolean) %s.remove(0)).booleanValue();\n",
+         F2J_IO_VEC);
+    c = bc_new_methodref(cur_class_file, numeric_wrapper[temp->vartype],
+          numericValue_method[temp->vartype],
+          numericValue_descriptor[temp->vartype]);
+    bc_append(meth, jvm_invokevirtual, c);
+  }
+  else {
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_NUMBER);
+    bc_append(meth, jvm_checkcast, c);
+
+    if(emit_source)
+      fprintf(curfp," = ((Number) %s.remove(0)).%s();\n",
+         F2J_IO_VEC, numericValue_method[temp->vartype]);
+    c = bc_new_methodref(cur_class_file, JL_NUMBER,
+          numericValue_method[temp->vartype],
+          numericValue_descriptor[temp->vartype]);
+    bc_append(meth, jvm_invokevirtual, c);
+  }
+
+  LHS_bytecode_emit(meth, assign_temp);
+
+  free_ast_node(assign_temp);
+  if(idx_temp) {
+    free_ast_node(idx_temp);
+    temp->astnode.ident.arraylist = NULL;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * read_emit                                                                 *
+ *                                                                           *
+ * This function generates formatted READ statements.  J.Paine's formatter   *
+ * is used behind the scenes.                                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
+{
+  AST *temp;
+  int c;
+
+  /* if the READ statement has no args, just read a line and
+   * ignore it.
+   */
+
+  if(root->astnode.io_stmt.arg_list == NULL) {
+    fprintf(curfp,"%s.readString();  // skip a line\n", F2J_STDIN);
+    bc_gen_load_op(meth, stdin_lvar, jvm_Object);
+    c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
+          "()Ljava/lang/String;");
+    bc_append(meth, jvm_invokevirtual, c);
+    return;
+  }
+
+  gen_clear_io_vec(meth);
+
+  bc_push_string_const(meth, fmt_str);
+  bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+  c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
+  bc_append(meth, jvm_invokestatic, c);
+
+  if(root->astnode.io_stmt.end_num > 0 )
+  {
+    JVM_CODE_GRAPH_NODE *if_node, *goto_node;
+
+    /* the READ statement includes an END label, so we
+     * test the return value to determine EOF.
+     */
+    fprintf(curfp, "if(Util.f77read(\"%s\", %s) <= 0)\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp,"   Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.io_stmt.end_num);
+
+    if_node = bc_append(meth, jvm_ifgt);
+    goto_node = bc_append(meth, jvm_goto);
+    bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.end_num);
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+  }
+  else {
+    fprintf(curfp, "Util.f77read(\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+    /* return value is unused, so pop it off the stack */
+    bc_append(meth, jvm_pop);
+  }
+
+  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+  {
+    HASHNODE *ht;
+
+    if(temp->nodetype == IoImpliedLoop)
+      implied_loop_emit(meth, temp, formatted_read_implied_loop_bytecode_emit,
+             formatted_read_implied_loop_sourcecode_emit);
+    else if((temp->nodetype == Identifier) &&
+        (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) &&
+        (temp->astnode.ident.arraylist == NULL))
+    {
+      if(ht->variable->astnode.ident.array_len == -1) {
+        fprintf(stderr, "Warning: passing implied size array to formatted read.\n");
+        fprintf(stderr, "         this won't work properly.\n");
+
+        formatted_read_assign_emit(meth, temp, TRUE, -1);
+      }
+      else {
+        int i;
+
+        for(i=0; i < ht->variable->astnode.ident.array_len; i++) {
+          formatted_read_assign_emit(meth, temp, TRUE, i+1);
+        }
+      }
+    }
+    else if(temp->nodetype == Identifier)
+      formatted_read_assign_emit(meth, temp, TRUE, -1);
+    else
+    {
+      fprintf(stderr,"Read list must consist of idents or implied loops\n");
+      fprintf(stderr,"   nodetype is %s\n", print_nodetype(temp));
+      continue;
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * formatted_read_implied_loop_bytecode_emit                                 *
+ *                                                                           *
+ * This function generates code for implied DO loops contained in READ       *
+ * statements including FORMAT statements.                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+formatted_read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
+{ 
+  AST *iot;
+  
+  for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
+  { 
+    if(iot->nodetype != Identifier) {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(iot));
+      fprintf(stderr," in implied loop (read stmt)\n");
+    }
+    else
+      formatted_read_assign_emit(meth, iot, FALSE, -1);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * formatted_read_implied_loop_sourcecode_emit                               *
+ *                                                                           *
+ * This function generates code for implied DO loops contained in READ       *
+ * statements including FORMAT statements.                                   *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+formatted_read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
+{
+  AST *iot;
+
+  fprintf(curfp,"{\n");
+  for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
+  {
+    if(iot->nodetype != Identifier) {
+      fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
+        unit_name,print_nodetype(iot));
+      fprintf(stderr," in implied loop (read stmt)\n");
+    }
+    else {
+      name_emit(meth, iot);
+
+      if((iot->vartype == Character) || (iot->vartype == String))
+        fprintf(curfp," = (%s) %s.remove(0);\n", java_wrapper[iot->vartype],
+           F2J_IO_VEC);
+      else if(iot->vartype == Logical)
+        fprintf(curfp," = ((Boolean) %s.remove(0)).booleanValue();\n",
+           F2J_IO_VEC);
+      else
+        fprintf(curfp," = ((Number) %s.remove(0)).%s();\n",
+           F2J_IO_VEC, numericValue_method[iot->vartype]);
+    }
+  }
+  fprintf(curfp,"}\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
  * read_implied_loop_bytecode_emit                                           *
  *                                                                           *
  * This function generates code for implied DO loops contained in READ       *
@@ -8358,8 +8678,7 @@ read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(stderr," in implied loop (read stmt)\n");
     }
     else {
-      fprintf(curfp," = _f2j_stdin.%s();\n",
-         funcname[iot->vartype]);
+      fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[iot->vartype]);
       assign_temp = addnode();
       assign_temp->nodetype = Assignment;
 
@@ -8412,64 +8731,10 @@ read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
     }
     else {
       name_emit(meth, iot);
-      fprintf(curfp," = _f2j_stdin.%s();\n",
-         funcname[iot->vartype]);
+      fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[iot->vartype]);
     }
   }
   fprintf(curfp,"}\n");
-}
-
-/*****************************************************************************
- *                                                                           *
- * one_arg_write_emit                                                        *
- *                                                                           *
- * emit write statements which have only one argument.                       *
- *                                                                           *
- *****************************************************************************/
-
-void
-one_arg_write_emit(JVM_METHOD *meth, AST *root)
-{
-  int c;
-
-  /* if the only arg is an implied loop, emit that and return...
-   * nothing more to do here.
-   */
-  if((root->astnode.io_stmt.arg_list != NULL) &&
-     (root->astnode.io_stmt.arg_list->nodetype == IoImpliedLoop)) {
-    implied_loop_emit(meth, root->astnode.io_stmt.arg_list, 
-         write_implied_loop_bytecode_emit,
-         write_implied_loop_sourcecode_emit);
-    fprintf(curfp, "System.out.println();\n");
-    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-    bc_append(meth, jvm_getstatic, c);
-    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
-    bc_append(meth, jvm_invokevirtual, c);
-    return;
-  }
-
-  c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-  bc_append(meth, jvm_getstatic, c);
-
-  fprintf(curfp, "System.out.println(");
-  if(root->astnode.io_stmt.arg_list) {
-    expr_emit(meth, root->astnode.io_stmt.arg_list);
-    if(isArrayNoIdx(root->astnode.io_stmt.arg_list)) 
-      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
-            println_descriptor[Object]);
-    else
-      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
-            println_descriptor[root->astnode.io_stmt.arg_list->vartype]);
-  }
-  else {
-    inline_format_emit(meth, root, FALSE);
-    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
-          println_descriptor[String]);
-  }
-  fprintf(curfp, ");\n");
-  bc_append(meth, jvm_invokevirtual, c);
-
-  return;
 }
 
 /*****************************************************************************
@@ -8491,6 +8756,112 @@ isArrayNoIdx(AST *var)
 
 /*****************************************************************************
  *                                                                           *
+ * format2str                                                                *
+ *                                                                           *
+ * Converts a list of format items to a format string.                       *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+format2str(AST *node)
+{
+  char buf[8192], *tmpstr;
+  AST *temp;
+  int i, j;
+
+  buf[0] = 0;
+
+  for(temp = node; temp; temp=temp->nextstmt) {
+    switch(temp->token) {
+      case EDIT_DESC:
+      case NAME:
+        strcat(buf, temp->astnode.ident.name);
+        break;
+      case STRING:
+        /* escaping quotes in the string to be passed to the Formatter.
+         * largest temp can be is 2 * len + 1 (if every char is a quote)
+         */
+
+        tmpstr = malloc(2 * strlen(temp->astnode.constant.number) + 1);
+        if(!tmpstr)
+          return NULL;
+
+        for(i = j = 0; i < strlen(temp->astnode.constant.number); i++) {
+          if(temp->astnode.constant.number[i] == '\'') {
+            tmpstr[j] = '\'';
+            j++;
+            tmpstr[j] = '\'';
+            j++;
+          }
+          else {
+            tmpstr[j] = temp->astnode.constant.number[i];
+            j++;
+          } 
+        }
+        tmpstr[j] = 0;
+
+        strcat(buf, "'");
+        strcat(buf, tmpstr);
+        strcat(buf, "'");
+
+        free(tmpstr);
+        break;
+      case INTEGER:
+        strcat(buf, temp->astnode.constant.number);
+        break;
+      case REPEAT:
+        tmpstr = format2str(temp->astnode.label.stmt);
+        strcat(buf, "(");
+        strcat(buf, tmpstr);
+        strcat(buf, ")");
+        free(tmpstr);
+        break;
+      case CM:
+        strcat(buf, ",");
+        break;
+      case DIV:
+        strcat(buf, "/");
+        break;
+      case CAT:
+        strcat(buf, "//");
+        break;
+      case COLON:
+        strcat(buf, ":");
+        break;
+      default:
+        fprintf(stderr,"formatitem2str: Unknown token!!! %d (%s) - ",
+           temp->token, tok2str(temp->token));
+        if(gendebug)
+          printf("this node type %s\n",print_nodetype(temp));
+        break;
+    }
+  }
+
+  return strdup(buf);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * gen_clear_io_vec                                                          *
+ *                                                                           *
+ * Generates code to clear the Vector used for formatted I/O calls.          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+gen_clear_io_vec(JVM_METHOD *meth)
+{
+  int c;
+
+  fprintf(curfp, "%s.clear();\n", F2J_IO_VEC);
+
+  bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+  c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "clear", "()V");
+  bc_append(meth, jvm_invokevirtual, c);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * write_emit                                                                *
  *                                                                           *
  * This function handles WRITE statements.  It is FAR from complete,         *
@@ -8501,10 +8872,9 @@ isArrayNoIdx(AST *var)
 void
 write_emit(JVM_METHOD *meth, AST * root)
 {
-  BOOL implied_loop = FALSE;
-  AST *nodeptr, *temp, *prev;
-  HASHNODE *hnode;
-  char tmp[100];
+  char *fmt_str, tmp[100];
+  HASHNODE *hnode, *ht;
+  AST *temp;
   int c;
 
   /* look for a format statement */
@@ -8514,274 +8884,87 @@ write_emit(JVM_METHOD *meth, AST * root)
 
   hnode = format_lookup(cur_format_table,tmp);
 
-  /* check if there are no args to this WRITE statement */
-  if((root->astnode.io_stmt.arg_list == NULL) &&
-     (root->astnode.io_stmt.fmt_list == NULL))
-  {
-    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-    bc_append(meth, jvm_getstatic, c);
-
-    if(hnode) {
-      nodeptr = root->astnode.io_stmt.arg_list; 
-
-      fprintf (curfp, "System.out.println(");
-      format_emit(meth, hnode->variable->astnode.label.stmt,&nodeptr);
-      fprintf(curfp,");\n");
-
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
-             TOSTRING_DESC);
-      bc_append(meth, jvm_invokevirtual, c);
-
-      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println",
-          println_descriptor[String]);
-    }
-    else {
-      fprintf(curfp,"System.out.println();\n");
-      c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
-    }
-
-    bc_append(meth, jvm_invokevirtual, c);
-
-    return;
-  }
-
-  /* 
-   * Check to see if there are any implied DO loops in this WRITE
-   * statement.  If so, we'll have to generate a for loop to write
-   * the data.  Since in that case we will have separate print
-   * statements for each iteration of the for loop, we dont want
-   * to use println. 
-   */
-
-  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-    if(temp->nodetype == IoImpliedLoop) {
-      implied_loop = TRUE;
-      break;
-    }
-      
-  /* check if this WRITE statement has only one arg.  treat this as
-   * a special case because we do not need to generate a StringBuffer
-   * if there's only one arg.
-   */
-
-  if( !hnode &&
-      (((root->astnode.io_stmt.arg_list != NULL) &&
-        (root->astnode.io_stmt.arg_list->nextstmt == NULL) &&
-        (root->astnode.io_stmt.fmt_list == NULL))
-      ||
-       ((root->astnode.io_stmt.arg_list == NULL) &&
-        (root->astnode.io_stmt.fmt_list != NULL))) )
-  {
-    one_arg_write_emit(meth, root);
-    return;
-  }
-
-  if(root->astnode.io_stmt.arg_list->nodetype != IoImpliedLoop) {
-    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-    bc_append(meth, jvm_getstatic, c);
-  }
-
-  if(implied_loop)
-    fprintf (curfp, "System.out.print(");
+  if(hnode)
+    fmt_str = format2str(hnode->variable->astnode.label.stmt);
+  else if(root->astnode.io_stmt.fmt_list != NULL)
+    fmt_str = strdup(root->astnode.io_stmt.fmt_list->astnode.constant.number);
   else
-    fprintf (curfp, "System.out.println(");
+    fmt_str = NULL;
 
-  if(root->astnode.io_stmt.fmt_list != NULL)
-    inline_format_emit(meth, root, TRUE);
+  gen_clear_io_vec(meth);
 
-  /* if there's formatting information for this write statement, use it
-   * unless the write statement has an implied do loop.  in that case,
-   * we dont know how to handle the formatting, so we ignore it.
-   */
-
-  if(hnode != NULL && !implied_loop) {
-    if(gendebug)
-      printf("****FOUND****\n");
-
-    nodeptr = root->astnode.io_stmt.arg_list; 
-
-    format_emit(meth, hnode->variable->astnode.label.stmt,&nodeptr);
-  }
-  else {
-    if(gendebug)
-      printf("****NOT FOUND****\n");
-
-    /* if there's a FORMAT statement and an implied loop, ignore the
-     * formatting and increment a counter of the number of FORMAT
-     * statements that we have ignored.
-     */
-
-    if(hnode && implied_loop)
-      ignored_formatting++;
-
-    for( temp = root->astnode.io_stmt.arg_list, 
-         prev = root->astnode.io_stmt.arg_list; 
-         temp != NULL; 
-         temp = temp->nextstmt) 
+  for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt) {
+    if(temp->nodetype == IoImpliedLoop) {
+      implied_loop_emit(meth, temp, write_implied_loop_bytecode_emit,
+          write_implied_loop_sourcecode_emit);
+    }
+    else if((temp->nodetype == Identifier) && 
+        (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) &&
+        (temp->astnode.ident.arraylist == NULL))
     {
-      if(temp->nodetype == IoImpliedLoop)
-      {
-        if( temp == root->astnode.io_stmt.arg_list )
-          fprintf(curfp,"\"\");\n");
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, ARRAY_SPEC_CLASS);
+      bc_append(cur_method, jvm_new,c);
+      bc_append(cur_method, jvm_dup);
+  
+      fprintf(curfp, "  %s.addElement(new ArraySpec(", F2J_IO_VEC);
 
-        implied_loop_emit(meth, temp, write_implied_loop_bytecode_emit,
-                                write_implied_loop_sourcecode_emit);
-        if(temp->nextstmt != NULL)
-          if(temp->nextstmt->nodetype != IoImpliedLoop) {
-            fprintf(curfp,"System.out.print(");
-            c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-            bc_append(meth, jvm_getstatic, c);
-          }
+      if(ht->variable->astnode.ident.array_len == -1) {
+        fprintf(stderr, "Warning: passing implied size array to formatted write\n");
+        fprintf(stderr, "         only using first element\n");
+        temp->parent->nodetype = Call;
+        expr_emit(meth, temp);
+        temp->parent->nodetype = Write;
       }
       else
-      {
-        fprintf(curfp,"(");
+        expr_emit(meth, temp);
 
-        if(((temp == root->astnode.io_stmt.arg_list) &&
-           (root->astnode.io_stmt.fmt_list == NULL)) 
-           || prev->nodetype == IoImpliedLoop)
-        {
-          /* this is the first item in the list and we do not have an inline
-           * format spec, therefore we must create the new StringBuffer now.
-           * The StringBuffer constructor only takes a String argument, so
-           * if the first item is not a string, we must convert it to String
-           * before calling the constructor.
-           */
+      fprintf(curfp, ", %d));\n", ht->variable->astnode.ident.array_len);
 
-          c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
-          bc_append(meth, jvm_new,c);
-          bc_append(meth, jvm_dup);
+      bc_push_int_const(meth, ht->variable->astnode.ident.array_len);
 
-          expr_emit (meth, temp);
+      c = bc_new_methodref(cur_class_file, ARRAY_SPEC_CLASS, "<init>",
+             array_spec_descriptor[temp->vartype]);
+  
+      bc_append(cur_method, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+          VEC_ADD_DESC);
+      bc_append(meth, jvm_invokevirtual, c);
+    }
+    else {
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
+                numeric_wrapper[temp->vartype]);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
 
-          if((temp->vartype != String) && (temp->vartype != Character)) {
-            /* call String.valueOf() to convert this numeric type to string */
-            if(isArrayNoIdx(temp)) {
-              c = bc_new_methodref(cur_class_file, JL_OBJECT, "toString",
-                     TOSTRING_DESC);
-              bc_append(meth, jvm_invokevirtual, c);
-            }
-            else {
-              c = bc_new_methodref(cur_class_file, JL_STRING, "valueOf", 
-                     string_valueOf_descriptor[temp->vartype]);
-              bc_append(meth, jvm_invokestatic, c);
-            }
-          }
+      c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
+            "<init>", wrapper_descriptor[temp->vartype]);
 
-          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>",
-                STRBUF_DESC);
-          bc_append(meth, jvm_invokespecial, c);
-        }
-        else {
-          expr_emit (meth, temp);
+      fprintf(curfp, "  %s.addElement(new %s(", F2J_IO_VEC,
+          java_wrapper[temp->vartype]);
+      expr_emit(meth, temp);
+      fprintf(curfp,"));\n");
 
-          if(isArrayNoIdx(temp))
-            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
-                    append_descriptor[Object]);
-          else
-            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
-                    append_descriptor[temp->vartype]);
-
-          bc_append(meth, jvm_invokevirtual, c);
-        }
-        fprintf(curfp,")");
-
-        if(temp->nextstmt != NULL) 
-        {
-          bc_push_string_const(meth, " ");
-          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
-                append_descriptor[String]);
-
-          bc_append(meth, jvm_invokevirtual, c);
-
-          if(temp->nextstmt->nodetype == IoImpliedLoop) {
-            /* next item is implied loop.  finish up this print statement. */
-            fprintf (curfp, " + \" \");\n");
-
-            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
-                  TOSTRING_DESC);
-            bc_append(meth, jvm_invokevirtual, c);
-
-            c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
-                  println_descriptor[String]);
-            bc_append(meth, jvm_invokevirtual, c);
-          }
-          else {
-            /* bytecode for this is above (bc_push_string_const(meth, " "); etc.)  */
-            fprintf (curfp, " + \" \" + ");
-          }
-        }
-        else if(implied_loop) {
-          fprintf (curfp, ");\n");
-
-          c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
-                TOSTRING_DESC);
-          bc_append(meth, jvm_invokevirtual, c);
-
-          c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
-                println_descriptor[String]);
-          bc_append(meth, jvm_invokevirtual, c);
-        }
-      }
-      prev = temp;
+      bc_append(meth, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+          VEC_ADD_DESC);
+      bc_append(meth, jvm_invokevirtual, c);
     }
   }
 
-  if(implied_loop) {
-    fprintf (curfp, "\nSystem.out.println();\n");
-    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-    bc_append(meth, jvm_getstatic, c);
-    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", "()V");
-    bc_append(meth, jvm_invokevirtual, c);
+  if(fmt_str) {
+    fprintf(curfp, "Util.f77write(\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+    bc_push_string_const(meth, fmt_str);
   }
   else {
-    fprintf (curfp, ");\n");
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
-          TOSTRING_DESC);
-    bc_append(meth, jvm_invokevirtual, c);
-
-    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "println", 
-           println_descriptor[String]);
-    bc_append(meth, jvm_invokevirtual, c);
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * inline_format_emit                                                        *
- *                                                                           *
- * The following is a cheesy workaround to handle the following type of      * 
- * statement:                                                                *
- *         write(*, FMT = '( '' Matrix types:'' )' )                         * 
- * eventually, we should handle any kind of format spec within the           * 
- * quotes, but for now we just treat the whole thing as a string.            * 
- * 12/4/97 --Keith                                                           * 
- *                                                                           * 
- *****************************************************************************/
-
-void
-inline_format_emit(JVM_METHOD *meth, AST *root, BOOL use_stringbuffer)
-{
-  int c;
-
-  fprintf(curfp, "\"%s\"", 
-    root->astnode.io_stmt.fmt_list->astnode.constant.number);
-    
-  if(use_stringbuffer) {
-    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
-    bc_append(meth, jvm_new,c);
-    bc_append(meth, jvm_dup);
+    fprintf(curfp, "Util.f77write(null, %s);\n", F2J_IO_VEC);
+    bc_append(meth, jvm_aconst_null);
   }
 
-  bc_push_string_const(meth, root->astnode.io_stmt.fmt_list->astnode.constant.number);
-
-  if(root->astnode.io_stmt.arg_list != NULL)
-    fprintf(curfp, " + ");
-
-  if (use_stringbuffer) {
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", STRBUF_DESC);
-    bc_append(meth, jvm_invokespecial, c);
-  }
+  bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+  c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77write", F77_WRITE_DESC);
+  bc_append(meth, jvm_invokestatic, c);
 }
 
 /*****************************************************************************
@@ -8891,13 +9074,14 @@ write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
     if(temp->nodetype == Identifier) {
-      fprintf(curfp,"  System.out.print(");
+      fprintf(curfp,"  %s.addElement(new %s(", F2J_IO_VEC, 
+          java_wrapper[temp->vartype]);
       name_emit(meth,temp);
-      fprintf(curfp," + \" \");\n");
+      fprintf(curfp,"));\n");
     }
     else if(temp->nodetype == Constant) {
-      fprintf(curfp,"  System.out.print(\"%s \");\n", 
-        temp->astnode.constant.number);
+      fprintf(curfp,"  %s.addElement(new %s(%s));\n", F2J_IO_VEC, 
+          java_wrapper[temp->vartype], temp->astnode.constant.number);
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
@@ -8927,18 +9111,40 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
     /* emit loop body */
-    c = bc_new_fieldref(cur_class_file, JL_SYSTEM, "out", OUT_DESC);
-    bc_append(meth, jvm_getstatic, c);
-
-    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
-    bc_append(meth, jvm_new,c);
-    bc_append(meth, jvm_dup);
 
     if(temp->nodetype == Identifier) {
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
+                numeric_wrapper[temp->vartype]);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
+
+      c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
+            "<init>", wrapper_descriptor[temp->vartype]);
+
       name_emit(meth, temp);
+
+      bc_append(meth, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement", 
+          VEC_ADD_DESC);
+      bc_append(meth, jvm_invokevirtual, c);
     }
     else if(temp->nodetype == Constant) {
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
+                numeric_wrapper[temp->vartype]);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
+
+      c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
+            "<init>", wrapper_descriptor[temp->vartype]);
+
       pushConst(meth, temp);
+
+      bc_append(meth, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement", 
+          VEC_ADD_DESC);
+      bc_append(meth, jvm_invokevirtual, c);
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
@@ -8946,309 +9152,7 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(stderr," in implied loop (write stmt).  Exiting.\n");
       exit(EXIT_FAILURE);
     }
-
-    if((temp->vartype != String) && 
-       (temp->vartype != Character))
-    {
-      /* call String.valueOf() to convert this numeric type to string */
-      c = bc_new_methodref(cur_class_file, JL_STRING, "valueOf", 
-             string_valueOf_descriptor[temp->vartype]);
-      bc_append(meth, jvm_invokestatic, c);
-    }
-
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", STRBUF_DESC);
-    bc_append(meth, jvm_invokespecial, c);
-
-    bc_push_string_const(meth, " ");
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append", 
-          append_descriptor[String]);
-    bc_append(meth, jvm_invokevirtual, c);
-
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "toString", 
-          TOSTRING_DESC);
-    bc_append(meth, jvm_invokevirtual, c);
-
-    c = bc_new_methodref(cur_class_file, PRINTSTREAM, "print", 
-          println_descriptor[String]);
-    bc_append(meth, jvm_invokevirtual, c);
   }
-}
-
-/*****************************************************************************
- *                                                                           *
- * format_emit                                                               *
- *                                                                           *
- * this function sets up the StringBuffer to hold this WRITE statement's     *
- * text and calls format_list_emit() to emit the string.                     *
- *                                                                           *
- *****************************************************************************/
-
-void
-format_emit(JVM_METHOD *meth, AST *node, AST **nptr)
-{
-  int c;
-
-  /* create a new stringbuffer with no initial value.  */
-  c = cp_find_or_insert(cur_class_file,CONSTANT_Class, STRINGBUFFER);
-  bc_append(meth, jvm_new,c);
-  bc_append(meth, jvm_dup);
-  c = bc_new_methodref(cur_class_file, STRINGBUFFER, "<init>", "()V");
-  bc_append(meth, jvm_invokespecial, c);
-
-  format_list_emit(meth, node,nptr);
-}
-
-/*****************************************************************************
- *                                                                           *
- * format_list_emit                                                          *
- *                                                                           *
- * This function loops through each format item and generates the            *
- * code to print the appropriate value(s).                                   *
- *                                                                           *
- *****************************************************************************/
-
-void
-format_list_emit(JVM_METHOD *meth, AST *node, AST **nptr)
-{
-  AST *temp = node;
-
-  while(temp != NULL)
-    temp = format_item_emit(meth, temp,nptr);
-}
-
-/*****************************************************************************
- *                                                                           *
- * format_item_emit                                                          *
- *                                                                           *
- * This function generates the code to print item(s) from the                *
- * format list.                                                              *
- *                                                                           *
- *****************************************************************************/
-
-AST *
-format_item_emit(JVM_METHOD *meth, AST *temp, AST **nodeptr)
-{
-  int c;
-  int i;
-
-  switch(temp->token) {
-    case EDIT_DESC:
-    case NAME:
-      if(gendebug)
-        printf("NAme/EDIT_DESC\n");
-      format_name_emit(meth, *nodeptr);
-      if(*nodeptr != NULL) {
-        if(gendebug)
-          printf("** Advancing nodeptr ** \n");
-        *nodeptr = (*nodeptr)->nextstmt;
-      }
-      if((temp->nextstmt != NULL) || (*nodeptr != NULL))
-        fprintf(curfp," + ");
-      return(temp->nextstmt);
-      
-    case STRING:
-      if(gendebug)
-        printf("STring: %s\n",temp->astnode.constant.number);
-      fprintf(curfp,"\"%s\" ",temp->astnode.constant.number);
-
-      bc_push_string_const(meth, temp->astnode.constant.number);
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-            append_descriptor[String]);
-      bc_append(meth, jvm_invokevirtual, c);
-
-      if(temp->nextstmt != NULL)
-        fprintf(curfp," + ");
-      return(temp->nextstmt);
-     
-    case REPEAT:
-      if(gendebug)
-        printf("Repeat %d\n",temp->astnode.label.number);
-      for(i=0;i<temp->astnode.label.number;i++) {
-        format_list_emit(meth, temp->astnode.label.stmt,nodeptr);
-
-        if((i < temp->astnode.label.number -1) || 
-          ((i == temp->astnode.label.number -1) && (temp->nextstmt != NULL)))
-              fprintf(curfp," + ");
-      }
-      return(temp->nextstmt);
-      
-    case INTEGER:
-      if(gendebug)
-        printf("INteger %d\n",atoi(temp->astnode.constant.number));
-
-      if(temp->nextstmt != NULL) {
-        if(temp->nextstmt->token != REPEAT) {
-          if(temp->nextstmt->astnode.ident.name[0] == 'X') {
-            char *tmpbuf, *bi;
- 
-            /* allocate enough space for the given repeat spec, plus
-             * 2 quotes, plus a null terminator.
-             */
-            tmpbuf = (char *)f2jalloc(
-               (unsigned int)atoi(temp->astnode.constant.number)+3);
-
-            sprintf(tmpbuf,"\"%*s\"",atoi(temp->astnode.constant.number)," ");
-
-            fprintf(curfp,"%s",tmpbuf);
-
-            bi = (char *)f2jalloc(strlen(tmpbuf) - 1);
-            strncpy(bi, tmpbuf + 1, strlen(tmpbuf) -2);
-            bi[strlen(tmpbuf) - 2] = '\0';
-
-            bc_push_string_const(meth, bi);
-            c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-                  append_descriptor[String]);
-            bc_append(meth, jvm_invokevirtual, c);
-
-            f2jfree(tmpbuf, strlen(tmpbuf)+1);
-            f2jfree(bi, strlen(bi)+1);
-
-            if(temp->nextstmt->nextstmt != NULL)
-              fprintf(curfp," + ");
-            temp=temp->nextstmt;  /* consume edit desc */
-          }
-          else if(temp->nextstmt->astnode.ident.name[0] == 'P') {
-            temp=temp->nextstmt;  /* consume edit desc */
-          }
-          else {
-            int rcnt, max = atoi(temp->astnode.constant.number);
-
-            /* this is something else (other than X or P) repeated
-             * max times.  first set temp to the next specifier and
-             * then call this function max times to emit each
-             * item.  don't set temp at each iteration since we
-             * want it to sit at the same specifier for each item
-             * in the i/o statement.
-             */
-            temp=temp->nextstmt;
-            for(rcnt = 0; rcnt < max; rcnt++) {
-              format_item_emit(meth, temp, nodeptr);
-
-              if((temp->nextstmt == NULL) && (*nodeptr == NULL) && (rcnt < max-1))
-                fprintf(curfp, " + ");
-            }
-          }
-        }
-      }
-      else {
-        fprintf(stderr,"Bad format spec!\n");
-        fprintf(curfp," );\n");
-        return(temp->nextstmt);
-      }
-
-      return(temp->nextstmt);
-      
-    case CM:
-      if(gendebug)
-        printf("Comma\n");
-      return(temp->nextstmt);
-     
-    case DIV:
-      if(gendebug)
-        printf("Div\n");
-      fprintf(curfp,"\"\\n\" ");
-      bc_push_string_const(meth, "\n ");
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-            append_descriptor[String]);
-      bc_append(meth, jvm_invokevirtual, c);
-      if(temp->nextstmt != NULL)
-        fprintf(curfp," + ");
-      return(temp->nextstmt);
-   
-    case CAT:
-      if(gendebug)
-        printf("two divs\n");
-      fprintf(curfp,"\"\\n\\n\" ");
-      bc_push_string_const(meth, "\n\n ");
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-            append_descriptor[String]);
-      bc_append(meth, jvm_invokevirtual, c);
-      if(temp->nextstmt != NULL)
-        fprintf(curfp," + ");
-      return(temp->nextstmt);
-  
-    case COLON:
-      /* not supported */
-      return(temp->nextstmt);
-
-    default:
-      fprintf(stderr,"format_item_emit: Unknown token!!! %d (%s) - ",
-         temp->token, tok2str(temp->token));
-      if(gendebug)
-        printf("this node type %s\n",print_nodetype(temp));
-      return(temp->nextstmt);
-
-  }
-}
-
-/*****************************************************************************
- *                                                                           *
- * format_name_emit                                                          *
- *                                                                           *
- * This function generates the code to print a Name from the                 *
- * format list.                                                              *
- *                                                                           *
- *****************************************************************************/
-
-void
-format_name_emit(JVM_METHOD *meth, AST *node)
-{
-  int c;
-
-  if(node == NULL) {
-    if(gendebug)
-      printf("*** BAD FORMATTING\n");
-    bad_format_count++;
-    fprintf(curfp,"\" NULL \"");
-    bc_push_string_const(meth, " NULL ");
-    c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-          append_descriptor[String]);
-  }
-  else {
-      /* 
-       * in the write statement is an array, with no index specified.
-       * so we will keep grabbing data from the array until the end
-       * of the format specification 
-       */
-
-/*  gotta get this part finished someday   10/3/97 -- Keith
-     ... still not written - 
-            relatively low on the priority list... 12/8/97 -- Keith
-
-    if( (node->token == NAME) && 
-        (type_lookup(cur_array_table, root->astnode.ident.name) != NULL) &&
-        (root->astnode.ident.arraylist == NULL) )
-    {
-
-    
-    }
-    else
-
-    ..still unfinished, but the following hack is necessary to 
-    make the bytecode valid (since we're pushing an array, we should
-    use the descriptor with the Object argument).
-*/
-    fprintf(curfp,"(");
-    expr_emit(meth, node);
-
-    if( (node->token == NAME) && 
-        (type_lookup(cur_array_table, node->astnode.ident.name) != NULL) &&
-        (node->astnode.ident.arraylist == NULL) )
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-            append_descriptor[Object]);
-    else
-      c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-            append_descriptor[node->vartype]);
-    fprintf(curfp,")");
-  }
-  bc_append(meth, jvm_invokevirtual, c);
-
-  bc_push_string_const(meth, " ");
-  c = bc_new_methodref(cur_class_file, STRINGBUFFER, "append",
-        append_descriptor[String]);
-  bc_append(meth, jvm_invokevirtual, c);
-
-  fprintf(curfp," + \" \" ");
 }
 
 /*****************************************************************************

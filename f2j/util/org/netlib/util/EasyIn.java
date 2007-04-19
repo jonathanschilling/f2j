@@ -37,11 +37,33 @@ import java.io.*;
  */
 
 public class EasyIn {
-    static InputStreamReader is = new InputStreamReader( System.in );
-    static BufferedReader br = new BufferedReader( is );
     static String line = null;
     static int idx, len;
     static String blank_string = "                                                                                           ";
+
+    /* not oringinally part of EasyIn.. I added this to make it possible
+     * to interleave calls to EasyIn with another input method, which
+     * didn't work with the previous static buffered reader. 
+     */
+    public static String myCrappyReadLine() throws java.io.IOException
+    {
+      StringBuffer sb = new StringBuffer();
+      int c = 0;
+
+      while(c >= 0) {
+        c = System.in.read();
+
+        if(c < 0)
+          return null;
+
+        if((char)c == '\n')
+          break;
+
+        sb.append((char) c);
+      }
+
+      return sb.toString();
+    }
 
     /**
      * Reset the tokenizer.
@@ -50,7 +72,7 @@ public class EasyIn {
      */
     private void initTokenizer() throws IOException {
       do {
-        line = br.readLine();
+        line = EasyIn.myCrappyReadLine();
   
         if(line == null)
           throw new IOException("EOF");
@@ -413,7 +435,7 @@ public class EasyIn {
      * @throws IOException if an input or output exception occurred.
      */
     public String readstring() throws IOException {
-      return br.readLine(); 
+      return EasyIn.myCrappyReadLine(); 
     }
 
     /**
@@ -424,7 +446,7 @@ public class EasyIn {
      */
     public String readString() {
        try {
-         return br.readLine(); 
+         return EasyIn.myCrappyReadLine(); 
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readString");
           return "";

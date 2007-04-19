@@ -1,6 +1,8 @@
 package org.netlib.util;
 
 import java.io.*;
+import java.util.Vector;
+import org.j_paine.formatter.*;
 
 /**
  * Implementations of various Fortran intrinsic functions.
@@ -407,5 +409,90 @@ public class Util {
       System.err.println("STOP");
       System.exit(0);
     }
+  }
+
+  /**
+   * Formatted write.
+   */
+  public static void f77write(String fmt, Vector v)
+  {
+    if(fmt == null) {
+      f77write(v);
+      return;
+    }
+
+    try {
+      Formatter f = new Formatter(fmt);
+      Vector newvec = processVector(v);
+      f.write( newvec, System.out );
+      System.out.println();
+    }
+    catch ( Exception e ) {
+      String m = e.getMessage();
+
+      if(m != null)
+        System.out.println(m);
+      else
+        System.out.println();
+    }
+  }
+
+  /**
+   * Unformatted write.
+   */
+  public static void f77write(Vector v)
+  {
+    java.util.Enumeration e;
+
+    Vector newvec = processVector(v);
+
+    for(e = newvec.elements(); e.hasMoreElements() ;)
+      System.out.print(e.nextElement() + " ");
+    System.out.println();
+  }
+
+  public static int f77read(String fmt, Vector v)
+  {
+    try {
+      Formatter f = new Formatter(fmt);
+      f.read( v, new DataInputStream(System.in) );
+    }
+    catch ( EndOfFileWhenStartingReadException eof_exc) {
+      return 0;
+    }
+    catch ( Exception e ) {
+      String m = e.getMessage();
+
+      if(m != null)
+        System.out.println(m);
+      else
+        System.out.println("Warning: READ exception.");
+
+      return -1;
+    }
+
+    return v.size();
+  }
+
+  /**
+   * Expands array elements into separate entries in the Vector. 
+   *
+   */
+
+  static Vector processVector(Vector v)
+  {
+    java.util.Enumeration e;
+    Vector newvec = new Vector();
+
+    for(e = v.elements(); e.hasMoreElements() ;) {
+      Object el = e.nextElement();
+
+      if(el instanceof ArraySpec)
+        newvec.addAll(((ArraySpec)el).get_vec());
+      else
+        newvec.addElement(el);
+    }
+
+    return newvec;
   }
 }

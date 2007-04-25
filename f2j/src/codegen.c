@@ -8043,9 +8043,11 @@ logicalif_emit(JVM_METHOD *meth, AST * root)
 
   if_node = bc_append(meth, jvm_ifeq);
 
-  fprintf (curfp, ")  \n    ");
+  fprintf (curfp, ") {\n    ");
 
   emit (root->astnode.logicalif.stmts);
+
+  fprintf (curfp, "}\n    ");
 
   /* create a dummy instruction node following the stmts so that
    * we have a branch target for the goto statement.  it'll be
@@ -9099,8 +9101,10 @@ write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(curfp,"));\n");
     }
     else if(temp->nodetype == Constant) {
-      fprintf(curfp,"  %s.addElement(new %s(%s));\n", F2J_IO_VEC, 
-          java_wrapper[temp->vartype], temp->astnode.constant.number);
+      fprintf(curfp, "  %s.addElement(new %s(", F2J_IO_VEC,
+          java_wrapper[temp->vartype]);
+      expr_emit(meth, temp);
+      fprintf(curfp,"));\n");
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",

@@ -303,7 +303,7 @@ AST
   * dl_astnode_examine(Dlist),
   * dl_name_search(Dlist, char *),
   * addnode(void),
-  * data_var_emit(JVM_METHOD *, AST *, AST *, HASHNODE *),
+  * data_var_emit(JVM_METHOD *, AST *, AST *, HASHNODE *, int),
   * data_implied_loop_emit(JVM_METHOD *, AST * , AST *),
   * data_array_emit(JVM_METHOD *, int , AST *, AST *),
   * data_string_emit(JVM_METHOD *, int , AST *, AST *),

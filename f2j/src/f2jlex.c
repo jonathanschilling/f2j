@@ -353,6 +353,7 @@ yylex ()
         tokennumber++;
         if(token == END)
           func_stmt_num = 0;
+        yylval.lexeme[0] = '\0';
         if(lexdebug)
           printf("3: lexer returns %s (%s)\n",
             tok2str(token),buffer.stmt);
@@ -367,6 +368,34 @@ yylex ()
       {
         firsttoken = token;
         tokennumber++;
+
+        /* this is really a hack.  I'm trying to sniff out
+         * labeled else/elseif/endif statements and avoid
+         * passing the integer token back to the parser.
+         * I was getting several shift/reduce conflicts and
+         * didn't want to sort them out, especially since
+         * the label is ignored for else and elseif.  For
+         * endif, we let the label get passed back to the
+         * parser in yylval.lexeme.
+         */
+
+        if(!strncasecmp(buffer.stmt, "else", 4) ||
+           !strncasecmp(buffer.stmt, "elseif", 6) ||
+           !strncasecmp(buffer.stmt, "endif", 5))
+        {
+          token = keyscan(tab_stmt, &buffer);
+
+          if(!token) {
+            fprintf(stderr, "Error: expected keyword token.\n");
+            exit(-1);
+          }
+
+          if(lexdebug)
+            printf("3.9: lexer returns %s (%s)\n",
+              tok2str(token),buffer.stmt);
+          return token;
+        }
+
         if(lexdebug)
           printf("4: lexer returns %s (%s)\n",
             tok2str(token),buffer.stmt);
@@ -1187,7 +1216,7 @@ collapse_white_space (BUFFER * bufstruct)
 void
 check_continued_lines (FILE * fp, char *current_line)
 {
-  int items;
+  int items, short_line;
   char next_line[100];
   int i,j ; /* rws indexes for chopping off end of line */
 
@@ -1209,7 +1238,18 @@ check_continued_lines (FILE * fp, char *current_line)
     if(items == 0)
       return;       /* End of file. */
 
-    if (next_line[0] != ' ')
+    /* check for a newline within the first 6 characters
+     * of the next line.  if one exists, it cannot be a
+     * continued line.
+     */
+    short_line = 0;
+    for(i=0;i<items;i++)
+      if(next_line[i] == '\n') {
+        short_line = 1;
+        break;
+      }
+
+    if(short_line || (next_line[0] != ' '))
     {
       if( fseek (fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");

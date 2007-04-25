@@ -442,10 +442,7 @@ struct _ident
 struct _logicalif
 {
   int 
-    skip_label,                     /* go to this label if expr is FALSE     */
-    fall_label,                     /* fall through label (expr is TRUE)     */
-    break_label;                    /* for block if, the label after all IF, *
-                                     * ELSEIF, and ELSE blocks.              */
+    endif_label;                    /* label of ENDIF stmt if present        */
 
   struct ast_node 
     *conds,                         /* the conditional expression to test    */

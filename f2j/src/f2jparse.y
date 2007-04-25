@@ -171,7 +171,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
 %type <ptnode> Do_vals Double Float
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
-%type <ptnode> Else Elseif Elseifs End Exp Explist Exponential External
+%type <ptnode> Else Elseif Elseifs EndIf End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
@@ -2559,7 +2559,7 @@ EndSpec: END EQ Integer
  *    been fixed now.
  */
 
-Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else  ENDIF NL
+Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else EndIf NL
            {
              $$ = addnode();
              $3->parent = $$;
@@ -2581,6 +2581,8 @@ Blockif:   IF OP Exp CP THEN NL IfBlock Elseifs Else  ENDIF NL
              $8 = switchem($8); 
              $$->astnode.blockif.elseifstmts = $8; /* Might be NULL. */
              $$->astnode.blockif.elsestmts = $9;   /* Might be NULL. */
+
+             $$->astnode.blockif.endif_label = $10->astnode.blockif.endif_label;
            }
 ;
 
@@ -2617,12 +2619,12 @@ Elseif: ELSEIF OP Exp CP THEN NL Statements
 
 
 Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
-        | ELSE NL  Statements 
+        | ELSE NL  Statements
           {
-             $$=addnode();
-	     $3->parent = $$; /* 9-4-97 - Keith */
-	     $$->nodetype = Else;
-	     $$->astnode.blockif.stmts = switchem($3);
+            $$=addnode();
+            $3->parent = $$; /* 9-4-97 - Keith */
+            $$->nodetype = Else;
+            $$->astnode.blockif.stmts = switchem($3);
           }
         | ELSE NL
           {
@@ -2630,6 +2632,18 @@ Else:  /* Empty. */  {$$=0;}  /* No `else' statements, NULL pointer. */
           }
 ;
 
+EndIf: ENDIF 
+       {
+         if(debug) printf("EndIf\n");
+         $$ = addnode();
+         $$->nodetype = Blockif;
+
+         if(strlen(yylval.lexeme) > 0)
+           $$->astnode.blockif.endif_label = atoi(yylval.lexeme);
+         else
+           $$->astnode.blockif.endif_label = -1;
+       }
+;
 
 Logicalif: IF OP Exp CP Statement
            {

@@ -2921,7 +2921,40 @@ data_emit(JVM_METHOD *meth, AST *root)
         continue;
       }
 
-      Ctemp = data_var_emit(meth, Ntemp,Ctemp,hashtemp);
+      if((hashtemp->variable->vartype == String) &&
+         (hashtemp->variable->astnode.ident.len == 1) &&
+         (hashtemp->variable->astnode.ident.dim == 0) &&
+         (hashtemp->variable->astnode.ident.arraylist == NULL) &&
+         (hashtemp->variable->astnode.ident.startDim[2] != NULL))
+      {
+        int i, length;
+
+        /* this is a Fortran character array generated as a Java String.
+         * copy the original dimension info to the arraylist field and
+         * call determine_var_length(), then set it back to NULL before
+         * emitting the string initializer.
+         */
+        hashtemp->variable->astnode.ident.arraylist = 
+           hashtemp->variable->astnode.ident.startDim[2];
+        length = determine_var_length(hashtemp);
+        hashtemp->variable->astnode.ident.arraylist = NULL;
+
+        Ctemp = data_var_emit(meth, Ntemp, Ctemp, hashtemp, length);
+
+        if(Ntemp->astnode.ident.arraylist) {
+          /* 
+           * if Ntemp is a single element of a character array, e.g.:
+           *   DATA ICOL( 1 ), ICOL( 2 ), ICOL( 3 ) / 'C', 'o', 'l'/
+           * then the whole thing would have been emitted above in the call
+           * to data_var_emit().  So, here we skip the remaining single
+           * element references so that we don't try to emit them again.
+           */
+          for(i=0;i<length-1;i++)
+            Ntemp = Ntemp->nextstmt;
+        }
+      }
+      else
+        Ctemp = data_var_emit(meth, Ntemp, Ctemp, hashtemp, -1);
     }
   }
 }
@@ -3043,7 +3076,8 @@ data_implied_loop_emit(JVM_METHOD *meth, AST * root, AST *Clist)
  *****************************************************************************/
 
 AST *
-data_var_emit(JVM_METHOD *meth, AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
+data_var_emit(JVM_METHOD *meth, AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp,
+  int java_str_len)
 {
   int length, is_array, needs_dec;
 
@@ -3073,30 +3107,15 @@ data_var_emit(JVM_METHOD *meth, AST *Ntemp, AST *Ctemp, HASHNODE *hashtemp)
   else
     is_array = FALSE;
 
-  if((hashtemp->variable->vartype == String) &&
-     (hashtemp->variable->astnode.ident.len == 1) &&
-     (hashtemp->variable->astnode.ident.dim == 0) &&
-     (hashtemp->variable->astnode.ident.arraylist == NULL) &&
-     (hashtemp->variable->astnode.ident.startDim[2] != NULL))
+  if(java_str_len >= 0)
   {
-    /* this is a Fortran character array generated as a Java String.
-     * copy the original dimension info to the arraylist field and
-     * call determine_var_length(), then set it back to NULL before
-     * emitting the string initializer.
-     */
-
-    hashtemp->variable->astnode.ident.arraylist = 
-       hashtemp->variable->astnode.ident.startDim[2];
-    length = determine_var_length(hashtemp);
-    hashtemp->variable->astnode.ident.arraylist = NULL;
-
     fprintf(curfp,"public static %s ",
        returnstring[ hashtemp->variable->vartype]);
 
     if(gendebug)
       printf("VAR STRING going to data_string_emit\n");
 
-    Ctemp = data_string_emit(meth, length, Ctemp, Ntemp);
+    Ctemp = data_string_emit(meth, java_str_len, Ctemp, Ntemp);
 
     return Ctemp;
   }
@@ -9291,6 +9310,23 @@ blockif_emit (JVM_METHOD *meth, AST * root)
 
     next_node = bc_append(meth, jvm_xxxunusedxxx);
     bc_set_branch_target(if_node, next_node);
+  }
+
+  /* If the endif has a statement label, create a new Label node
+   * and add it as the next statement.  It will get emitted on the
+   * next call to emit().
+   */
+
+  if(root->astnode.blockif.endif_label >= 0) {
+    AST *newnode;
+
+    newnode = addnode();
+    newnode->nodetype = Label;
+    newnode->astnode.label.number = root->astnode.blockif.endif_label;
+    newnode->astnode.label.stmt = NULL;
+
+    newnode->nextstmt = root->nextstmt;
+    root->nextstmt = newnode;
   }
 }
 

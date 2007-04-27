@@ -8881,6 +8881,91 @@ gen_clear_io_vec(JVM_METHOD *meth)
   bc_append(meth, jvm_invokevirtual, c);
 }
 
+void
+write_argument_emit(JVM_METHOD *meth, AST *root)
+{
+  HASHNODE *ht;
+  int c;
+
+  if((root->nodetype == Identifier) && 
+      (ht=type_lookup(cur_array_table, root->astnode.ident.name)) &&
+      (root->astnode.ident.arraylist == NULL))
+  {
+    bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, ARRAY_SPEC_CLASS);
+    bc_append(cur_method, jvm_new,c);
+    bc_append(cur_method, jvm_dup);
+
+    fprintf(curfp, "  %s.addElement(new ArraySpec(", F2J_IO_VEC);
+
+    if(ht->variable->astnode.ident.array_len == -1) {
+      fprintf(stderr, "Warning: passing implied size array to formatted write\n");
+      fprintf(stderr, "         only using first element\n");
+      root->parent->nodetype = Call;
+      expr_emit(meth, root);
+      root->parent->nodetype = Write;
+    }
+    else
+      expr_emit(meth, root);
+
+    fprintf(curfp, ", %d));\n", ht->variable->astnode.ident.array_len);
+
+    bc_push_int_const(meth, ht->variable->astnode.ident.array_len);
+
+    c = bc_new_methodref(cur_class_file, ARRAY_SPEC_CLASS, "<init>",
+           array_spec_descriptor[root->vartype]);
+
+    bc_append(cur_method, jvm_invokespecial, c);
+    c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+        VEC_ADD_DESC);
+    bc_append(meth, jvm_invokevirtual, c);
+  }
+  else {
+    ht = type_lookup(cur_type_table, root->astnode.ident.name);
+
+    if(ht && (root->vartype == String) &&
+       (root->astnode.ident.len == 1) &&
+       (root->astnode.ident.dim == 0) &&
+       (root->astnode.ident.arraylist == NULL) &&
+       (ht->variable->astnode.ident.startDim[2] != NULL))
+    {
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, ARRAY_SPEC_CLASS);
+      bc_append(cur_method, jvm_new,c);
+      bc_append(cur_method, jvm_dup);
+
+      fprintf(curfp, "  %s.addElement(new ArraySpec(", F2J_IO_VEC);
+
+      expr_emit(meth, root);
+
+      fprintf(curfp, "));\n");
+
+      c = bc_new_methodref(cur_class_file, ARRAY_SPEC_CLASS, "<init>",
+           "(Ljava/lang/String;)V");
+    }
+    else {
+      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
+                numeric_wrapper[root->vartype]);
+      bc_append(meth, jvm_new,c);
+      bc_append(meth, jvm_dup);
+
+      c = bc_new_methodref(cur_class_file,numeric_wrapper[root->vartype],
+            "<init>", wrapper_descriptor[root->vartype]);
+
+      fprintf(curfp, "  %s.addElement(new %s(", F2J_IO_VEC,
+          java_wrapper[root->vartype]);
+      expr_emit(meth, root);
+      fprintf(curfp,"));\n");
+    }
+
+    bc_append(meth, jvm_invokespecial, c);
+    c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+        VEC_ADD_DESC);
+    bc_append(meth, jvm_invokevirtual, c);
+  }
+}
+
 /*****************************************************************************
  *                                                                           *
  * write_emit                                                                *
@@ -8894,7 +8979,7 @@ void
 write_emit(JVM_METHOD *meth, AST * root)
 {
   char *fmt_str, tmp[100];
-  HASHNODE *hnode, *ht;
+  HASHNODE *hnode;
   AST *temp;
   int c;
 
@@ -8919,59 +9004,8 @@ write_emit(JVM_METHOD *meth, AST * root)
       implied_loop_emit(meth, temp, write_implied_loop_bytecode_emit,
           write_implied_loop_sourcecode_emit);
     }
-    else if((temp->nodetype == Identifier) && 
-        (ht=type_lookup(cur_array_table, temp->astnode.ident.name)) &&
-        (temp->astnode.ident.arraylist == NULL))
-    {
-      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
-      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, ARRAY_SPEC_CLASS);
-      bc_append(cur_method, jvm_new,c);
-      bc_append(cur_method, jvm_dup);
-  
-      fprintf(curfp, "  %s.addElement(new ArraySpec(", F2J_IO_VEC);
-
-      if(ht->variable->astnode.ident.array_len == -1) {
-        fprintf(stderr, "Warning: passing implied size array to formatted write\n");
-        fprintf(stderr, "         only using first element\n");
-        temp->parent->nodetype = Call;
-        expr_emit(meth, temp);
-        temp->parent->nodetype = Write;
-      }
-      else
-        expr_emit(meth, temp);
-
-      fprintf(curfp, ", %d));\n", ht->variable->astnode.ident.array_len);
-
-      bc_push_int_const(meth, ht->variable->astnode.ident.array_len);
-
-      c = bc_new_methodref(cur_class_file, ARRAY_SPEC_CLASS, "<init>",
-             array_spec_descriptor[temp->vartype]);
-  
-      bc_append(cur_method, jvm_invokespecial, c);
-      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
-          VEC_ADD_DESC);
-      bc_append(meth, jvm_invokevirtual, c);
-    }
-    else {
-      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
-      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
-                numeric_wrapper[temp->vartype]);
-      bc_append(meth, jvm_new,c);
-      bc_append(meth, jvm_dup);
-
-      c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
-            "<init>", wrapper_descriptor[temp->vartype]);
-
-      fprintf(curfp, "  %s.addElement(new %s(", F2J_IO_VEC,
-          java_wrapper[temp->vartype]);
-      expr_emit(meth, temp);
-      fprintf(curfp,"));\n");
-
-      bc_append(meth, jvm_invokespecial, c);
-      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
-          VEC_ADD_DESC);
-      bc_append(meth, jvm_invokevirtual, c);
-    }
+    else
+      write_argument_emit(meth, temp);
   }
 
   if(fmt_str) {
@@ -9095,10 +9129,7 @@ write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
     if(temp->nodetype == Identifier) {
-      fprintf(curfp,"  %s.addElement(new %s(", F2J_IO_VEC, 
-          java_wrapper[temp->vartype]);
-      name_emit(meth,temp);
-      fprintf(curfp,"));\n");
+      write_argument_emit(meth, temp);
     }
     else if(temp->nodetype == Constant) {
       fprintf(curfp, "  %s.addElement(new %s(", F2J_IO_VEC,
@@ -9136,21 +9167,7 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
     /* emit loop body */
 
     if(temp->nodetype == Identifier) {
-      bc_gen_load_op(meth, iovec_lvar, jvm_Object);
-      c = cp_find_or_insert(cur_class_file, CONSTANT_Class,
-                numeric_wrapper[temp->vartype]);
-      bc_append(meth, jvm_new,c);
-      bc_append(meth, jvm_dup);
-
-      c = bc_new_methodref(cur_class_file,numeric_wrapper[temp->vartype],
-            "<init>", wrapper_descriptor[temp->vartype]);
-
-      name_emit(meth, temp);
-
-      bc_append(meth, jvm_invokespecial, c);
-      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement", 
-          VEC_ADD_DESC);
-      bc_append(meth, jvm_invokevirtual, c);
+      write_argument_emit(meth, temp);
     }
     else if(temp->nodetype == Constant) {
       bc_gen_load_op(meth, iovec_lvar, jvm_Object);

@@ -594,8 +594,8 @@ char * println_descriptor[MAX_RETURNS+1] = {
 
 /* descriptors of ArraySpec constructors */
 char * array_spec_descriptor[MAX_RETURNS+1] = {
-  "()V",     /* not implemented */
-  "()V",     /* not implemented */
+  "([Ljava/lang/String;II)V",
+  "([Ljava/lang/String;II)V",
   "()V",     /* not implemented */
   "([DII)V",
   "([FII)V",

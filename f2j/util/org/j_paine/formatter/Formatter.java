@@ -39,8 +39,18 @@ public class Formatter
   public void write( Vector v, PrintStream out )
               throws OutputFormatException
   {
+    FormatX dummy_el = new FormatX();
     FormatOutputList vp = new VectorAndPointer( v );
-    this.format.write( vp, out );
+
+    while(true) {
+      try {
+        this.format.write( vp, out );
+        vp.checkCurrentElementForWrite(dummy_el);
+        out.println();
+      }catch(EndOfVectorOnWriteException e) {
+        break;
+      }
+    }
   }
 
   public void write( int i, PrintStream out )
@@ -150,7 +160,6 @@ abstract class FormatUniv
 class Format extends FormatUniv
 {
   private Vector elements = new Vector();
-
 
   public Format( String s ) throws InvalidFormatException
   {
@@ -268,6 +277,11 @@ class FormatRepeatedItem extends FormatUniv
     else
       return this.r+"("+this.format_univ.toString()+")";
   }
+
+  public int getRepCount()
+  {
+    return r;
+  }
 }
 
 
@@ -364,6 +378,44 @@ abstract class FormatIOElement extends FormatElement
                   throws InputFormatException;
 }
 
+/* This class represents a P format element.
+*/
+class FormatP extends FormatElement
+{
+  FormatRepeatedItem ritem = null;
+
+  public FormatRepeatedItem getRepeatedItem() {
+    return ritem;
+  }
+
+  public FormatP(int r, FormatUniv format_univ) {
+    if(format_univ != null)
+      ritem = new FormatRepeatedItem(r, format_univ);
+  }
+
+  public void write( FormatOutputList vp, PrintStream out )
+  {
+    /* the P element itself produces no output.  it's a scale factor
+     * for other elements, but that isn't being handled yet.
+     */
+  } 
+
+
+  public void read( FormatInputList vp,
+                    InputStreamAndBuffer in, 
+                    FormatMap format_map
+                  )
+  { 
+    // in.advance( 1 );
+  }
+
+
+  public String toString()
+  { 
+    return "P";
+  } 
+}
+
 
 /* This class represents an X format element.
 */
@@ -412,14 +464,27 @@ class FormatA extends FormatIOElement
       s = (String)o;
       if ( (getWidth() != -1) && (s.length() > getWidth()) )
         return s.substring(0, getWidth());
-      else
-        return s;
+      else {
+        if(getWidth() > s.length()) {
+          char [] pad = new char[getWidth() - s.length()];
+
+          for(int i=0;i<pad.length;i++)
+            pad[i] = ' ';
+
+          return new String(pad) + s;
+        }
+        else
+          return s;
+      }
     }
-    else
-      throw new IllegalObjectOnWriteException( o,
-                                               vecptr,
-                                               this.toString()
-                                             );
+    else {
+      char [] blah = new char[getWidth()];
+
+      for(int i=0;i<blah.length;i++)
+        blah[i] = '#';
+
+      return new String(blah);
+    }
   }
 
 
@@ -495,6 +560,9 @@ class FormatI extends FormatIOElement
                                                );
       else
         return s;
+    }
+    else if(o instanceof String) {
+      return convertToString(new Integer((int) (((String)o).charAt(0))), vecptr);
     }
     else
       throw new IllegalObjectOnWriteException( o,

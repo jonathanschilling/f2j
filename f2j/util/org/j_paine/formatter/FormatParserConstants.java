@@ -8,12 +8,13 @@ public interface FormatParserConstants {
   int STRING = 3;
   int A_DESC = 4;
   int P_DESC = 5;
-  int I_DESC = 6;
-  int F_DESC = 7;
-  int D_DESC = 8;
-  int E_DESC = 9;
-  int G_DESC = 10;
-  int L_DESC = 11;
+  int X_DESC = 6;
+  int I_DESC = 7;
+  int F_DESC = 8;
+  int D_DESC = 9;
+  int E_DESC = 10;
+  int G_DESC = 11;
+  int L_DESC = 12;
 
   int DEFAULT = 0;
 
@@ -24,6 +25,7 @@ public interface FormatParserConstants {
     "<STRING>",
     "<A_DESC>",
     "<P_DESC>",
+    "<X_DESC>",
     "<I_DESC>",
     "<F_DESC>",
     "<D_DESC>",
@@ -31,7 +33,6 @@ public interface FormatParserConstants {
     "<G_DESC>",
     "<L_DESC>",
     "\".\"",
-    "\"X\"",
     "\"/\"",
     "\"(\"",
     "\")\"",

@@ -443,12 +443,45 @@ public class Util {
   public static void f77write(Vector v)
   {
     java.util.Enumeration e;
+    Object o;
 
     Vector newvec = processVector(v);
 
-    for(e = newvec.elements(); e.hasMoreElements() ;)
-      System.out.print(e.nextElement() + " ");
+    e = newvec.elements();
+
+    /* fortran seems to prepend a space before the first
+     * unformatted element.  since non-string types get
+     * a string prepended in the loop below, we only
+     * do it for strings here.
+     */
+
+    if(e.hasMoreElements()) {
+      o = e.nextElement();
+      if(o instanceof String)
+        System.out.print(" ");
+      output_unformatted_element(o);
+    }
+
+    while(e.hasMoreElements())
+      output_unformatted_element(e.nextElement());
+
     System.out.println();
+  }
+
+  private static void output_unformatted_element(Object o) {
+    if(o instanceof Boolean) {
+      /* print true/false as T/F like fortran does */
+      if(((Boolean) o).booleanValue())
+        System.out.print(" T");
+      else
+        System.out.print(" F");
+    }
+    else if((o instanceof Float) || (o instanceof Double))
+      System.out.print("  " + o);  // two spaces
+    else if(o instanceof String)
+      System.out.print(o);
+    else
+      System.out.print(" " + o);   // one space
   }
 
   public static int f77read(String fmt, Vector v)

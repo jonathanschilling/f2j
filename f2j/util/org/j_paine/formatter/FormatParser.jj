@@ -46,6 +46,7 @@ TOKEN :
 
 TOKEN : {  < A_DESC : "A" | "a" > }
 TOKEN : {  < P_DESC : "P" | "p" > }
+TOKEN : {  < X_DESC : "X" | "x" > }
 TOKEN : {  < I_DESC : "I" | "i" > }
 TOKEN : {  < F_DESC : "F" | "f" > }
 TOKEN : {  < D_DESC : "D" | "d" > }
@@ -61,8 +62,23 @@ int Integer():
   { return (Integer.valueOf(t.image)).intValue(); }
 }
 
+FormatElement FormatIOElementFloat():
+{ FormatElement fe;
+  int w, d, m;
+  w = d = m = -1;
+}
+{
+// for Iw.m, ignore the .m value
+  (
+    <F_DESC> w=Integer() "." d=Integer()    { fe=new FormatF(w,d); }
+  | <D_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
+  | <E_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
+  | <G_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
+  )
+  { return fe; }
+}
 
-FormatElement FormatIOElement():
+FormatElement FormatIOElementNonFloat():
 { FormatElement fe;
   int w, d, m;
   w = d = m = -1;
@@ -71,12 +87,7 @@ FormatElement FormatIOElement():
 // for Iw.m, ignore the .m value
   ( 
     <A_DESC> [w=Integer()]                  { fe=new FormatA(w); }
-  | <P_DESC>                                { fe=null; /* ignore P scale factor */ }
   | <I_DESC> w=Integer() ["." m=Integer()]  { fe=new FormatI(w); }
-  | <F_DESC> w=Integer() "." d=Integer()    { fe=new FormatF(w,d); }
-  | <D_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
-  | <E_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
-  | <G_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
   | <L_DESC> w=Integer()                    { fe=new FormatL(w); }
   )
   { return fe; }
@@ -87,8 +98,7 @@ FormatElement FormatIOElement():
 
 FormatElement FormatNonIOElement(): {}
 {
-  "X"
-  { return new FormatX(); }
+    <X_DESC>  { return new FormatX(); }
 }
 // This represents a format element that doesn't transfer
 // any data items.
@@ -98,10 +108,28 @@ FormatElement FormatElement():
 { FormatElement fe;
 }
 {
-  ( fe=FormatIOElement() | fe=FormatNonIOElement() )
+  (  fe=FormatIOElementFloat()
+   | fe=FormatIOElementNonFloat()
+   | fe=FormatNonIOElement()
+   | fe=FormatScale()
+  )
   { return fe; }
 }
 
+FormatElement FormatScale():
+{ FormatElement fe = null;
+  int r=1;
+}
+{
+  /* Commas may be omitted between a P edit descriptor and an 
+   * immediately following F, E, D, or G edit descriptor (13.5.9).
+   */
+
+  <P_DESC> [ [r=Integer()] (fe=FormatIOElementFloat()) ] 
+  { 
+    return new FormatP(r, fe); 
+  }
+}
 
 FormatSlash FormatSlash(): {}
 {
@@ -145,7 +173,20 @@ FormatRepeatedItem FormatRepeatedItem():
   ( "(" fu=Format() ")"
   | fu=FormatElement()
   )
-  { return new FormatRepeatedItem( r, fu ); }
+  {
+    if(fu instanceof FormatP) {
+      FormatRepeatedItem ritem;
+      
+      ritem = ((FormatP)fu).getRepeatedItem();
+
+      if(ritem != null)
+        return ritem;
+      else
+        return new FormatRepeatedItem( r, fu );
+    }
+    else
+      return new FormatRepeatedItem( r, fu );
+  }
 }
 
 

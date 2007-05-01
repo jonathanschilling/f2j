@@ -93,6 +93,7 @@ void
   arg_table_load(AST *),
   exp_to_double (char *, char *),
   prepend_minus(char *),
+  assign_function_return_type(AST *, AST *),
   insert_name(SYMTABLE *, AST *, enum returntype),
   store_array_var(AST *),
   initialize_implicit_table(ITAB_ENTRY *),
@@ -452,6 +453,8 @@ Ffunction:   Function Specstmts Statements  End
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
              
+                assign_function_return_type($1, $2);
+
                 add_implicit_to_tree($2);
 
                 $$ = addnode();
@@ -5095,4 +5098,54 @@ process_subroutine_call(AST *varname, AST *explist)
   free(tempname);
 
   return new;
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * assign_function_return_type                                               *
+ *                                                                           *
+ * This function scans the type declarations to see if this function was     *
+ * declared.  If so, we reset the return type of the function to the         *
+ * type declared here.  e.g.:                                                *
+ *         function dlaneg(n)                                                *
+ *         integer n                                                         *
+ *         integer dlaneg                                                    *
+ * Normally the function would have an implicit type of REAL, but it         *
+ * will be set to INTEGER in this case.                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+assign_function_return_type(AST *func, AST *specs)
+{
+  AST *temp, *dec_temp;
+  HASHNODE *ht;
+
+  for(temp = specs; temp; temp=temp->nextstmt) {
+
+    if(temp->nodetype == Typedec) {
+      for(dec_temp = temp->astnode.typeunit.declist; dec_temp;
+         dec_temp = dec_temp->nextstmt)
+      {
+        if(!strcmp(dec_temp->astnode.ident.name, 
+               func->astnode.source.name->astnode.ident.name)) 
+        {
+          func->astnode.source.returns = temp->astnode.typeunit.returns;
+          func->vartype = temp->astnode.typeunit.returns;
+          func->astnode.source.name->vartype = temp->astnode.typeunit.returns;
+
+          ht = type_lookup(type_table, dec_temp->astnode.ident.name);
+
+          /* the else case shouldn't be hit since the implied variable
+           * should have been inserted already.
+           */
+
+          if(ht)
+            ht->variable->vartype = temp->astnode.typeunit.returns;
+          else
+            insert_name(type_table, dec_temp, temp->astnode.typeunit.returns);
+        }
+      }
+    }
+  }
 }

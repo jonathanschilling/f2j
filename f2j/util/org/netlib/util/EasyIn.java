@@ -383,7 +383,12 @@ public class EasyIn {
      * @throws IOException if an input or output exception occurred.
      */
     public double readdouble() throws IOException {
-      return new Double(getToken()).doubleValue();
+      String tok = getToken();
+
+      tok = tok.replace('D', 'E');
+      tok = tok.replace('d', 'e');
+
+      return new Double(tok).doubleValue();
     }
 
     /**
@@ -394,7 +399,12 @@ public class EasyIn {
      */
     public double readDouble() {
        try {
-         return new Double(getToken()).doubleValue();
+         String tok = getToken();
+
+         tok = tok.replace('D', 'E');
+         tok = tok.replace('d', 'e');
+
+         return new Double(tok).doubleValue();
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readDouble");
           return 0.0;

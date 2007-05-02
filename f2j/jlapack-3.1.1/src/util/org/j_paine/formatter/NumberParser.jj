@@ -1,0 +1,95 @@
+/* NumberParser.java */
+
+
+/*
+This parser is used to check the syntax of numbers read by our
+formatted read routines.
+*/
+
+
+options {
+  STATIC = false;
+  DEBUG_PARSER = false;
+  DEBUG_TOKEN_MANAGER = false;
+  DEBUG_LOOKAHEAD = false;
+}
+
+PARSER_BEGIN(NumberParser)
+package org.j_paine.formatter;
+
+class NumberParser
+{
+}
+
+PARSER_END(NumberParser)
+
+
+TOKEN :
+{
+  < INTEGER_LITERAL:
+        <DECIMAL_LITERAL>
+  >
+|
+  < #DECIMAL_LITERAL:
+        "0"
+      | ["1"-"9"] (["0"-"9"])*
+  >
+|
+  < LOGICAL_LITERAL:
+        "T" | "F"
+  >
+  // We don't allow leading zeroes in integers, as these
+  // might indicate typing errors in the data.
+|
+  < FLOATING_POINT_LITERAL:
+        (["0"-"9"])+ "." (["0"-"9"])* (<EXPONENT>)?
+      | "." (["0"-"9"])+ (<EXPONENT>)?
+      | (["0"-"9"])+ <EXPONENT>
+      | (["0"-"9"])+ (<EXPONENT>)?
+  >
+|
+  < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
+}
+
+
+int Float():
+{ int start = 0;
+}
+{
+  ( " " {start++;} )*
+  [ "-" | "+" ]
+  ( <INTEGER_LITERAL> | <FLOATING_POINT_LITERAL> )
+  <EOF>
+  { return start; }
+}
+// This is the syntax of numbers we want a real format to accept.
+// The <EOF> makes sure that trailing non-numeric characters
+// (even spaces) are reported as an error.
+// Returns an integer which is the number of spaces to skip before
+// the number starts.
+
+
+int Integer():
+{ int start = 0;
+}
+{
+  ( " " {start++;} )*
+  [ "-" | "+" ]
+  <INTEGER_LITERAL>
+  <EOF>
+  { return start; }
+}
+// This is the syntax of numbers we want an integer format to
+// accept.
+// Returns an integer which is the number of spaces to skip before
+// the number starts.
+
+int Boolean():
+{ int start = 0;
+}
+{ 
+  ( " " {start++;} )*
+  <LOGICAL_LITERAL>
+  <EOF>
+  { return start; }
+}

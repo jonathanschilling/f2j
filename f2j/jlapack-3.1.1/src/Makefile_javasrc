@@ -1,0 +1,42 @@
+.PHONY: lib all testers err blas lapack util sblas slapack
+
+ROOT=..
+include $(ROOT)/make.def
+
+lib:    util err blas lapack sblas slapack
+
+all:    lib testers
+	
+testers:        err blas lapack sblas slapack
+	cd $(ROOT)/$(TESTING_DIR);$(MAKE) -f Makefile_javasrc
+
+timers:        err blas lapack sblas slapack
+	cd $(ROOT)/$(TIMING_DIR);$(MAKE) -f Makefile_javasrc
+
+err:
+	cd $(ROOT)/$(ERR_DIR);$(MAKE) -f Makefile_javasrc
+
+blas:   util err
+	cd $(ROOT)/$(BLAS_DIR);$(MAKE) -f Makefile_javasrc
+
+lapack: util err blas
+	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) -f Makefile_javasrc
+
+sblas:   util err
+	cd $(ROOT)/$(SBLAS_DIR);$(MAKE) -f Makefile_javasrc
+
+slapack: util err sblas
+	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE) -f Makefile_javasrc
+
+util:
+	cd $(ROOT)/$(UTIL_DIR);$(MAKE)
+
+clean:
+	cd $(ROOT)/$(ERR_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(BLAS_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(SBLAS_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(TESTING_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(TIMING_DIR);$(MAKE) -f Makefile_javasrc clean
+	cd $(ROOT)/$(UTIL_DIR);$(MAKE) -f Makefile_javasrc clean

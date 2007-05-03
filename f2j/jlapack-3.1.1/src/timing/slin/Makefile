@@ -5,16 +5,16 @@ ROOT=../../..
 
 include $(ROOT)/make.def
 
-SBLAS=$(ROOT)/$(SBLAS_IDX)
-SLAPACK=$(ROOT)/$(SLAPACK_IDX)
+BLAS=$(ROOT)/$(BLAS_IDX)
+LAPACK=$(ROOT)/$(LAPACK_IDX)
 SMATGEN=$(ROOT)/$(SMATGEN_IDX)
 
-XERBLAFLAGS= -c .:$(ROOT)/$(SBLAS_OBJ) -p $(ERR_PACKAGE)
-F2JFLAGS=-c .:$(OUTDIR):linsrc/$(OUTDIR):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(ERR_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(SMATGEN_OBJ) -p $(SLINTIME_PACKAGE) -o $(OUTDIR)
+XERBLAFLAGS= -c .:$(ROOT)/$(BLAS_OBJ) -p $(ERR_PACKAGE)
+F2JFLAGS=-c .:$(OUTDIR):linsrc/$(OUTDIR):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(ERR_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(SMATGEN_OBJ) -p $(SLINTIME_PACKAGE) -o $(OUTDIR)
 
-TIMER_CLASSPATH=-cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(SMATGEN_OBJ):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
+TIMER_CLASSPATH=-cp .:./obj:$(ROOT)/$(ERR_OBJ):linsrc/$(OUTDIR):$(ROOT)/$(SMATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
 
-timer: $(SBLAS) $(SLAPACK) $(SMATGEN) linsrc/$(OUTDIR)/Slinsrc.f2j $(OUTDIR)/Slintime.f2j util 
+timer: $(BLAS) $(LAPACK) $(SMATGEN) linsrc/$(OUTDIR)/Slinsrc.f2j $(OUTDIR)/Slintime.f2j util 
 	/bin/rm -f $(SLINTIME_JAR)
 	cd linsrc/$(OUTDIR); $(JAR) cvf ../../$(SLINTIME_JAR) `find . -name "*.class"`
 	cd $(OUTDIR); $(JAR) uvf ../$(SLINTIME_JAR) `find . -name "*.class"`
@@ -28,11 +28,11 @@ $(OUTDIR)/Slintime.f2j:	$(OUTDIR)/Lsamen.f2j slintime.f
 $(OUTDIR)/Lsamen.f2j:   lsamen.f
 	$(F2J) $(F2JFLAGS) $< > /dev/null
 
-$(SBLAS):
-	cd $(ROOT)/$(SBLAS_DIR); $(MAKE)
+$(BLAS):
+	cd $(ROOT)/$(BLAS_DIR); $(MAKE)
 
-$(SLAPACK):
-	cd $(ROOT)/$(SLAPACK_DIR); $(MAKE)
+$(LAPACK):
+	cd $(ROOT)/$(LAPACK_DIR); $(MAKE)
 
 $(SMATGEN):
 	cd $(ROOT)/$(SMATGEN_DIR); $(MAKE)

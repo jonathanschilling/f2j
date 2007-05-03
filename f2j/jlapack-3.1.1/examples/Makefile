@@ -5,8 +5,8 @@ SIMPLE_BLAS_CLASSPATH=$(BLAS_CLASSPATH):../blas_simple.jar
 LAPACK_CLASSPATH=$(BLAS_CLASSPATH):../lapack.jar:../xerbla.jar
 SIMPLE_LAPACK_CLASSPATH=$(LAPACK_CLASSPATH):../lapack_simple.jar
 
-all: DdotTest.class SimpleDdotTest.class DgesvdTest.class DlaruvTest.class \
-     DsygvTest.class DstevrTest.class SimpleDsygvTest.class
+all: DdotTest.class SimpleDdotTest.class DgesvdTest.class SimpleDgesvdTest.class \
+     DlaruvTest.class DsygvTest.class DstevrTest.class SimpleDsygvTest.class
 
 DdotTest.class: DdotTest.java
 	$(JAVAC) -classpath $(BLAS_CLASSPATH) DdotTest.java

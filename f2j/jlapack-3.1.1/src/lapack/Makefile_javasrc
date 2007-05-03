@@ -8,7 +8,7 @@ $(LAPACK_JAR): $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR) $(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) $
 	$(MAKE) nojar
 	/bin/rm -f `find . -name "*.class"`
 	mkdir -p $(JAVASRC_OUTDIR)
-	$(JAVAC) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(LAPACK_PDIR)/*.java
+	$(JAVAC) -J$(MORE_MEM_FLAG) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(LAPACK_PDIR)/*.java
 	/bin/rm -f $(JAVASRC_OUTDIR)/$(LAPACK_PDIR)/*.old
 	$(JAVAB) $(JAVASRC_OUTDIR)/$(LAPACK_PDIR)/*.class
 	mkdir -p $(SIMPLE_DIR)/$(LAPACK_PDIR)

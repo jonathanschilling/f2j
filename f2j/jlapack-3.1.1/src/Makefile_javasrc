@@ -1,16 +1,16 @@
-.PHONY: lib all testers err blas lapack util sblas slapack
+.PHONY: lib all testers err blas lapack util
 
 ROOT=..
 include $(ROOT)/make.def
 
-lib:    util err blas lapack sblas slapack
+lib:    util err blas lapack
 
 all:    lib testers
 	
-testers:        err blas lapack sblas slapack
+testers:        err blas lapack
 	cd $(ROOT)/$(TESTING_DIR);$(MAKE) -f Makefile_javasrc
 
-timers:        err blas lapack sblas slapack
+timers:        err blas lapack
 	cd $(ROOT)/$(TIMING_DIR);$(MAKE) -f Makefile_javasrc
 
 err:
@@ -22,12 +22,6 @@ blas:   util err
 lapack: util err blas
 	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) -f Makefile_javasrc
 
-sblas:   util err
-	cd $(ROOT)/$(SBLAS_DIR);$(MAKE) -f Makefile_javasrc
-
-slapack: util err sblas
-	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE) -f Makefile_javasrc
-
 util:
 	cd $(ROOT)/$(UTIL_DIR);$(MAKE)
 
@@ -35,8 +29,6 @@ clean:
 	cd $(ROOT)/$(ERR_DIR);$(MAKE) -f Makefile_javasrc clean
 	cd $(ROOT)/$(BLAS_DIR);$(MAKE) -f Makefile_javasrc clean
 	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) -f Makefile_javasrc clean
-	cd $(ROOT)/$(SBLAS_DIR);$(MAKE) -f Makefile_javasrc clean
-	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE) -f Makefile_javasrc clean
 	cd $(ROOT)/$(TESTING_DIR);$(MAKE) -f Makefile_javasrc clean
 	cd $(ROOT)/$(TIMING_DIR);$(MAKE) -f Makefile_javasrc clean
 	cd $(ROOT)/$(UTIL_DIR);$(MAKE) -f Makefile_javasrc clean

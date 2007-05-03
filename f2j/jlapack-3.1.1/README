@@ -12,14 +12,10 @@ This directory should contain the following files:
 
 The following jar files should exist:
 
-  blas.jar             - the BLAS library (in double precision)
-  blas_simple.jar      - the simplified interfaces to BLAS (double)
-  sblas.jar            - the BLAS library (in single precision)
-  sblas_simple.jar     - the simplified interfaces to BLAS (single)
-  lapack.jar           - the LAPACK library (in double precision)
-  lapack_simple.jar    - the simplified interfaces to LAPACK (double)
-  slapack.jar          - the LAPACK library (in single precision)
-  slapack_simple.jar   - the simplified interfaces to LAPACK (single)
+  blas.jar             - the BLAS library
+  blas_simple.jar      - the simplified interfaces to BLAS
+  lapack.jar           - the LAPACK library
+  lapack_simple.jar    - the simplified interfaces to LAPACK
   xerbla.jar           - LAPACK error reporting routine
   f2jutil.jar          - utilities required for running f2j translated code
 

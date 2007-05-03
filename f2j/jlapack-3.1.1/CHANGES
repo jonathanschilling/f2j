@@ -14,6 +14,8 @@ JLAPACK 0.8 -- released May 31, 2007
 
  Translation of formatted output in the testers is also improved.
 
+ The single and double precision jar files have been merged.
+
 ---------------------------------------------------------------------------
 JLAPACK 0.7 -- released January 31, 2007
 

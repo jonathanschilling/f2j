@@ -5,16 +5,16 @@ ROOT=../../..
 
 include $(ROOT)/make.def
 
-SBLAS=$(ROOT)/$(SBLAS_IDX)
-SLAPACK=$(ROOT)/$(SLAPACK_IDX)
+BLAS=$(ROOT)/$(BLAS_IDX)
+LAPACK=$(ROOT)/$(LAPACK_IDX)
 SMATGEN=$(ROOT)/$(SMATGEN_IDX)
 
-XERBLAFLAGS= -c .:$(ROOT)/$(SBLAS_OBJ) -p $(ERR_PACKAGE)
-F2JFLAGS=-c .:eigsrc/$(OUTDIR):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(SMATGEN_OBJ) -p $(SEIGTIME_PACKAGE) -o $(OUTDIR)
+XERBLAFLAGS= -c .:$(ROOT)/$(BLAS_OBJ) -p $(ERR_PACKAGE)
+F2JFLAGS=-c .:eigsrc/$(OUTDIR):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(SMATGEN_OBJ) -p $(SEIGTIME_PACKAGE) -o $(OUTDIR)
 
-TIMER_CLASSPATH=-cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(SMATGEN_OBJ):$(ROOT)/$(SBLAS_OBJ):$(ROOT)/$(SLAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
+TIMER_CLASSPATH=-cp .:./obj:eigsrc/$(OUTDIR):$(ROOT)/$(SMATGEN_OBJ):$(ROOT)/$(BLAS_OBJ):$(ROOT)/$(LAPACK_OBJ):$(ROOT)/$(UTIL_DIR)/$(UTIL_JAR)
 
-timer: $(SBLAS) $(SLAPACK) $(SMATGEN) eigsrc/$(OUTDIR)/Seigsrc.f2j $(OUTDIR)/Seigtime.f2j util
+timer: $(BLAS) $(LAPACK) $(SMATGEN) eigsrc/$(OUTDIR)/Seigsrc.f2j $(OUTDIR)/Seigtime.f2j util
 	/bin/rm -f $(SEIGTIME_JAR)
 	cd eigsrc/$(OUTDIR); $(JAR) cvf ../../$(SEIGTIME_JAR) `find . -name "*.class"`
 	cd $(OUTDIR); $(JAR) uvf ../$(SEIGTIME_JAR) `find . -name "*.class"`
@@ -25,11 +25,11 @@ eigsrc/$(OUTDIR)/Seigsrc.f2j: eigsrc/seigsrc.f
 $(OUTDIR)/Seigtime.f2j:	seigtime.f
 	$(F2J) $(F2JFLAGS) seigtime.f > /dev/null
 
-$(SBLAS):
-	cd $(ROOT)/$(SBLAS_DIR); $(MAKE)
+$(BLAS):
+	cd $(ROOT)/$(BLAS_DIR); $(MAKE)
 
-$(SLAPACK):
-	cd $(ROOT)/$(SLAPACK_DIR); $(MAKE)
+$(LAPACK):
+	cd $(ROOT)/$(LAPACK_DIR); $(MAKE)
 
 $(SMATGEN):
 	cd $(ROOT)/$(SMATGEN_DIR); $(MAKE)

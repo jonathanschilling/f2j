@@ -4,13 +4,13 @@ ROOT=../../..
 
 include $(ROOT)/make.def
 
-SBLAS=$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR)
-SLAPACK=$(ROOT)/$(SLAPACK_DIR)/$(SLAPACK_JAR)
+BLAS=$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR)
+LAPACK=$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR)
 
-tester: $(SBLAS) $(SLAPACK) $(OUTDIR)/Smatgen.f2j
+tester: $(BLAS) $(LAPACK) $(OUTDIR)/Smatgen.f2j
 	/bin/rm -f `find $(OUTDIR) -name "*.class"`
 	mkdir -p $(JAVASRC_OUTDIR)
-	$(JAVAC) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(SBLAS_DIR)/$(SBLAS_JAR):$(ROOT)/$(SLAPACK_DIR)/$(SLAPACK_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(SMATGEN_PDIR)/*.java
+	$(JAVAC) -classpath $(ROOT)/$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/$(ERR_DIR)/$(ERR_JAR):$(ROOT)/$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/$(LAPACK_DIR)/$(LAPACK_JAR) -d $(JAVASRC_OUTDIR) $(OUTDIR)/$(SMATGEN_PDIR)/*.java
 	/bin/rm -f $(JAVASRC_OUTDIR)/$(SMATGEN_PDIR)/*.old
 	$(JAVAB) $(JAVASRC_OUTDIR)/$(SMATGEN_PDIR)/*.class
 	/bin/rm -f $(SMATGEN_JAR)
@@ -19,15 +19,15 @@ tester: $(SBLAS) $(SLAPACK) $(OUTDIR)/Smatgen.f2j
 $(OUTDIR)/Smatgen.f2j:	smatgen.f
 	$(MAKE) nojar
 
-$(SBLAS):
-	cd $(ROOT)/$(SBLAS_DIR); $(MAKE) -f Makefile_javasrc
+$(BLAS):
+	cd $(ROOT)/$(BLAS_DIR); $(MAKE) -f Makefile_javasrc
 
-$(SLAPACK):
-	cd $(ROOT)/$(SLAPACK_DIR); $(MAKE) -f Makefile_javasrc
+$(LAPACK):
+	cd $(ROOT)/$(LAPACK_DIR); $(MAKE) -f Makefile_javasrc
 
 
 verify: $(ROOT)/$(SMATGEN_IDX)
-	cd $(JAVASRC_OUTDIR); $(JAVA) $(MORE_MEM_FLAG) -classpath .:$(JUSTICE):$(BCEL):$(ROOT)/../$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/../$(ERR_DIR)/$(ERR_JAR):$(ROOT)/../$(SBLAS_DIR)/$(SBLAS_JAR):$(ROOT)/../$(SLAPACK_DIR)/$(SLAPACK_JAR) $(VERIFY) $(SMATGEN_PDIR)/*.class
+	cd $(JAVASRC_OUTDIR); $(JAVA) $(MORE_MEM_FLAG) -classpath .:$(JUSTICE):$(BCEL):$(ROOT)/../$(UTIL_DIR)/$(UTIL_JAR):$(ROOT)/../$(ERR_DIR)/$(ERR_JAR):$(ROOT)/../$(BLAS_DIR)/$(BLAS_JAR):$(ROOT)/../$(LAPACK_DIR)/$(LAPACK_JAR) $(VERIFY) $(SMATGEN_PDIR)/*.class
 
 clean:
 	/bin/rm -rf *.java *.class *.f2j $(JAVASRC_OUTDIR) $(OUTDIR) $(SMATGEN_JAR)

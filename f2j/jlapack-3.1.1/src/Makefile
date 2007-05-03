@@ -1,19 +1,19 @@
-.PHONY: lib all testers err blas lapack util sblas slapack
+.PHONY: lib all testers err blas lapack util
 
 ROOT=..
 include $(ROOT)/make.def
 
-lib:    util err blas lapack sblas slapack
+lib:    util err blas lapack
 
 javasrc:
 	$(MAKE) -f Makefile_javasrc
 
 all:    lib testers
 	
-testers:        err blas lapack sblas slapack
+testers:        err blas lapack
 	cd $(ROOT)/$(TESTING_DIR);$(MAKE)
 
-timers:        err blas lapack sblas slapack
+timers:        err blas lapack
 	cd $(ROOT)/$(TIMING_DIR);$(MAKE)
 
 err:
@@ -25,12 +25,6 @@ blas:   util err
 lapack: util err
 	cd $(ROOT)/$(LAPACK_DIR);$(MAKE)
 
-sblas:   util err
-	cd $(ROOT)/$(SBLAS_DIR);$(MAKE)
-
-slapack: util err
-	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE)
-
 util:
 	cd $(ROOT)/$(UTIL_DIR);$(MAKE)
 
@@ -38,8 +32,6 @@ clean:
 	cd $(ROOT)/$(ERR_DIR);$(MAKE) clean
 	cd $(ROOT)/$(BLAS_DIR);$(MAKE) clean
 	cd $(ROOT)/$(LAPACK_DIR);$(MAKE) clean
-	cd $(ROOT)/$(SBLAS_DIR);$(MAKE) clean
-	cd $(ROOT)/$(SLAPACK_DIR);$(MAKE) clean
 	cd $(ROOT)/$(TESTING_DIR);$(MAKE) clean
 	cd $(ROOT)/$(TIMING_DIR);$(MAKE) clean
 	cd $(ROOT)/$(UTIL_DIR);$(MAKE) clean

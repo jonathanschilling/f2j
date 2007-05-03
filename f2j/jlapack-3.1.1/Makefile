@@ -71,7 +71,7 @@ javasrc:
 
 javadoc: lib
 	mkdir -p doc
-	javadoc -author -sourcepath $(BLAS_OBJ):$(SBLAS_OBJ):$(LAPACK_OBJ):$(SLAPACK_OBJ):$(ERR_OBJ):$(UTIL_F2J_SRC_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
+	javadoc -author -sourcepath $(BLAS_OBJ):$(LAPACK_OBJ):$(ERR_OBJ):$(UTIL_F2J_SRC_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
 
 javadoc_dist: javadoc
 	/bin/rm -f $(JAVADOC_DIST_ZIP) $(VERSION)/doc
@@ -144,9 +144,7 @@ libdist_strict_common:
 
 libdist_copy_jar_files:
 	cp $(BLAS_DIR)/$(BLAS_JAR) $(BLAS_DIR)/$(SIMPLE_BLAS_JAR) \
-           $(SBLAS_DIR)/$(SBLAS_JAR) $(SBLAS_DIR)/$(SIMPLE_SBLAS_JAR) \
            $(LAPACK_DIR)/$(LAPACK_JAR) $(LAPACK_DIR)/$(SIMPLE_LAPACK_JAR) \
-           $(SLAPACK_DIR)/$(SLAPACK_JAR) $(SLAPACK_DIR)/$(SIMPLE_SLAPACK_JAR) \
            $(UTIL_DIR)/$(UTIL_JAR) $(ERR_DIR)/$(ERR_JAR) $(VERSION)/$(STRICT_DIR)
 
 testers_dist: testers testers_dist_common

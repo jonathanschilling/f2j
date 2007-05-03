@@ -6281,22 +6281,32 @@ expr_emit (JVM_METHOD *meth, AST * root)
       parenthesized_expr_emit(meth, root);
       break;
     case Power:
+      fprintf (curfp, "(");
       power_emit(meth, root);
+      fprintf (curfp, ")");
       break;
     case Binaryop:
+      fprintf (curfp, "(");
       binaryop_emit(meth, root);
+      fprintf (curfp, ")");
       break;
     case Unaryop:
+      fprintf (curfp, "(");
       unaryop_emit(meth, root);
+      fprintf (curfp, ")");
       break;
     case Constant:
       constant_expr_emit(meth, root);
       break;
     case Logicalop:
+      fprintf (curfp, "(");
       logicalop_emit(meth, root);
+      fprintf (curfp, ")");
       break;
     case Relationalop:
+      fprintf (curfp, "(");
       relationalop_emit(meth, root);
+      fprintf (curfp, ")");
       break;
     case Substring:
       substring_expr_emit(meth, root);

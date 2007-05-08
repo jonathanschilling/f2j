@@ -9881,8 +9881,19 @@ get_methodref(AST *node)
     if(!srch_mref)
     {
       /* if we reach this, then we cannot find this method anywhere.
-       * try to guess at the descriptor.
+       * try to guess at the descriptor.  Since the guess is likely to
+       * be wrong, generate a warning message (unless this is a function
+       * passed in as an argument).
        */
+
+      if(type_lookup(cur_args_table, node->astnode.ident.name) == NULL) {
+        fprintf(stderr, "WARNING: could not resolve call to '%s'.\n",
+           node->astnode.ident.name);
+        fprintf(stderr, "  This will probably result in incorrect code generation.\n");
+        fprintf(stderr, "  Make sure the external function was compiled already and\n");
+        fprintf(stderr, "  check the paths specified using the -c flag.\n");
+      }
+
       tempname = strdup (node->astnode.ident.name);
       *tempname = toupper (*tempname);
 

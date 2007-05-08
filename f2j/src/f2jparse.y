@@ -1441,12 +1441,28 @@ Rewind: REWIND UndeclaredName NL
         }
 ;
 
-End:    END  NL 
-        {
-          $$ = addnode();
-          $$->token = END;
-          $$->nodetype = End;
-        }
+End: END  NL 
+     {
+       $$ = addnode();
+       $$->token = END;
+       $$->nodetype = End;
+     }
+   |
+     Integer END NL
+     {
+       AST *end_temp;
+
+       end_temp = addnode();
+       end_temp->token = END;
+       end_temp->nodetype = End;
+
+       $$ = addnode();
+       end_temp->parent = $$;
+       $$->nodetype = Label;
+       $$->astnode.label.number = atoi($1->astnode.constant.number);
+       $$->astnode.label.stmt = end_temp;
+       free_ast_node($1);
+     }
 ;
 
 /* 
@@ -3344,6 +3360,7 @@ Pdec:     Assignment
           {
             void add_decimal_point(char *);
             double constant_eval;
+            HASHNODE *ht;
             char *cur_id;
             AST *temp;
 
@@ -3362,9 +3379,15 @@ Pdec:     Assignment
             
             temp = addnode();
             temp->nodetype = Constant;
-            temp->vartype = $$->astnode.assignment.rhs->vartype;
+
+            ht = type_lookup(type_table, $$->astnode.assignment.lhs->astnode.ident.name);
+
+            if(ht)
+              temp->vartype = ht->variable->vartype;
+            else
+              temp->vartype = $$->astnode.assignment.rhs->vartype;
             
-            switch($$->astnode.assignment.rhs->vartype) {
+            switch(temp->vartype) {
               case String:
               case Character:
                 temp->token = STRING;
@@ -3420,17 +3443,6 @@ Pdec:     Assignment
             hash_delete(type_table, $$->astnode.assignment.lhs->astnode.ident.name);
             type_insert(parameter_table, temp, 0, cur_id);
             free_ast_node($$->astnode.assignment.lhs);
-/*
-            type_insert(parameter_table, temp, 0,
-               $$->astnode.assignment.lhs->astnode.ident.name);
-*/
-
-            /*
-             *  $$->astnode.typeunit.specification = Parameter; 
-             *
-             * Attach the Assignment node to a list... Hack.
-             *  $$->astnode.typeunit.declist = $1;  
-             */
           }
 ;
 

@@ -62,6 +62,12 @@ int Integer():
   { return (Integer.valueOf(t.image)).intValue(); }
 }
 
+/* I split FormatIOElement into FormatIOElementFloat and
+ * FormatIOElementNonFloat because a floating point edit
+ * descriptor (F, E, D, or G) may follow a P edit descriptor
+ * without a comma. --kgs
+ */
+
 FormatElement FormatIOElementFloat():
 { FormatElement fe;
   int w, d, m;
@@ -69,6 +75,7 @@ FormatElement FormatIOElementFloat():
 }
 {
 // for Iw.m, ignore the .m value
+/* added D and G edit descriptors, but just use the E implementation. --kgs */
   (
     <F_DESC> w=Integer() "." d=Integer()    { fe=new FormatF(w,d); }
   | <D_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
@@ -85,6 +92,7 @@ FormatElement FormatIOElementNonFloat():
 }
 {
 // for Iw.m, ignore the .m value
+/* added L edit descriptor. --kgs */
   ( 
     <A_DESC> [w=Integer()]                  { fe=new FormatA(w); }
   | <I_DESC> w=Integer() ["." m=Integer()]  { fe=new FormatI(w); }
@@ -123,6 +131,7 @@ FormatElement FormatScale():
 {
   /* Commas may be omitted between a P edit descriptor and an 
    * immediately following F, E, D, or G edit descriptor (13.5.9).
+   * --kgs
    */
 
   <P_DESC> [ [r=Integer()] (fe=FormatIOElementFloat()) ] 
@@ -174,6 +183,12 @@ FormatRepeatedItem FormatRepeatedItem():
   | fu=FormatElement()
   )
   {
+    /* here we check whether the parsed format element is a P edit
+     * descriptor.  in that case, it may have parsed a floating point
+     * edit descriptor along with it (if it followed without a comma)
+     * so return that element here.  --kgs
+     */
+  
     if(fu instanceof FormatP) {
       FormatRepeatedItem ritem;
       

@@ -10,6 +10,11 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
+/* I split FormatIOElement into FormatIOElementFloat and
+ * FormatIOElementNonFloat because a floating point edit
+ * descriptor (F, E, D, or G) may follow a P edit descriptor
+ * without a comma. --kgs
+ */
   static final public FormatElement FormatIOElementFloat() throws ParseException {
   FormatElement fe;
   int w, d, m;
@@ -248,6 +253,12 @@ class FormatParser implements FormatParserConstants {
       jj_consume_token(-1);
       throw new ParseException();
     }
+    /* here we check whether the parsed format element is a P edit
+     * descriptor.  in that case, it may have parsed a floating point
+     * edit descriptor along with it (if it followed without a comma)
+     * so return that element here.  --kgs
+     */
+
     if(fu instanceof FormatP) {
       FormatRepeatedItem ritem;
 

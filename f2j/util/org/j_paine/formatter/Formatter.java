@@ -1,4 +1,10 @@
-/* Formatter.java */
+/* Formatter.java 
+ *
+ * This is a modified version of Jocelyn Paine's Formatter package:
+ *   http://www.j-paine.org/Formatter
+ *
+ * Modifications are flagged with "kgs" in the comments.
+ */
 
 package org.j_paine.formatter;
 
@@ -42,6 +48,11 @@ public class Formatter
     FormatX dummy_el = new FormatX();
     FormatOutputList vp = new VectorAndPointer( v );
 
+    /* Loop back around and reuse the format spec if
+     * there are still elements in the vector.  Keep
+     * going until all elements in the vector have
+     * been printed.  --kgs
+     */
     while(true) {
       try {
         this.format.write( vp, out );
@@ -277,11 +288,6 @@ class FormatRepeatedItem extends FormatUniv
     else
       return this.r+"("+this.format_univ.toString()+")";
   }
-
-  public int getRepCount()
-  {
-    return r;
-  }
 }
 
 
@@ -378,8 +384,9 @@ abstract class FormatIOElement extends FormatElement
                   throws InputFormatException;
 }
 
-/* This class represents a P format element.
-*/
+/* This class represents a P format element, but the scaling
+ * is not implemented yet.
+ */
 class FormatP extends FormatElement
 {
   FormatRepeatedItem ritem = null;
@@ -406,7 +413,7 @@ class FormatP extends FormatElement
                     FormatMap format_map
                   )
   { 
-    // in.advance( 1 );
+    /* the P element doesn't consume input.  --kgs */
   }
 
 
@@ -460,7 +467,7 @@ class FormatA extends FormatIOElement
     String s;
 
     if ( o instanceof String ) {
-      /* Throw an exception if the string won't fit. */
+      /* pad or truncate strings as necessary.  --kgs */
       s = (String)o;
       if ( (getWidth() != -1) && (s.length() > getWidth()) )
         return s.substring(0, getWidth());
@@ -480,6 +487,9 @@ class FormatA extends FormatIOElement
     else {
       char [] blah = new char[getWidth()];
 
+      /* if this is a non-string argument with an A edit descriptor,
+       * just print some nonsense.  --kgs
+       */
       for(int i=0;i<blah.length;i++)
         blah[i] = '#';
 
@@ -500,7 +510,9 @@ class FormatA extends FormatIOElement
 
     len = getWidth() - s.length();
 
-    /* if the spec width is wider than the string, return a padded string */
+    /* if the spec width is wider than the string, 
+     * return a padded string.  --kgs
+     */
     if(len > 0) {
       char [] pad = new char[len];
       for(int i=0;i<len;i++)
@@ -562,6 +574,9 @@ class FormatI extends FormatIOElement
         return s;
     }
     else if(o instanceof String) {
+      /* String passed to I edit descriptor.  try converting the
+       * first character to an integer.  --kgs
+       */
       return convertToString(new Integer((int) (((String)o).charAt(0))), vecptr);
     }
     else
@@ -615,6 +630,10 @@ class FormatI extends FormatIOElement
     return "I"+getWidth();
   }
 }
+
+/*
+ * Handles logical (boolean) edit descriptors.
+ */
 
 class FormatL extends FormatIOElement
 {
@@ -1297,12 +1316,9 @@ class InputStreamAndBuffer
     if ( this.nothing_read )
       readLine( vecptr, format );
     if ( this.ptr+width > this.line.length() ) {
-/**
-      throw new DataMissingOnReadException( vecptr,
-                                            format.toString(),
-                                            getLineErrorReport()
-                                          );
-**/
+      /* if there aren't 'width' characters left, just return the
+       * remainder of the line.  --kgs
+       */
       return this.line.substring( this.ptr );
     }
     else {
@@ -1369,10 +1385,10 @@ class EndOfVectorOnWriteException extends OutputFormatException
                                       String format
                                     )
   {
-//    this( "End of vector while writing formatted data:\n" +
-//          "  Index  = " + vecptr + "\n" +
-//          "  Format = " + format + " ."
-//        );
+    this( "End of vector while writing formatted data:\n" +
+          "  Index  = " + vecptr + "\n" +
+          "  Format = " + format + " ."
+        );
   }
 
   public EndOfVectorOnWriteException( String s )

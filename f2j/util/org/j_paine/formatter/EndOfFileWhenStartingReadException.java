@@ -1,5 +1,10 @@
 package org.j_paine.formatter;
 
+/* This was originally in Formatter.java, but I needed to be able to
+ * refer to this from outside the package.
+ * --kgs
+ */
+
 public class EndOfFileWhenStartingReadException extends InputFormatException
 {
   public EndOfFileWhenStartingReadException( int vecptr,

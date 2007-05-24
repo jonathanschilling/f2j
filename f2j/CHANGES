@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------
+f2j 0.8 -- released May 31, 2007
+
+-improved formatted I/O support by integrating Jocelyn Paine's Formatter 
+ package (www.j-paine.org/Formatter).  I hacked it up, so see Jocelyn's
+ site for the original version.
+-fixed a bug in expression code generation
+-fixed various syntax issues that prevented translating the latest
+ versions of LAPACK (as well as ARPACK)
+-finally fixed that niggling lexer bug that caused parsing to fail
+ when the last line had fewer than 6 characters.
+-changed quite a bit of the character/string handling code.
+-many various other bug fixes
+
+---------------------------------------------------------------------------
 f2j 0.7 -- released January 31, 2007
 
 -improved support for Fortran intrinsic functions

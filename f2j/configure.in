@@ -1,4 +1,4 @@
-AC_INIT(f2j, 0.7, [f2j@cs.utk.edu])
+AC_INIT(f2j, 0.8, [f2j@cs.utk.edu])
 AC_REVISION([$Revision$])
 
 AC_CONFIG_SRCDIR(f2j_TODO.txt)

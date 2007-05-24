@@ -29,8 +29,6 @@ javab:
 
 srcdist: srcdist_common
 	zip -r $(F2J_PACKAGE_NAME).zip $(F2J_PACKAGE_NAME)
-
-srcdist_tgz: srcdist_common
 	tar cvf - $(F2J_PACKAGE_NAME) | gzip > $(F2J_PACKAGE_NAME).tgz
 
 srcdist_common:

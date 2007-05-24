@@ -11,30 +11,22 @@ default:
 	@echo "  testers - BLAS and LAPACK test routines"
 	@echo "  alltests - build and run the test routines"
 	@echo "  libdist - a zipped distribution of the BLAS and LAPACK libraries"
-	@echo "  libdist_tgz - a gzipped tar file of the BLAS and LAPACK libraries"
 	@echo "  libdist_strict - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
-	@echo "  libdist_strict_tgz - a tarball of BLAS/LAPACK containing all strictfp versions"
 	@echo "  testers_dist - a zipped distribution of the BLAS and LAPACK test routines"
-	@echo "  testers_dist_tgz - a gzipped tar file of the BLAS and LAPACK test routines"
 	@echo "  timers - BLAS and LAPACK timing routines"
 	@echo "  timers_dist - a zipped distribution of the BLAS and LAPACK timing routines"
-	@echo "  timers_dist_tgz - a gzipped tar file of the BLAS and LAPACK timing routines"
 	@echo ""
 	@echo "Translated from Fortran to Java source:"
 	@echo "  javasrc - BLAS and LAPACK libraries"
 	@echo "  testers_javasrc - BLAS and LAPACK test routines"
 	@echo "  alltests_javasrc - build and run the test routines"
 	@echo "  libdist_javasrc - a zipped distribution of the BLAS and LAPACK libraries"
-	@echo "  libdist_tgz_javasrc - a gzipped tar file of the BLAS and LAPACK libraries"
 	@echo "  libdist_strict_javasrc - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
-	@echo "  libdist_strict_tgz_javasrc - a tarball of BLAS/LAPACK containing all strictfp versions"
 	@echo "  testers_dist_javasrc - a zipped distribution of the BLAS and LAPACK test routines"
-	@echo "  testers_dist_tgz_javasrc - a gzipped tar file of the BLAS and LAPACK test routines"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  javadoc - documentation in javadoc HTML format"
 	@echo "  javadoc_dist - zipped distribution of the documentation"
-	@echo "  javadoc_dist_tgz - gzipped tar file of the documentation"
 	@echo ""
 	@echo "Other:"
 	@echo "  clean - remove all jar files, generated code, etc."
@@ -74,27 +66,18 @@ javadoc: lib
 	javadoc -author -sourcepath $(BLAS_OBJ):$(LAPACK_OBJ):$(ERR_OBJ):$(UTIL_F2J_SRC_DIR) -d doc -J-mx256000000 $(UTIL_PACKAGE) $(BLAS_PACKAGE) $(LAPACK_PACKAGE) $(ERR_PACKAGE)
 
 javadoc_dist: javadoc
-	/bin/rm -f $(JAVADOC_DIST_ZIP) $(VERSION)/doc
+	/bin/rm -f $(JAVADOC_DIST_ZIP) $(JAVADOC_DIST_TGZ) $(VERSION)/doc
 	mkdir -p $(VERSION)
 	cd $(VERSION); ln -s ../doc doc
 	$(ZIP) -r9 $(JAVADOC_DIST_ZIP) $(VERSION)/doc
-
-javadoc_dist_tgz: javadoc
-	/bin/rm -f $(JAVADOC_DIST_TGZ) $(VERSION)/doc
-	mkdir -p $(VERSION)
-	cd $(VERSION); ln -s ../doc doc
 	$(TAR) $(TARFLAGS) - $(VERSION)/doc | $(GZIP) > $(JAVADOC_DIST_TGZ)
 
 libdist: lib libdist_common
 	$(ZIP) -r9 $(LIBDIST_ZIP) $(VERSION)
-
-libdist_tgz: lib libdist_common
 	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_TGZ)
 
 libdist_javasrc: javasrc libdist_common
 	$(ZIP) -r9 $(LIBDIST_ZIP) $(VERSION)
-
-libdist_tgz_javasrc: javasrc libdist_common
 	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_TGZ)
 
 libdist_common:
@@ -107,17 +90,11 @@ libdist_common:
 libdist_strict:
 	$(MAKE) LIB_TARGET=lib libdist_strict_common
 	$(ZIP) -r9 $(LIBDIST_STRICT_ZIP) $(VERSION)
-
-libdist_strict_tgz:
-	$(MAKE) LIB_TARGET=lib libdist_strict_common
 	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_STRICT_TGZ)
 
 libdist_strict_javasrc:
 	$(MAKE) LIB_TARGET=javasrc libdist_strict_common
 	$(ZIP) -r9 $(LIBDIST_STRICT_ZIP) $(VERSION)
-
-libdist_strict_tgz_javasrc:
-	$(MAKE) LIB_TARGET=javasrc libdist_strict_common
 	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_STRICT_TGZ)
 
 libdist_strict_common:
@@ -149,14 +126,10 @@ libdist_copy_jar_files:
 
 testers_dist: testers testers_dist_common
 	$(ZIP) -r9 $(TESTERS_DIST_ZIP) $(VERSION)/testing
-
-testers_dist_tgz: testers testers_dist_common
 	$(TAR) $(TARFLAGS) - $(VERSION)/testing | $(GZIP) > $(TESTERS_DIST_TGZ)
 
 testers_dist_javasrc: testers_javasrc testers_dist_common
 	$(ZIP) -r9 $(TESTERS_DIST_ZIP) $(VERSION)/testing
-
-testers_dist_tgz_javasrc: testers_javasrc testers_dist_common
 	$(TAR) $(TARFLAGS) - $(VERSION)/testing | $(GZIP) > $(TESTERS_DIST_TGZ)
 
 testers_dist_common:
@@ -182,8 +155,6 @@ testers_dist_common:
 
 timers_dist: timers timers_dist_common
 	$(ZIP) -r9 $(TIMERS_DIST_ZIP) $(VERSION)/timing
-
-timers_dist_tgz: timers timers_dist_common
 	$(TAR) $(TARFLAGS) - $(VERSION)/timing | $(GZIP) > $(TIMERS_DIST_TGZ)
 
 timers_dist_common:

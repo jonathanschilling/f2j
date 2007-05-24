@@ -16,6 +16,9 @@ in order of priority)
    make translating READ,WRITE,FORMAT statements much easier - if only
    it was converted to Java.  It's around 6000 lines of C code, if I
    remember correctly.
+   [UPDATE: as of version 0.8, this is done to a certain extent, but
+    not from a C port.  I integrated a hacked version of Jocelyn Paine's
+    Formatter package into f2j.]
 
 -Threadsafe version
    One or two people have asked about this.  It's not a bad idea, but

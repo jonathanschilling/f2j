@@ -413,6 +413,10 @@ public class Util {
 
   /**
    * Formatted write.
+   *
+   * @param fmt String containing the Fortran format specification.
+   * @param v Vector containing the arguments to the WRITE() call.
+   *
    */
   public static void f77write(String fmt, Vector v)
   {
@@ -439,6 +443,9 @@ public class Util {
 
   /**
    * Unformatted write.
+   *
+   * @param v Vector containing the arguments to the WRITE() call.
+   *
    */
   public static void f77write(Vector v)
   {
@@ -484,6 +491,13 @@ public class Util {
       System.out.print(" " + o);   // one space
   }
 
+  /**
+   * Formatted read.
+   *
+   * @param fmt String containing the Fortran format specification.
+   * @param v Vector containing the arguments to the READ() call.
+   *
+   */
   public static int f77read(String fmt, Vector v)
   {
     try {

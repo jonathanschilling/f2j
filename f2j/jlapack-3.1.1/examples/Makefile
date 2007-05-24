@@ -23,7 +23,7 @@ SimpleDsygvTest.class: SimpleDsygvTest.java
 DgesvdTest.class: DgesvdTest.java
 	$(JAVAC) -classpath $(LAPACK_CLASSPATH) DgesvdTest.java
 SimpleDgesvdTest.class: SimpleDgesvdTest.java
-	$(JAVAC) -classpath $(LAPACK_CLASSPATH) SimpleDgesvdTest.java
+	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDgesvdTest.java
 
 clean:
 	/bin/rm -f *.class

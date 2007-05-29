@@ -10,26 +10,37 @@ default:
 	@echo "  lib - BLAS and LAPACK libraries"
 	@echo "  testers - BLAS and LAPACK test routines"
 	@echo "  alltests - build and run the test routines"
-	@echo "  libdist - a zipped distribution of the BLAS and LAPACK libraries"
-	@echo "  libdist_strict - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
-	@echo "  testers_dist - a zipped distribution of the BLAS and LAPACK test routines"
+	@echo "  alldist - a distribution of everything"
+	@echo "  libdist - a distribution of the BLAS and LAPACK libraries"
+	@echo "  libdist_strict - a distribution of BLAS/LAPACK containing all strictfp versions"
+	@echo "  testers_dist - a distribution of the BLAS and LAPACK test routines"
 	@echo "  timers - BLAS and LAPACK timing routines"
-	@echo "  timers_dist - a zipped distribution of the BLAS and LAPACK timing routines"
+	@echo "  timers_dist - a distribution of the BLAS and LAPACK timing routines"
 	@echo ""
 	@echo "Translated from Fortran to Java source:"
 	@echo "  javasrc - BLAS and LAPACK libraries"
 	@echo "  testers_javasrc - BLAS and LAPACK test routines"
 	@echo "  alltests_javasrc - build and run the test routines"
-	@echo "  libdist_javasrc - a zipped distribution of the BLAS and LAPACK libraries"
-	@echo "  libdist_strict_javasrc - a zipped distribution of BLAS/LAPACK containing all strictfp versions"
-	@echo "  testers_dist_javasrc - a zipped distribution of the BLAS and LAPACK test routines"
+	@echo "  libdist_javasrc - a distribution of the BLAS and LAPACK libraries"
+	@echo "  libdist_strict_javasrc - a distribution of BLAS/LAPACK containing all strictfp versions"
+	@echo "  testers_dist_javasrc - a distribution of the BLAS and LAPACK test routines"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  javadoc - documentation in javadoc HTML format"
-	@echo "  javadoc_dist - zipped distribution of the documentation"
+	@echo "  javadoc_dist - distribution of the documentation"
 	@echo ""
 	@echo "Other:"
 	@echo "  clean - remove all jar files, generated code, etc."
+
+alldist:
+	$(MAKE) clean
+	$(MAKE) libdist
+	$(MAKE) almost_clean
+	$(MAKE) libdist_strict
+	$(MAKE) almost_clean
+	$(MAKE) testers_dist
+	$(MAKE) almost_clean
+	$(MAKE) javadoc_dist
 
 lib:
 	cd $(SRCDIR); $(MAKE)
@@ -98,7 +109,7 @@ libdist_strict_javasrc:
 	$(TAR) $(TARFLAGS) - $(VERSION) | $(GZIP) > $(LIBDIST_STRICT_TGZ)
 
 libdist_strict_common:
-	$(MAKE) clean
+	$(MAKE) almost_clean
 	/bin/rm -rf $(VERSION)
 	mkdir -p $(VERSION)/plain
 	mkdir -p $(VERSION)/strict_both
@@ -179,10 +190,13 @@ timers_dist_common:
 examples:
 	cd examples; $(MAKE)
 
-clean:
+almost_clean:
 	cd src; $(MAKE) clean
 	cd examples; $(MAKE) clean
-	/bin/rm -rf doc $(VERSION) $(LIBDIST_ZIP) $(LIBDIST_TGZ) \
+	/bin/rm -rf doc $(VERSION)
+
+clean: almost_clean
+	/bin/rm -rf $(LIBDIST_ZIP) $(LIBDIST_TGZ) \
 		$(TESTERS_DIST_ZIP) $(TESTERS_DIST_TGZ) $(JAVADOC_DIST_ZIP) \
 		$(JAVADOC_DIST_TGZ) $(TIMERS_DIST_ZIP) $(TIMERS_DIST_TGZ) \
                 $(LIBDIST_STRICT_ZIP) $(LIBDIST_STRICT_TGZ)

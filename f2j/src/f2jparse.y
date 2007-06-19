@@ -2396,6 +2396,10 @@ FormatSpec:
         {
           $$ = $3;
         }
+     | String
+        {
+          $$ = $1;
+        }
      | FMT EQ UndeclaredName
         {
           fprintf(stderr,"Warning - ignoring FMT = %s\n",

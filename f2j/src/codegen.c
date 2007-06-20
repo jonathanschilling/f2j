@@ -10650,6 +10650,17 @@ needs_adapter(AST *root)
            return 1;
     }
 
+      /*
+       * if the arg is an identifier  AND
+       *    it is in the array table  AND
+       *    the function is expecting an array AND
+       *    the data types are different
+       */
+    if((temp->nodetype == Identifier) && 
+       type_lookup(cur_array_table, temp->astnode.ident.name) &&
+       (dptr[0] == '[') && (get_type_from_field_desc(dptr+1) != temp->vartype))
+      return 1;
+
     /*
      * otherwise...
      * if the arg is NOT in the array table  AND
@@ -11546,9 +11557,16 @@ adapter_args_emit_from_descriptor(JVM_METHOD *meth, AST *arg,
 
     if(dptr[0] == '[') {
       if(type_lookup(cur_array_table,arg->astnode.ident.name)) {
-        fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
-          returnstring[get_type_from_field_desc(dptr+1)], i, i);
-        lvnum += 2;
+        if(get_type_from_field_desc(dptr+1) == arg->vartype) {
+          fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
+            returnstring[get_type_from_field_desc(dptr+1)], i, i);
+          lvnum += 2;
+        }
+        else {
+          fprintf(curfp,"%s [] arg%d , int arg%d_offset ",
+            returnstring[arg->vartype], i, i);
+          lvnum += 2;
+        }
       }
       else {
         fprintf(curfp,"%s arg%d ",
@@ -11676,6 +11694,25 @@ adapter_tmp_array_assign_emit(JVM_METHOD *meth, int arglocal, enum returntype ar
 
 /*****************************************************************************
  *                                                                           *
+ * adapter_tmp_array_new_emit                                                *
+ *                                                                           *
+ * this function generates the bytecode for the assignment to a temp         *
+ * variable in the adapter.   for example:                                   *
+ *          int [] _f2j_tmp3 = new int[arg3.length];                         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+adapter_tmp_array_new_emit(JVM_METHOD *meth, int arglocal, enum returntype argtype)
+{
+  bc_gen_load_op(meth, arglocal, jvm_Object);
+  bc_append(meth, jvm_arraylength);
+  newarray_emit(meth, argtype);
+  bc_gen_store_op(meth, bc_get_next_local(meth, jvm_Object), jvm_Object);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * adapter_temps_emit_from_descriptor                                        *
  *                                                                           *
  * this function generates the temporary variable declarations for an        *
@@ -11729,6 +11766,15 @@ adapter_temps_emit_from_descriptor(JVM_METHOD *meth, AST *arg, char *desc)
            returnstring[ctype], i, i);
 
         adapter_tmp_array_assign_emit(meth, arg->astnode.ident.localvnum,
+          ctype);
+      }
+      else if(get_type_from_field_desc(dptr+1) != arg->vartype) {
+        enum returntype ctype = get_type_from_field_desc(dptr);
+
+        fprintf(curfp,"%s [] _f2j_tmp%d = new %s[arg%d.length];\n",
+           returnstring[ctype], i, returnstring[ctype], i);
+
+        adapter_tmp_array_new_emit(meth, arg->astnode.ident.localvnum,
           ctype);
       }
 
@@ -11842,9 +11888,16 @@ adapter_methcall_arg_emit(JVM_METHOD *meth, AST *arg, int i, int lv, char *dptr)
           (type_lookup(cur_array_table,arg->astnode.ident.name) != NULL) &&
           (dptr[0] == '['))
   {
-    fprintf(curfp,"arg%d, arg%d_offset",i,i);
-    bc_gen_load_op(meth, arg->astnode.ident.localvnum, jvm_Object);
-    bc_gen_load_op(meth, arg->astnode.ident.localvnum+1, jvm_Int);
+    if(get_type_from_field_desc(dptr+1) == arg->vartype) {
+      fprintf(curfp,"arg%d, arg%d_offset",i,i);
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum, jvm_Object);
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum+1, jvm_Int);
+    }
+    else {
+      fprintf(curfp,"_f2j_tmp%d, arg%d_offset",i,i);
+      bc_gen_load_op(meth, lv++, jvm_Object);
+      bc_gen_load_op(meth, arg->astnode.ident.localvnum+1, jvm_Int);
+    }
   }
   else
   {
@@ -11901,6 +11954,9 @@ adapter_assign_emit_from_descriptor(JVM_METHOD *meth, AST *arg, int lv_temp, cha
       {
         adapter_array_assign_emit(meth, i,arg->astnode.ident.localvnum,
           lv_temp++,dptr);
+      }
+      else if(get_type_from_field_desc(dptr+1) != arg->vartype) {
+        lv_temp++;
       }
       
       /* skip extra field desc to compensate for offset arg */
@@ -12892,9 +12948,15 @@ get_adapter_desc(char *dptr, AST *arg)
             wrapped_field_descriptor[get_type_from_field_desc(dptr+1)][0]);
       }
       else {
-        temp_desc = strAppend(temp_desc, 
-           field_descriptor[get_type_from_field_desc(dptr+1)][1]);
-        temp_desc = strAppend(temp_desc, "I");
+        if(arg->vartype == get_type_from_field_desc(dptr+1)) {
+          temp_desc = strAppend(temp_desc, 
+             field_descriptor[get_type_from_field_desc(dptr+1)][1]);
+          temp_desc = strAppend(temp_desc, "I");
+        }
+        else {
+          temp_desc = strAppend(temp_desc, field_descriptor[arg->vartype][1]);
+          temp_desc = strAppend(temp_desc, "I");
+        }
       }
 
       dptr = bc_next_desc_token(dptr);

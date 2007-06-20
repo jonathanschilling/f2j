@@ -54,7 +54,7 @@ Dlist
   do_labels;                      /* generated labels for 'do..end do' loops */
 
 enum returntype
-  typedec_context;                /* what kind of type dec we are parsing    */
+  typedec_context = Object;       /* what kind of type dec we are parsing    */
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -735,7 +735,7 @@ Dimension: DIMENSION ArraydecList NL
            }
 ;
 
-ArraydecList: Arraydeclaration CM ArraydecList
+ArraydecList: ArraydecList CM Arraydeclaration
               {
                 $3->prevstmt = $1;
                 $$ = $3;
@@ -3624,6 +3624,32 @@ assign_array_dims(AST *var)
 
     if(debug)
       printf("assign_array_dims: %s\n", var->astnode.ident.name);
+  }
+
+  node->astnode.ident.localvnum = -1;
+  node->astnode.ident.arraylist = var->astnode.ident.arraylist;
+  node->astnode.ident.dim = var->astnode.ident.dim;
+  node->astnode.ident.leaddim = var->astnode.ident.leaddim;
+  for(i=0;i<MAX_ARRAY_DIM;i++) {
+    node->astnode.ident.startDim[i] = var->astnode.ident.startDim[i];
+    node->astnode.ident.endDim[i] = var->astnode.ident.endDim[i];
+  }
+
+  /* do the same for the array table */
+
+  hash_entry = type_lookup(array_table, var->astnode.ident.name);
+  if(hash_entry)
+    node = hash_entry->variable;
+  else {
+    node = initialize_name(var->astnode.ident.name);
+    type_insert(array_table, node, node->vartype, var->astnode.ident.name);
+    hash_entry = type_lookup(array_table, var->astnode.ident.name);
+    if(hash_entry)
+      node = hash_entry->variable;
+    else {
+      fprintf(stderr, "internal error: lookup failed after insert\n");
+      return;
+    }
   }
 
   node->astnode.ident.localvnum = -1;

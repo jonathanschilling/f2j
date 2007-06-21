@@ -10659,7 +10659,16 @@ needs_adapter(AST *root)
     if((temp->nodetype == Identifier) && 
        type_lookup(cur_array_table, temp->astnode.ident.name) &&
        (dptr[0] == '[') && (get_type_from_field_desc(dptr+1) != temp->vartype))
+    {
+      fprintf(stderr, "Warning: in unit '%s', in call to '%s':\n", 
+          unit_name, root->astnode.ident.name);
+      fprintf(stderr, "    Array argument '%s' has wrong type.\n", 
+          temp->astnode.ident.name);
+      fprintf(stderr, "    A dummy array of the correct type will be passed.\n");
+      fprintf(stderr, "    This should be ok for passing workspace arrays.\n");
+      fprintf(stderr, "    Otherwise, there could be problems.\n");
       return 1;
+    }
 
     /*
      * otherwise...

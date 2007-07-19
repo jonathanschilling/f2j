@@ -236,7 +236,7 @@ public class CJFormat
    public static long atol(String s)
    {  int i = 0;
 
-      while (i < s.length() && Character.isSpace(s.charAt(i))) i++;
+      while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
       if (i < s.length() && s.charAt(i) == '0')
       {  if (i + 1 < s.length() && (s.charAt(i + 1) == 'x' || s.charAt(i + 1) == 'X'))
             return parseLong(s.substring(i + 2), 16);
@@ -250,7 +250,7 @@ public class CJFormat
       int sign = 1;
       long r = 0;
       
-      while (i < s.length() && Character.isSpace(s.charAt(i))) i++;
+      while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
       if (i < s.length() && s.charAt(i) == '-') { sign = -1; i++; }
       else if (i < s.length() && s.charAt(i) == '+') { i++; }
       while (i < s.length())
@@ -281,7 +281,7 @@ public class CJFormat
       double p = 1; // exponent of fractional part
       int state = 0; // 0 = int part, 1 = frac part
       
-      while (i < s.length() && Character.isSpace(s.charAt(i))) i++;
+      while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
       if (i < s.length() && s.charAt(i) == '-') { sign = -1; i++; }
       else if (i < s.length() && s.charAt(i) == '+') { i++; }
       while (i < s.length())

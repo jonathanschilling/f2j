@@ -11,7 +11,7 @@ package org.j_paine.formatter;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.StringBufferInputStream;
+import java.io.StringReader;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -176,7 +176,7 @@ class Format extends FormatUniv
   {
     FormatParser fp =
       Parsers.theParsers().format_parser;
-    fp.ReInit( new StringBufferInputStream(s) );
+    fp.ReInit( new StringReader(s) );
     try {
       Format f = fp.Format();
       this.elements = f.elements;
@@ -600,7 +600,7 @@ class FormatI extends FormatIOElement
     */
     NumberParser np =
       Parsers.theParsers().number_parser;
-    np.ReInit( new StringBufferInputStream(s) );
+    np.ReInit( new StringReader(s) );
     try {
       int start = np.Integer();
       Long l = new Long( s.substring(start) );
@@ -690,7 +690,7 @@ class FormatL extends FormatIOElement
     */
     NumberParser np =
       Parsers.theParsers().number_parser;
-    np.ReInit( new StringBufferInputStream(s) );
+    np.ReInit( new StringReader(s) );
     try {
       int start = np.Boolean();
       char brep = s.substring(start).charAt(0);
@@ -795,7 +795,7 @@ class FormatF extends FormatIOElement
     */
     NumberParser np =
       Parsers.theParsers().number_parser;
-    np.ReInit( new StringBufferInputStream(s) );
+    np.ReInit( new StringReader(s) );
     try {
       int start = np.Float();
       Double d = new Double( s.substring(start) );
@@ -895,7 +895,7 @@ class FormatE extends FormatIOElement
     */
     NumberParser np =
       Parsers.theParsers().number_parser;
-    np.ReInit( new StringBufferInputStream(s) );
+    np.ReInit( new StringReader(s) );
     try {
       int start = np.Float();
       Double d = new Double( s.substring(start) );
@@ -1258,6 +1258,29 @@ class InputStreamAndBuffer
     this.nothing_read = true;
   }
 
+  /* Really crappy readline implementation to quiet deprecation warnings
+   * about using DataInputStream.readLine(). --kgs
+   */
+
+  public String readLine_hack() throws java.io.IOException
+  {
+    StringBuffer sb = new StringBuffer();
+    int c = 0;
+
+    while(c >= 0) {
+      c = in.read();
+
+      if(c < 0)
+        return null;
+
+      if((char)c == '\n')
+        break;
+
+      sb.append((char) c);
+    }
+
+    return sb.toString();
+  }
 
   /* Reads the next line into the line buffer.
      vecptr and format are used only in generating error messages.
@@ -1268,7 +1291,7 @@ class InputStreamAndBuffer
                      IOExceptionOnReadException
   {
     try {
-      String line = this.in.readLine();
+      String line = readLine_hack();
 
       if ( line == null ) {
         if ( this.nothing_read )
@@ -1745,7 +1768,7 @@ class Parsers
 
   private Parsers()
   {
-    this.format_parser = new FormatParser( new StringBufferInputStream("") );
-    this.number_parser = new NumberParser( new StringBufferInputStream("") );
+    this.format_parser = new FormatParser( new StringReader("") );
+    this.number_parser = new NumberParser( new StringReader("") );
   }
 }

@@ -395,12 +395,10 @@ public class Util {
     System.err.println("To resume execution, type:   go");
     System.err.println("Any other input will terminate the program.");
 
-    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-
     String response = null;
 
     try {
-      response = in.readLine();  
+      response = EasyIn.myCrappyReadLine();
     } catch (IOException e) {
       response = null;
     }

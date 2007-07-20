@@ -14,7 +14,7 @@ util_deprecated:	$(UTIL_CLASSES)
 
 $(UTIL_CLASSES):
 	mkdir -p $(OUTDIR)
-	javac -d $(OUTDIR) $(UTIL_PDIR)/*.java
+	$(JAVAC) -d $(OUTDIR) $(UTIL_PDIR)/*.java
 	cd $(OUTDIR); $(JAR) cvf ../$(UTIL_JAR) .
 
 clean:

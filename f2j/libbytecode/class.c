@@ -73,10 +73,12 @@ bc_write_class(JVM_CLASS *class, char *output_dir)
 
   write_attributes(class, class->attributes, cfp);
 
-  fclose(cfp);
-
-  if(ferror(cfp))
+  if(ferror(cfp)) {
+    fclose(cfp);
     return -1;
+  }
+
+  fclose(cfp);
 
   return 0;
 }

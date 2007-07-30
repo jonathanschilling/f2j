@@ -41,9 +41,6 @@ int
   save_all,                       /* is there a SAVE stmt without a var list */
   cur_do_label;                   /* current 'do..end do' loop label         */
   
-char
-  tempname[60];                   /* temporary string                        */
-
 AST 
   * unit_args = NULL,             /* pointer to args for this program unit   */
   * equivList = NULL;             /* list to keep track of equivalences      */
@@ -1695,9 +1692,8 @@ Name:    NAME
 
            lowercase(yylval.lexeme);
 
-           if(type_lookup(java_keyword_table,yylval.lexeme) ||
-             type_lookup(jasmin_keyword_table,yylval.lexeme))
-                yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+           if(type_lookup(java_keyword_table,yylval.lexeme))
+             yylval.lexeme[0] = toupper(yylval.lexeme[0]);
 
 
            /* check if the name we're looking at is defined as a parameter.
@@ -1763,9 +1759,8 @@ UndeclaredName: NAME
                   if(omitWrappers)
                     $$->astnode.ident.passByRef = FALSE;
 
-                  if(type_lookup(java_keyword_table,yylval.lexeme) ||
-                     type_lookup(jasmin_keyword_table,yylval.lexeme))
-                        yylval.lexeme[0] = toupper(yylval.lexeme[0]);
+                  if(type_lookup(java_keyword_table,yylval.lexeme))
+                    yylval.lexeme[0] = toupper(yylval.lexeme[0]);
 
                   strcpy($$->astnode.ident.name, yylval.lexeme);
                 }
@@ -2706,6 +2701,9 @@ Arithmeticif: IF OP Exp CP Integer CM Integer CM Integer NL
  * it is in there we leave the argument list reversed, 
  * otherwise, it is a subroutine or function (method) 
  * call and we reverse the arguments.
+ *
+ * I don't think the above comment makes sense anymore.
+ * --kgs 7/2007
  */
 
 Subroutinecall:   Name OP Explist CP
@@ -3090,12 +3088,13 @@ primary:  Name {$$=$1;}
           |  SubstringOp {$$=$1;}    
           |  OP Exp CP  
              {
+/** paren case **/
                $$ = addnode();
                $2->parent = $$;   /* 9-4-97 - Keith */
                $$->nodetype = Expression;
                $$->astnode.expression.parens = TRUE;
                $$->astnode.expression.rhs = $2;
-               $$->astnode.expression.lhs = 0;
+               $$->astnode.expression.lhs = NULL;
                $$->vartype = $2->vartype;
              }
 ;
@@ -3187,24 +3186,15 @@ Float:       FLOAT
 ;
 
                
-/*  Since jasmin doesn't have an EXPONENTIAL data type,
- *  the function exp_to_double rewrite numbers in the
- *  nn.dde+nn as floats.  The float is written back into
- *  the string temp.  
- *
- *  For small numbers, exp_to_double isn't good.  e.g., 
- *  something like 5.5e-15 would be transformed into
- *  "0.00000".
- *  
- *  I'll just change the 'D' to 'e' and emit as-is for
- *  Java.  With Jasmin, I'll still use exp_to_double
- *  for now, but it will be wrong.
- *
- *  3/11/98  -- Keith 
+/*
+ * Call exp_to_double() to change the 'D' to 'e' for emitting
+ * exponentials in Java source.
  */
 
 Exponential:   E_EXPONENTIAL
              {
+               char tempname[60];
+
                $$ = addnode();
 	       $$->token = E_EXPONENTIAL;
                $$->nodetype = Constant;
@@ -3215,6 +3205,8 @@ Exponential:   E_EXPONENTIAL
              }
            |   D_EXPONENTIAL
              {
+               char tempname[60];
+
                $$ = addnode();
 	       $$->token = D_EXPONENTIAL;
                $$->nodetype = Constant;
@@ -3438,9 +3430,8 @@ Pdec:     Assignment
 
             cur_id = strdup($$->astnode.assignment.lhs->astnode.ident.name);
 
-            if(type_lookup(java_keyword_table,cur_id) ||
-               type_lookup(jasmin_keyword_table,cur_id))
-                  cur_id[0] = toupper(cur_id[0]);
+            if(type_lookup(java_keyword_table,cur_id))
+              cur_id[0] = toupper(cur_id[0]);
 
             if(debug)
                printf("insert param_table %s\n", $$->astnode.assignment.lhs->astnode.ident.name);
@@ -3543,10 +3534,7 @@ add_decimal_point(char *str)
  *                                                                           *
  * addnode                                                                   *
  *                                                                           *
- * To keep things simple, there is only one type of parse tree               *
- * node.  If there is any way to ensure that all the pointers                *
- * in this are NULL, it would be a good idea to do that.  I am               *
- * not sure what the default behavior is.                                    *
+ * To keep things simple, there is only one type of parse tree node.         *
  *                                                                           *
  *****************************************************************************/
 
@@ -3848,13 +3836,8 @@ type_hash(AST * types)
  *                                                                           *
  * exp_to_double                                                             *
  *                                                                           *
- *  Since jasmin doesn't have any EXPONENTIAL data types, these              *
- * have to be turned into floats.  exp_to_double really just                 *
- * replaces instances of 'd' and 'D' in the exponential number               *
- * with 'e' so that c can convert it on a string scan and                    *
- * string print.  Java does recognize numbers of the                         *
- * form 1.0e+1, so the `d' and `d' need to be replaced with                  *
- * `e'.  For now, leave as double for uniformity with jasmin.                *
+ * Java recognizes numbers of the form 1.0e+1, so the `D' and `d' need       *
+ * to be replaced with 'e'.                                                  *
  *                                                                           *
  *****************************************************************************/
 
@@ -4214,8 +4197,6 @@ eval_const_expr(AST *root)
       root->token = root->astnode.expression.rhs->token;
 
       root->vartype = root->astnode.expression.rhs->vartype;
-      strcpy(root->astnode.constant.number,
-          root->astnode.expression.rhs->astnode.constant.number);
 
       return (result2);
     
@@ -4303,7 +4284,6 @@ eval_const_expr(AST *root)
             root->token = (! rhs) ? TrUE : FaLSE;
             break;
         }
-        strcpy(root->astnode.constant.number,root->token == TrUE ? "true" : "false");
         return (double)root->token;
       }
       
@@ -4537,9 +4517,8 @@ initialize_name(char *id)
   if(omitWrappers)
     tmp->astnode.ident.passByRef = FALSE;
 
-  if(type_lookup(java_keyword_table,id) ||
-     type_lookup(jasmin_keyword_table,id))
-        id[0] = toupper(id[0]);
+  if(type_lookup(java_keyword_table,id))
+    id[0] = toupper(id[0]);
 
   strcpy(tmp->astnode.ident.name, id);
   tempname = strdup(tmp->astnode.ident.name);
@@ -5047,7 +5026,7 @@ process_array_declaration(AST *varname, AST *dimlist)
       alen *= (int) eval_const_expr(new->astnode.ident.endDim[i]);
     }
   }
-                       
+
   if(alen)
     new->astnode.ident.array_len = alen;
   else

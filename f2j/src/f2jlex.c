@@ -1342,7 +1342,7 @@ int
 keyscan (register KWDTAB * tab, BUFFER * bufstruct)
 {
   unsigned int tokenlength;
-  char *scp, *yycp;  
+  char *scp, *yycp, swap_buf[BIGBUFF];
   scp = bufstruct->stmt;
   yycp = bufstruct->text;
 
@@ -1366,7 +1366,9 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
       strncpy (yytext, yycp, tokenlength);
       yycp += tokenlength;
       yytext[tokenlength] = '\0';
-      strcpy (bufstruct->text, yycp);
+
+      strcpy(swap_buf, yycp);
+      strcpy(bufstruct->text, swap_buf);
 
       /* Save the type or kind of relational operator
        * immediate reduction in the parser.  This
@@ -1384,7 +1386,10 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
        */
 
       scp += tokenlength;
-      strcpy (bufstruct->stmt, scp);
+
+      strcpy(swap_buf, scp);
+      strcpy(bufstruct->stmt, swap_buf);
+
       return tab->ktok;
     }
     tab++;     /* Check the next table entry.  */
@@ -1442,8 +1447,9 @@ methodscan (METHODTAB * tab, char * name)
 int
 name_scan (BUFFER * bufstruct)
 {
-  char *ncp, *tcp;
+  char *ncp, *tcp, swap_buf[BIGBUFF];
   unsigned int tokenlength = 0;
+
   ncp = bufstruct->stmt;
   tcp = bufstruct->text;
 
@@ -1461,8 +1467,12 @@ name_scan (BUFFER * bufstruct)
   strncpy (yylval.lexeme, tcp, tokenlength);
   yylval.lexeme[tokenlength] = '\0';
   tcp += tokenlength;
-  strcpy (bufstruct->text, tcp);
-  strcpy (bufstruct->stmt, ncp);
+
+  strcpy(swap_buf, tcp);
+  strcpy(bufstruct->text, swap_buf);
+
+  strcpy(swap_buf, ncp);
+  strcpy(bufstruct->stmt, swap_buf);
 
   return NAME;
 }				/*  Close name_scan().  */
@@ -1488,7 +1498,7 @@ name_scan (BUFFER * bufstruct)
 int
 number_scan (BUFFER * bufstruct, int fmt, int toknum)
 {
-  char *ncp, *tcp;
+  char *ncp, *tcp, swap_buf[BIGBUFF];
   BUFFER tempbuf;
   int token;
   unsigned int tokenlength = 0;
@@ -1637,8 +1647,12 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
     printf ("Number: %s\n", yytext);
 
   tcp += tokenlength;
-  strcpy (bufstruct->text, tcp);
-  strcpy (bufstruct->stmt, ncp);
+
+  strcpy(swap_buf, tcp);
+  strcpy(bufstruct->text, swap_buf);
+
+  strcpy(swap_buf, ncp);
+  strcpy(bufstruct->stmt, swap_buf);
 
   return type;
 }				/* Close name_ident_scan().  */
@@ -1655,7 +1669,7 @@ int
 string_or_char_scan (BUFFER * bufstruct)
 {
   unsigned int tokenlength = 0;
-  char *scp, *textcp;
+  char *scp, *textcp, swap_buf[BIGBUFF];
   scp = bufstruct->stmt;
   textcp = bufstruct->text;
 
@@ -1715,8 +1729,12 @@ string_or_char_scan (BUFFER * bufstruct)
     /* Now increment to get past the tic marks. */
     scp++;
     textcp++;
-    strcpy (bufstruct->stmt, scp);
-    strcpy (bufstruct->text, textcp);
+
+    strcpy(swap_buf, scp);
+    strcpy(bufstruct->stmt, swap_buf);
+
+    strcpy(swap_buf, textcp);
+    strcpy(bufstruct->text, swap_buf);
 
     /* Reset the value; strlen does not include the value
      * of '\0' that terminates the string.  

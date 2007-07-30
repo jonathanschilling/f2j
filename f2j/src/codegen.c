@@ -12543,8 +12543,7 @@ cfg_emit(Dlist cgraph, char *mname)
  *                                                                           *
  * assign_varnums_to_arguments                                               *
  *                                                                           *
- * This routine numbers the local variables for generating Jasmin            *
- * assembly code.                                                            *
+ * This routine numbers the local variables for generating bytecode.         *
  *                                                                           *
  * Horribly kludged routines with massive loop of                            *
  * duplicated code.                                                          *

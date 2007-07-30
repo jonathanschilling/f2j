@@ -34,7 +34,6 @@ int
 
 FILE 
   *ifp,                    /* input file pointer                             */
-  *jasminfp,               /* jasmin output file pointer                     */
   *vcgfp,                  /* VCG output file pointer                        */
   *indexfp;                /* method and descriptor index for all prog units */
 
@@ -66,7 +65,6 @@ SYMTABLE
   *parameter_table,        /* PARAMETER variables                            */
   *function_table,         /* table of functions                             */
   *java_keyword_table,     /* table of Java reserved words                   */
-  *jasmin_keyword_table,   /* table of Jasmin reserved words                 */
   *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
@@ -238,7 +236,6 @@ KWDTAB assign_toks[] =
  * pattern is {"fortran name", "java method"}.  Some of the fortran names    *
  * are intrinsic to fortran and java, others are intrinsic only to java and  *
  * replace function or sub-routine calls in the lapack or blas source.       *
- * This table may have to be extended to handle jasmin opcodes.              *
  *****************************************************************************/
 
 METHODTAB intrinsic_toks[]=
@@ -415,21 +412,6 @@ char *generic_intrinsics[] =
 };
 
 /*****************************************************************************
- * This is a table mapping the Fortran intrinsics onto the Jasmin            *
- * intrinsic calls.  The functions are the same as Java, but the calling     *
- * sequence is different from Java source.                                   *
- *****************************************************************************/
-
-METHODTAB jasmin_intrinsic_toks[]=
-{
-  {ifunc_MAX, "MAX", 
-      "invokestatic java/lang/Math/max(II)I"},
-  {ifunc_MIN, "MIN", 
-      "invokestatic java/lang/Math/min(II)I"},
-  {0, NULL, 0}      /* Ends a scanning loop.  See comment above. */
-};
-
-/*****************************************************************************
  *  This is a list of Java reserved words.  If a variable in                 *
  * the Fortran source matches one of these words, it must be                 *
  * transformed before generating the Java source.                            *
@@ -454,23 +436,6 @@ char *java_reserved_words[] =
           "var" ,       "void" ,"volatile" ,    "while" ,      "null" ,
      "continue" ,      "false" ,    "case" ,  "generic" ,"instanceof" ,
        "public" ,     "switch" ,     "try" ,     0
-};
-
-/*****************************************************************************
- *  This is a list of words which will conflict with the Jasmin              *
- * assembler.  During goto translation, we generate a class file             *
- * which is then disassembled into Jasmin assembly code.  If                 *
- * any of these words are used as variable names, Jasmin will                *
- * complain.  I will add names to this list as I run across                  *
- * problems.   12/8/97 --Keith                                               *
- *                                                                           *
- *  When I finish writing the code to directly modify the                    *
- * bytecode, this stuff can be removed.  --Keith                             *
- *****************************************************************************/
-
-char *jasmin_reserved_words[] =
-{
-     "ldc", "isub", "iinc", 0
 };
 
 /*****************************************************************************

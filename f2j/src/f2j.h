@@ -37,14 +37,9 @@
 /*****************************************************************************
  * Define VCG as 1 if VCG output is desired (VCG == Visualization of         *
  *   Compiler Graphs)                                                        *
- *                                                                           *
- * Define DEFAULT_TARGET_LANG as 0 to generate Java code by default.         *
- * Define DEFAULT_TARGET_LANG as 1 to generate Jasmin code by default.       *
- * DEFAULT_TARGET_LANG can be overridden by the command-line options.        *
  *****************************************************************************/
 
 #define VCG 0
-#define DEFAULT_TARGET_LANG 0
 
 /*****************************************************************************
  * Defines for optimization of the use of object wrappers:                   *
@@ -306,12 +301,9 @@ struct _assignment
   BOOL parens;                      /* used only by expr nodes.  TRUE if the */
                                     /* expression is enclosed by parens      */
 
-  int label;                        /* label for this expr (used w/Jasmin)   */
-
   char  
     minus,                          /* unary sign of this expression         */
-    optype,                         /* kind of operation (e.g. +, -, *, etc) */
-    *opcode;                        /* Jasmin opcode for this operation      */
+    optype;                         /* kind of operation (e.g. +, -, *, etc) */
 
   struct ast_node 
     *lhs,                           /* left-hand side of expr or assignment  */
@@ -338,8 +330,6 @@ struct _typeunit
 struct _forloop
 {
   unsigned int 
-    startlabel,                     /* label of beginning of loop (Jasmin)   */
-    stoplabel,                      /* label of end of loop (Jasmin)         */
     localvar;                       /* local var holding iteration count     */
 
   struct ast_node 
@@ -396,7 +386,7 @@ struct _ident
     position,                       /* ident's position in COMMON block      */
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
     array_len,                      /* num elements in array (if not implied)*/
-    localvnum,                      /* local variable number (for Jasmin)    */
+    localvnum,                      /* local variable number (for bytecode)  */
     which_implicit;                 /* default 0, array 1, var 2, lfunc 3, intrin 4 */ 
 
   BOOL
@@ -663,7 +653,6 @@ typedef struct {
  *****************************************************************************/
 
 void 
-  jasminheader (FILE *, char *),
   javaheader (FILE *, char *),
   initialize(void),
   uppercase(char *),

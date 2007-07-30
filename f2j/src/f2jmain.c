@@ -29,7 +29,6 @@
 #include"f2j_externs.h"
 
 extern char *java_reserved_words[];
-extern char *jasmin_reserved_words[];
 extern char *blas_routines[];
 extern char *generic_intrinsics[];
 extern char *unit_name;
@@ -79,7 +78,6 @@ main (int argc, char **argv)
   char classname[130];
   char *truncfilename;
   char sourcename[130];
-  char jasminname[130];
   char vcgname[130];
   char *indexname;
   char *f2jpath;
@@ -293,11 +291,9 @@ will most likely not work for other code.\n\n";
   /* Loathsome hacks... */
   strcpy (classname, truncfilename);
   strcpy (sourcename, truncfilename);
-  strcpy (jasminname, truncfilename);
   strcpy (vcgname, truncfilename);
 
   strcat (sourcename, ".java");
-  strcat (jasminname, ".j");
   strcat (vcgname, ".vcg");
 
   initialize ();
@@ -328,12 +324,6 @@ will most likely not work for other code.\n\n";
  
   for(i=0;java_reserved_words[i] != NULL; i++)
     type_insert(java_keyword_table,temp,0,java_reserved_words[i]);
-
-  jasmin_keyword_table = (SYMTABLE *) new_symtable(211);
-  temp = addnode();
-
-  for(i=0;jasmin_reserved_words[i] != NULL; i++)
-    type_insert(jasmin_keyword_table,temp,0,jasmin_reserved_words[i]);
 
   blas_routine_table = (SYMTABLE *) new_symtable(211);
   temp = addnode();
@@ -377,8 +367,10 @@ will most likely not work for other code.\n\n";
     exit(EXIT_FAILURE);
   }
 
+  fclose(ifp);
+
 #if VCG
-  fclose (vcgfp);
+  fclose(vcgfp);
 #endif
 
   if(bad_format_count > 0)
@@ -388,13 +380,18 @@ will most likely not work for other code.\n\n";
     fprintf(stderr,"Ignored %d format statement(s) with implied loops\n", 
        ignored_formatting);
 
-#ifdef _WIN32
-  /* for windows, we should delete the temp file created earlier. */
-
-  if(fclose(devnull) < 0) {
-    fprintf(stderr,"error closing...\n");
+  if(fclose(indexfp) < 0) {
+    fprintf(stderr,"error closing indexfp...\n");
     perror("reason");
   }
+
+  if(fclose(devnull) < 0) {
+    fprintf(stderr,"error closing devnull...\n");
+    perror("reason");
+  }
+
+#ifdef _WIN32
+  /* for windows, we should delete the temp file created earlier. */
   if(remove(null_file) < 0) {
     fprintf(stderr,"couldn't remove temp file...\n");
     perror("reason");
@@ -403,40 +400,6 @@ will most likely not work for other code.\n\n";
 
   exit(EXIT_SUCCESS);
 }
-
-/*****************************************************************************
- *                                                                           *
- * jasminheader                                                              *
- *                                                                           *
- * This stuff goes at the top of every jasmin file.                          *
- *                                                                           *
- *****************************************************************************/
-
-void
-jasminheader (FILE * fp, char *classname)
-{
-  fprintf(fp,";  Produced by f2jas.  f2jas is part of the Fortran-\n");
-  fprintf(fp,";  -to-Java project at the University of Tennessee Netlib\n");
-  fprintf(fp,";  numerical software repository.\n");
-  fprintf(fp,";  David M. Doolin, doolin@cs.utk.edu\n\n");
-  fprintf(fp,"\n; Conventions:\n");
-  fprintf(fp,";\t1. S_label<n> refers to a label n from the Fortran source.\n");
-  fprintf(fp,";\t2. Variable names, constants and operators from the\n");
-  fprintf(fp,";\t   Fortran source are listed when possible as comments ");
-  fprintf(fp,"to each instruction.\n");
-  fprintf(fp,";\t3. Jasmin opcodes are indent 3 spaces.\n");
-  fprintf(fp,";\t4. Jasmin directives start with a `.' and aren't indented.\n");
-  fprintf(fp,"\n");
-  fprintf(fp,".class public %s\n", classname);
-  fprintf(fp,".super java/lang/Object\n\n");
-  fprintf(fp,"; The instance initialization method.\n");
-  fprintf(fp,".method public <init>()V\n");
-  fprintf(fp,"   ;  Just call the initializer for Object.\n");
-  fprintf(fp,"   aload_0\n");
-  fprintf(fp,"   invokespecial java/lang/Object/<init>()V\n");
-  fprintf(fp,"   return\n");
-  fprintf(fp,".end method\n");
-}				/* Close jasminheader(). */
 
 /*****************************************************************************
  *                                                                           *
@@ -715,6 +678,8 @@ insert_entries(char *path, Dlist methtab)
 
     dl_insert_b(methtab, bc_new_method_node(class,method,desc));
   }
+
+  fclose(in);
 
   return;
 }

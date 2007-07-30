@@ -380,7 +380,6 @@ typedec_check (AST * root)
   for(temp=root->astnode.typeunit.declist; temp != NULL; temp = temp->nextstmt)
   {
     if(temp->astnode.ident.arraylist != NULL) {
-
       temp2 = temp->astnode.ident.arraylist;
       for( ;temp2!=NULL;temp2=temp2->nextstmt) {
         if(temp2->nodetype == ArrayIdxRange) {

@@ -39,11 +39,7 @@ extern METHODTAB intrinsic_toks[];         /* fortran intrinsic functions    */
 
 extern char *generic_intrinsics[];         /* table of 'generic' intrinsics  */
 
-extern METHODTAB jasmin_intrinsic_toks[];  /* mapping intrinsics to jasmin   */
-
 extern char *java_reserved_words[];        /* list of Java reserved words    */
-
-extern char *jasmin_reserved_words[];      /* list of Jasmin reserved words  */
 
 extern char *blas_routines[];              /* list of the routines in BLAS   */
 

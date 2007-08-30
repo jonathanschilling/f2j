@@ -3088,7 +3088,6 @@ primary:  Name {$$=$1;}
           |  SubstringOp {$$=$1;}    
           |  OP Exp CP  
              {
-/** paren case **/
                $$ = addnode();
                $2->parent = $$;   /* 9-4-97 - Keith */
                $$->nodetype = Expression;

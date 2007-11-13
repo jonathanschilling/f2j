@@ -552,17 +552,8 @@ class FormatI extends FormatIOElement
 
     /* Convert the number to a string. */
     if ( o instanceof Integer || o instanceof Long ) {
-      CJFormat cjf = new CJFormat();
-      cjf.setWidth( getWidth() );
-      cjf.setPre( "" );
-      cjf.setPost( "" );
-      cjf.setLeadingZeroes( false );
-      cjf.setShowPlus( false );
-      cjf.setAlternate( false );
-      cjf.setShowSpace( false );
-      cjf.setLeftAlign( false );
-      cjf.setFmt( 'i' );
-      s = cjf.form( ((Number)o).longValue() );
+      String fmtstr = "%" + Integer.toString(getWidth()) + "d";
+      s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
       if ( s.length() > getWidth() )
@@ -752,18 +743,9 @@ class FormatF extends FormatIOElement
     /* Convert the number to a string. */
     if ( o instanceof Integer || o instanceof Long ||
          o instanceof Float || o instanceof Double ) {
-      CJFormat cjf = new CJFormat();
-      cjf.setWidth( getWidth() );
-      cjf.setPrecision( this.d );
-      cjf.setPre( "" );
-      cjf.setPost( "" );
-      cjf.setLeadingZeroes( false );
-      cjf.setShowPlus( false );
-      cjf.setAlternate( false );
-      cjf.setShowSpace( false );
-      cjf.setLeftAlign( false );
-      cjf.setFmt( 'f' );
-      s = cjf.form( ((Number)o).doubleValue() );
+      String fmtstr = "%" + Integer.toString(getWidth()) + "." + 
+         Integer.toString(this.d) + "f";
+      s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
       if ( s.length() > getWidth() )
@@ -852,18 +834,9 @@ class FormatE extends FormatIOElement
     /* Convert the number to a string. */
     if ( o instanceof Integer || o instanceof Long ||
          o instanceof Float || o instanceof Double ) {
-      CJFormat cjf = new CJFormat();
-      cjf.setWidth( getWidth() );
-      cjf.setPrecision( this.d );
-      cjf.setPre( "" );
-      cjf.setPost( "" );
-      cjf.setLeadingZeroes( false );
-      cjf.setShowPlus( false );
-      cjf.setAlternate( false );
-      cjf.setShowSpace( false );
-      cjf.setLeftAlign( false );
-      cjf.setFmt( 'E' );
-      s = cjf.form( ((Number)o).doubleValue() );
+      String fmtstr = "%" + Integer.toString(getWidth()) + "." + 
+         Integer.toString(this.d) + "E";
+      s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
       if ( s.length() > getWidth() )

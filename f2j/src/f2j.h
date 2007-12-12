@@ -74,6 +74,18 @@
 
 #define MAX_CONST_LEN 80
 
+/*****************************************************************************
+ * BIGBUFF is the maximum size in characters of an input line (including)    *
+ * continuations.  Had a segfault on a very long continued line              *
+ * in a lapack routine.  This is a hack, should                              *
+ * reallaoc when buffer overflows instead.                                   *
+ *                                                                           *
+ * YYTEXTLEN is the maximum size in characters of the token string.          *
+ *****************************************************************************/
+
+#define BIGBUFF    2000
+#define YYTEXTLEN  2000
+
 struct _str {
   unsigned int size;
   char *val;
@@ -356,7 +368,7 @@ struct _constant
 
   char 
     *opcode,                        /* e.g., iconst_1, bipush 121.23         */
-    number[MAX_CONST_LEN];          /* the constant                          */
+    *number;                        /* the constant                          */
 };
 
 /*****************************************************************************

@@ -137,7 +137,8 @@ void cfg_emit(Dlist, char *);
 char 
   * tok2str(int),
   * format2str(AST *),
-  * lowercase ( char * ),
+  * lowercase(char *),
+  * escape_double_quotes(char *),
   * get_common_prefix(char *),
   * getVarDescriptor(AST *),
   * char_substitution(char *, int, int),

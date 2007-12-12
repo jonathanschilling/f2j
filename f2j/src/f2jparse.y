@@ -72,6 +72,7 @@ double
 char 
   * lowercase(char * ),
   * first_char_is_minus(char *),
+  * unary_negate_string(char *),
   * tok2str(int );
 
 void
@@ -89,7 +90,6 @@ void
   merge_common_blocks(AST *),
   arg_table_load(AST *),
   exp_to_double (char *, char *),
-  prepend_minus(char *),
   assign_function_return_type(AST *, AST *),
   insert_name(SYMTABLE *, AST *, enum returntype),
   store_array_var(AST *),
@@ -121,7 +121,7 @@ ITAB_ENTRY implicit_table[26];
    struct ast_node *ptnode;
    int tok;
    enum returntype type;
-   char lexeme[80];
+   char lexeme[YYTEXTLEN];
 }
 
 /* generic tokens */
@@ -1131,8 +1131,7 @@ DataConstant:  Constant
                     $$->nodetype = Constant;
                     $$->vartype = hash_temp->variable->vartype;
                     $$->token = hash_temp->variable->token;
-                    strcpy($$->astnode.constant.number,
-                      hash_temp->variable->astnode.constant.number);
+                    $$->astnode.constant.number = strdup(hash_temp->variable->astnode.constant.number);
                  }
                  else{
                     printf("Error: '%s' is not a constant\n",yylval.lexeme);
@@ -1141,7 +1140,18 @@ DataConstant:  Constant
                }   
             |  MINUS Constant   
                {
-                 prepend_minus($2->astnode.constant.number);
+                 char *neg_string;
+
+                 neg_string = unary_negate_string($2->astnode.constant.number);
+
+                 if(!neg_string) {
+                   fprintf(stderr, "Error generating negated string (DataConstant)\n");
+                   exit(EXIT_FAILURE);
+                 }
+
+                 free($2->astnode.constant.number);
+                 $2->astnode.constant.number = neg_string;
+
                  $$ = $2;
                }
 ;
@@ -1728,8 +1738,8 @@ Name:    NAME
              $$->nodetype = hashtemp->variable->nodetype;
              $$->vartype = hashtemp->variable->vartype;
              $$->token = hashtemp->variable->token;
-             strcpy($$->astnode.constant.number,
-               hashtemp->variable->astnode.constant.number);
+             $$->astnode.constant.number = 
+                strdup(hashtemp->variable->astnode.constant.number);
            }
            else{
              if(debug)
@@ -1782,7 +1792,7 @@ String:  STRING
            $$=addnode();
            $$->token = STRING;
            $$->nodetype = Constant;
-           strcpy($$->astnode.constant.number, yylval.lexeme);
+           $$->astnode.constant.number = strdup(yylval.lexeme);
 
            $$->vartype = String;
            if(debug)
@@ -1793,7 +1803,7 @@ String:  STRING
            $$=addnode();
            $$->token = STRING;
            $$->nodetype = Constant;
-           strcpy($$->astnode.constant.number, yylval.lexeme);
+           $$->astnode.constant.number = strdup(yylval.lexeme);
 
            $$->vartype = String;
            if(debug)
@@ -2001,7 +2011,7 @@ Do_incr:  DO Integer
             $$ = addnode();
             $$->token = INTEGER;
             $$->nodetype = Constant;
-            strcpy($$->astnode.constant.number, loop_label);
+            $$->astnode.constant.number = strdup(loop_label);
             $$->vartype = Integer;
 
             dl_insert_b(do_labels, strdup($$->astnode.constant.number));
@@ -2357,7 +2367,7 @@ WriteFileDesc:
           $$ = addnode();
           $$->token = INTEGER;
           $$->nodetype = Constant;
-          strcpy($$->astnode.constant.number,"*");
+          $$->astnode.constant.number = strdup("*");
           $$->vartype = Integer;
        }
 ;
@@ -2376,7 +2386,7 @@ FormatSpec:
           $$ = addnode();
 	  $$->token = INTEGER;
           $$->nodetype = Constant;
-          strcpy($$->astnode.constant.number,"*");
+          $$->astnode.constant.number = strdup("*");
 	  $$->vartype = Integer;
         }
      | STAR
@@ -2384,7 +2394,7 @@ FormatSpec:
           $$ = addnode();
 	  $$->token = INTEGER;
           $$->nodetype = Constant;
-          strcpy($$->astnode.constant.number,"*");
+          $$->astnode.constant.number = strdup("*");
 	  $$->vartype = Integer;
         }
      | FMT EQ String
@@ -2402,7 +2412,7 @@ FormatSpec:
           $$ = addnode();
 	  $$->token = INTEGER;
           $$->nodetype = Constant;
-          strcpy($$->astnode.constant.number,"*");
+          $$->astnode.constant.number = strdup("*");
 	  $$->vartype = Integer;
         }
 ;
@@ -2949,7 +2959,18 @@ arith_expr: term
           | MINUS term
             {
               if($2->nodetype == Constant) {
-                prepend_minus($2->astnode.constant.number);
+                char *neg_string;
+
+                neg_string = unary_negate_string($2->astnode.constant.number);
+
+                if(!neg_string) {
+                  fprintf(stderr, "Error generating negated string (arith_expr)\n");
+                  exit(EXIT_FAILURE);
+                }
+
+                free($2->astnode.constant.number);
+                $2->astnode.constant.number = neg_string;
+
                 $$ = $2;
               }
               else {
@@ -3111,7 +3132,7 @@ Boolean:  TrUE
                $$ = addnode();
                $$->token = TrUE;
                $$->nodetype = Constant;
-               strcpy($$->astnode.constant.number, "true");
+               $$->astnode.constant.number = strdup("true");
                $$->vartype = Logical;
              }
          | FaLSE
@@ -3119,7 +3140,7 @@ Boolean:  TrUE
                $$ = addnode();
                $$->token = FaLSE;
                $$->nodetype = Constant;
-               strcpy($$->astnode.constant.number, "false");
+               $$->astnode.constant.number = strdup("false");
                $$->vartype = Logical;
              }
 
@@ -3158,7 +3179,7 @@ Integer :     INTEGER
                $$ = addnode();
                $$->token = INTEGER;
                $$->nodetype = Constant;
-               strcpy($$->astnode.constant.number, yylval.lexeme);
+               $$->astnode.constant.number = strdup(yylval.lexeme);
                $$->vartype = Integer;
              }
 ;
@@ -3168,7 +3189,7 @@ Double:       DOUBLE
                $$ = addnode();
 	       $$->token = DOUBLE;
                $$->nodetype = Constant;
-               strcpy($$->astnode.constant.number, yylval.lexeme);
+               $$->astnode.constant.number = strdup(yylval.lexeme);
                $$->vartype = Double;
              }
 ;
@@ -3178,6 +3199,8 @@ Float:       FLOAT
                $$ = addnode();
                $$->token = FLOAT;
                $$->nodetype = Constant;
+               $$->astnode.constant.number = 
+                   (char *)malloc(strlen(yylval.lexeme) + 2);
                strcpy($$->astnode.constant.number, yylval.lexeme);
                strcat($$->astnode.constant.number, "f");
                $$->vartype = Float;
@@ -3198,6 +3221,8 @@ Exponential:   E_EXPONENTIAL
 	       $$->token = E_EXPONENTIAL;
                $$->nodetype = Constant;
 	       exp_to_double(yylval.lexeme, tempname);
+               $$->astnode.constant.number = 
+                   (char *)malloc(strlen(tempname) + 2);
                strcpy($$->astnode.constant.number, tempname);
                strcat($$->astnode.constant.number, "f");
                $$->vartype = Float;
@@ -3210,7 +3235,7 @@ Exponential:   E_EXPONENTIAL
 	       $$->token = D_EXPONENTIAL;
                $$->nodetype = Constant;
 	       exp_to_double(yylval.lexeme, tempname);
-               strcpy($$->astnode.constant.number, tempname);
+               $$->astnode.constant.number = strdup(tempname);
                $$->vartype = Double;
              }
 ;
@@ -3227,7 +3252,7 @@ Pause:  PAUSE NL
         {
           $$ = addnode();
           $$->nodetype = Pause;
-          $$->astnode.constant.number[0] = 0;
+          $$->astnode.constant.number = strdup("");
         }
       | PAUSE String NL
         {
@@ -3240,7 +3265,7 @@ Stop:   STOP NL
         {
           $$ = addnode();
           $$->nodetype = Stop;
-          $$->astnode.constant.number[0] = 0;
+          $$->astnode.constant.number = strdup("");
         }
       | STOP String NL
         {
@@ -3386,20 +3411,21 @@ Pdec:     Assignment
               case String:
               case Character:
                 temp->token = STRING;
-                strcpy(temp->astnode.constant.number, 
-                       $$->astnode.assignment.rhs->astnode.constant.number);
+                temp->astnode.constant.number =
+                  strdup($$->astnode.assignment.rhs->astnode.constant.number);
                 break;
               case Complex:
                 fprintf(stderr,"Pdec: Complex not yet supported.\n");
                 break;
               case Logical:
                 temp->token = $$->astnode.assignment.rhs->token;
-                strcpy(temp->astnode.constant.number, 
-                       temp->token == TrUE ? "true" : "false");
+                temp->astnode.constant.number =
+                   strdup(temp->token == TrUE ? "true" : "false");
                 break;
               case Float:
                 temp->token = FLOAT;
 
+                temp->astnode.constant.number = (char *)malloc(MAX_CONST_LEN);
                 sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
                 add_decimal_point(temp->astnode.constant.number);
                 strcat(temp->astnode.constant.number, "f");
@@ -3408,12 +3434,14 @@ Pdec:     Assignment
               case Double:
                 temp->token = DOUBLE;
 
+                temp->astnode.constant.number = (char *)malloc(MAX_CONST_LEN);
                 sprintf(temp->astnode.constant.number,"%.40g",constant_eval);
                 add_decimal_point(temp->astnode.constant.number);
                 
                 break;
               case Integer:
                 temp->token = INTEGER;
+                temp->astnode.constant.number = (char *)malloc(MAX_CONST_LEN);
                 sprintf(temp->astnode.constant.number,"%d",(int)constant_eval);
                 break;
               default:
@@ -4314,31 +4342,33 @@ printbits(char *header, void *var, int datalen)
 
 /*****************************************************************************
  *                                                                           *
- * prepend_minus                                                             *
+ * unary_negate_string                                                       *
  *                                                                           *
  * This function accepts a string and prepends a '-' in front of it.         *
- * We assume that the string pointer passed in has enough storage space.     *
  *                                                                           *
  *****************************************************************************/
 
-void
-prepend_minus(char *num)
+char *
+unary_negate_string(char *num)
 {
-  char * tempstr;
-
-  if( (tempstr = first_char_is_minus(num)) != NULL) {
-    *tempstr = ' ';
-    return;
-  }
+  char *tempstr, *mchar;
 
   /* allocate enough for the number, minus sign, and null char */
   tempstr = (char *)f2jalloc(strlen(num) + 5);
 
+  if(!tempstr) return NULL;
+
+  strcpy(tempstr, num);
+
+  if((mchar = first_char_is_minus(tempstr)) != NULL) {
+    *mchar = ' ';
+    return tempstr;
+  }
+
   strcpy(tempstr,"-");
   strcat(tempstr,num);
-  strcpy(num,tempstr);
 
-  free(tempstr);
+  return tempstr;
 }
 
 /*****************************************************************************
@@ -4359,6 +4389,8 @@ first_char_is_minus(char *num)
   while( *ptr ) {
     if( *ptr == '-' )
       return ptr;
+    if( *ptr != ' ' )
+      return NULL;
     ptr++;
   }
 
@@ -4389,7 +4421,7 @@ gen_incr_expr(AST *counter, AST *incr)
     const_node = addnode();
     const_node->token = INTEGER;
     const_node->nodetype = Constant;
-    strcpy(const_node->astnode.constant.number, "1");
+    const_node->astnode.constant.number = strdup("1");
     const_node->vartype = Integer;
 
     plus_node = addnode();
@@ -4453,7 +4485,7 @@ gen_iter_expr(AST *start, AST *stop, AST *incr)
     incr_node = addnode();
     incr_node->token = INTEGER;
     incr_node->nodetype = Constant;
-    strcpy(incr_node->astnode.constant.number, "1");
+    incr_node->astnode.constant.number = strdup("1");
     incr_node->vartype = Integer;
   }
   else 

@@ -144,8 +144,11 @@ free_ast_node(AST *n)
     return;
 
   switch(n->nodetype) {
-    case Identifier:
     case Constant:
+      if(n->astnode.constant.number)
+        free(n->astnode.constant.number);
+      break;
+    case Identifier:
     case Typedec:
     case Assignment:
       break;

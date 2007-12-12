@@ -934,7 +934,7 @@ pause_emit(JVM_METHOD *meth, AST *root)
 
   if(root->astnode.constant.number[0] != 0) {
     fprintf(curfp,"org.netlib.util.Util.pause(\"%s\");\n",
-       root->astnode.constant.number);
+       escape_double_quotes(root->astnode.constant.number));
 
     bc_push_string_const(meth, root->astnode.constant.number);
     c = bc_new_methodref(cur_class_file, UTIL_CLASS, "pause", PAUSE_DESC);
@@ -964,7 +964,14 @@ stop_emit(JVM_METHOD *meth, AST *root)
   int c;
 
   if(root->astnode.constant.number[0] != 0) {
-    char stop_msg[MAX_CONST_LEN + 6];
+    char *stop_msg;
+
+    stop_msg = (char *)malloc(strlen(root->astnode.constant.number) + 7);
+
+    if(!stop_msg) {
+      fprintf(stderr, "malloc failed in stop_emit()\n");
+      exit(EXIT_FAILURE);
+    }
 
     strcpy(stop_msg, "STOP: ");
     strncat(stop_msg, root->astnode.constant.number, MAX_CONST_LEN);
@@ -978,7 +985,9 @@ stop_emit(JVM_METHOD *meth, AST *root)
     bc_append(meth, jvm_invokevirtual, c);
 
     fprintf(curfp, "System.err.println(\"STOP: %s\");\n",
-       root->astnode.constant.number);
+       escape_double_quotes(root->astnode.constant.number));
+
+    free(stop_msg);
   }
 
   fprintf (curfp, "System.exit(0);\n");
@@ -2843,7 +2852,7 @@ print_string_initializer(JVM_METHOD *meth, AST *root)
 
   tempnode = addnode();
   tempnode->token = STRING;
-  strcpy(tempnode->astnode.constant.number, bytecode_initializer);
+  tempnode->astnode.constant.number = strdup(bytecode_initializer);
 
   if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
     fprintf(curfp,"= new String(%s)", src_initializer);
@@ -3319,7 +3328,7 @@ data_string_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
 
   init_string[str_idx] = 0;
  
-  fprintf(curfp,"%s\";\n", init_string);
+  fprintf(curfp,"%s\";\n", escape_double_quotes(init_string));
 
   bc_push_string_const(meth, init_string);
 
@@ -3399,7 +3408,8 @@ data_array_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
       bc_push_int_const(meth, count++);
 
       if(Ctemp->token == STRING) {
-        fprintf(curfp,"\"%s\" ",Ctemp->astnode.constant.number);
+        fprintf(curfp,"\"%s\" ", 
+           escape_double_quotes(Ctemp->astnode.constant.number));
         invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
       }
       else {
@@ -3572,7 +3582,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
       if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name)) {
         fprintf(curfp,"%s = new String(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
-          Ctemp->astnode.constant.number);
+          escape_double_quotes(Ctemp->astnode.constant.number));
 
         invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
         c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
@@ -3581,7 +3591,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
       else {
         fprintf(curfp,"%s = new StringW(\"%*s\");\n",
           Ntemp->astnode.ident.name, len,
-          Ctemp->astnode.constant.number);
+          escape_double_quotes(Ctemp->astnode.constant.number));
 
         invoke_constructor(meth, full_wrappername[type], Ctemp, STR_CONST_DESC);
         c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
@@ -3600,7 +3610,8 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
        */
 
       expr_emit(meth, Ntemp);
-      fprintf(curfp," = \"%*s\";\n", len, Ctemp->astnode.constant.number);
+      fprintf(curfp," = \"%*s\";\n", len, 
+         escape_double_quotes(Ctemp->astnode.constant.number));
 
       invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
 
@@ -3634,7 +3645,8 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
       }
       else {
         fprintf(curfp,"%s = new %s(%s);\n",Ntemp->astnode.ident.name,
-          wrapper_returns[ type], Ctemp->astnode.constant.number);
+          wrapper_returns[ type], 
+          Ctemp->astnode.constant.number);
         invoke_constructor(meth, full_wrappername[type], Ctemp,
           wrapper_descriptor[type]);
         c = bc_new_fieldref(cur_class_file,cur_filename,Ntemp->astnode.ident.name,
@@ -3800,7 +3812,8 @@ name_emit (JVM_METHOD *meth, AST * root)
           printf("  (should this case be reached?)\n");
         }
 
-        fprintf (curfp, "\"%s\"", root->astnode.constant.number);
+        fprintf (curfp, "\"%s\"", 
+           escape_double_quotes(root->astnode.constant.number));
         break;
       case INTRINSIC: 
         break;
@@ -6561,7 +6574,8 @@ constant_expr_emit(JVM_METHOD *meth, AST *root)
 
         pushConst(meth, root);
 
-        fprintf (curfp, "\"%s\"", root->astnode.constant.number);
+        fprintf (curfp, "\"%s\"", 
+          escape_double_quotes(root->astnode.constant.number));
       }
       else
       {
@@ -6569,7 +6583,7 @@ constant_expr_emit(JVM_METHOD *meth, AST *root)
           wrapper_descriptor[root->vartype]);
 
         fprintf (curfp, "new StringW(\"%s\")",
-          root->astnode.constant.number);
+          escape_double_quotes(root->astnode.constant.number));
       }
     }
     else {     /* non-string constant argument to a function call */
@@ -6595,7 +6609,8 @@ constant_expr_emit(JVM_METHOD *meth, AST *root)
     pushConst(meth, root);
 
     if(root->token == STRING)
-      fprintf (curfp, "\"%s\"", root->astnode.constant.number);
+      fprintf (curfp, "\"%s\"", 
+         escape_double_quotes(root->astnode.constant.number));
     else
       fprintf (curfp, "%s", root->astnode.constant.number);
   }
@@ -8457,6 +8472,12 @@ formatted_read_assign_emit(JVM_METHOD *meth, AST *temp,
     idx_temp = addnode();
     idx_temp->token = INTEGER;
     idx_temp->nodetype = Constant;
+    idx_temp->astnode.constant.number = (char *)malloc(MAX_CONST_LEN);
+    if(!idx_temp->astnode.constant.number) {
+      fprintf(stderr, "malloc failed in formatted_read_assign_emit()\n");
+      exit(EXIT_FAILURE);
+    }
+
     sprintf(idx_temp->astnode.constant.number, "%d", idx);
     idx_temp->vartype = Integer;
     idx_temp->nextstmt = NULL;
@@ -13117,4 +13138,42 @@ storeVar(JVM_CLASS *cclass, JVM_METHOD *meth,
            val_descriptor[vt]);
     bc_append(meth,  jvm_putfield, c);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * escape_double_quotes                                                      *
+ *                                                                           *
+ * Adds backslash escapes to strings that are to be emitted in Java source.  *
+ * For example, 'string "with" quotes' -> 'string \"with\" quotes'           *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+escape_double_quotes(char *str)
+{
+  char *newstr;
+  int i, ni;
+
+  newstr = (char *)malloc(strlen(str) * 2 + 1);
+
+  if(!newstr) return NULL;
+
+  ni = 0;
+
+  for(i=0;i<strlen(str);i++) {
+    if(str[i] != '"') {
+      newstr[ni] = str[i];
+      ni++;
+    }
+    else {
+      newstr[ni] = '\\';
+      newstr[ni+1] = '"';
+      ni += 2;
+    }
+  }
+
+  newstr[ni] = 0;
+
+  return newstr;
 }

@@ -30,18 +30,6 @@
 #include"f2j_externs.h"
 
 /*****************************************************************************
- * BIGBUFF is the maximum size in characters of an input line (including)    *
- * continuations.  Had a segfault on a very long continued line              *
- * in a lapack routine.  This is a hack, should                              *
- * reallaoc when buffer overflows instead.                                   *
- *                                                                           *
- * YYTEXTLEN is the maximum size in characters of the token string.          *
- *****************************************************************************/
-
-#define BIGBUFF    2000
-#define YYTEXTLEN   100
-
-/*****************************************************************************
  * Set lexdebug TRUE for debugging output from the lexer routines.           *
  *****************************************************************************/
 
@@ -1359,7 +1347,7 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
     /* Try to match a substring of the  current string (scp).*/
     if (!strncmp (scp, tab->kwd, tokenlength))
     {
-      if(tokenlength > YYTEXTLEN)
+      if(tokenlength > YYTEXTLEN-1)
         fprintf(stderr,"Warning: going to write past yytext (%d)\n",
           tokenlength);
 
@@ -1717,7 +1705,7 @@ string_or_char_scan (BUFFER * bufstruct)
         done = TRUE;
     }
 
-    if(tokenlength > YYTEXTLEN)
+    if(tokenlength > YYTEXTLEN-1)
       fprintf(stderr,"Warning: going to write past yytext (%d)\n",
         tokenlength);
 

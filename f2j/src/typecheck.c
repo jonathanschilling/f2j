@@ -113,6 +113,24 @@ typecheck (AST * root)
       chk_intrinsic_table = root->astnode.source.intrinsic_table;
       chk_array_table = root->astnode.source.array_table;
 
+      /* if there is a block of prologue comments, count the
+       * number of lines here and set it in the comment node.
+       */
+
+      if(root->astnode.source.prologComments) {
+        int prolog_len = 0;
+        AST *pltemp;
+
+        pltemp = root->astnode.source.prologComments;
+
+        while(pltemp != NULL && pltemp->nodetype == Comment) {
+          prolog_len++;
+          pltemp = pltemp->nextstmt;
+        }
+
+        root->astnode.source.prologComments->astnode.ident.len = prolog_len;
+      }
+
       merge_equivalences(root->astnode.source.equivalences);
 
       /* now that the equivalences have been merged and duplicates

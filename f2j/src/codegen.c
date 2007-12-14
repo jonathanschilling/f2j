@@ -200,6 +200,8 @@ emit (AST * root)
           else
             import_blas = FALSE; 
 
+          prepare_comments(root);
+
           open_output_file(root->astnode.source.progtype, classname);
 
           savefp = curfp;
@@ -691,6 +693,43 @@ emit (AST * root)
         break;
     }				/* switch on nodetype.  */
 
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * prepare_comments                                                          *
+ *                                                                           *
+ * Here we check whether there was a block of prologue comment statements.   *
+ * If that block is longer than the current javadoc comment block (or if     *
+ * there is no javadoc comment block) then use the prologue instead.         *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+prepare_comments(AST *root)
+{
+  AST *pc, *jc;
+
+  if(genJavadoc) {
+    pc = root->astnode.source.prologComments;
+    jc = root->astnode.source.progtype->astnode.source.javadocComments;
+
+    if(pc) {
+      if(jc) {
+        if(pc->astnode.ident.len > jc->astnode.ident.len) {
+          jc->nodetype = Comment;
+          pc->nodetype = MainComment;
+          root->astnode.source.progtype->astnode.source.javadocComments = pc;
+          root->astnode.source.prologComments = NULL;
+        }
+      }
+      else {
+        pc->nodetype = MainComment;
+        root->astnode.source.progtype->astnode.source.javadocComments = pc;
+        root->astnode.source.prologComments = NULL;
+      }
+    }
+  }
 }
 
 /*****************************************************************************

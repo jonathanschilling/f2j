@@ -235,6 +235,7 @@ void
   print_equivalences(AST *),
   emit_prolog_comments(AST *),
   emit_javadoc_comments(AST *),
+  prepare_comments(AST *),
   insert_fields(AST *),
   return_emit(JVM_METHOD *),
   end_emit(JVM_METHOD *),

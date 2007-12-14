@@ -83,7 +83,7 @@ public class ArraySpec {
    * String is not an array, but we want to pull out the characters
    * individually.
    *
-   * @param arr The string to be used in the I/O call
+   * @param str The string to be used in the I/O call
    */
   public ArraySpec(String str) {
     char [] chars = str.toCharArray();

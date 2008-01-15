@@ -1,7 +1,7 @@
 /**
  * DsyevTest - example of calling the Java version of Dsyev.
  *
- * This was adapted from the NAG DGEEV Example (NAG Copyright 2005).
+ * This was adapted from the NAG DSYEV Example (NAG Copyright 2005).
  *    http://www.nag.co.uk/lapack-ex/node71.html
  *
  * To compile and run:

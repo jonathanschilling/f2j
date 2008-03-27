@@ -7,7 +7,7 @@ SIMPLE_LAPACK_CLASSPATH=$(LAPACK_CLASSPATH):../lapack_simple.jar
 
 all: DdotTest.class SimpleDdotTest.class DgesvdTest.class SimpleDgesvdTest.class \
      DlaruvTest.class DsygvTest.class DstevrTest.class SimpleDsygvTest.class \
-     DgeevTest.class DsyevTest.class
+     DgeevTest.class DsyevTest.class SimpleDgeqrfTest.class
 
 DdotTest.class: DdotTest.java
 	$(JAVAC) -classpath $(BLAS_CLASSPATH) DdotTest.java
@@ -29,6 +29,8 @@ DgesvdTest.class: DgesvdTest.java
 	$(JAVAC) -classpath $(LAPACK_CLASSPATH) DgesvdTest.java
 SimpleDgesvdTest.class: SimpleDgesvdTest.java
 	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDgesvdTest.java
+SimpleDgeqrfTest.class: SimpleDgeqrfTest.java
+	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDgeqrfTest.java
 
 clean:
 	/bin/rm -f *.class

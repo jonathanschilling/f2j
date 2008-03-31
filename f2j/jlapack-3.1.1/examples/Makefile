@@ -5,9 +5,11 @@ SIMPLE_BLAS_CLASSPATH=$(BLAS_CLASSPATH):../blas_simple.jar
 LAPACK_CLASSPATH=$(BLAS_CLASSPATH):../lapack.jar:../xerbla.jar
 SIMPLE_LAPACK_CLASSPATH=$(LAPACK_CLASSPATH):../lapack_simple.jar
 
-all: DdotTest.class SimpleDdotTest.class DgesvdTest.class SimpleDgesvdTest.class \
-     DlaruvTest.class DsygvTest.class DstevrTest.class SimpleDsygvTest.class \
-     DgeevTest.class DsyevTest.class SimpleDgeqrfTest.class SimpleDgeqrfTestFullQ.class
+all: DdotTest.class SimpleDdotTest.class DgesvdTest.class \
+     SimpleDgesvdTest.class DlaruvTest.class DsygvTest.class \
+     DstevrTest.class SimpleDsygvTest.class DgeevTest.class \
+     DsyevTest.class SimpleDgeqrfTest.class SimpleDgeqrfTestFullQ.class \
+     DgeqrfTestFullQ.class
 
 DdotTest.class: DdotTest.java
 	$(JAVAC) -classpath $(BLAS_CLASSPATH) DdotTest.java
@@ -23,6 +25,8 @@ DsygvTest.class: DsygvTest.java
 	$(JAVAC) -classpath $(LAPACK_CLASSPATH) DsygvTest.java
 DstevrTest.class: DstevrTest.java
 	$(JAVAC) -classpath $(LAPACK_CLASSPATH) DstevrTest.java
+DgeqrfTestFullQ.class: DgeqrfTestFullQ.java
+	$(JAVAC) -classpath $(LAPACK_CLASSPATH) DgeqrfTestFullQ.java
 SimpleDsygvTest.class: SimpleDsygvTest.java
 	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDsygvTest.java
 DgesvdTest.class: DgesvdTest.java

@@ -34,7 +34,7 @@ public class SimpleDgeqrfTestFullQ {
     System.out.println();
 
     for(i=1;i<M;i++) {
-      for(j=0;j<i;j++) {
+      for(j=0;j<Math.min(M,N);j++) {
         q[i][j] = bb[i][j];
       }
     }

@@ -22,6 +22,7 @@
 #include<string.h>
 #include<time.h>
 #include<signal.h>
+#include"f2j-config.h"
 #include"f2j.h"
 #include"y.tab.h"
 #include"dlist.h"
@@ -212,6 +213,7 @@ will most likely not work for other code.\n\n";
         omitWrappers = FALSE;
         break;
       case 'h':
+        printf("This is Fortran-to-Java version %s.\n\n", F2J_VERSION);
         printf("%s",f2java_help);
         printf("%s",f2java_help_I_option);
         printf("%s",f2java_help_c_option);
@@ -423,7 +425,8 @@ javaheader (FILE * fp, char *reflect)
   fprintf(fp," *  Original authorship for the BLAS and LAPACK numerical\n");
   fprintf(fp," *  routines may be found in the Fortran source, available at\n");
   fprintf(fp," *  http://www.netlib.org.\n *\n");
-  fprintf(fp," *  Fortran input file: %s\n *\n", inputfilename);
+  fprintf(fp," *  Fortran input file: %s\n", inputfilename);
+  fprintf(fp," *  f2java version: %s\n *\n", F2J_VERSION);
   fprintf(fp," */\n\n");
 
   if(package_name != NULL)

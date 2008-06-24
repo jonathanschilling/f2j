@@ -1,0 +1,13 @@
+/*
+ * $Source$
+ * $Revision$
+ * $Date$
+ * $Author$
+ */
+
+#ifndef _F2J_CONFIG_H
+#define _F2J_CONFIG_H
+
+#define F2J_VERSION "@F2J_VERSION@"
+
+#endif

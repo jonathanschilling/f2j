@@ -1,4 +1,4 @@
-AC_INIT(f2j, 0.8, [f2j@cs.utk.edu])
+AC_INIT(f2j, 0.8.1, [f2j@cs.utk.edu])
 AC_REVISION([$Revision$])
 
 AC_CONFIG_SRCDIR(f2j_TODO.txt)
@@ -27,6 +27,8 @@ AC_SUBST(JAVAC)
 AC_PATH_PROG(JAVA, java)
 AC_SUBST(JAVA)
 AC_PROG_YACC
+F2J_VERSION=AC_PACKAGE_VERSION
+AC_SUBST(F2J_VERSION)
 
 AC_ARG_WITH(libbytecode-dir,
             [  --with-libbytecode-dir=dir  directory containing bytecode library],
@@ -38,4 +40,4 @@ F2J_PACKAGE_STRING=AC_PACKAGE_NAME-AC_PACKAGE_VERSION
 AC_SUBST(F2J_PACKAGE_STRING)
 
 AC_CONFIG_FILES(Makefile src/make.def goto_trans/make.def util/make.def)
-AC_OUTPUT
+AC_OUTPUT(src/f2j-config.h)

@@ -41,7 +41,7 @@ srcdist_common:
 	mkdir -p $(F2J_PACKAGE_NAME)/util/org/netlib/util
 	cd goto_trans; cp *.[ch] make.def.in README LICENSE Makefile ../$(F2J_PACKAGE_NAME)/goto_trans
 	cd libbytecode; cp *.[ch] *.in configure ../$(F2J_PACKAGE_NAME)/libbytecode
-	cd src; cp *.[chy] make.def.in LICENSE Makefile ../$(F2J_PACKAGE_NAME)/src
+	cd src; cp *.[chy] make.def.in LICENSE Makefile f2j-config.h.in ../$(F2J_PACKAGE_NAME)/src
 	cd util; cp make.def.in Makefile ../$(F2J_PACKAGE_NAME)/util
 	cd util; cp -r org ../$(F2J_PACKAGE_NAME)/util
 	cd doc; $(MAKE) f2j_ug.pdf; $(MAKE) almost_clean

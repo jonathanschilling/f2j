@@ -1,3 +1,17 @@
+
+f2j 0.8.1 -- released June 30, 2008
+
+-minor bug fixes
+-added some examples
+-removed some obsolete code
+-fixed javadoc output
+-added hack for passing workspace of different types
+-added support for format specified as string literal without "fmt="
+    WRITE( *, '(A,A,A,I3,A)') ...etc...
+-changed Formatter to use PrintfFormat instead of CJFormat due to
+ license issues.
+-added version number to -h help information
+
 ---------------------------------------------------------------------------
 f2j 0.8 -- released May 31, 2007
 

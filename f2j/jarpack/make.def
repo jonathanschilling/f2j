@@ -1,0 +1,81 @@
+VERSION=jarpack-0.1
+
+F2J_UTIL_JAR=f2jutil.jar
+
+F2J=f2java
+JAVA=java
+MORE_MEM_FLAG=-Xmx500M
+JAVAC=javac -source 1.4 -target 1.4
+JAVAB=javab
+JAR=jar
+# JAR=/usr/bin/jar
+ZIP=zip
+TAR=tar
+TARFLAGS=chvf
+GZIP=gzip
+VERIFY=de.fub.bytecode.verifier.Verifier
+JUSTICE=$$HOME/bin/JustIce.jar
+BCEL=$$HOME/bin/BCEL.jar
+
+# set the following to -d to enable generating javadoc comments
+F2J_JAVADOC_FLAG=-d
+
+# uncomment and set the following to override the user's JFLAGS setting
+# JFLAGS=
+
+# uncomment the following to force all locals to be emitted static
+# STATIC=-vs
+
+SRCDIR=.
+EXAMPLES_DIR=$(SRCDIR)/EXAMPLES
+OUTDIR=obj
+JAVASRC_OUTDIR=javasrc_obj
+ERR_JAR=xerbla.jar
+ARPACK_UTIL_JAR=arpack_util.jar
+BLAS_JAR=blas.jar
+LAPACK_JAR=lapack.jar
+ARPACK_JAR=arpack.jar
+COMBINED_JAR=arpack_combined.jar
+LIBDIST_ZIP=$(VERSION).zip
+LIBDIST_TGZ=$(VERSION).tgz
+LIBDIST_STRICT_ZIP=$(VERSION)-strict.zip
+LIBDIST_STRICT_TGZ=$(VERSION)-strict.tgz
+JAVADOC_DIST_ZIP=$(VERSION)-javadoc.zip
+JAVADOC_DIST_TGZ=$(VERSION)-javadoc.tgz
+
+BLAS_DIR=$(SRCDIR)/BLAS
+ARPACK_UTIL_DIR=$(SRCDIR)/UTIL
+ERR_DIR=$(SRCDIR)/ERR
+LAPACK_DIR=$(SRCDIR)/LAPACK
+ARPACK_DIR=$(SRCDIR)/SRC
+
+BLAS_OBJ=$(BLAS_DIR)/$(OUTDIR)
+ERR_OBJ=$(ERR_DIR)/$(OUTDIR)
+ARPACK_UTIL_OBJ=$(ARPACK_UTIL_DIR)/$(OUTDIR)
+LAPACK_OBJ=$(LAPACK_DIR)/$(OUTDIR)
+ARPACK_OBJ=$(ARPACK_DIR)/$(OUTDIR)
+
+BLAS_IDX=$(BLAS_OBJ)/Blas.f2j
+ERR_IDX=$(ERR_OBJ)/Err.f2j
+ARPACK_UTIL_IDX=$(ARPACK_UTIL_OBJ)/Util.f2j
+LAPACK_IDX=$(LAPACK_OBJ)/Lapack.f2j
+ARPACK_IDX=$(ARPACK_OBJ)/Arpack.f2j
+
+BLAS_PACKAGE=org.netlib.blas
+BLAS_PDIR=org/netlib/blas
+
+ERR_PACKAGE=org.netlib.err
+ERR_PDIR=org/netlib/err
+
+# ARPACK_UTIL_PACKAGE=edu.rice.caam.arpack_util
+# ARPACK_UTIL_PDIR=edu/rice/caam/arpack_util
+ARPACK_UTIL_PACKAGE=org.netlib.arpack
+ARPACK_UTIL_PDIR=org/netlib/arpack
+
+LAPACK_PACKAGE=org.netlib.lapack
+LAPACK_PDIR=org/netlib/lapack
+
+# ARPACK_PACKAGE=edu.rice.caam.arpack
+# ARPACK_PDIR=edu/rice/caam/arpack
+ARPACK_PACKAGE=org.netlib.arpack
+ARPACK_PDIR=org/netlib/arpack

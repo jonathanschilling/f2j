@@ -11,6 +11,10 @@ The translation was done using f2j version 0.8.1:
 http://icl.cs.utk.edu/f2j
 http://sourceforge.net/projects/f2j
 
+I am not affiliated with the ARPACK project.  I had a few
+users ask whether f2j could handle translating the ARPACK
+library, so I hacked on f2j until it seemed to work.
+
 This directory should contain the following files:
 
   README               - this file
@@ -36,6 +40,11 @@ The following jar files should exist:
   arpack_util.jar      - the ARPACK utilities
   f2jutil.jar          - utilities required for running f2j translated code
   arpack_combined.jar  - all the above jar files combined into one
+
+The blas and lapack jar files included in this distribution are built
+from the code distributed with ARPACK, which includes a subset of the full
+LAPACK library.  If you already have JLAPACK jar files in your CLASSPATH,
+they should work fine too, so you can just append the arpack jar files.
 
 Notes:
 

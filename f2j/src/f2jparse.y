@@ -3272,6 +3272,11 @@ Stop:   STOP NL
            $$ = $2;
            $$->nodetype = Stop;
         }
+      | STOP Integer NL
+        {
+           $$ = $2;
+           $$->nodetype = Stop;
+        }
 ;
 
 Goto:   GOTO Integer  NL
@@ -5154,6 +5159,38 @@ process_subroutine_call(AST *varname, AST *explist)
 
 /*****************************************************************************
  *                                                                           *
+ * set_function_type                                                         *
+ *                                                                           *
+ * This sets the relevant fields in the Function AST node to change its type *
+ * to that specified by 'ret'.                                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+set_function_type(AST *func, enum returntype ret)
+{
+  HASHNODE *ht;
+
+  func->astnode.source.returns = ret;
+  func->vartype = ret;
+  func->astnode.source.name->vartype = ret;
+
+  ht = type_lookup(type_table, func->astnode.source.name->astnode.ident.name);
+
+  /* the else case shouldn't be hit since the implied variable
+   * should have been inserted already.
+   */
+
+  if(ht)
+    ht->variable->vartype = ret;
+  else {
+    fprintf(stderr, "oops: expected implied variable to exist in table!\n");
+    exit(EXIT_FAILURE);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * assign_function_return_type                                               *
  *                                                                           *
  * This function scans the type declarations to see if this function was     *
@@ -5171,7 +5208,7 @@ void
 assign_function_return_type(AST *func, AST *specs)
 {
   AST *temp, *dec_temp;
-  HASHNODE *ht;
+  int override = 0;
 
   for(temp = specs; temp; temp=temp->nextstmt) {
 
@@ -5182,22 +5219,25 @@ assign_function_return_type(AST *func, AST *specs)
         if(!strcmp(dec_temp->astnode.ident.name, 
                func->astnode.source.name->astnode.ident.name)) 
         {
-          func->astnode.source.returns = temp->astnode.typeunit.returns;
-          func->vartype = temp->astnode.typeunit.returns;
-          func->astnode.source.name->vartype = temp->astnode.typeunit.returns;
+          override = 1;
 
-          ht = type_lookup(type_table, dec_temp->astnode.ident.name);
-
-          /* the else case shouldn't be hit since the implied variable
-           * should have been inserted already.
-           */
-
-          if(ht)
-            ht->variable->vartype = temp->astnode.typeunit.returns;
-          else
-            insert_name(type_table, dec_temp, temp->astnode.typeunit.returns);
+          set_function_type(func, temp->astnode.typeunit.returns);
         }
       }
     }
+  }
+
+  /* If the data type was not overridden by a local declaration, then we
+   * should now assign it to the proper implicit type.  This is done here
+   * because the previous type assignment was made before the IMPLICIT
+   * statements for this function were parsed.
+   */
+
+  if(!override) {
+    enum returntype ret;
+
+    ret = implicit_table[tolower(func->astnode.source.name->astnode.ident.name[0]) - 'a'].type;
+
+    set_function_type(func, ret);
   }
 }

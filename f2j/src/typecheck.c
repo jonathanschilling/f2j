@@ -63,6 +63,9 @@ void
 SYMTABLE 
   * new_symtable(int);
 
+extern void
+  printbits(char *, void *, int);
+
 extern METHODTAB intrinsic_toks[];
 
 /*****************************************************************************
@@ -1088,18 +1091,16 @@ intrinsic_check(AST *root)
       if(temp->vartype < min_type)
         min_type = temp->vartype;
 
-/*
- *    printbits("This is the bitmask ", &bitfields[temp->vartype], 1);
- *    printbits("This is the entry-args ", &entry->args, 1);
- */
       if(checkdebug)
         printf("temp->vartype=%s\n", returnstring[temp->vartype]); 
 
       if(! (bitfields[temp->vartype] & entry->args)) {
-        fprintf(stderr, "++%s %s\n", temp->astnode.ident.name, returnstring[temp->vartype]);
-        fprintf(stderr, "--%s\n", cur_check_unit->astnode.source.name->astnode.ident.name);
         fprintf(stderr,"Error: bad argument type to intrinsic %s\n", 
                 entry->fortran_name);
+        fprintf(stderr, "  ++%s %s\n", temp->astnode.ident.name, returnstring[temp->vartype]);
+        fprintf(stderr, "  --%s\n", cur_check_unit->astnode.source.name->astnode.ident.name);
+        printbits("  this is the bitmask ", &bitfields[temp->vartype], 1);
+        printbits("  this is the entry-args ", &entry->args, 1);
         exit(EXIT_FAILURE);
       }
     }

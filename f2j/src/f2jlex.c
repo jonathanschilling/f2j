@@ -88,7 +88,8 @@ int
 void
   truncate_bang_comments(BUFFER *),
   check_continued_lines (FILE *, char *),
-  collapse_white_space (BUFFER *);
+  collapse_white_space (BUFFER *),
+  collapse_white_space_internal(BUFFER *, int);
 
 METHODTAB
   * methodscan (METHODTAB *, char *);
@@ -734,10 +735,12 @@ yylex ()
   if (token)
   {
     tokennumber++;
+
     if(lexdebug) {
       printf("10: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
       printf("10: lexeme is '%s'\n",yylval.lexeme);
     }
+
     return token;
   }
 
@@ -1029,7 +1032,37 @@ truncate_bang_comments(BUFFER * bufstruct)
  *****************************************************************************/
 
 void
-collapse_white_space (BUFFER * bufstruct)
+collapse_white_space(BUFFER *buf)
+{
+  BUFFER buffer_copy;
+  char *cp;
+  
+  /* copy the buffer, collapse white space and then check whether we are
+   * going to be looking at a FORMAT statement.  if so, then we will want
+   * to be looking out for Hollerith format descriptors.
+   */
+  memcpy((void *)buffer_copy.stmt, (void *)buf->stmt, BIGBUFF);
+  memcpy((void *)buffer_copy.text, (void *)buf->text, BIGBUFF);
+
+  collapse_white_space_internal(&buffer_copy, 0);
+
+  cp = buffer_copy.stmt;
+
+  if(isdigit(*cp)) {
+    while(cp && isdigit(*cp))
+      cp++;
+
+    if(cp && !strncasecmp(cp, "format", 6)) {
+      collapse_white_space_internal(buf, 1);
+      return;
+    }
+  }
+
+  collapse_white_space_internal(buf, 0);
+}
+
+void
+collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 {
   /* `cp' is character pointer, `tcp' is temporary cp and
    * `yycp' points at the text buffer for some (what?) reason.
@@ -1037,7 +1070,7 @@ collapse_white_space (BUFFER * bufstruct)
 
   register char *cp, *tcp, *yycp;
   char tempbuf[BIGBUFF];
-  int parens = 0;
+  int i, parens = 0;
 
   commaseen = FALSE, equalseen = FALSE, letterseen = FALSE; 
 
@@ -1056,6 +1089,61 @@ collapse_white_space (BUFFER * bufstruct)
         *cp == '\t' ||
         *cp == '\n')
       continue;
+
+    /* if we are looking at a format statement and this is a digit,
+     * then try to figure out if this is a Hollerith format descriptor.
+     */
+    if(fmt && isdigit(*cp)) {
+      char *end_digit, *next_non_white, *hp, hnstr[128];
+      int hlen;
+
+      /* first copy the digits to hnstr.  this will represent the
+       * Hollerith string length.
+       */
+      hp = hnstr;
+      end_digit = cp;
+      while(end_digit && isdigit(*end_digit)) {
+        *hp = *end_digit;
+        end_digit++;
+        hp++;
+      }
+
+      *hp = '\0'; 
+      hlen = atoi(hnstr);
+
+      /* now skip all whitespace beyond the digits */
+      next_non_white = end_digit;
+      while(next_non_white && isspace(*next_non_white))
+        next_non_white++;
+
+      /* if the first non-whitespace character beyond the digits is an H or h,
+       * then this is a Hollerith descriptor.
+       */
+
+      if(*next_non_white == 'h' || *next_non_white == 'H') {
+        *tcp = *yycp = '\'';
+        tcp++;
+        yycp++;
+
+        cp = next_non_white+1;
+
+        for(i=0; cp && (i < hlen); i++) {
+          *tcp = *yycp = *cp;
+          tcp++;
+          yycp++;
+          cp++;
+        }
+
+        *tcp = *yycp = '\'';
+        tcp++;
+        yycp++;
+
+        /* decrement cp by one since continuing the for loop will increment it */
+        cp--;
+
+        continue;
+      }
+    }
 
     /* If a single front tick is seen, stand by 
      * to copy a literal string, delimited between  

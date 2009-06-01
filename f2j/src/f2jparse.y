@@ -450,7 +450,8 @@ Ffunction:   Function Specstmts Statements  End
                 if(debug)
                   printf("Ffunction ->   Function Specstmts Statements  End\n");
              
-                assign_function_return_type($1, $2);
+                if(!$1->astnode.source.explicit_decl)
+                  assign_function_return_type($1, $2);
 
                 add_implicit_to_tree($2);
 
@@ -595,6 +596,7 @@ Function:  AnySimpleType FUNCTION UndeclaredName Functionargs NL
              $$->nodetype = Function;
              $$->token = FUNCTION;
              $$->astnode.source.returns = $1;
+             $$->astnode.source.explicit_decl = TRUE;
              $$->vartype = $1;
              $3->vartype = $1;
              $$->astnode.source.args = switchem($4);
@@ -625,6 +627,7 @@ Function:  AnySimpleType FUNCTION UndeclaredName Functionargs NL
              $$->token = FUNCTION;
              ret = implicit_table[tolower($2->astnode.ident.name[0]) - 'a'].type;
              $$->astnode.source.returns = ret;
+             $$->astnode.source.explicit_decl = FALSE;
              $$->vartype = ret;
              $2->vartype = ret;
              $$->astnode.source.args = switchem($3);
@@ -5211,7 +5214,6 @@ assign_function_return_type(AST *func, AST *specs)
   int override = 0;
 
   for(temp = specs; temp; temp=temp->nextstmt) {
-
     if(temp->nodetype == Typedec) {
       for(dec_temp = temp->astnode.typeunit.declist; dec_temp;
          dec_temp = dec_temp->nextstmt)

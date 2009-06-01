@@ -799,6 +799,7 @@ name_check (AST * root)
   HASHNODE *hashtemp;
   HASHNODE *ht;
   char * tempname;
+  JVM_METHODREF  * find_method(char *, Dlist);
 
   if (checkdebug)
     printf("here checking name %s, type is %s\n",root->astnode.ident.name, 
@@ -810,10 +811,29 @@ name_check (AST * root)
   /* If the name is in the external table, then check to see if
      it is an intrinsic function instead (e.g. SQRT, ABS, etc).  */
 
-  if (checkdebug)
+  if (checkdebug) {
     printf("tempname = %s\n", tempname);
+    printf(" ############################################################\n");
+    printf("  in chk_external_table?  %p\n", type_lookup (chk_external_table, root->astnode.ident.name));
+    printf("  in function_table?  %p\n", type_lookup(function_table, root->astnode.ident.name));
+    printf("  in descriptor_table?  %p\n", find_method(root->astnode.ident.name, descriptor_table));
+    printf(" ############################################################\n");
+  }
 
-  if (type_lookup (chk_external_table, root->astnode.ident.name) != NULL)
+  /* I apparently changed:
+   *    if (type_lookup (chk_external_table, root->astnode.ident.name) != NULL)
+   * to:
+   *    if (type_lookup (chk_external_table, root->astnode.ident.name) ||
+   *        type_lookup(function_table, root->astnode.ident.name) ||
+   *        find_method(root->astnode.ident.name, descriptor_table))
+   *
+   * but I can't remember why.  If something breaks, maybe change it back later.
+   *  --kgs 6/09
+   */
+
+  if (type_lookup (chk_external_table, root->astnode.ident.name) ||
+      type_lookup(function_table, root->astnode.ident.name) ||
+      find_method(root->astnode.ident.name, descriptor_table))
   {
     if (checkdebug)
       printf("going to external_check\n");

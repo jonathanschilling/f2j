@@ -289,6 +289,7 @@ struct _source
     constants_table;                /* constant_pool info for bytecode gen.  */
 
   BOOL 
+    explicit_decl,                  /* was function type explicitly decl'd   */
     needs_input,                    /* does this unit read any data          */
     needs_output,                   /* does this unit write any data         */
     needs_reflection,               /* does this unit call a passed-in func  */

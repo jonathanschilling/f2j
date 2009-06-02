@@ -4924,12 +4924,20 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
          * be the size of the array.
          *
          * Nothing needs to be done here for bytecode generation.
+         * --not sure why I wrote that nothing needs to be done
+         *   for bytecode generation.  fixing that.  --kgs 6/09
          */
 
-        if(omitWrappers && !cgPassByRef(root->astnode.ident.name))
+        if(omitWrappers && !cgPassByRef(root->astnode.ident.name)) {
           fprintf (curfp, "%s%s", com_prefix, name);
-        else
+          pushVar(cur_class_file, meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, FALSE);
+        }
+        else {
           fprintf (curfp, "%s%s.val", com_prefix, name);
+          pushVar(cur_class_file,  meth, root->vartype, isArg!=NULL, scalar_class, name, desc,
+             typenode->variable->astnode.ident.localvnum, TRUE);
+        }
       }
       else if(((root->parent->nodetype == Assignment) ||
                (root->parent->nodetype == StmtLabelAssign))

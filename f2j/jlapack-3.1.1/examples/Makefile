@@ -9,7 +9,7 @@ all: DdotTest.class SimpleDdotTest.class DgesvdTest.class \
      SimpleDgesvdTest.class DlaruvTest.class DsygvTest.class \
      DstevrTest.class SimpleDsygvTest.class DgeevTest.class \
      DsyevTest.class SimpleDgeqrfTest.class SimpleDgeqrfTestFullQ.class \
-     DgeqrfTestFullQ.class
+     DgeqrfTestFullQ.class SsptrfTest.class
 
 DdotTest.class: DdotTest.java
 	$(JAVAC) -classpath $(BLAS_CLASSPATH) DdotTest.java
@@ -37,6 +37,8 @@ SimpleDgeqrfTest.class: SimpleDgeqrfTest.java
 	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDgeqrfTest.java
 SimpleDgeqrfTestFullQ.class: SimpleDgeqrfTestFullQ.java
 	$(JAVAC) -classpath $(SIMPLE_LAPACK_CLASSPATH) SimpleDgeqrfTestFullQ.java
+SsptrfTest.class: SsptrfTest.java
+	$(JAVAC) -classpath $(LAPACK_CLASSPATH) SsptrfTest.java
 
 clean:
 	/bin/rm -f *.class

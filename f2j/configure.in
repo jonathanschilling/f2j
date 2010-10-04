@@ -26,9 +26,14 @@ AC_PATH_PROG(JAVAC, javac)
 AC_SUBST(JAVAC)
 AC_PATH_PROG(JAVA, java)
 AC_SUBST(JAVA)
-AC_PROG_YACC
+# AC_PROG_YACC
+AC_CHECK_PROGS(YACC,'bison -y' yacc byacc,"")
 F2J_VERSION=AC_PACKAGE_VERSION
 AC_SUBST(F2J_VERSION)
+
+if test "x$YACC" = x; then
+  AC_MSG_ERROR([You need yacc or bison.])
+fi
 
 AC_ARG_WITH(libbytecode-dir,
             [  --with-libbytecode-dir=dir  directory containing bytecode library],

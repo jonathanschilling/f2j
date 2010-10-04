@@ -74,6 +74,7 @@ void
   read_optimize(AST *, AST*),
   write_optimize(AST *, AST*),
   spec_optimize(AST *, AST*),
+  open_optimize(AST *, AST*),
   read_implied_loop_optimize(AST *, AST *),
   name_optimize (AST *, AST *),
   subcall_optimize(AST *, AST *),
@@ -306,6 +307,15 @@ optimize (AST * root, AST * rptr)
         printf ("Read statement.\n");
 
       read_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Open:
+      if (optdebug)
+        printf ("Open statement.\n");
+
+      open_optimize (root, rptr);
 
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
@@ -728,6 +738,27 @@ write_optimize (AST * root, AST *rptr)
   for(temp = root->astnode.io_stmt.arg_list; temp!=NULL;temp=temp->nextstmt)
     if(temp->nodetype != IoImpliedLoop)
       expr_optimize(temp, rptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * open_optimize                                                             *
+ *                                                                           *
+ * Optimize an OPEN statement.  Not much to do here really.                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+open_optimize(AST *root, AST *rptr)
+{
+  if(root->astnode.open.unit_expr)
+    expr_optimize(root->astnode.open.unit_expr, rptr);
+
+  if(root->astnode.open.file_expr)
+    expr_optimize(root->astnode.open.file_expr, rptr);
+
+  if(root->astnode.open.recl)
+    expr_optimize(root->astnode.open.recl, rptr);
 }
 
 /*****************************************************************************

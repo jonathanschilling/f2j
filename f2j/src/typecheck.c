@@ -50,6 +50,7 @@ void
   logicalif_check (AST *),
   check_implied_loop(AST *),
   read_write_check (AST *),
+  open_check (AST *),
   merge_equivalences(AST *),
   check_equivalences(AST *),
   insertEquivalences(AST *),
@@ -385,6 +386,16 @@ typecheck (AST * root)
       read_write_check (root);
       if (root->nextstmt != NULL)
         typecheck (root->nextstmt);
+      break;
+    case Open:
+      if (checkdebug)
+        printf ("typecheck(): Open statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      open_check(root);
+      if (root->nextstmt != NULL)
+        typecheck(root->nextstmt);
       break;
     case Constant:
     default:
@@ -1344,6 +1355,27 @@ logicalif_check (AST * root)
     expr_check (root->astnode.logicalif.conds);
 
   typecheck (root->astnode.logicalif.stmts);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * open_check                                                                *
+ *                                                                           *
+ * Performs typechecking on OPEN statements.                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+open_check(AST * root)
+{
+  if(root->astnode.open.unit_expr)
+    expr_check(root->astnode.open.unit_expr);
+
+  if(root->astnode.open.file_expr)
+    expr_check(root->astnode.open.file_expr);
+
+  if(root->astnode.open.recl)
+    expr_check(root->astnode.open.recl);
 }
 
 /*****************************************************************************

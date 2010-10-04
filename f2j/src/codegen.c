@@ -75,7 +75,8 @@ BOOL
 
 unsigned int 
   stdin_lvar = -1,      /* local var number of the EasyIn object             */
-  iovec_lvar = -1;      /* local var number of the input/output Vector       */
+  iovec_lvar = -1,      /* local var number of the input/output Vector       */
+  filemgr_lvar = -1;    /* locar var number of the fortran file manager      */
 
 JVM_METHOD
   *main_method,         /* the primary method for this fortran program unit  */
@@ -310,6 +311,24 @@ emit (AST * root)
                    VECTOR_DESC);
             bc_append(cur_method, jvm_invokespecial, c);
             bc_gen_store_op(cur_method, iovec_lvar, jvm_Object);
+          }
+
+          /* Initialize the file manager instance if necessary */
+
+          if(root->astnode.source.progtype->astnode.source.needs_files) {
+            fprintf(curfp, "  FortranFileMgr %s ", F2J_FILE_MGR);
+            fprintf(curfp, "= FortranFileMgr.getInstance();\n");
+
+            filemgr_lvar = bc_get_next_local(cur_method, jvm_Object);
+
+            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, FILEMGR_CLASS);
+            bc_append(cur_method, jvm_new,c);
+            bc_append(cur_method, jvm_dup);
+
+            c = bc_new_methodref(cur_class_file, FILEMGR_CLASS, "getInstance",
+                   FILEMGR_DESC);
+            bc_append(cur_method, jvm_invokestatic, c);
+            bc_gen_store_op(cur_method, filemgr_lvar, jvm_Object);
           }
 
           if((type_lookup(cur_external_table, "etime") != NULL)
@@ -678,6 +697,15 @@ emit (AST * root)
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
+      case Open:
+        if(gendebug)
+          printf("Open\n");
+     
+        open_emit(cur_method, root);
+        
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Unimplemented:
         fprintf (curfp, 
            " ; // WARNING: Unimplemented statement in Fortran source.\n");
@@ -1034,6 +1062,132 @@ stop_emit(JVM_METHOD *meth, AST *root)
   c = bc_new_methodref(cur_class_file, JL_SYSTEM, "exit",
        EXIT_DESC);
   bc_append(meth, jvm_invokestatic, c);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * open_emit                                                                 *
+ *                                                                           *
+ * This emits code to open a file (i.e. Fortran OPEN statements).            *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+open_emit(JVM_METHOD *meth, AST *root)
+{
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
+  int open_ref;
+
+  /* if ERR is set, then generate the conditional branch in case of error */
+  if(root->astnode.open.err > 0)
+    fprintf(curfp, "  if((");
+
+  bc_gen_load_op(meth, filemgr_lvar, jvm_Object);
+
+  if(root->astnode.open.iostat) {
+    name_emit (meth, root->astnode.open.iostat);
+    fprintf(curfp, " =");
+  }
+
+  fprintf(curfp, "  %s.open(", F2J_FILE_MGR);
+  expr_emit(meth, root->astnode.open.unit_expr);
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.file_expr) {
+    expr_emit(meth, root->astnode.open.file_expr);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.status) {
+    expr_emit(meth, root->astnode.open.status);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.access) {
+    expr_emit(meth, root->astnode.open.access);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.form) {
+    expr_emit(meth, root->astnode.open.form);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.recl) {
+    expr_emit(meth, root->astnode.open.recl);
+  }
+  else {
+    fprintf(curfp, "0");
+    bc_append(meth, jvm_iconst_0);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.blank) {
+    expr_emit(meth, root->astnode.open.blank);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.open.iostat || (root->astnode.open.err > 0)) {
+    bc_append(meth, jvm_iconst_0);
+    fprintf(curfp, "false");
+  }
+  else {
+    bc_append(meth, jvm_iconst_1);
+    fprintf(curfp, "true");
+  }
+
+  open_ref = bc_new_methodref(cur_class_file, FILEMGR_CLASS,
+               "open", OPEN_DESC);
+  bc_append(meth, jvm_invokevirtual, open_ref);
+
+  if((root->astnode.open.err > 0) && root->astnode.open.iostat)
+    bc_append(meth, jvm_dup);
+
+  /* if IOSTAT is set, then emit the LHS assignment to set the ret value */
+  if(root->astnode.open.iostat)
+    LHS_bytecode_emit(meth, root->astnode.open.iostat->parent);
+
+  if(root->astnode.open.err > 0) {
+    if_node = bc_append(meth, jvm_ifeq);
+
+    goto_node = bc_append(meth, jvm_goto);
+
+    bc_set_integer_branch_label(goto_node, root->astnode.open.err);
+
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+
+    fprintf(curfp, ")) != 0)\n");
+    fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.open.err);
+  }
+  else
+    fprintf(curfp, ");\n");
 }
 
 /*****************************************************************************
@@ -9086,16 +9240,30 @@ write_emit(JVM_METHOD *meth, AST * root)
       write_argument_emit(meth, temp);
   }
 
+  fprintf(curfp, "Util.f77write(");
+
+  if(root->astnode.io_stmt.unit_desc && 
+     root->astnode.io_stmt.unit_desc->astnode.expression.rhs->token != STAR)
+  {
+    expr_emit(meth, root->astnode.io_stmt.unit_desc->astnode.expression.rhs);
+    fprintf(curfp, ", ");
+  }
+  else {
+    fprintf(curfp, "%d, ", F77_STDOUT);
+    bc_push_int_const(meth, F77_STDOUT);
+  }
+
   if(fmt_str) {
-    fprintf(curfp, "Util.f77write(\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
     bc_push_string_const(meth, fmt_str);
   }
   else {
-    fprintf(curfp, "Util.f77write(null, %s);\n", F2J_IO_VEC);
+    fprintf(curfp, "null, %s);\n", F2J_IO_VEC);
     bc_append(meth, jvm_aconst_null);
   }
 
   bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+
   c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77write", F77_WRITE_DESC);
   bc_append(meth, jvm_invokestatic, c);
 }
@@ -11014,7 +11182,8 @@ LHS_bytecode_emit(JVM_METHOD *meth, AST *root)
       }
 
       storeVar(cur_class_file, meth, root->astnode.assignment.lhs->vartype, 
-           (BOOL)isArg, class, name, desc, typenode->variable->astnode.ident.localvnum, FALSE);
+           isArg ? TRUE : FALSE, class, name, desc,
+           typenode->variable->astnode.ident.localvnum, FALSE);
     }
     else {
       int vt = root->astnode.assignment.lhs->vartype;
@@ -12813,6 +12982,12 @@ print_nodetype (AST *root)
       return("MainComment");
     case Dimension:
       return("Dimension");
+    case UnitSpec:
+      return("UnitSpec");
+    case OpenFileSpec:
+      return("OpenFileSpec");
+    case CharExp:
+      return("CharExp");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

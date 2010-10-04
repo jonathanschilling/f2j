@@ -64,6 +64,24 @@
 #define INTRIN_NAMED_ARRAY_OR_FUNC_CALL 3
 
 /*****************************************************************************
+* Various definitions related to opening files.                              *
+*****************************************************************************/
+
+#define FILE_STATUS_OLD 0
+#define FILE_STATUS_NEW 1
+#define FILE_STATUS_SCRATCH 2
+#define FILE_STATUS_UNKNOWN 3
+
+#define FILE_ACCESS_SEQ 0
+#define FILE_ACCESS_DIRECT 1
+
+#define FILE_FORMATTED 0
+#define FILE_UNFORMATTED 1
+
+#define FILE_BLANK_NULL 0
+#define FILE_BLANK_ZERO 1
+
+/*****************************************************************************
  * Definitions for an expandable string structure.  STR_INIT is the initial  *
  * size of the string, while STR_CHUNK is the number of bytes by which we    *
  * increment the string when it is too small.                                *
@@ -250,7 +268,18 @@ enum _nodetype
   DataImpliedLoop,
   IoImpliedLoop,
   StmtLabelAssign,
-  Unimplemented
+  Unimplemented,
+  UnitSpec,
+  OpenFileSpec,
+  ReclExp,
+  StatusExp,
+  AccessExp,
+  FormExp,
+  BlankExp,
+  ErrExp,
+  Ios,
+  Open,
+  CharExp
 };
 
 /*****************************************************************************
@@ -292,6 +321,7 @@ struct _source
     explicit_decl,                  /* was function type explicitly decl'd   */
     needs_input,                    /* does this unit read any data          */
     needs_output,                   /* does this unit write any data         */
+    needs_files,                    /* does this unit open any files         */
     needs_reflection,               /* does this unit call a passed-in func  */
     needs_blas;                     /* does this unit call any BLAS routines */
  
@@ -321,6 +351,26 @@ struct _assignment
   struct ast_node 
     *lhs,                           /* left-hand side of expr or assignment  */
     *rhs;                           /* right-hand side of expr or assignment */
+};
+
+/*****************************************************************************
+ * Structure for the OPEN statment.                                          *
+ *****************************************************************************/
+
+struct _open
+{
+  struct ast_node
+    *unit_expr,                     /* expression for the unit number        */
+    *file_expr,                     /* expr for name of the file to open     */
+    *iostat,                        /* identifier for i/o status specifier   */
+    *status,                        /* file status: old/new/scratch/unknown  */
+    *access,                        /* file access mode: sequential/direct   */
+    *form,                          /* file style: formatted/unformatted     */
+    *blank,                         /* blank mode: null/zero                 */
+    *recl;                          /* expression for record length          */
+
+  int
+    err;                            /* statement number for error specifier  */
 };
 
 /*****************************************************************************
@@ -490,11 +540,11 @@ struct _io
 {
   int 
     io_type,                        /* is this a READ or WRITE statement     */
-    file_desc,                      /* file descriptor (not currently used)  */
     format_num,                     /* FORMAT desc for this statement        */
     end_num;                        /* where to branch on error              */
 
   struct ast_node 
+    *unit_desc,                     /* unit descriptor                       */
     *fmt_list,                      /* inline FORMAT info (w/ WRITE)         */
     *arg_list;                      /* list of expressions to read or write  */
 };
@@ -564,6 +614,7 @@ typedef struct ast_node
   {
     struct _goto           go_to;             /* goto is a reserved word!    */
     struct _io             io_stmt;
+    struct _open           open;
     struct _label          label;
     struct _ident          ident;
     struct _source         source;

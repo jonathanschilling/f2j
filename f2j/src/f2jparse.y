@@ -188,12 +188,13 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> CharTypevar CharTypevarlist
 %type <type>   ArithTypes ArithSimpleType CharTypes CharSimpleType
 %type <type>   AnySimpleType AnyTypes
-%type <ptnode> Write WriteFileDesc FormatSpec EndSpec
+%type <ptnode> Write FormatSpec EndSpec
 %type <ptnode> Format FormatExplist FormatExp FormatSeparator
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
 %type <ptnode> log_disjunct log_term log_factor log_primary
 %type <ptnode> arith_expr term factor char_expr primary
-%type <ptnode> Ios CharExp OlistItem Olist UnitSpec
+%type <ptnode> Ios CharExp ReclExp OlistItem Olist UnitSpec OpenFileSpec
+%type <ptnode> ErrExp StatusExp AccessExp FormExp BlankExp UnitExp
 
 %%
 
@@ -342,6 +343,7 @@ Fprogram:   Program Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
+                $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
 
@@ -410,6 +412,7 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
+                $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
 
@@ -482,6 +485,7 @@ Ffunction:   Function Specstmts Statements  End
 
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
+                $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 $$->astnode.source.needs_blas = FALSE;
                 if(omitWrappers)
@@ -1317,7 +1321,6 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
             | Open
               {
                 $$ = $1;
-                $$->nodetype = Unimplemented;
               }
             | Close
               {
@@ -1348,94 +1351,231 @@ Comment: COMMENT NL
 
 Open: OPEN OP Olist CP NL
       {
-        fprintf(stderr,"Warning: OPEN not implemented.. skipping.\n");
+        AST *otemp;
 
         $$ = addnode();
-        $$->nodetype = Unimplemented;
+        $$->vartype = Integer;
+        $$->expr_side = right;
+        $$->nodetype = Open;
+        $$->astnode.open.unit_expr = NULL;
+        $$->astnode.open.file_expr = NULL;
+        $$->astnode.open.iostat = NULL;
+        $$->astnode.open.recl = NULL;
+        $$->astnode.open.status = NULL;
+        $$->astnode.open.access = NULL;
+        $$->astnode.open.form = NULL;
+        $$->astnode.open.blank = NULL;
+        $$->astnode.open.err = -1;
+
+        $3 = switchem($3);
+
+        /* need to look for the required unit number */
+
+        for(otemp=$3;otemp!=NULL;otemp=otemp->nextstmt) {
+          if(otemp->nodetype == UnitSpec) {
+            if(otemp->astnode.expression.rhs->token == STAR) {
+              yyerror("ERROR: OPEN statement may not have unit specifier '*'");
+              exit(EXIT_FAILURE);
+            }
+
+            $$->astnode.open.unit_expr = otemp->astnode.expression.rhs;
+          }
+          else if(otemp->nodetype == Ios) {
+            AST *pnode;
+
+            /* the IOSTAT variable is emitted as the lhs of an assignment
+             * for example:  k = __ftn_file_mgr.open( ... );
+             * so here we create a dummy parent node of type Assignment so
+             * that when we call name_emit() it will do the right thing.
+             */
+            $$->astnode.open.iostat = otemp->astnode.expression.rhs;
+
+            pnode = addnode();
+            pnode->nodetype = Assignment;
+            pnode->astnode.assignment.lhs = $$->astnode.open.iostat; 
+            pnode->astnode.assignment.rhs = $$;
+
+            $$->astnode.open.iostat->parent = pnode;
+          }
+          else if(otemp->nodetype == OpenFileSpec)
+            $$->astnode.open.file_expr = otemp->astnode.expression.rhs;
+          else if(otemp->nodetype == StatusExp) {
+            $$->astnode.open.status = otemp->astnode.expression.rhs;
+            $$->astnode.open.status->parent = $$;
+          }
+          else if(otemp->nodetype == AccessExp)
+            $$->astnode.open.access = otemp->astnode.expression.rhs;
+          else if(otemp->nodetype == FormExp)
+            $$->astnode.open.form = otemp->astnode.expression.rhs;
+          else if(otemp->nodetype == BlankExp)
+            $$->astnode.open.blank = otemp->astnode.expression.rhs;
+          else if(otemp->nodetype == ReclExp)
+            $$->astnode.open.recl = otemp->astnode.expression.rhs;
+          else if(otemp->nodetype == ErrExp) {
+            $$->astnode.open.err =
+               atoi(otemp->astnode.expression.rhs->astnode.constant.number);
+            if($$->astnode.open.err <= 0) {
+              yyerror("ERROR: OPEN() ERR specifier must be pos. integer\n");
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
+
+        /* everything is optional except for the Unit number, so check
+         * whether it was specified.
+         */
+        if(!$$->astnode.open.unit_expr) {
+          yyerror("ERROR: OPEN statement has no unit specifier\n");
+          exit(EXIT_FAILURE);
+        }
       }
 ;
 
 Olist: Olist CM OlistItem
-        /* UNIMPLEMENTED */
+       {
+         $3->prevstmt = $1;
+         $$ = $3;
+       }
      | OlistItem
-        /* UNIMPLEMENTED */
+       {
+         $$ = $1;
+       }
 ;
 
-OlistItem: OPEN_UNIT EQ UnitSpec
+OlistItem: UnitExp
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
-           }
-         | UnitSpec
-           {
-             /* UNIMPLEMENTED */
              $$ = $1;
            }
          | OPEN_IOSTAT EQ Ios
            {
-             /* UNIMPLEMENTED */
              $$ = $3;
            }
-         | OPEN_ERR EQ Integer
+         | ErrExp 
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_FILE EQ CharExp
+         | OpenFileSpec
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_STATUS EQ CharExp
+         | StatusExp
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_ACCESS EQ CharExp
+         | AccessExp 
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_FORM EQ CharExp
+         | FormExp
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_RECL EQ Exp
+         | ReclExp
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
-         | OPEN_BLANK EQ CharExp
+         | BlankExp
            {
-             /* UNIMPLEMENTED */
-             $$ = $3;
+             $$ = $1;
            }
+;
+
+UnitExp: OPEN_UNIT EQ UnitSpec
+         {
+           $$ = $3;
+         }
+       | UnitSpec
+         {
+           $$ = $1;
+         }
 ;
 
 UnitSpec: Exp
            {
-             /* UNIMPLEMENTED */
-             $$ = $1;
-           }
-        | STAR
-           {
-             /* UNIMPLEMENTED */
              $$ = addnode();
+             $$->nodetype = UnitSpec;
+             $$->astnode.expression.rhs = $1;
            }
+        | Star
+           {
+             $$ = addnode();
+             $$->nodetype = UnitSpec;
+             $$->astnode.expression.rhs = $1;
+           }
+;
+
+OpenFileSpec: OPEN_FILE EQ CharExp
+          {
+            $$ = addnode();
+            $$->nodetype = OpenFileSpec;
+            $$->astnode.expression.rhs = $3;
+          }
+;
+
+ReclExp: OPEN_RECL EQ Exp
+         {
+           $$ = addnode();
+           $$->nodetype = ReclExp;
+           $$->astnode.expression.rhs = $3;
+         }
+;
+
+StatusExp: OPEN_STATUS EQ CharExp
+           {
+             $$ = addnode();
+             $$->nodetype = StatusExp;
+             $$->astnode.expression.rhs = $3;
+           }
+;
+
+AccessExp: OPEN_ACCESS EQ CharExp
+           {
+             $$ = addnode();
+             $$->nodetype = AccessExp;
+             $$->astnode.expression.rhs = $3;
+           }
+;
+
+FormExp: OPEN_FORM EQ CharExp
+         {
+           $$ = addnode();
+           $$->nodetype = FormExp;
+           $$->astnode.expression.rhs = $3;
+         }
+;
+
+BlankExp: OPEN_BLANK EQ CharExp
+         {
+           $$ = addnode();
+           $$->nodetype = BlankExp;
+           $$->astnode.expression.rhs = $3;
+         }
+;
+
+ErrExp: OPEN_ERR EQ Integer
+         {
+           $$ = addnode();
+           $$->nodetype = ErrExp;
+           $$->astnode.expression.rhs = $3;
+         }
 ;
 
 CharExp: UndeclaredName
-         /* UNIMPLEMENTED */
+         {
+           $$ = $1;
+         }
        | String
-         /* UNIMPLEMENTED */
+         {
+           $$ = $1;
+         }
 ;
 
-Ios: UndeclaredName
-      /* UNIMPLEMENTED */
-   | UndeclaredName OP Arrayindexlist CP
-      /* UNIMPLEMENTED */
-;
+Ios: Lhs
+     {
+       $$ = addnode();
+       $$->nodetype = Ios;
+       $$->astnode.expression.rhs = $1;
+     }
 
 Close:  CLOSE OP UndeclaredName CP NL
         {
@@ -1871,6 +2011,7 @@ Arrayname: Exp
 Star:  STAR 
        {
          $$=addnode();
+         $$->token = STAR;
          $$->nodetype = Identifier;
         *$$->astnode.ident.name = '*';
        }
@@ -2259,7 +2400,7 @@ EndDo:  ENDDO NL
         }
 ;
 
-Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
+Write: WRITE OP UnitExp CM FormatSpec CP IoExplist NL
        {
          AST *temp;
 
@@ -2267,9 +2408,7 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.io_type = Write;
          $$->astnode.io_stmt.fmt_list = NULL;
 
-         /*  unimplemented
-           $$->astnode.io_stmt.file_desc = ;
-         */
+         $$->astnode.io_stmt.unit_desc = $3;
 
          if($5->nodetype == Constant)
          {
@@ -2297,9 +2436,6 @@ Write: WRITE OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent->nodetype = Write;
-
-         /* currently ignoring the file descriptor.. */
-         free_ast_node($3);
        }
      | PRINT Integer PrintIoList NL
        {
@@ -2356,25 +2492,6 @@ PrintIoList: CM IoExplist
              }
 ;
 
-/* Maybe I'll implement this stuff someday. */
-
-WriteFileDesc: 
-      Exp
-       {
-         /* do nothing for now */
-         $$ = $1;
-       }
-    | STAR
-       {
-         /* do nothing for now */
-          $$ = addnode();
-          $$->token = INTEGER;
-          $$->nodetype = Constant;
-          $$->astnode.constant.number = strdup("*");
-          $$->vartype = Integer;
-       }
-;
-     
 FormatSpec:
        FMT EQ Integer
         {
@@ -2420,7 +2537,7 @@ FormatSpec:
         }
 ;
 
-Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
+Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
       {
          AST *temp;
 
@@ -2428,6 +2545,8 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = -1;
+
+         $$->astnode.io_stmt.unit_desc = $3;
 
          if($5->nodetype == Constant)
          {
@@ -2458,17 +2577,16 @@ Read: READ OP WriteFileDesc CM FormatSpec CP IoExplist NL
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent = $$;
-
-         /* currently ignoring the file descriptor and format spec. */
-         free_ast_node($3);
       }
-    | READ OP WriteFileDesc CM FormatSpec CM EndSpec CP IoExplist NL
+    | READ OP UnitExp CM FormatSpec CM EndSpec CP IoExplist NL
       {
          AST *temp;
 
          $$ = addnode();
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
+
+         $$->astnode.io_stmt.unit_desc = $3;
 
          if($5->nodetype == Constant)
          {

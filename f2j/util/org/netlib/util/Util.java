@@ -416,27 +416,8 @@ public class Util {
    * @param v Vector containing the arguments to the WRITE() call.
    *
    */
-  public static void f77write(String fmt, Vector v)
-  {
-    if(fmt == null) {
-      f77write(v);
-      return;
-    }
-
-    try {
-      Formatter f = new Formatter(fmt);
-      Vector newvec = processVector(v);
-      f.write( newvec, System.out );
-      System.out.println();
-    }
-    catch ( Exception e ) {
-      String m = e.getMessage();
-
-      if(m != null)
-        System.out.println(m);
-      else
-        System.out.println();
-    }
+  public static void f77write(String fmt, Vector v) {
+    f77write(FortranFileMgr.FTN_STDOUT, fmt, v);
   }
 
   /**
@@ -445,14 +426,86 @@ public class Util {
    * @param v Vector containing the arguments to the WRITE() call.
    *
    */
-  public static void f77write(Vector v)
+  public static void f77write(Vector v) {
+    f77write(FortranFileMgr.FTN_STDOUT, v);
+  }
+
+  private static PrintStream getPrintStream(int unit)
   {
+    PrintStream outstream = null;
+
+    if(unit == FortranFileMgr.FTN_STDOUT)
+      outstream = System.out;
+    else if(unit == FortranFileMgr.FTN_STDERR)
+      outstream = System.err;
+    else {
+      FortranFileMgr fmgr;
+      FortranFile ff;
+
+      fmgr = FortranFileMgr.getInstance();
+
+      ff = fmgr.get(new Integer(unit));
+
+      if(ff != null)
+        outstream = ff.getPrintStream();
+    }
+
+    return outstream;
+  }
+
+  /**
+   * Formatted write.
+   *
+   * @param unit Unit number to which output should go
+   * @param fmt String containing the Fortran format specification.
+   * @param v Vector containing the arguments to the WRITE() call.
+   *
+   */
+  public static void f77write(int unit, String fmt, Vector v)
+  {
+    PrintStream outstream = null;
+
+    if(fmt == null) {
+      f77write(unit, v);
+      return;
+    }
+
+    outstream = getPrintStream(unit);
+
+    try {
+      Formatter f = new Formatter(fmt);
+      Vector newvec = processVector(v);
+      f.write( newvec, outstream );
+      outstream.println();
+    }
+    catch ( Exception e ) {
+      String m = e.getMessage();
+
+      if(m != null)
+        outstream.println(m);
+      else
+        outstream.println();
+    }
+  }
+
+  /**
+   * Unformatted write.
+   *
+   * @param unit Unit number to which output should go
+   * @param v Vector containing the arguments to the WRITE() call.
+   *
+   */
+  public static void f77write(int unit, Vector v)
+  {
+    PrintStream outstream = null;
     java.util.Enumeration e;
     Object o;
 
     Vector newvec = processVector(v);
 
     e = newvec.elements();
+
+    outstream = getPrintStream(unit);
 
     /* fortran seems to prepend a space before the first
      * unformatted element.  since non-string types get
@@ -463,30 +516,30 @@ public class Util {
     if(e.hasMoreElements()) {
       o = e.nextElement();
       if(o instanceof String)
-        System.out.print(" ");
-      output_unformatted_element(o);
+        outstream.print(" ");
+      output_unformatted_element(o, outstream);
     }
 
     while(e.hasMoreElements())
-      output_unformatted_element(e.nextElement());
+      output_unformatted_element(e.nextElement(), outstream);
 
-    System.out.println();
+    outstream.println();
   }
 
-  private static void output_unformatted_element(Object o) {
+  private static void output_unformatted_element(Object o, PrintStream os) {
     if(o instanceof Boolean) {
       /* print true/false as T/F like fortran does */
       if(((Boolean) o).booleanValue())
-        System.out.print(" T");
+        os.print(" T");
       else
-        System.out.print(" F");
+        os.print(" F");
     }
     else if((o instanceof Float) || (o instanceof Double))
-      System.out.print("  " + o);  // two spaces
+      os.print("  " + o);  // two spaces
     else if(o instanceof String)
-      System.out.print(o);
+      os.print(o);
     else
-      System.out.print(" " + o);   // one space
+      os.print(" " + o);   // one space
   }
 
   /**

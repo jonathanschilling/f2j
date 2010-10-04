@@ -579,6 +579,17 @@ yylex ()
 
           if(token == FORMAT)
             format_stmt = 1;
+
+          /* HACK: fix to allow labeled OPEN statements.   maybe
+           * this should be the general case for all tokens..
+           * i.e. just always reset firsttoken to the first 'real'
+           * token.  however, there are too many other special
+           * cases in here checking if firsttoken == INTEGER, so
+           * it would probably break something.  --kgs 10/2010
+           */
+          if((token == OPEN) && (firsttoken == INTEGER))
+            firsttoken = OPEN;
+
           if(lexdebug)
             printf("8: lexer returns %s (%s)\n",
                tok2str(token),buffer.stmt);
@@ -2033,6 +2044,26 @@ tok2str(int tok)
       return("EDIT_DESC");
     case REPEAT:
       return("REPEAT");
+    case OPEN_IOSTAT:
+      return("OPEN_IOSTAT");
+    case OPEN_ERR:
+      return("OPEN_ERR");
+    case OPEN_FILE:
+      return("OPEN_FILE");
+    case OPEN_STATUS:
+      return("OPEN_STATUS");
+    case OPEN_ACCESS:
+      return("OPEN_ACCESS");
+    case OPEN_FORM:
+      return("OPEN_FORM");
+    case OPEN_UNIT:
+      return("OPEN_UNIT");
+    case OPEN_RECL:
+      return("OPEN_RECL");
+    case OPEN_BLANK:
+      return("OPEN_BLANK");
+    case LOWER_THAN_COMMENT:
+      return("LOWER_THAN_COMMENT");
     default:
     {
       static char asdf[20];

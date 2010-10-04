@@ -54,7 +54,7 @@
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
 #define F77_READ_DESC "(Ljava/lang/String;Ljava/util/Vector;)I"
-#define F77_WRITE_DESC "(Ljava/lang/String;Ljava/util/Vector;)V"
+#define F77_WRITE_DESC "(ILjava/lang/String;Ljava/util/Vector;)V"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
 #define ARRAY_SPEC_CLASS "org/netlib/util/ArraySpec"
@@ -74,6 +74,9 @@
 #define COMPARE_DESC "(Ljava/lang/String;)I"
 #define VECTOR_CLASS "java/util/Vector"
 #define VECTOR_DESC "()V"
+#define FILEMGR_CLASS "org/netlib/util/FortranFileMgr"
+#define FILEMGR_DESC "()Lorg/netlib/util/FortranFileMgr;"
+#define OPEN_DESC "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Z)I"
 #define EASYIN_CLASS "org/netlib/util/EasyIn"
 #define EASYIN_DESC "()V"
 #define ETIME_CLASS "org/netlib/util/Etime"
@@ -97,6 +100,11 @@
 
 #define F2J_STDIN "__f2j_stdin"
 #define F2J_IO_VEC "__io_vec"
+#define F2J_FILE_MGR "__ftn_file_mgr"
+
+#define F77_STDIN 5
+#define F77_STDOUT 6
+#define F77_STDERR 0
 
 #define THREEARG_MAX_FUNC          "Util.max"
 #define THREEARG_MAX_FUNC_STRICT   "StrictUtil.max"
@@ -239,6 +247,7 @@ void
   insert_fields(AST *),
   return_emit(JVM_METHOD *),
   end_emit(JVM_METHOD *),
+  open_emit(JVM_METHOD *, AST *),
   emit (AST *),
   field_emit(AST *),
   invoke_constructor(JVM_METHOD *, char *, AST *, char *),

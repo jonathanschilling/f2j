@@ -33,6 +33,8 @@ extern KWDTAB read_toks[];                 /* tokens found in read stmts     */
 
 extern KWDTAB open_toks[];                 /* tokens found in open stmts     */
 
+extern KWDTAB close_toks[];                /* tokens found in close stmts    */
+
 extern KWDTAB assign_toks[];               /* tokens found in ASSIGN stmts   */
 
 extern METHODTAB intrinsic_toks[];         /* fortran intrinsic functions    */

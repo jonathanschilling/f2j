@@ -279,6 +279,7 @@ enum _nodetype
   ErrExp,
   Ios,
   Open,
+  Close,
   CharExp
 };
 
@@ -614,7 +615,7 @@ typedef struct ast_node
   {
     struct _goto           go_to;             /* goto is a reserved word!    */
     struct _io             io_stmt;
-    struct _open           open;
+    struct _open           open, close;
     struct _label          label;
     struct _ident          ident;
     struct _source         source;

@@ -430,24 +430,39 @@ public class Util {
     f77write(FortranFileMgr.FTN_STDOUT, v);
   }
 
+  private static DataInputStream getDataInputStream(int unit)
+  {
+    DataInputStream instream = null;
+    FortranFile ff;
+    FortranFileMgr fmgr;
+
+    fmgr = FortranFileMgr.getInstance();
+    ff = fmgr.get(new Integer(unit));
+
+    if(ff != null)
+      instream = ff.getDataInputStream();
+    else if(unit == FortranFileMgr.FTN_STDIN)
+      instream = new DataInputStream(System.in);
+
+    return instream;
+  }
+
   private static PrintStream getPrintStream(int unit)
   {
     PrintStream outstream = null;
+    FortranFile ff;
+    FortranFileMgr fmgr;
 
-    if(unit == FortranFileMgr.FTN_STDOUT)
-      outstream = System.out;
-    else if(unit == FortranFileMgr.FTN_STDERR)
-      outstream = System.err;
+    fmgr = FortranFileMgr.getInstance();
+    ff = fmgr.get(new Integer(unit));
+
+    if(ff != null)
+      outstream = ff.getPrintStream();
     else {
-      FortranFileMgr fmgr;
-      FortranFile ff;
-
-      fmgr = FortranFileMgr.getInstance();
-
-      ff = fmgr.get(new Integer(unit));
-
-      if(ff != null)
-        outstream = ff.getPrintStream();
+      if(unit == FortranFileMgr.FTN_STDOUT)
+        outstream = System.out;
+      else if(unit == FortranFileMgr.FTN_STDERR)
+        outstream = System.err;
     }
 
     return outstream;
@@ -486,6 +501,8 @@ public class Util {
       else
         outstream.println();
     }
+
+    outstream.flush();
   }
 
   /**
@@ -524,6 +541,7 @@ public class Util {
       output_unformatted_element(e.nextElement(), outstream);
 
     outstream.println();
+    outstream.flush();
   }
 
   private static void output_unformatted_element(Object o, PrintStream os) {
@@ -550,6 +568,11 @@ public class Util {
    *
    */
   public static int f77read(String fmt, Vector v)
+  {
+    return f77read(FortranFileMgr.FTN_STDIN, fmt, v);
+  }
+
+  public static int f77read(int unit, String fmt, Vector v)
   {
     try {
       Formatter f = new Formatter(fmt);

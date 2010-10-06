@@ -706,6 +706,15 @@ emit (AST * root)
         if (root->nextstmt != NULL)
           emit (root->nextstmt);
         break;
+      case Close:
+        if(gendebug)
+          printf("Close\n");
+
+        close_emit(cur_method, root);
+
+        if (root->nextstmt != NULL)
+          emit (root->nextstmt);
+        break;
       case Unimplemented:
         fprintf (curfp, 
            " ; // WARNING: Unimplemented statement in Fortran source.\n");
@@ -1185,6 +1194,82 @@ open_emit(JVM_METHOD *meth, AST *root)
     fprintf(curfp, ")) != 0)\n");
     fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.open.err);
+  }
+  else
+    fprintf(curfp, ");\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * close_emit                                                                *
+ *                                                                           *
+ * This emits code to close a file (i.e. Fortran CLOSE statements).          *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+close_emit(JVM_METHOD *meth, AST *root)
+{
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
+  int close_ref;
+
+  /* if ERR is set, then generate the conditional branch in case of error */
+  if(root->astnode.close.err > 0)
+    fprintf(curfp, "  if((");
+
+  bc_gen_load_op(meth, filemgr_lvar, jvm_Object);
+
+  if(root->astnode.close.iostat) {
+    name_emit (meth, root->astnode.close.iostat);
+    fprintf(curfp, " =");
+  }
+
+  fprintf(curfp, "  %s.close(", F2J_FILE_MGR);
+  expr_emit(meth, root->astnode.close.unit_expr);
+  fprintf(curfp, ", ");
+
+  if(root->astnode.close.status) {
+    expr_emit(meth, root->astnode.close.status);
+  }
+  else {
+    fprintf(curfp, "null");
+    bc_append(meth, jvm_aconst_null);
+  }
+
+  fprintf(curfp, ", ");
+
+  if(root->astnode.close.iostat || (root->astnode.close.err > 0)) {
+    bc_append(meth, jvm_iconst_0);
+    fprintf(curfp, "false");
+  }
+  else {
+    bc_append(meth, jvm_iconst_1);
+    fprintf(curfp, "true");
+  }
+
+  close_ref = bc_new_methodref(cur_class_file, FILEMGR_CLASS,
+               "close", CLOSE_DESC);
+  bc_append(meth, jvm_invokevirtual, close_ref);
+
+  if((root->astnode.close.err > 0) && root->astnode.close.iostat)
+    bc_append(meth, jvm_dup);
+
+  /* if IOSTAT is set, then emit the LHS assignment to set the ret value */
+  if(root->astnode.close.iostat)
+    LHS_bytecode_emit(meth, root->astnode.close.iostat->parent);
+
+  if(root->astnode.close.err > 0) {
+    if_node = bc_append(meth, jvm_ifeq);
+
+    goto_node = bc_append(meth, jvm_goto);
+
+    bc_set_integer_branch_label(goto_node, root->astnode.close.err);
+
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+
+    fprintf(curfp, ")) != 0)\n");
+    fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.close.err);
   }
   else
     fprintf(curfp, ");\n");
@@ -9243,9 +9328,9 @@ write_emit(JVM_METHOD *meth, AST * root)
   fprintf(curfp, "Util.f77write(");
 
   if(root->astnode.io_stmt.unit_desc && 
-     root->astnode.io_stmt.unit_desc->astnode.expression.rhs->token != STAR)
+     root->astnode.io_stmt.unit_desc->token != STAR)
   {
-    expr_emit(meth, root->astnode.io_stmt.unit_desc->astnode.expression.rhs);
+    expr_emit(meth, root->astnode.io_stmt.unit_desc);
     fprintf(curfp, ", ");
   }
   else {
@@ -12986,6 +13071,10 @@ print_nodetype (AST *root)
       return("UnitSpec");
     case OpenFileSpec:
       return("OpenFileSpec");
+    case Open:
+      return("Open");
+    case Close:
+      return("Close");
     case CharExp:
       return("CharExp");
     default:

@@ -209,18 +209,30 @@ KWDTAB read_toks[] =
 
 KWDTAB open_toks[] =
 {
-    {"IOSTAT", OPEN_IOSTAT, 0},
-    {"ERR", OPEN_ERR, 0},
-    {"FILE", OPEN_FILE, 0},
-    {"STATUS", OPEN_STATUS, 0},
-    {"ACCESS", OPEN_ACCESS, 0},
-    {"FORM", OPEN_FORM, 0},
-    {"UNIT", OPEN_UNIT, 0},
-    {"RECL", OPEN_RECL, 0},
-    {"BLANK", OPEN_BLANK, 0},
+    {"IOSTAT", IOSPEC_IOSTAT, 0},
+    {"ERR", IOSPEC_ERR, 0},
+    {"FILE", IOSPEC_FILE, 0},
+    {"STATUS", IOSPEC_STATUS, 0},
+    {"ACCESS", IOSPEC_ACCESS, 0},
+    {"FORM", IOSPEC_FORM, 0},
+    {"UNIT", IOSPEC_UNIT, 0},
+    {"RECL", IOSPEC_RECL, 0},
+    {"BLANK", IOSPEC_BLANK, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
+/*****************************************************************************
+ * Tokens found within a CLOSE statement.                                    *
+ *****************************************************************************/
+
+KWDTAB close_toks[] =
+{
+    {"IOSTAT", IOSPEC_IOSTAT, 0},
+    {"ERR", IOSPEC_ERR, 0},
+    {"STATUS", IOSPEC_STATUS, 0},
+    {"UNIT", IOSPEC_UNIT, 0},
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
+};
 /*****************************************************************************
  * Tokens found within an ASSIGN statement.                                  *
  *****************************************************************************/

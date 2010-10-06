@@ -51,6 +51,7 @@ void
   check_implied_loop(AST *),
   read_write_check (AST *),
   open_check (AST *),
+  close_check (AST *),
   merge_equivalences(AST *),
   check_equivalences(AST *),
   insertEquivalences(AST *),
@@ -394,6 +395,16 @@ typecheck (AST * root)
       cur_check_unit->astnode.source.needs_files = TRUE;
 
       open_check(root);
+      if (root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Close:
+      if (checkdebug)
+        printf ("typecheck(): Close statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      close_check(root);
       if (root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
@@ -1376,6 +1387,21 @@ open_check(AST * root)
 
   if(root->astnode.open.recl)
     expr_check(root->astnode.open.recl);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * close_check                                                               *
+ *                                                                           *
+ * Performs typechecking on CLOSE statements.                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+close_check(AST * root)
+{
+  if(root->astnode.close.unit_expr)
+    expr_check(root->astnode.close.unit_expr);
 }
 
 /*****************************************************************************

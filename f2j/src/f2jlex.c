@@ -459,6 +459,9 @@ yylex ()
   if(!token && (firsttoken == OPEN))
     token = keyscan (open_toks, &buffer);
 
+  if(!token && (firsttoken == CLOSE))
+    token = keyscan (close_toks, &buffer);
+
   if (token)
   {
     if (token == OP)
@@ -2044,24 +2047,24 @@ tok2str(int tok)
       return("EDIT_DESC");
     case REPEAT:
       return("REPEAT");
-    case OPEN_IOSTAT:
-      return("OPEN_IOSTAT");
-    case OPEN_ERR:
-      return("OPEN_ERR");
-    case OPEN_FILE:
-      return("OPEN_FILE");
-    case OPEN_STATUS:
-      return("OPEN_STATUS");
-    case OPEN_ACCESS:
-      return("OPEN_ACCESS");
-    case OPEN_FORM:
-      return("OPEN_FORM");
-    case OPEN_UNIT:
-      return("OPEN_UNIT");
-    case OPEN_RECL:
-      return("OPEN_RECL");
-    case OPEN_BLANK:
-      return("OPEN_BLANK");
+    case IOSPEC_IOSTAT:
+      return("IOSPEC_IOSTAT");
+    case IOSPEC_ERR:
+      return("IOSPEC_ERR");
+    case IOSPEC_FILE:
+      return("IOSPEC_FILE");
+    case IOSPEC_STATUS:
+      return("IOSPEC_STATUS");
+    case IOSPEC_ACCESS:
+      return("IOSPEC_ACCESS");
+    case IOSPEC_FORM:
+      return("IOSPEC_FORM");
+    case IOSPEC_UNIT:
+      return("IOSPEC_UNIT");
+    case IOSPEC_RECL:
+      return("IOSPEC_RECL");
+    case IOSPEC_BLANK:
+      return("IOSPEC_BLANK");
     case LOWER_THAN_COMMENT:
       return("LOWER_THAN_COMMENT");
     default:

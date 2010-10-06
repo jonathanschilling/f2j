@@ -75,6 +75,7 @@ void
   write_optimize(AST *, AST*),
   spec_optimize(AST *, AST*),
   open_optimize(AST *, AST*),
+  close_optimize(AST *, AST*),
   read_implied_loop_optimize(AST *, AST *),
   name_optimize (AST *, AST *),
   subcall_optimize(AST *, AST *),
@@ -316,6 +317,15 @@ optimize (AST * root, AST * rptr)
         printf ("Open statement.\n");
 
       open_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Close:
+      if (optdebug)
+        printf ("Close statement.\n");
+
+      close_optimize (root, rptr);
 
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
@@ -759,6 +769,21 @@ open_optimize(AST *root, AST *rptr)
 
   if(root->astnode.open.recl)
     expr_optimize(root->astnode.open.recl, rptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * close_optimize                                                            *
+ *                                                                           *
+ * Optimize an CLOSE statement.  Not much to do here really.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+close_optimize(AST *root, AST *rptr)
+{
+  if(root->astnode.close.unit_expr)
+    expr_optimize(root->astnode.close.unit_expr, rptr);
 }
 
 /*****************************************************************************

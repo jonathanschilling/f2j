@@ -35,6 +35,8 @@ public class FortranFile extends File {
   public static final int DEFAULT_RECL = 0;
 
   public static final int ERR_OPEN = 14;
+  public static final int ERR_CLOSE = 142;
+  public static final int ERR_KEEP_SCRATCH = 33;
   public static final int ERR_OLD_FILE_DOESNT_EXIST = 6;
   public static final int ERR_NEW_FILE_EXISTS = 107;
   public static final int ERR_NO_RECL = 25;
@@ -42,7 +44,8 @@ public class FortranFile extends File {
   public static final int ERR_RECL_SEQUENTIAL = 200;
   public static final int ERR_BAD_ACCESS = 27;
   public static final int ERR_BAD_FORM = 28;
-  public static final int ERR_BAD_STATUS = 29;
+  public static final int ERR_BAD_OPEN_STATUS = 29;
+  public static final int ERR_BAD_CLOSE_STATUS = 34;
   public static final int ERR_BAD_BLANK = 30;
   public static final int ERR_INVALID_FILE = 31;
   public static final int ERR_SCRATCH_AND_FILE = 32;
@@ -62,7 +65,6 @@ public class FortranFile extends File {
   int recl;
   String blank;
   boolean blank_flag;
-  boolean terminate_on_error;
 
   private String errmsg = null;
 
@@ -74,7 +76,7 @@ public class FortranFile extends File {
    **/
 
   public FortranFile(int unit, String filename, String status, String access,
-    String form, int recl, String blank, boolean terminate_on_error)
+    String form, int recl, String blank)
   {
     super(filename);
 
@@ -87,7 +89,6 @@ public class FortranFile extends File {
     this.form = removeTrailingBlanks(form);
     this.recl = recl;
     this.blank = removeTrailingBlanks(blank);
-    this.terminate_on_error = terminate_on_error;
 
     status_flag = status != null;
     access_flag = access != null;
@@ -95,14 +96,14 @@ public class FortranFile extends File {
     blank_flag = blank != null;
   }
 
-  public int open() {
+  public int open(boolean terminate_on_error) {
     File f = null;
     int retval = 0;
 
     if(filename == null)
       return ERR_OPEN;
 
-    retval = check_args(filename, status, access,
+    retval = check_open_args(filename, status, access,
        form, recl, blank);
 
     if(retval != 0) {
@@ -167,6 +168,56 @@ public class FortranFile extends File {
     return 0;
   }
 
+  public int close(String close_status, boolean terminate_on_error)
+  {
+    int retval = 0;
+
+    retval = check_close_args(close_status);
+
+    if(retval != 0) {
+      if(!terminate_on_error)
+        return retval;
+
+      System.err.println("Runtime error: " + errmsg);
+      System.exit(1);
+    }
+
+    try {
+      if(ra_file != null) {
+        ra_file.close();
+        ra_file = null;
+      }
+    } catch (Exception e) {
+      errmsg = "CLOSE error: unable to close file";
+      return ERR_CLOSE;
+    }
+
+    if((close_status != null) && close_status.equalsIgnoreCase("delete"))
+    {
+      File f = null;
+
+      try {
+        f = new File(filename);
+
+        if(f.exists())
+          f.delete();
+      } catch (Exception e) {
+        errmsg = "CLOSE error: unable to delete file";
+        return ERR_CLOSE;
+      }
+    }
+
+    if(retval != 0) {
+      if(!terminate_on_error)
+        return retval;
+
+      System.err.println("Runtime error: " + errmsg);
+      System.exit(1);
+    }
+
+    return 0;
+  }
+
   public PrintStream getPrintStream() {
     PrintStream ps = null;
     try {
@@ -178,6 +229,17 @@ public class FortranFile extends File {
     return ps;
   }
 
+  public DataInputStream getDataInputStream() {
+    DataInputStream ds = null;
+    try {
+      ds = new DataInputStream(new FileInputStream(ra_file.getFD()));
+    } catch (Exception e) {
+      return null;
+    }
+
+    return ds;
+  }
+
   private String removeTrailingBlanks(String s)
   {
     if(s == null) return null;
@@ -185,7 +247,7 @@ public class FortranFile extends File {
     return s.replaceAll("\\s+$", "");
   }
 
-  private int check_args(String filename, String status,
+  private int check_open_args(String filename, String status,
     String access, String form, int recl, String blank)
   {
     if((status != null) &&
@@ -197,7 +259,7 @@ public class FortranFile extends File {
       errmsg =
         "OPEN error: status must be one of " +
         "OLD, NEW, SCRATCH, or UNKNOWN";
-      return ERR_BAD_STATUS;
+      return ERR_BAD_OPEN_STATUS;
     }
 
     if((status != null) && status.equalsIgnoreCase("scratch") &&
@@ -266,6 +328,31 @@ public class FortranFile extends File {
          "OPEN error: blank=ZERO can only be used " +
          " with formatted i/o";
       return ERR_BLANK_UNFORMATTED;
+    }
+
+    return 0;
+  }
+
+  private int check_close_args(String close_status)
+  {
+    if(close_status != null) {
+      if(!close_status.equalsIgnoreCase("keep") &&
+         !close_status.equalsIgnoreCase("delete"))
+      {
+        errmsg =
+          "CLOSE error: status must be one of " +
+          "KEEP or DELETE";
+        return ERR_BAD_CLOSE_STATUS;
+      }
+
+      if(close_status.equalsIgnoreCase("keep") &&
+         status.equalsIgnoreCase("scratch"))
+      {
+        errmsg =
+          "CLOSE error: status cannot be " +
+          "KEEP for a SCRATCH file";
+        return ERR_KEEP_SCRATCH;
+      }
     }
 
     return 0;

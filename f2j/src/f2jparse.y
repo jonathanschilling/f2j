@@ -144,8 +144,8 @@ ITAB_ENTRY implicit_table[26];
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
 
-%token OPEN_IOSTAT OPEN_ERR OPEN_FILE OPEN_STATUS OPEN_ACCESS 
-%token OPEN_FORM OPEN_UNIT OPEN_RECL OPEN_BLANK
+%token IOSPEC_IOSTAT IOSPEC_ERR IOSPEC_FILE IOSPEC_STATUS IOSPEC_ACCESS 
+%token IOSPEC_FORM IOSPEC_UNIT IOSPEC_RECL IOSPEC_BLANK
 
 /* these are here to silence conflicts related to parsing comments */
 
@@ -195,6 +195,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> arith_expr term factor char_expr primary
 %type <ptnode> Ios CharExp ReclExp OlistItem Olist UnitSpec OpenFileSpec
 %type <ptnode> ErrExp StatusExp AccessExp FormExp BlankExp UnitExp
+%type <ptnode> ClistItem Clist
 
 %%
 
@@ -1325,7 +1326,6 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
             | Close
               {
                 $$ = $1;
-                $$->nodetype = Unimplemented;
               }
             | Comment
               {
@@ -1379,6 +1379,7 @@ Open: OPEN OP Olist CP NL
             }
 
             $$->astnode.open.unit_expr = otemp->astnode.expression.rhs;
+            $$->astnode.open.unit_expr->parent = $$;
           }
           else if(otemp->nodetype == Ios) {
             AST *pnode;
@@ -1397,20 +1398,30 @@ Open: OPEN OP Olist CP NL
 
             $$->astnode.open.iostat->parent = pnode;
           }
-          else if(otemp->nodetype == OpenFileSpec)
+          else if(otemp->nodetype == OpenFileSpec) {
             $$->astnode.open.file_expr = otemp->astnode.expression.rhs;
+            $$->astnode.open.file_expr->parent = $$;
+          }
           else if(otemp->nodetype == StatusExp) {
             $$->astnode.open.status = otemp->astnode.expression.rhs;
             $$->astnode.open.status->parent = $$;
           }
-          else if(otemp->nodetype == AccessExp)
+          else if(otemp->nodetype == AccessExp) {
             $$->astnode.open.access = otemp->astnode.expression.rhs;
-          else if(otemp->nodetype == FormExp)
+            $$->astnode.open.access->parent = $$;
+          }
+          else if(otemp->nodetype == FormExp) {
             $$->astnode.open.form = otemp->astnode.expression.rhs;
-          else if(otemp->nodetype == BlankExp)
+            $$->astnode.open.form->parent = $$;
+          }
+          else if(otemp->nodetype == BlankExp) {
             $$->astnode.open.blank = otemp->astnode.expression.rhs;
-          else if(otemp->nodetype == ReclExp)
+            $$->astnode.open.blank->parent = $$;
+          }
+          else if(otemp->nodetype == ReclExp) {
             $$->astnode.open.recl = otemp->astnode.expression.rhs;
+            $$->astnode.open.recl->parent = $$;
+          }
           else if(otemp->nodetype == ErrExp) {
             $$->astnode.open.err =
                atoi(otemp->astnode.expression.rhs->astnode.constant.number);
@@ -1446,7 +1457,7 @@ OlistItem: UnitExp
            {
              $$ = $1;
            }
-         | OPEN_IOSTAT EQ Ios
+         | IOSPEC_IOSTAT EQ Ios
            {
              $$ = $3;
            }
@@ -1480,7 +1491,36 @@ OlistItem: UnitExp
            }
 ;
 
-UnitExp: OPEN_UNIT EQ UnitSpec
+Clist: Clist CM ClistItem
+       {
+         $3->prevstmt = $1;
+         $$ = $3;
+       }
+     | ClistItem
+       {
+         $$ = $1;
+       }
+;
+
+ClistItem: UnitExp
+           {
+             $$ = $1;
+           }
+         | IOSPEC_IOSTAT EQ Ios
+           {
+             $$ = $3;
+           }
+         | ErrExp
+           {
+             $$ = $1;
+           }
+         | StatusExp
+           {
+             $$ = $1;
+           }
+;
+
+UnitExp: IOSPEC_UNIT EQ UnitSpec
          {
            $$ = $3;
          }
@@ -1504,7 +1544,7 @@ UnitSpec: Exp
            }
 ;
 
-OpenFileSpec: OPEN_FILE EQ CharExp
+OpenFileSpec: IOSPEC_FILE EQ CharExp
           {
             $$ = addnode();
             $$->nodetype = OpenFileSpec;
@@ -1512,7 +1552,7 @@ OpenFileSpec: OPEN_FILE EQ CharExp
           }
 ;
 
-ReclExp: OPEN_RECL EQ Exp
+ReclExp: IOSPEC_RECL EQ Exp
          {
            $$ = addnode();
            $$->nodetype = ReclExp;
@@ -1520,7 +1560,7 @@ ReclExp: OPEN_RECL EQ Exp
          }
 ;
 
-StatusExp: OPEN_STATUS EQ CharExp
+StatusExp: IOSPEC_STATUS EQ CharExp
            {
              $$ = addnode();
              $$->nodetype = StatusExp;
@@ -1528,7 +1568,7 @@ StatusExp: OPEN_STATUS EQ CharExp
            }
 ;
 
-AccessExp: OPEN_ACCESS EQ CharExp
+AccessExp: IOSPEC_ACCESS EQ CharExp
            {
              $$ = addnode();
              $$->nodetype = AccessExp;
@@ -1536,7 +1576,7 @@ AccessExp: OPEN_ACCESS EQ CharExp
            }
 ;
 
-FormExp: OPEN_FORM EQ CharExp
+FormExp: IOSPEC_FORM EQ CharExp
          {
            $$ = addnode();
            $$->nodetype = FormExp;
@@ -1544,7 +1584,7 @@ FormExp: OPEN_FORM EQ CharExp
          }
 ;
 
-BlankExp: OPEN_BLANK EQ CharExp
+BlankExp: IOSPEC_BLANK EQ CharExp
          {
            $$ = addnode();
            $$->nodetype = BlankExp;
@@ -1552,7 +1592,7 @@ BlankExp: OPEN_BLANK EQ CharExp
          }
 ;
 
-ErrExp: OPEN_ERR EQ Integer
+ErrExp: IOSPEC_ERR EQ Integer
          {
            $$ = addnode();
            $$->nodetype = ErrExp;
@@ -1577,11 +1617,72 @@ Ios: Lhs
        $$->astnode.expression.rhs = $1;
      }
 
-Close:  CLOSE OP UndeclaredName CP NL
-        {
-          fprintf(stderr,"WArning: CLOSE not implemented.\n");
-          $$ = $3;
-        }
+Close: CLOSE OP Clist CP NL
+       {
+         AST *otemp;
+
+         $$ = addnode();
+         $$->vartype = Integer;
+         $$->expr_side = right;
+         $$->nodetype = Close;
+         $$->astnode.close.unit_expr = NULL;
+         $$->astnode.close.iostat = NULL;
+         $$->astnode.close.err = -1;
+         $$->astnode.close.status = NULL;
+
+         $3 = switchem($3);
+
+         /* need to look for the required unit number */
+ 
+         for(otemp=$3;otemp!=NULL;otemp=otemp->nextstmt) {
+           if(otemp->nodetype == UnitSpec) {
+             if(otemp->astnode.expression.rhs->token == STAR) {
+               yyerror("ERROR: CLOSE statement may not have unit specifier '*'");
+               exit(EXIT_FAILURE);
+             }
+
+             $$->astnode.close.unit_expr = otemp->astnode.expression.rhs;
+             $$->astnode.close.unit_expr->parent = $$;
+           }
+           else if(otemp->nodetype == Ios) {
+             AST *pnode;
+ 
+             /* the IOSTAT variable is emitted as the lhs of an assignment
+              * for example:  k = __ftn_file_mgr.close( ... );
+              * so here we create a dummy parent node of type Assignment so
+              * that when we call name_emit() it will do the right thing.
+              */
+             $$->astnode.close.iostat = otemp->astnode.expression.rhs;
+
+             pnode = addnode();
+             pnode->nodetype = Assignment;
+             pnode->astnode.assignment.lhs = $$->astnode.close.iostat; 
+             pnode->astnode.assignment.rhs = $$;
+ 
+             $$->astnode.close.iostat->parent = pnode;
+           }
+           else if(otemp->nodetype == StatusExp) {
+             $$->astnode.close.status = otemp->astnode.expression.rhs;
+             $$->astnode.close.status->parent = $$;
+           }
+           else if(otemp->nodetype == ErrExp) {
+             $$->astnode.close.err =
+                atoi(otemp->astnode.expression.rhs->astnode.constant.number);
+             if($$->astnode.close.err <= 0) {
+               yyerror("ERROR: CLOSE() ERR specifier must be pos. integer\n");
+               exit(EXIT_FAILURE);
+             }
+           }
+         }
+
+         /* everything is optional except for the Unit number, so check
+          * whether it was specified.
+          */
+         if(!$$->astnode.close.unit_expr) {
+           yyerror("ERROR: CLOSE statement has no unit specifier\n");
+           exit(EXIT_FAILURE);
+         }
+       }
 ;
 
 Rewind: REWIND UndeclaredName NL
@@ -2408,7 +2509,9 @@ Write: WRITE OP UnitExp CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.io_type = Write;
          $$->astnode.io_stmt.fmt_list = NULL;
 
-         $$->astnode.io_stmt.unit_desc = $3;
+         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
+         if($$->astnode.io_stmt.unit_desc)
+           $$->astnode.io_stmt.unit_desc->parent = $$; 
 
          if($5->nodetype == Constant)
          {
@@ -2546,7 +2649,9 @@ Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.fmt_list = NULL;
          $$->astnode.io_stmt.end_num = -1;
 
-         $$->astnode.io_stmt.unit_desc = $3;
+         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
+         if($$->astnode.io_stmt.unit_desc)
+           $$->astnode.io_stmt.unit_desc->parent = $$; 
 
          if($5->nodetype == Constant)
          {
@@ -2586,7 +2691,9 @@ Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
          $$->astnode.io_stmt.io_type = Read;
          $$->astnode.io_stmt.fmt_list = NULL;
 
-         $$->astnode.io_stmt.unit_desc = $3;
+         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
+         if($$->astnode.io_stmt.unit_desc)
+           $$->astnode.io_stmt.unit_desc->parent = $$; 
 
          if($5->nodetype == Constant)
          {

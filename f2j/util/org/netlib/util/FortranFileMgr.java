@@ -51,19 +51,41 @@ public class FortranFileMgr {
     int rv;
 
     try {
-      ff = new FortranFile(unit, filename, status, access, form, recl,
-                   blank, terminate_on_error);
+      ff = new FortranFile(unit, filename, status, access, form, recl, blank);
     } catch(Exception e) {
       System.err.println(e);
       return -1;
     }
 
-    rv = ff.open();
+    rv = ff.open(terminate_on_error);
 
     if((rv != 0) && !terminate_on_error)
         return rv;
 
     files.put(new Integer(unit), ff);
+
+    return 0;
+  }
+
+  public int close(int unit, String status, boolean terminate_on_error)
+  {
+    FortranFile ff;
+    int rv;
+
+    ff = get(new Integer(unit));
+
+    /* f77 spec says closing a non-existent file is ok, so no error here,
+     * just return success.
+     */
+    if(ff == null)
+      return 0;
+
+    rv = ff.close(status, terminate_on_error);
+
+    if((rv != 0) && !terminate_on_error)
+        return rv;
+
+    files.remove(new Integer(unit));
 
     return 0;
   }

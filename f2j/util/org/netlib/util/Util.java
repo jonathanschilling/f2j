@@ -398,7 +398,7 @@ public class Util {
     String response = null;
 
     try {
-      response = EasyIn.myCrappyReadLine();
+      response = EasyIn.myCrappyReadLine(FortranFileMgr.FTN_STDIN);
     } catch (IOException e) {
       response = null;
     }

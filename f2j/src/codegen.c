@@ -8597,6 +8597,53 @@ read_emit (JVM_METHOD *meth, AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * emit_unit_desc                                                            *
+ *                                                                           *
+ * This function generates the unit descriptor expression for READ           *
+ * statements.  If no unit descriptor was specified, then we just            *
+ * emit the default F77 descriptor for stdin.                                *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_unit_desc(JVM_METHOD *meth, AST *root)
+{
+  if(root->astnode.io_stmt.unit_desc &&
+     root->astnode.io_stmt.unit_desc->token != STAR)
+  {
+    expr_emit(meth, root->astnode.io_stmt.unit_desc);
+  }
+  else {
+    fprintf(curfp, "%d", F77_STDIN);
+    bc_push_int_const(meth, F77_STDIN);
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_skip_line                                                            *
+ *                                                                           *
+ * When we have a READ statement with no arguments, this code will get the   *
+ * whole line and throw it away.                                             *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_skip_line(JVM_METHOD *meth, AST *root)
+{
+  int c;
+
+  bc_gen_load_op(meth, stdin_lvar, jvm_Object);
+  fprintf(curfp, "%s.readString(", F2J_STDIN);
+  emit_unit_desc(meth, root);
+  fprintf(curfp, ");  // skip a line\n");
+  c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
+        "(I)Ljava/lang/String;");
+  bc_append(meth, jvm_invokevirtual, c);
+}
+
+/*****************************************************************************
+ *                                                                           *
  * unformatted_read_emit                                                     *
  *                                                                           *
  * This function generates unformatted READ statements.  We generate calls   *
@@ -8621,11 +8668,7 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
    */
 
   if(root->astnode.io_stmt.arg_list == NULL) {
-    fprintf(curfp,"%s.readString();  // skip a line\n", F2J_STDIN);
-    bc_gen_load_op(meth, stdin_lvar, jvm_Object);
-    c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
-          "()Ljava/lang/String;");
-    bc_append(meth, jvm_invokevirtual, c);
+    emit_skip_line(meth, root);
     return;
   }
 
@@ -8664,12 +8707,15 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
 
         len = temp->astnode.ident.len < 0 ? 1 : temp->astnode.ident.len;
 
-        fprintf(curfp," = %s.%s(%d);\n", F2J_STDIN, funcname[temp->vartype],
-           len);
+        fprintf(curfp," = %s.%s(", F2J_STDIN, funcname[temp->vartype]);
+        emit_unit_desc(meth, root);
+        fprintf(curfp,", %d);\n", len);
         bc_push_int_const(meth, len);
       }
       else {
-        fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[temp->vartype]);
+        fprintf(curfp," = %s.%s(", F2J_STDIN, funcname[temp->vartype]);
+        emit_unit_desc(meth, root);
+        fprintf(curfp,");\n");
       }
 
       c = bc_new_methodref(cur_class_file, EASYIN_CLASS, funcname[temp->vartype],
@@ -8855,11 +8901,7 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
    */
 
   if(root->astnode.io_stmt.arg_list == NULL) {
-    fprintf(curfp,"%s.readString();  // skip a line\n", F2J_STDIN);
-    bc_gen_load_op(meth, stdin_lvar, jvm_Object);
-    c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
-          "()Ljava/lang/String;");
-    bc_append(meth, jvm_invokevirtual, c);
+    emit_skip_line(meth, root);
     return;
   }
 
@@ -8873,16 +8915,8 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
      * test the return value to determine EOF.
      */
     fprintf(curfp, "if(Util.f77read(");
-    if(root->astnode.io_stmt.unit_desc &&
-       root->astnode.io_stmt.unit_desc->token != STAR)
-    {
-      expr_emit(meth, root->astnode.io_stmt.unit_desc);
-      fprintf(curfp, ", ");
-    }
-    else {
-      fprintf(curfp, "%d, ", F77_STDIN);
-      bc_push_int_const(meth, F77_STDIN);
-    }
+    emit_unit_desc(meth, root);
+    fprintf(curfp, ", ");
 
     bc_push_string_const(meth, fmt_str);
     bc_gen_load_op(meth, iovec_lvar, jvm_Object);
@@ -8900,16 +8934,8 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
   }
   else {
     fprintf(curfp, "Util.f77read(");
-    if(root->astnode.io_stmt.unit_desc &&
-       root->astnode.io_stmt.unit_desc->token != STAR)
-    {
-      expr_emit(meth, root->astnode.io_stmt.unit_desc);
-      fprintf(curfp, ", ");
-    }
-    else {
-      fprintf(curfp, "%d, ", F77_STDIN);
-      bc_push_int_const(meth, F77_STDIN);
-    }
+    emit_unit_desc(meth, root);
+    fprintf(curfp, ", ");
 
     bc_push_string_const(meth, fmt_str);
     bc_gen_load_op(meth, iovec_lvar, jvm_Object);
@@ -9045,7 +9071,6 @@ read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       fprintf(stderr," in implied loop (read stmt)\n");
     }
     else {
-      fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[iot->vartype]);
       assign_temp = addnode();
       assign_temp->nodetype = Assignment;
 
@@ -9056,6 +9081,9 @@ read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       name_emit(meth, assign_temp->astnode.assignment.lhs);
 
       bc_gen_load_op(meth, stdin_lvar, jvm_Object);
+      fprintf(curfp," = %s.%s(", F2J_STDIN, funcname[iot->vartype]);
+      emit_unit_desc(meth, node->parent);
+      fprintf(curfp,");\n");
 
       if( (temp->vartype == Character) || (temp->vartype == String) ) {
         if(temp->astnode.ident.len < 0)
@@ -9098,7 +9126,9 @@ read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
     }
     else {
       name_emit(meth, iot);
-      fprintf(curfp," = %s.%s();\n", F2J_STDIN, funcname[iot->vartype]);
+      fprintf(curfp," = %s.%s(", F2J_STDIN, funcname[iot->vartype]);
+      emit_unit_desc(meth, node->parent);
+      fprintf(curfp,");\n");
     }
   }
   fprintf(curfp,"}\n");

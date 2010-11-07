@@ -45,13 +45,24 @@ public class EasyIn {
      * to interleave calls to EasyIn with another input method, which
      * didn't work with the previous static buffered reader. 
      */
-    public static String myCrappyReadLine() throws java.io.IOException
+    public static String myCrappyReadLine(int unit) throws java.io.IOException
     {
       StringBuffer sb = new StringBuffer();
+      DataInputStream instream = null;
+      FortranFileMgr fmgr;
+      FortranFile ff;
       int c = 0;
 
+      fmgr = FortranFileMgr.getInstance();
+      ff = fmgr.get(new Integer(unit));
+
+      if(ff != null)
+        instream = ff.getDataInputStream();
+      else if(unit == FortranFileMgr.FTN_STDIN)
+        instream = new DataInputStream(System.in);
+
       while(c >= 0) {
-        c = System.in.read();
+        c = instream.read();
 
         if(c < 0)
           return null;
@@ -70,9 +81,9 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    private void initTokenizer() throws IOException {
+    private void initTokenizer(int unit) throws IOException {
       do {
-        line = EasyIn.myCrappyReadLine();
+        line = EasyIn.myCrappyReadLine(unit);
   
         if(line == null)
           throw new IOException("EOF");
@@ -131,17 +142,17 @@ public class EasyIn {
      *
      * @return the token
      */
-    private String getToken() throws IOException {
+    private String getToken(int unit) throws IOException {
        int begin,end;
 
        if( (line == null) || !moreTokens() )
-         initTokenizer();
+         initTokenizer(unit);
 
        while( (idx < len) && isDelim(line.charAt(idx)) )
          idx++;
 
        if(idx == len) {
-         initTokenizer();
+         initTokenizer(unit);
          while( (idx < len) && isDelim(line.charAt(idx)) )
            idx++;
        }
@@ -166,11 +177,11 @@ public class EasyIn {
      *
      * @return the String containing the characters read.
      */
-    public String readchars(int num_chars) throws IOException {
+    public String readchars(int unit, int num_chars) throws IOException {
       int cp_idx;
 
       if( (line == null) || !moreTokens() )
-        initTokenizer();
+        initTokenizer(unit);
 
       cp_idx = idx;
 
@@ -194,9 +205,9 @@ public class EasyIn {
      *
      * @return the String containing the characters read.
      */
-    public String readChars(int num_chars) {
+    public String readChars(int unit, int num_chars) {
       try{ 
-        return readchars(num_chars);
+        return readchars(unit, num_chars);
       }catch (IOException e) {
         System.err.println("IO Exception in EasyIn.readChars");
         return null;
@@ -218,8 +229,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public boolean readboolean() throws IOException {
-          char ch = getToken().charAt(0);
+    public boolean readboolean(int unit) throws IOException {
+          char ch = getToken(unit).charAt(0);
           if((ch == 't') || (ch == 'T'))
             return true;
           else 
@@ -232,9 +243,9 @@ public class EasyIn {
      *
      * @return the boolean value
      */
-    public boolean readBoolean() {
+    public boolean readBoolean(int unit) {
        try {
-          char ch = getToken().charAt(0);
+          char ch = getToken(unit).charAt(0);
           if((ch == 't') || (ch == 'T'))
             return true;
           else 
@@ -252,8 +263,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public byte readbyte() throws IOException {
-      return Byte.parseByte(getToken());
+    public byte readbyte(int unit) throws IOException {
+      return Byte.parseByte(getToken(unit));
     }
 
     /**
@@ -262,9 +273,9 @@ public class EasyIn {
      *
      * @return the byte value
      */
-    public byte readByte() {
+    public byte readByte(int unit) {
        try {
-         return Byte.parseByte(getToken());
+         return Byte.parseByte(getToken(unit));
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readByte");
           return 0;
@@ -278,8 +289,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public short readshort() throws IOException {
-      return Short.parseShort(getToken());
+    public short readshort(int unit) throws IOException {
+      return Short.parseShort(getToken(unit));
     }
 
     /**
@@ -288,9 +299,9 @@ public class EasyIn {
      *
      * @return the short value
      */
-    public short readShort() {
+    public short readShort(int unit) {
        try {
-         return Short.parseShort(getToken());
+         return Short.parseShort(getToken(unit));
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readShort");
           return 0;
@@ -304,8 +315,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public int readint() throws IOException {
-      return Integer.parseInt(getToken());
+    public int readint(int unit) throws IOException {
+      return Integer.parseInt(getToken(unit));
     }
 
     /**
@@ -314,9 +325,9 @@ public class EasyIn {
      *
      * @return the integer value
      */
-    public int readInt() {
+    public int readInt(int unit) {
        try {
-         return Integer.parseInt(getToken());
+         return Integer.parseInt(getToken(unit));
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readInt");
           return 0;
@@ -330,8 +341,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public long readlong() throws IOException {
-      return Long.parseLong(getToken());
+    public long readlong(int unit) throws IOException {
+      return Long.parseLong(getToken(unit));
     }
 
     /**
@@ -340,9 +351,9 @@ public class EasyIn {
      *
      * @return the long integer value
      */
-    public long readLong() {
+    public long readLong(int unit) {
        try {
-         return Long.parseLong(getToken());
+         return Long.parseLong(getToken(unit));
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readLong");
           return 0L;
@@ -356,8 +367,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public float readfloat() throws IOException {
-      return new Float(getToken()).floatValue();
+    public float readfloat(int unit) throws IOException {
+      return new Float(getToken(unit)).floatValue();
     }
 
     /**
@@ -366,9 +377,9 @@ public class EasyIn {
      *
      * @return the float value
      */
-    public float readFloat() {
+    public float readFloat(int unit) {
        try {
-         return new Float(getToken()).floatValue();
+         return new Float(getToken(unit)).floatValue();
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readFloat");
           return 0.0F;
@@ -382,8 +393,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public double readdouble() throws IOException {
-      String tok = getToken();
+    public double readdouble(int unit) throws IOException {
+      String tok = getToken(unit);
 
       tok = tok.replace('D', 'E');
       tok = tok.replace('d', 'e');
@@ -397,9 +408,9 @@ public class EasyIn {
      *
      * @return the double value
      */
-    public double readDouble() {
+    public double readDouble(int unit) {
        try {
-         String tok = getToken();
+         String tok = getToken(unit);
 
          tok = tok.replace('D', 'E');
          tok = tok.replace('d', 'e');
@@ -418,8 +429,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public char readchar() throws IOException {
-      return getToken().charAt(0);
+    public char readchar(int unit) throws IOException {
+      return getToken(unit).charAt(0);
     }
 
     /**
@@ -428,9 +439,9 @@ public class EasyIn {
      *
      * @return the character value
      */
-    public char readChar() {
+    public char readChar(int unit) {
        try {
-          return getToken().charAt(0);
+          return getToken(unit).charAt(0);
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readChar");
           return 0;
@@ -444,8 +455,8 @@ public class EasyIn {
      *
      * @throws IOException if an input or output exception occurred.
      */
-    public String readstring() throws IOException {
-      return EasyIn.myCrappyReadLine(); 
+    public String readstring(int unit) throws IOException {
+      return EasyIn.myCrappyReadLine(unit); 
     }
 
     /**
@@ -454,9 +465,9 @@ public class EasyIn {
      *
      * @return the string value
      */
-    public String readString() {
+    public String readString(int unit) {
        try {
-         return EasyIn.myCrappyReadLine(); 
+         return EasyIn.myCrappyReadLine(unit); 
        } catch (IOException ioe) {
           System.err.println("IO Exception in EasyIn.readString");
           return "";
@@ -471,30 +482,30 @@ public class EasyIn {
        EasyIn easy = new EasyIn();
 
        System.out.print("enter char: "); System.out.flush();
-       System.out.println("You entered: " + easy.readChar() );
+       System.out.println("You entered: " + easy.readChar(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter String: "); System.out.flush();
-       System.out.println("You entered: " + easy.readString() );
+       System.out.println("You entered: " + easy.readString(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter boolean: "); System.out.flush();
-       System.out.println("You entered: " + easy.readBoolean() );
+       System.out.println("You entered: " + easy.readBoolean(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter byte: "); System.out.flush();
-       System.out.println("You entered: " + easy.readByte() );
+       System.out.println("You entered: " + easy.readByte(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter short: "); System.out.flush();
-       System.out.println("You entered: " + easy.readShort() );
+       System.out.println("You entered: " + easy.readShort(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter int: "); System.out.flush();
-       System.out.println("You entered: " + easy.readInt() );
+       System.out.println("You entered: " + easy.readInt(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter long: "); System.out.flush();
-       System.out.println("You entered: " + easy.readLong() );
+       System.out.println("You entered: " + easy.readLong(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter float: "); System.out.flush();
-       System.out.println("You entered: " + easy.readFloat() );
+       System.out.println("You entered: " + easy.readFloat(FortranFileMgr.FTN_STDIN) );
 
        System.out.print("enter double: "); System.out.flush();
-       System.out.println("You entered: " + easy.readDouble() );
+       System.out.println("You entered: " + easy.readDouble(FortranFileMgr.FTN_STDIN) );
    }
 }

@@ -574,9 +574,12 @@ public class Util {
 
   public static int f77read(int unit, String fmt, Vector v)
   {
+    DataInputStream is = null;
+
     try {
+      is = getDataInputStream(unit);
       Formatter f = new Formatter(fmt);
-      f.read( v, new DataInputStream(System.in) );
+      f.read( v, is );
     }
     catch ( EndOfFileWhenStartingReadException eof_exc) {
       return 0;

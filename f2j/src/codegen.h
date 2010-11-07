@@ -53,7 +53,7 @@
 #define STREQV_DESC "(Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
-#define F77_READ_DESC "(Ljava/lang/String;Ljava/util/Vector;)I"
+#define F77_READ_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
 #define F77_WRITE_DESC "(ILjava/lang/String;Ljava/util/Vector;)V"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"

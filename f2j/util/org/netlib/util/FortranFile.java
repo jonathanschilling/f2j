@@ -155,7 +155,6 @@ public class FortranFile extends File {
       }
 
       ra_file = new RandomAccessFile(f, "rw");
-      ra_file.seek(ra_file.length());
     }
     catch (Exception e) {
       if(!terminate_on_error)
@@ -221,6 +220,12 @@ public class FortranFile extends File {
   public PrintStream getPrintStream() {
     PrintStream ps = null;
     try {
+      /* if outputting to a sequential file, make sure the file
+       * position is at the end.
+       */
+      if(access.equalsIgnoreCase("sequential"))
+        ra_file.seek(ra_file.length());
+
       ps = new PrintStream(new FileOutputStream(ra_file.getFD()));
     } catch (Exception e) {
       return null;
@@ -234,6 +239,7 @@ public class FortranFile extends File {
     try {
       ds = new DataInputStream(new FileInputStream(ra_file.getFD()));
     } catch (Exception e) {
+      System.err.println("Failed to create input stream");
       return null;
     }
 

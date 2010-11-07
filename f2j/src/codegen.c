@@ -8865,11 +8865,6 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
 
   gen_clear_io_vec(meth);
 
-  bc_push_string_const(meth, fmt_str);
-  bc_gen_load_op(meth, iovec_lvar, jvm_Object);
-  c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
-  bc_append(meth, jvm_invokestatic, c);
-
   if(root->astnode.io_stmt.end_num > 0 )
   {
     JVM_CODE_GRAPH_NODE *if_node, *goto_node;
@@ -8877,7 +8872,24 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     /* the READ statement includes an END label, so we
      * test the return value to determine EOF.
      */
-    fprintf(curfp, "if(Util.f77read(\"%s\", %s) <= 0)\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp, "if(Util.f77read(");
+    if(root->astnode.io_stmt.unit_desc &&
+       root->astnode.io_stmt.unit_desc->token != STAR)
+    {
+      expr_emit(meth, root->astnode.io_stmt.unit_desc);
+      fprintf(curfp, ", ");
+    }
+    else {
+      fprintf(curfp, "%d, ", F77_STDIN);
+      bc_push_int_const(meth, F77_STDIN);
+    }
+
+    bc_push_string_const(meth, fmt_str);
+    bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
+    bc_append(meth, jvm_invokestatic, c);
+
+    fprintf(curfp, "\"%s\", %s) <= 0)\n", fmt_str, F2J_IO_VEC);
     fprintf(curfp,"   Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.io_stmt.end_num);
 
@@ -8887,7 +8899,24 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
   }
   else {
-    fprintf(curfp, "Util.f77read(\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp, "Util.f77read(");
+    if(root->astnode.io_stmt.unit_desc &&
+       root->astnode.io_stmt.unit_desc->token != STAR)
+    {
+      expr_emit(meth, root->astnode.io_stmt.unit_desc);
+      fprintf(curfp, ", ");
+    }
+    else {
+      fprintf(curfp, "%d, ", F77_STDIN);
+      bc_push_int_const(meth, F77_STDIN);
+    }
+
+    bc_push_string_const(meth, fmt_str);
+    bc_gen_load_op(meth, iovec_lvar, jvm_Object);
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
+    bc_append(meth, jvm_invokestatic, c);
+
+    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
     /* return value is unused, so pop it off the stack */
     bc_append(meth, jvm_pop);
   }

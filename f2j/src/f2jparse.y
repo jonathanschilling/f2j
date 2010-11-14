@@ -94,6 +94,7 @@ void
   insert_name(SYMTABLE *, AST *, enum returntype),
   store_array_var(AST *),
   initialize_implicit_table(ITAB_ENTRY *),
+  get_info_from_cilist(AST *, AST *),
   printbits(char *, void *, int),
   print_sym_table_names(SYMTABLE *);
 
@@ -145,7 +146,8 @@ ITAB_ENTRY implicit_table[26];
 %token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
 
 %token IOSPEC_IOSTAT IOSPEC_ERR IOSPEC_FILE IOSPEC_STATUS IOSPEC_ACCESS 
-%token IOSPEC_FORM IOSPEC_UNIT IOSPEC_RECL IOSPEC_BLANK
+%token IOSPEC_FORM IOSPEC_UNIT IOSPEC_RECL IOSPEC_REC IOSPEC_BLANK
+%token IOSPEC_END
 
 /* these are here to silence conflicts related to parsing comments */
 
@@ -188,14 +190,14 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> CharTypevar CharTypevarlist
 %type <type>   ArithTypes ArithSimpleType CharTypes CharSimpleType
 %type <type>   AnySimpleType AnyTypes
-%type <ptnode> Write FormatSpec EndSpec
+%type <ptnode> Write FormatSpec
 %type <ptnode> Format FormatExplist FormatExp FormatSeparator
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
 %type <ptnode> log_disjunct log_term log_factor log_primary
 %type <ptnode> arith_expr term factor char_expr primary
 %type <ptnode> Ios CharExp ReclExp OlistItem Olist UnitSpec OpenFileSpec
 %type <ptnode> ErrExp StatusExp AccessExp FormExp BlankExp UnitExp
-%type <ptnode> ClistItem Clist
+%type <ptnode> RecExp EndExp CllistItem Cllist CilistItem Cilist
 
 %%
 
@@ -1442,6 +1444,39 @@ Open: OPEN OP Olist CP NL
       }
 ;
 
+Cilist: Cilist CM CilistItem
+       {
+         $3->prevstmt = $1;
+         $$ = $3;
+       }
+     | CilistItem
+       {
+         $$ = $1;
+       }
+;
+
+CilistItem: UnitExp
+           {
+             $$ = $1;
+           }
+         | ErrExp
+           {
+             $$ = $1;
+           }
+         | RecExp
+           {
+             $$ = $1;
+           }
+         | IOSPEC_IOSTAT EQ Ios
+           {
+             $$ = $3;
+           }
+         | EndExp
+           {
+             $$ = $1;
+           }
+;
+
 Olist: Olist CM OlistItem
        {
          $3->prevstmt = $1;
@@ -1491,18 +1526,18 @@ OlistItem: UnitExp
            }
 ;
 
-Clist: Clist CM ClistItem
+Cllist: Cllist CM CllistItem
        {
          $3->prevstmt = $1;
          $$ = $3;
        }
-     | ClistItem
+     | CllistItem
        {
          $$ = $1;
        }
 ;
 
-ClistItem: UnitExp
+CllistItem: UnitExp
            {
              $$ = $1;
            }
@@ -1560,6 +1595,14 @@ ReclExp: IOSPEC_RECL EQ Exp
          }
 ;
 
+RecExp: IOSPEC_REC EQ Exp
+         {
+           $$ = addnode();
+           $$->nodetype = RecExp;
+           $$->astnode.expression.rhs = $3;
+         }
+;
+
 StatusExp: IOSPEC_STATUS EQ CharExp
            {
              $$ = addnode();
@@ -1600,6 +1643,14 @@ ErrExp: IOSPEC_ERR EQ Integer
          }
 ;
 
+EndExp: IOSPEC_END EQ Integer
+         {
+           $$ = addnode();
+           $$->nodetype = EndExp;
+           $$->astnode.expression.rhs = $3;
+         }
+;
+
 CharExp: UndeclaredName
          {
            $$ = $1;
@@ -1617,7 +1668,7 @@ Ios: Lhs
        $$->astnode.expression.rhs = $1;
      }
 
-Close: CLOSE OP Clist CP NL
+Close: CLOSE OP Cllist CP NL
        {
          AST *otemp;
 
@@ -2683,7 +2734,7 @@ Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent = $$;
       }
-    | READ OP UnitExp CM FormatSpec CM EndSpec CP IoExplist NL
+    | READ OP UnitExp CM FormatSpec CM Cilist CP IoExplist NL
       {
          AST *temp;
 
@@ -2717,8 +2768,14 @@ Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
            $$->astnode.io_stmt.fmt_list = $5;
          }
 
-         $$->astnode.io_stmt.end_num = atoi($7->astnode.constant.number);
-         free_ast_node($7);
+         $7 = switchem($7);
+
+         get_info_from_cilist($$, $7);
+
+         if(!$$->astnode.open.unit_expr) {
+           yyerror("ERROR: READ statement has no unit specifier\n");
+           exit(EXIT_FAILURE);
+         }
 
          $$->astnode.io_stmt.arg_list = switchem($9);
 
@@ -2727,9 +2784,6 @@ Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
            temp->parent = $$;
-
-         /* currently ignoring the file descriptor.. */
-         free_ast_node($3);
       }
 ;
 
@@ -2799,12 +2853,6 @@ IoExp: Exp
          $8->parent = $$;
          $10->parent = $$;
        }
-;
-
-EndSpec: END EQ Integer
-         {
-           $$ = $3;
-         }
 ;
 
 /*  Got a problem when a Blockif opens with a Blockif.  The
@@ -5466,5 +5514,64 @@ assign_function_return_type(AST *func, AST *specs)
     ret = implicit_table[tolower(func->astnode.source.name->astnode.ident.name[0]) - 'a'].type;
 
     set_function_type(func, ret);
+  }
+}
+
+/*****************************************************************************
+ * get_info_from_cilist                                                      *
+ *                                                                           *
+ * Loops through the Cilist (which is the list of IO specifiers for READ and *
+ * WRITE statements), checks the nodetype, and assigns the values to the     *
+ * relevant fields of the io_stmt struct.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+get_info_from_cilist(AST *root, AST *cilist)
+{
+  AST *otemp;
+
+  for(otemp=cilist;otemp!=NULL;otemp=otemp->nextstmt) {
+    if(otemp->nodetype == UnitSpec) {
+      root->astnode.io_stmt.unit_desc = otemp->astnode.expression.rhs;
+      root->astnode.io_stmt.unit_desc->parent = root;
+    }
+    else if(otemp->nodetype == Ios) {
+      AST *pnode;
+
+      /* the IOSTAT variable is emitted as the lhs of an assignment
+       * for example:  k = __ftn_file_mgr.open( ... );
+       * so here we create a dummy parent node of type Assignment so
+       * that when we call name_emit() it will do the right thing.
+       */
+      root->astnode.io_stmt.iostat = otemp->astnode.expression.rhs;
+
+      pnode = addnode();
+      pnode->nodetype = Assignment;
+      pnode->astnode.assignment.lhs = root->astnode.io_stmt.iostat; 
+      pnode->astnode.assignment.rhs = root;
+
+      root->astnode.io_stmt.iostat->parent = pnode;
+    }
+    else if(otemp->nodetype == RecExp) {
+      root->astnode.io_stmt.rec = otemp->astnode.expression.rhs;
+      root->astnode.io_stmt.rec->parent = root;
+    }
+    else if(otemp->nodetype == EndExp) {
+      root->astnode.io_stmt.end_num = 
+         atoi(otemp->astnode.expression.rhs->astnode.constant.number);
+      if(root->astnode.io_stmt.end_num <= 0) {
+        yyerror("ERROR: READ() END specifier must be pos. integer\n");
+        exit(EXIT_FAILURE);
+      }
+    }
+    else if(otemp->nodetype == ErrExp) {
+      root->astnode.io_stmt.err =
+         atoi(otemp->astnode.expression.rhs->astnode.constant.number);
+      if(root->astnode.io_stmt.err <= 0) {
+        yyerror("ERROR: READ() ERR specifier must be pos. integer\n");
+        exit(EXIT_FAILURE);
+      }
+    }
   }
 }

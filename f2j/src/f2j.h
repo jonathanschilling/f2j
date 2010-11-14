@@ -272,11 +272,13 @@ enum _nodetype
   UnitSpec,
   OpenFileSpec,
   ReclExp,
+  RecExp,
   StatusExp,
   AccessExp,
   FormExp,
   BlankExp,
   ErrExp,
+  EndExp,
   Ios,
   Open,
   Close,
@@ -542,10 +544,13 @@ struct _io
   int 
     io_type,                        /* is this a READ or WRITE statement     */
     format_num,                     /* FORMAT desc for this statement        */
-    end_num;                        /* where to branch on error              */
+    err,                            /* where to branch on error              */
+    end_num;                        /* where to branch on EOF                */
 
   struct ast_node 
     *unit_desc,                     /* unit descriptor                       */
+    *iostat,                        /* identifier for i/o status specifier   */
+    *rec,                           /* expression for record number          */
     *fmt_list,                      /* inline FORMAT info (w/ WRITE)         */
     *arg_list;                      /* list of expressions to read or write  */
 };

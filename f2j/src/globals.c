@@ -192,13 +192,16 @@ KWDTAB tab_toks[] =
 };
 
 /*****************************************************************************
- * Tokens found within a READ statement.  There are probably more that       *
- * should be here, but so far I just have END.                               *
+ * Tokens found within a READ statement.                                     *
  *****************************************************************************/
 
 KWDTAB read_toks[] =
 {
-    {"END", END, 0},
+    {"UNIT", IOSPEC_UNIT, 0},
+    {"ERR", IOSPEC_ERR, 0},
+    {"REC", IOSPEC_REC, 0},
+    {"IOSTAT", IOSPEC_IOSTAT, 0},
+    {"END", IOSPEC_END, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 

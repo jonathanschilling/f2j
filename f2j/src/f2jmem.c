@@ -163,6 +163,9 @@ free_ast_node(AST *n)
       free_ast_node(n->astnode.expression.lhs);
       free_ast_node(n->astnode.expression.rhs);
       break;
+    case UnitSpec:
+      free_ast_node(n->astnode.expression.rhs);
+      break;
     default:
       fprintf(stderr,"free_ast_node() warning: unsupported node %s.\n", 
          print_nodetype(n));

@@ -2051,6 +2051,8 @@ tok2str(int tok)
       return("IOSPEC_IOSTAT");
     case IOSPEC_ERR:
       return("IOSPEC_ERR");
+    case IOSPEC_END:
+      return("IOSPEC_END");
     case IOSPEC_FILE:
       return("IOSPEC_FILE");
     case IOSPEC_STATUS:
@@ -2063,6 +2065,8 @@ tok2str(int tok)
       return("IOSPEC_UNIT");
     case IOSPEC_RECL:
       return("IOSPEC_RECL");
+    case IOSPEC_REC:
+      return("IOSPEC_REC");
     case IOSPEC_BLANK:
       return("IOSPEC_BLANK");
     case LOWER_THAN_COMMENT:

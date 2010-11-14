@@ -556,13 +556,15 @@ class FormatI extends FormatIOElement
       s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
-      if ( s.length() > getWidth() )
-        throw new NumberTooWideOnWriteException( (Number)o,
-                                                 vecptr,
-                                                 this.toString()
-                                               );
-      else
-        return s;
+      if ( s.length() > getWidth() ) {
+        // instead of throwing an exception, pad the field with asterisks to
+        // match the behavior of g77/gfortran.   --kgs
+
+        s = new PrintfFormat("%" + Integer.toString(getWidth()) + "s").sprintf(" ").replace(' ', '*');
+        //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
+      }
+
+      return s;
     }
     else if(o instanceof String) {
       /* String passed to I edit descriptor.  try converting the
@@ -580,12 +582,14 @@ class FormatI extends FormatIOElement
 
   /* vp and in are used only in generating error messages.
   */
-  Object convertFromString( String s,
+  Object convertFromString( String str,
                             FormatInputList vp,
                             InputStreamAndBuffer in
                           )
          throws InvalidNumberOnReadException
   {
+    String s = str.trim();
+
     /* Parse the string to check it's a valid number,
        and convert if so.
     */
@@ -652,13 +656,15 @@ class FormatL extends FormatIOElement
       s = new String(b);
 
       /* Throw an exception if the string won't fit. */
-      if ( s.length() > getWidth() )
-        throw new NumberTooWideOnWriteException( (Number)o,
-                                                 vecptr,
-                                                 this.toString()
-                                               );
-      else
-        return s;
+      if ( s.length() > getWidth() ) {
+        // instead of throwing an exception, pad the field with asterisks to
+        // match the behavior of g77/gfortran.   --kgs
+
+        s = new PrintfFormat("%" + Integer.toString(getWidth()) + "s").sprintf(" ").replace(' ', '*');
+        //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
+      }
+
+      return s;
     }
     else
       throw new IllegalObjectOnWriteException( o,
@@ -670,12 +676,14 @@ class FormatL extends FormatIOElement
 
   /* vp and in are used only in generating error messages.
   */
-  Object convertFromString( String s,
+  Object convertFromString( String str,
                             FormatInputList vp,
                             InputStreamAndBuffer in
                           )
          throws InvalidNumberOnReadException
   {
+    String s = str.trim();
+
     /* Parse the string to check it's a valid number,
        and convert if so.
     */
@@ -748,13 +756,15 @@ class FormatF extends FormatIOElement
       s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
-      if ( s.length() > getWidth() )
-        throw new NumberTooWideOnWriteException( (Number)o,
-                                                 vecptr,
-                                                 this.toString()
-                                               );
-      else
-        return s;
+      if ( s.length() > getWidth() ) {
+        // instead of throwing an exception, pad the field with asterisks to
+        // match the behavior of g77/gfortran.   --kgs
+
+        s = new PrintfFormat("%" + Integer.toString(getWidth()) + "s").sprintf(" ").replace(' ', '*');
+        //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
+      }
+
+      return s;
     }
     else
       throw new IllegalObjectOnWriteException( o,
@@ -766,12 +776,14 @@ class FormatF extends FormatIOElement
 
   /* vp and in are used only in generating error messages.
   */
-  Object convertFromString( String s,
+  Object convertFromString( String str,
                             FormatInputList vp,
                             InputStreamAndBuffer in
                           )
          throws InvalidNumberOnReadException
   {
+    String s = str.trim();
+
     /* Parse the string to check it's a valid number,
        and convert if so.
     */
@@ -839,13 +851,15 @@ class FormatE extends FormatIOElement
       s = new PrintfFormat(fmtstr).sprintf(o);
 
       /* Throw an exception if the string won't fit. */
-      if ( s.length() > getWidth() )
-        throw new NumberTooWideOnWriteException( (Number)o,
-                                                 vecptr,
-                                                 this.toString()
-                                               );
-      else
-        return s;
+      if ( s.length() > getWidth() ) {
+        // instead of throwing an exception, pad the field with asterisks to
+        // match the behavior of g77/gfortran.   --kgs
+
+        s = new PrintfFormat("%" + Integer.toString(getWidth()) + "s").sprintf(" ").replace(' ', '*');
+        //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
+      }
+
+      return s;
     }
     else
       throw new IllegalObjectOnWriteException( o,
@@ -857,12 +871,14 @@ class FormatE extends FormatIOElement
 
   /* vp and in are used only in generating error messages.
   */
-  Object convertFromString( String s,
+  Object convertFromString( String str,
                             FormatInputList vp,
                             InputStreamAndBuffer in
                           )
          throws InvalidNumberOnReadException
   {
+    String s = str.trim();
+
     /* Parse the string to check it's a valid number,
        and convert if so.
     */

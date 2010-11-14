@@ -1,0 +1,41 @@
+#!/bin/sh
+
+F2J=f2java
+JAVA=java
+JAVAC=javac
+JAVAB=javab
+
+/bin/rm -f *.old *.f2j *.class
+
+if ! $F2J $1 intrinsic.f >& /dev/null ; then
+  echo "Failed to translate intrinsic.f"
+  exit 1
+fi
+
+result=`$JAVA Intrinsic | egrep SUCCESS`
+
+if [ "$result" != "SUCCESS" ]; then
+  echo "Test case failed."
+  exit 1
+fi
+
+/bin/rm -f *.old *.f2j *.class
+
+if ! $JAVAC Intrinsic.java >& /dev/null ; then
+  echo "Failed to compile java code"
+  exit 1
+fi
+
+if ! $JAVAB *.class >& /dev/null ; then
+  echo "Failed to process class files"
+  exit 1
+fi
+
+result=`$JAVA Intrinsic | egrep SUCCESS`
+
+if [ "$result" != "SUCCESS" ]; then
+  echo "Test case failed."
+  exit 1
+fi
+
+exit 0

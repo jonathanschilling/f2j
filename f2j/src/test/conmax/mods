@@ -1,0 +1,7 @@
+
+-added PROGRAM stmt
+-change hollerith const
+-change sqrt stmts
+-uncomment d1mach func
+-uncomment i1mach func
+

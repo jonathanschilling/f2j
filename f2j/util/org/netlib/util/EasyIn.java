@@ -86,7 +86,7 @@ public class EasyIn {
         line = EasyIn.myCrappyReadLine(unit);
   
         if(line == null)
-          throw new IOException("EOF");
+          throw new EOFException("EOF");
 
         idx = 0;
         len = line.length();

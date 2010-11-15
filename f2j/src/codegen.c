@@ -8745,7 +8745,7 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
 
   if(root->astnode.io_stmt.end_num > 0)
   {
-    fprintf(curfp,"} catch (java.io.IOException e) {\n");
+    fprintf(curfp,"} catch (java.io.EOFException e) {\n");
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
@@ -8774,7 +8774,7 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
     et_entry->from = try_start;
     et_entry->to = pop_node;
     et_entry->target = pop_node;
-    c = cp_find_or_insert(cur_class_file,CONSTANT_Class, IOEXCEPTION);
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, EOFEXCEPTION);
     et_entry->catch_type = c;
 
     bc_add_exception_handler(meth, et_entry);
@@ -8923,11 +8923,11 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
     bc_append(meth, jvm_invokestatic, c);
 
-    fprintf(curfp, "\"%s\", %s) <= 0)\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp, "\"%s\", %s) == 0)\n", fmt_str, F2J_IO_VEC);
     fprintf(curfp,"   Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.io_stmt.end_num);
 
-    if_node = bc_append(meth, jvm_ifgt);
+    if_node = bc_append(meth, jvm_ifne);
     goto_node = bc_append(meth, jvm_goto);
     bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.end_num);
     bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));

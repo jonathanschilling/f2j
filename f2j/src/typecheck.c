@@ -1417,6 +1417,12 @@ read_write_check (AST * root)
 {
   AST *temp;
 
+  if(root->astnode.io_stmt.unit_desc)
+    expr_check(root->astnode.io_stmt.unit_desc);
+
+  if(root->astnode.io_stmt.rec)
+    expr_check(root->astnode.io_stmt.rec);
+
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == IoImpliedLoop)

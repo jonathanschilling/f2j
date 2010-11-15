@@ -84,6 +84,7 @@
 #define ETIME_DESC "()V"
 #define SECOND_CLASS "org/netlib/util/Second"
 #define IOEXCEPTION "java/io/IOException"
+#define EOFEXCEPTION "java/io/EOFException"
 #define METHOD_CLASS "java/lang/reflect/Method"
 #define GETMETHODS_DESC "()[Ljava/lang/reflect/Method;"
 #define JL_CLASS "java/lang/Class"

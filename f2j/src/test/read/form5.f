@@ -1,6 +1,6 @@
       program form5
       real a,b,c
-      READ(*,140,err=25) a, b, c
+      READ(*,140,end=30,err=25) a, b, c
       goto 30
  25   write(*,*) 'there was an error reading'
       stop

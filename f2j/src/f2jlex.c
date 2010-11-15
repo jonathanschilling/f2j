@@ -583,8 +583,8 @@ yylex ()
           if(token == FORMAT)
             format_stmt = 1;
 
-          /* HACK: fix to allow labeled OPEN statements.   maybe
-           * this should be the general case for all tokens..
+          /* HACK: fix to allow labeled OPEN, READ, WRITE statements.
+           * maybe this should be the general case for all tokens..
            * i.e. just always reset firsttoken to the first 'real'
            * token.  however, there are too many other special
            * cases in here checking if firsttoken == INTEGER, so
@@ -592,6 +592,10 @@ yylex ()
            */
           if((token == OPEN) && (firsttoken == INTEGER))
             firsttoken = OPEN;
+          if((token == READ) && (firsttoken == INTEGER))
+            firsttoken = READ;
+          if((token == WRITE) && (firsttoken == INTEGER))
+            firsttoken = WRITE;
 
           if(lexdebug)
             printf("8: lexer returns %s (%s)\n",

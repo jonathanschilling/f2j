@@ -47,7 +47,6 @@ extern SYMTABLE
   *parameter_table,        /* PARAMETER variables                            */
   *function_table,         /* table of functions                             */
   *java_keyword_table,     /* table of Java reserved words                   */
-  *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
   *global_common_table,    /* Global COMMON table                            */

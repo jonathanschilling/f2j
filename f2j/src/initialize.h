@@ -29,7 +29,7 @@ extern KWDTAB tab_type[];                  /* TYPE tokens                    */
 
 extern KWDTAB tab_toks[];                  /* misc tokens                    */
 
-extern KWDTAB read_toks[];                 /* tokens found in read stmts     */
+extern KWDTAB read_write_toks[];           /* tokens found in read/write stmt*/
 
 extern KWDTAB open_toks[];                 /* tokens found in open stmts     */
 
@@ -42,8 +42,6 @@ extern METHODTAB intrinsic_toks[];         /* fortran intrinsic functions    */
 extern char *generic_intrinsics[];         /* table of 'generic' intrinsics  */
 
 extern char *java_reserved_words[];        /* list of Java reserved words    */
-
-extern char *blas_routines[];              /* list of the routines in BLAS   */
 
 extern enum returntype default_implicit_table[];  /* letters -> data types   */
 

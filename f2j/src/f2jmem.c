@@ -163,7 +163,7 @@ free_ast_node(AST *n)
       free_ast_node(n->astnode.expression.lhs);
       free_ast_node(n->astnode.expression.rhs);
       break;
-    case UnitSpec:
+    case UnitExp:
       free_ast_node(n->astnode.expression.rhs);
       break;
     default:

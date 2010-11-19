@@ -54,7 +54,7 @@
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
 #define F77_READ_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
-#define F77_WRITE_DESC "(ILjava/lang/String;Ljava/util/Vector;)V"
+#define F77_WRITE_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
 #define F2J_UTIL "org/netlib/util"
 #define UTIL_CLASS "org/netlib/util/Util"
 #define ARRAY_SPEC_CLASS "org/netlib/util/ArraySpec"
@@ -83,6 +83,7 @@
 #define ETIME_CLASS "org/netlib/util/Etime"
 #define ETIME_DESC "()V"
 #define SECOND_CLASS "org/netlib/util/Second"
+#define JLEXCEPTION "java/lang/Exception"
 #define IOEXCEPTION "java/io/IOException"
 #define EOFEXCEPTION "java/io/EOFException"
 #define METHOD_CLASS "java/lang/reflect/Method"
@@ -103,6 +104,7 @@
 #define F2J_STDIN "__f2j_stdin"
 #define F2J_IO_VEC "__io_vec"
 #define F2J_FILE_MGR "__ftn_file_mgr"
+#define F2J_TMP_IOSTAT "__iostat"
 
 #define F77_STDIN 5
 #define F77_STDOUT 6

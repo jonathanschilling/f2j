@@ -1,4 +1,4 @@
-      program ftest
+      program simple
       integer u,v
 *
       u = 32

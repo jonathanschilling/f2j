@@ -65,7 +65,6 @@ SYMTABLE
   *parameter_table,        /* PARAMETER variables                            */
   *function_table,         /* table of functions                             */
   *java_keyword_table,     /* table of Java reserved words                   */
-  *blas_routine_table,     /* table of BLAS routines                         */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
   *global_common_table,    /* Global COMMON table                            */
@@ -187,17 +186,18 @@ KWDTAB tab_toks[] =
     {".GE.", RELOP, rel_ge},
     {".TRUE.", TrUE, 1},
     {".FALSE.", FaLSE, 0},
-    {"FMT", FMT, 0},
+    {"FMT", IOSPEC_FMT, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
 /*****************************************************************************
- * Tokens found within a READ statement.                                     *
+ * Tokens found within a READ or WRITE statement.                            *
  *****************************************************************************/
 
-KWDTAB read_toks[] =
+KWDTAB read_write_toks[] =
 {
     {"UNIT", IOSPEC_UNIT, 0},
+    {"FMT", IOSPEC_FMT, 0},
     {"ERR", IOSPEC_ERR, 0},
     {"REC", IOSPEC_REC, 0},
     {"IOSTAT", IOSPEC_IOSTAT, 0},
@@ -451,23 +451,6 @@ char *java_reserved_words[] =
           "var" ,       "void" ,"volatile" ,    "while" ,      "null" ,
      "continue" ,      "false" ,    "case" ,  "generic" ,"instanceof" ,
        "public" ,     "switch" ,     "try" ,     0
-};
-
-/*****************************************************************************
- * This is a list of the BLAS routines.  When translating                    *
- * some code, we need to know whether to import the blas                     *
- * library or not.  so we can use this list to determine                     *
- * whether a call is to a BLAS routine or not.                               *
- *****************************************************************************/
-
-char *blas_routines[] = 
-{
-   "dasum", "daxpy", "dcopy", "ddot",   "dgbmv", "dgemm",
-   "dgemv", "dger",  "dnrm2", "drot",   "drotg", "dsbmv",
-   "dscal", "dspmv", "dspr",  "dspr2",  "dswap", "dsymm",
-   "dsymv", "dsyr",  "dsyr2", "dsyr2k", "dsyrk", "dtbmv",
-   "dtbsv", "dtpmv", "dtpsv", "dtrmm",  "dtrmv", "dtrsm",
-   "dtrsv", "idamax", 0
 };
 
 /* data types for f2java primitives: */

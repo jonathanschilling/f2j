@@ -269,7 +269,8 @@ enum _nodetype
   IoImpliedLoop,
   StmtLabelAssign,
   Unimplemented,
-  UnitSpec,
+  UnitExp,
+  FormatOrUnknownSpec,
   OpenFileSpec,
   ReclExp,
   RecExp,
@@ -279,7 +280,7 @@ enum _nodetype
   BlankExp,
   ErrExp,
   EndExp,
-  Ios,
+  IostatExp,
   Open,
   Close,
   CharExp
@@ -326,7 +327,7 @@ struct _source
     needs_output,                   /* does this unit write any data         */
     needs_files,                    /* does this unit open any files         */
     needs_reflection,               /* does this unit call a passed-in func  */
-    needs_blas;                     /* does this unit call any BLAS routines */
+    needs_iostat;                   /* does this unit need a temp iostat var */
  
   int
     scalarOptStatus,                /* status of optimization on this unit   */

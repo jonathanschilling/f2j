@@ -30,7 +30,6 @@
 #include"f2j_externs.h"
 
 extern char *java_reserved_words[];
-extern char *blas_routines[];
 extern char *generic_intrinsics[];
 extern char *unit_name;
 extern char *optarg;
@@ -326,12 +325,6 @@ will most likely not work for other code.\n\n";
  
   for(i=0;java_reserved_words[i] != NULL; i++)
     type_insert(java_keyword_table,temp,0,java_reserved_words[i]);
-
-  blas_routine_table = (SYMTABLE *) new_symtable(211);
-  temp = addnode();
-
-  for(i=0;blas_routines[i] != NULL; i++)
-    type_insert(blas_routine_table,temp,0,blas_routines[i]);
 
   generic_table = (SYMTABLE *) new_symtable(211);
   temp = addnode();

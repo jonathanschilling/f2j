@@ -415,9 +415,10 @@ public class Util {
    * @param fmt String containing the Fortran format specification.
    * @param v Vector containing the arguments to the WRITE() call.
    *
+   * @returns 0 on success, or a positive int on error.
    */
-  public static void f77write(String fmt, Vector v) {
-    f77write(FortranFileMgr.FTN_STDOUT, fmt, v);
+  public static int f77write(String fmt, Vector v) {
+    return f77write(FortranFileMgr.FTN_STDOUT, fmt, v);
   }
 
   /**
@@ -425,11 +426,19 @@ public class Util {
    *
    * @param v Vector containing the arguments to the WRITE() call.
    *
+   * @returns 0 on success, or a positive int on error.
    */
-  public static void f77write(Vector v) {
-    f77write(FortranFileMgr.FTN_STDOUT, v);
+  public static int f77write(Vector v) {
+    return f77write(FortranFileMgr.FTN_STDOUT, v);
   }
 
+  /**
+   * Get the data input stream associated with the specified unit number.
+   *
+   * @param unit the unit number of the file
+   *
+   * @returns the DataInputStream for the specified unit, null on error.
+   */
   private static DataInputStream getDataInputStream(int unit)
   {
     DataInputStream instream = null;
@@ -447,6 +456,13 @@ public class Util {
     return instream;
   }
 
+  /**
+   * Get the print stream associated with the specified unit number.
+   *
+   * @param unit the unit number of the file
+   *
+   * @returns the PrintStream for the specified unit, null on error.
+   */
   private static PrintStream getPrintStream(int unit)
   {
     PrintStream outstream = null;
@@ -475,15 +491,14 @@ public class Util {
    * @param fmt String containing the Fortran format specification.
    * @param v Vector containing the arguments to the WRITE() call.
    *
+   * @returns 0 on success, or a positive int on error.
    */
-  public static void f77write(int unit, String fmt, Vector v)
+  public static int f77write(int unit, String fmt, Vector v)
   {
     PrintStream outstream = null;
 
-    if(fmt == null) {
-      f77write(unit, v);
-      return;
-    }
+    if(fmt == null)
+      return f77write(unit, v);
 
     outstream = getPrintStream(unit);
 
@@ -500,9 +515,12 @@ public class Util {
         outstream.println(m);
       else
         outstream.println();
+
+      return 1;
     }
 
     outstream.flush();
+    return 0;
   }
 
   /**
@@ -511,8 +529,9 @@ public class Util {
    * @param unit Unit number to which output should go
    * @param v Vector containing the arguments to the WRITE() call.
    *
+   * @returns 0 on success, or a positive int on error.
    */
-  public static void f77write(int unit, Vector v)
+  public static int f77write(int unit, Vector v)
   {
     PrintStream outstream = null;
     java.util.Enumeration e;
@@ -542,8 +561,16 @@ public class Util {
 
     outstream.println();
     outstream.flush();
+    return 0;
   }
 
+  /**
+   * Print an unformatted element.
+   *
+   * @param o the object to be printed.  this is typically a numeric
+   *          or string type wrapped in an Object (e.g. Integer, Float).
+   * @param os the stream to print the element to.
+   */
   private static void output_unformatted_element(Object o, PrintStream os) {
     if(o instanceof Boolean) {
       /* print true/false as T/F like fortran does */
@@ -566,12 +593,22 @@ public class Util {
    * @param fmt String containing the Fortran format specification.
    * @param v Vector containing the arguments to the READ() call.
    *
+   * @returns -1 on EOF, 0 on success, or a positive int on error.
    */
   public static int f77read(String fmt, Vector v)
   {
     return f77read(FortranFileMgr.FTN_STDIN, fmt, v);
   }
 
+  /**
+   * Formatted read.
+   *
+   * @param unit the unit number of the file to read from.
+   * @param fmt String containing the Fortran format specification.
+   * @param v Vector containing the arguments to the READ() call.
+   *
+   * @returns -1 on EOF, 0 on success, or a positive int on error.
+   */
   public static int f77read(int unit, String fmt, Vector v)
   {
     DataInputStream is = null;
@@ -582,7 +619,7 @@ public class Util {
       f.read( v, is );
     }
     catch ( EndOfFileWhenStartingReadException eof_exc) {
-      return 0;
+      return -1;
     }
     catch ( Exception e ) {
       String m = e.getMessage();
@@ -592,17 +629,27 @@ public class Util {
       else
         System.out.println("Warning: READ exception.");
 
-      return -1;
+      /* for setting IOSTAT, the f77 standard says error conditions should be
+       * processor-dependent positive integer values.  so at some point we
+       * might want to distinguish between different kinds of errors, but for
+       * now we just return 1.
+       */
+
+      return 1;
     }
 
-    return v.size();
+    return 0;
   }
 
   /**
    * Expands array elements into separate entries in the Vector. 
    *
+   * @param v the vector to be processed.
+   *
+   * @returns a new Vector which is a copy of the input Vector v,
+   *          but with ArraySpec elements expanded into separate
+   *          entries.
    */
-
   static Vector processVector(Vector v)
   {
     java.util.Enumeration e;

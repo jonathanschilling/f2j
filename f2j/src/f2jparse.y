@@ -95,6 +95,8 @@ void
   store_array_var(AST *),
   initialize_implicit_table(ITAB_ENTRY *),
   get_info_from_cilist(AST *, AST *),
+  get_info_from_cllist(AST *, AST *),
+  get_info_from_olist(AST *, AST *),
   printbits(char *, void *, int),
   print_sym_table_names(SYMTABLE *);
 
@@ -143,11 +145,11 @@ ITAB_ENTRY implicit_table[26];
 %token <type> ARITH_TYPE CHAR_TYPE 
 %token DIMENSION INCLUDE
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
-%token SAVE DATA COMMENT READ WRITE PRINT FMT EDIT_DESC REPEAT
+%token SAVE DATA COMMENT READ WRITE PRINT EDIT_DESC REPEAT
 
 %token IOSPEC_IOSTAT IOSPEC_ERR IOSPEC_FILE IOSPEC_STATUS IOSPEC_ACCESS 
 %token IOSPEC_FORM IOSPEC_UNIT IOSPEC_RECL IOSPEC_REC IOSPEC_BLANK
-%token IOSPEC_END
+%token IOSPEC_END IOSPEC_EMPTY IOSPEC_FMT
 
 /* these are here to silence conflicts related to parsing comments */
 
@@ -190,12 +192,12 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> CharTypevar CharTypevarlist
 %type <type>   ArithTypes ArithSimpleType CharTypes CharSimpleType
 %type <type>   AnySimpleType AnyTypes
-%type <ptnode> Write FormatSpec
+%type <ptnode> Write FormatOrUnknownSpec
 %type <ptnode> Format FormatExplist FormatExp FormatSeparator
 %type <ptnode> RepeatableItem UnRepeatableItem RepeatSpec 
 %type <ptnode> log_disjunct log_term log_factor log_primary
 %type <ptnode> arith_expr term factor char_expr primary
-%type <ptnode> Ios CharExp ReclExp OlistItem Olist UnitSpec OpenFileSpec
+%type <ptnode> IostatExp CharExp ReclExp OlistItem Olist OpenFileSpec
 %type <ptnode> ErrExp StatusExp AccessExp FormExp BlankExp UnitExp
 %type <ptnode> RecExp EndExp CllistItem Cllist CilistItem Cilist
 
@@ -347,8 +349,8 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
+                $$->astnode.source.needs_iostat = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-                $$->astnode.source.needs_blas = FALSE;
 
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
@@ -416,8 +418,8 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
+                $$->astnode.source.needs_iostat = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-                $$->astnode.source.needs_blas = FALSE;
 
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
@@ -489,8 +491,8 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.needs_input = FALSE;
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
+                $$->astnode.source.needs_iostat = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
-                $$->astnode.source.needs_blas = FALSE;
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
@@ -1353,92 +1355,16 @@ Comment: COMMENT NL
 
 Open: OPEN OP Olist CP NL
       {
-        AST *otemp;
-
         $$ = addnode();
-        $$->vartype = Integer;
-        $$->expr_side = right;
-        $$->nodetype = Open;
-        $$->astnode.open.unit_expr = NULL;
-        $$->astnode.open.file_expr = NULL;
-        $$->astnode.open.iostat = NULL;
-        $$->astnode.open.recl = NULL;
-        $$->astnode.open.status = NULL;
-        $$->astnode.open.access = NULL;
-        $$->astnode.open.form = NULL;
-        $$->astnode.open.blank = NULL;
-        $$->astnode.open.err = -1;
-
         $3 = switchem($3);
 
-        /* need to look for the required unit number */
-
-        for(otemp=$3;otemp!=NULL;otemp=otemp->nextstmt) {
-          if(otemp->nodetype == UnitSpec) {
-            if(otemp->astnode.expression.rhs->token == STAR) {
-              yyerror("ERROR: OPEN statement may not have unit specifier '*'");
-              exit(EXIT_FAILURE);
-            }
-
-            $$->astnode.open.unit_expr = otemp->astnode.expression.rhs;
-            $$->astnode.open.unit_expr->parent = $$;
-          }
-          else if(otemp->nodetype == Ios) {
-            AST *pnode;
-
-            /* the IOSTAT variable is emitted as the lhs of an assignment
-             * for example:  k = __ftn_file_mgr.open( ... );
-             * so here we create a dummy parent node of type Assignment so
-             * that when we call name_emit() it will do the right thing.
-             */
-            $$->astnode.open.iostat = otemp->astnode.expression.rhs;
-
-            pnode = addnode();
-            pnode->nodetype = Assignment;
-            pnode->astnode.assignment.lhs = $$->astnode.open.iostat; 
-            pnode->astnode.assignment.rhs = $$;
-
-            $$->astnode.open.iostat->parent = pnode;
-          }
-          else if(otemp->nodetype == OpenFileSpec) {
-            $$->astnode.open.file_expr = otemp->astnode.expression.rhs;
-            $$->astnode.open.file_expr->parent = $$;
-          }
-          else if(otemp->nodetype == StatusExp) {
-            $$->astnode.open.status = otemp->astnode.expression.rhs;
-            $$->astnode.open.status->parent = $$;
-          }
-          else if(otemp->nodetype == AccessExp) {
-            $$->astnode.open.access = otemp->astnode.expression.rhs;
-            $$->astnode.open.access->parent = $$;
-          }
-          else if(otemp->nodetype == FormExp) {
-            $$->astnode.open.form = otemp->astnode.expression.rhs;
-            $$->astnode.open.form->parent = $$;
-          }
-          else if(otemp->nodetype == BlankExp) {
-            $$->astnode.open.blank = otemp->astnode.expression.rhs;
-            $$->astnode.open.blank->parent = $$;
-          }
-          else if(otemp->nodetype == ReclExp) {
-            $$->astnode.open.recl = otemp->astnode.expression.rhs;
-            $$->astnode.open.recl->parent = $$;
-          }
-          else if(otemp->nodetype == ErrExp) {
-            $$->astnode.open.err =
-               atoi(otemp->astnode.expression.rhs->astnode.constant.number);
-            if($$->astnode.open.err <= 0) {
-              yyerror("ERROR: OPEN() ERR specifier must be pos. integer\n");
-              exit(EXIT_FAILURE);
-            }
-          }
-        }
+        get_info_from_olist($$, $3);
 
         /* everything is optional except for the Unit number, so check
          * whether it was specified.
          */
         if(!$$->astnode.open.unit_expr) {
-          yyerror("ERROR: OPEN statement has no unit specifier\n");
+          yyerror("ERROR: OPEN statement has no unit specifier");
           exit(EXIT_FAILURE);
         }
       }
@@ -1467,9 +1393,13 @@ CilistItem: UnitExp
            {
              $$ = $1;
            }
-         | IOSPEC_IOSTAT EQ Ios
+         | IostatExp
            {
-             $$ = $3;
+             $$ = $1;
+           }
+         | FormatOrUnknownSpec
+           {
+             $$ = $1;
            }
          | EndExp
            {
@@ -1492,9 +1422,17 @@ OlistItem: UnitExp
            {
              $$ = $1;
            }
-         | IOSPEC_IOSTAT EQ Ios
+         | Exp
            {
-             $$ = $3;
+             /* this is for a unit specifier without the "UNIT=" */
+             $$ = addnode();
+             $$->token = IOSPEC_UNIT;
+             $$->nodetype = UnitExp;
+             $$->astnode.expression.rhs = $1;
+           }
+         | IostatExp
+           {
+             $$ = $1;
            }
          | ErrExp 
            {
@@ -1541,9 +1479,17 @@ CllistItem: UnitExp
            {
              $$ = $1;
            }
-         | IOSPEC_IOSTAT EQ Ios
+         | Exp
            {
-             $$ = $3;
+             /* this is for a unit specifier without the "UNIT=" */
+             $$ = addnode();
+             $$->token = IOSPEC_UNIT;
+             $$->nodetype = UnitExp;
+             $$->astnode.expression.rhs = $1;
+           }
+         | IostatExp
+           {
+             $$ = $1;
            }
          | ErrExp
            {
@@ -1555,33 +1501,30 @@ CllistItem: UnitExp
            }
 ;
 
-UnitExp: IOSPEC_UNIT EQ UnitSpec
+UnitExp: IOSPEC_UNIT EQ Exp
          {
-           $$ = $3;
+           $$ = addnode();
+           $$->token = IOSPEC_UNIT;
+           $$->nodetype = UnitExp;
+           $$->astnode.expression.rhs = $3;
          }
-       | UnitSpec
+       | IOSPEC_UNIT EQ STAR
          {
-           $$ = $1;
+           $$ = addnode();
+           $$->token = IOSPEC_UNIT;
+           $$->nodetype = UnitExp;
+           $$->astnode.expression.rhs = addnode();
+           $$->astnode.expression.rhs->token = STAR;
+           $$->astnode.expression.rhs->nodetype = Constant;
+           $$->astnode.expression.rhs->astnode.constant.number =
+               strdup("*");
          }
-;
-
-UnitSpec: Exp
-           {
-             $$ = addnode();
-             $$->nodetype = UnitSpec;
-             $$->astnode.expression.rhs = $1;
-           }
-        | Star
-           {
-             $$ = addnode();
-             $$->nodetype = UnitSpec;
-             $$->astnode.expression.rhs = $1;
-           }
 ;
 
 OpenFileSpec: IOSPEC_FILE EQ CharExp
           {
             $$ = addnode();
+            $$->token = IOSPEC_FILE;
             $$->nodetype = OpenFileSpec;
             $$->astnode.expression.rhs = $3;
           }
@@ -1590,6 +1533,7 @@ OpenFileSpec: IOSPEC_FILE EQ CharExp
 ReclExp: IOSPEC_RECL EQ Exp
          {
            $$ = addnode();
+           $$->token = IOSPEC_RECL;
            $$->nodetype = ReclExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1598,6 +1542,7 @@ ReclExp: IOSPEC_RECL EQ Exp
 RecExp: IOSPEC_REC EQ Exp
          {
            $$ = addnode();
+           $$->token = IOSPEC_REC;
            $$->nodetype = RecExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1606,6 +1551,7 @@ RecExp: IOSPEC_REC EQ Exp
 StatusExp: IOSPEC_STATUS EQ CharExp
            {
              $$ = addnode();
+             $$->token = IOSPEC_STATUS;
              $$->nodetype = StatusExp;
              $$->astnode.expression.rhs = $3;
            }
@@ -1614,6 +1560,7 @@ StatusExp: IOSPEC_STATUS EQ CharExp
 AccessExp: IOSPEC_ACCESS EQ CharExp
            {
              $$ = addnode();
+             $$->token = IOSPEC_ACCESS;
              $$->nodetype = AccessExp;
              $$->astnode.expression.rhs = $3;
            }
@@ -1622,6 +1569,7 @@ AccessExp: IOSPEC_ACCESS EQ CharExp
 FormExp: IOSPEC_FORM EQ CharExp
          {
            $$ = addnode();
+           $$->token = IOSPEC_FORM;
            $$->nodetype = FormExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1630,6 +1578,7 @@ FormExp: IOSPEC_FORM EQ CharExp
 BlankExp: IOSPEC_BLANK EQ CharExp
          {
            $$ = addnode();
+           $$->token = IOSPEC_BLANK;
            $$->nodetype = BlankExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1638,6 +1587,7 @@ BlankExp: IOSPEC_BLANK EQ CharExp
 ErrExp: IOSPEC_ERR EQ Integer
          {
            $$ = addnode();
+           $$->token = IOSPEC_ERR;
            $$->nodetype = ErrExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1646,6 +1596,7 @@ ErrExp: IOSPEC_ERR EQ Integer
 EndExp: IOSPEC_END EQ Integer
          {
            $$ = addnode();
+           $$->token = IOSPEC_END;
            $$->nodetype = EndExp;
            $$->astnode.expression.rhs = $3;
          }
@@ -1661,76 +1612,29 @@ CharExp: UndeclaredName
          }
 ;
 
-Ios: Lhs
-     {
-       $$ = addnode();
-       $$->nodetype = Ios;
-       $$->astnode.expression.rhs = $1;
-     }
+IostatExp: IOSPEC_IOSTAT EQ Lhs
+           {
+             $$ = addnode();
+             $$->token = IOSPEC_IOSTAT;
+             $$->nodetype = IostatExp;
+             $$->astnode.expression.rhs = $3;
+           }
+;
 
 Close: CLOSE OP Cllist CP NL
        {
-         AST *otemp;
-
          $$ = addnode();
-         $$->vartype = Integer;
-         $$->expr_side = right;
          $$->nodetype = Close;
-         $$->astnode.close.unit_expr = NULL;
-         $$->astnode.close.iostat = NULL;
-         $$->astnode.close.err = -1;
-         $$->astnode.close.status = NULL;
 
          $3 = switchem($3);
 
-         /* need to look for the required unit number */
- 
-         for(otemp=$3;otemp!=NULL;otemp=otemp->nextstmt) {
-           if(otemp->nodetype == UnitSpec) {
-             if(otemp->astnode.expression.rhs->token == STAR) {
-               yyerror("ERROR: CLOSE statement may not have unit specifier '*'");
-               exit(EXIT_FAILURE);
-             }
-
-             $$->astnode.close.unit_expr = otemp->astnode.expression.rhs;
-             $$->astnode.close.unit_expr->parent = $$;
-           }
-           else if(otemp->nodetype == Ios) {
-             AST *pnode;
- 
-             /* the IOSTAT variable is emitted as the lhs of an assignment
-              * for example:  k = __ftn_file_mgr.close( ... );
-              * so here we create a dummy parent node of type Assignment so
-              * that when we call name_emit() it will do the right thing.
-              */
-             $$->astnode.close.iostat = otemp->astnode.expression.rhs;
-
-             pnode = addnode();
-             pnode->nodetype = Assignment;
-             pnode->astnode.assignment.lhs = $$->astnode.close.iostat; 
-             pnode->astnode.assignment.rhs = $$;
- 
-             $$->astnode.close.iostat->parent = pnode;
-           }
-           else if(otemp->nodetype == StatusExp) {
-             $$->astnode.close.status = otemp->astnode.expression.rhs;
-             $$->astnode.close.status->parent = $$;
-           }
-           else if(otemp->nodetype == ErrExp) {
-             $$->astnode.close.err =
-                atoi(otemp->astnode.expression.rhs->astnode.constant.number);
-             if($$->astnode.close.err <= 0) {
-               yyerror("ERROR: CLOSE() ERR specifier must be pos. integer\n");
-               exit(EXIT_FAILURE);
-             }
-           }
-         }
+         get_info_from_cllist($$, $3);
 
          /* everything is optional except for the Unit number, so check
           * whether it was specified.
           */
          if(!$$->astnode.close.unit_expr) {
-           yyerror("ERROR: CLOSE statement has no unit specifier\n");
+           yyerror("ERROR: CLOSE statement has no unit specifier");
            exit(EXIT_FAILURE);
          }
        }
@@ -2552,44 +2456,29 @@ EndDo:  ENDDO NL
         }
 ;
 
-Write: WRITE OP UnitExp CM FormatSpec CP IoExplist NL
+Write: WRITE OP Cilist CP IoExplist NL
        {
          AST *temp;
 
          $$ = addnode();
+         $$->nodetype = Write;
+
+         $$->astnode.io_stmt.arg_list = switchem($5);
          $$->astnode.io_stmt.io_type = Write;
-         $$->astnode.io_stmt.fmt_list = NULL;
 
-         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
-         if($$->astnode.io_stmt.unit_desc)
-           $$->astnode.io_stmt.unit_desc->parent = $$; 
+         $3 = switchem($3);
+         get_info_from_cilist($$, $3);
 
-         if($5->nodetype == Constant)
-         {
-           if($5->astnode.constant.number[0] == '*') {
-             $$->astnode.io_stmt.format_num = -1;
-             free_ast_node($5);
-           }
-           else if($5->token == STRING) {
-             $$->astnode.io_stmt.format_num = -1;
-             $$->astnode.io_stmt.fmt_list = $5;
-           }
-           else {
-             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
-             free_ast_node($5);
-           }
+         if($$->astnode.io_stmt.end_num >= 0) {
+           yyerror("ERROR: END specifier not allowed in WRITE statment");
+           exit(EXIT_FAILURE);
          }
-         else
-         {
-           /* is this case ever reached??  i don't think so.  --kgs */
-           $$->astnode.io_stmt.format_num = -1;
-           $$->astnode.io_stmt.fmt_list = $5;
-         }
- 
-         $$->astnode.io_stmt.arg_list = switchem($7);
+
+         if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
+           free_ast_node($$->astnode.io_stmt.arg_list->parent);
 
          for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-           temp->parent->nodetype = Write;
+           temp->parent = $$;
        }
      | PRINT Integer PrintIoList NL
        {
@@ -2646,138 +2535,73 @@ PrintIoList: CM IoExplist
              }
 ;
 
-FormatSpec:
-       FMT EQ Integer
-        {
-          $$ = $3;
-        }
-     | Integer
-        {
-          $$ = $1;
-        }
-     | FMT EQ STAR
+FormatOrUnknownSpec:
+       IOSPEC_FMT EQ Integer
         {
           $$ = addnode();
-	  $$->token = INTEGER;
-          $$->nodetype = Constant;
-          $$->astnode.constant.number = strdup("*");
-	  $$->vartype = Integer;
+          $$->token = IOSPEC_FMT;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = $3;
+        }
+     | Exp
+        {
+          $$ = addnode();
+          $$->token = IOSPEC_EMPTY;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = $1;
+        }
+     | IOSPEC_FMT EQ STAR
+        {
+          $$ = addnode();
+          $$->token = IOSPEC_FMT;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = addnode();
+          $$->astnode.expression.rhs->token = STAR;
+          $$->astnode.expression.rhs->nodetype = Constant;
+          $$->astnode.expression.rhs->astnode.constant.number =
+               strdup("*");
         }
      | STAR
         {
           $$ = addnode();
-	  $$->token = INTEGER;
-          $$->nodetype = Constant;
-          $$->astnode.constant.number = strdup("*");
-	  $$->vartype = Integer;
+          $$->token = IOSPEC_EMPTY;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = addnode();
+          $$->astnode.expression.rhs->token = STAR;
+          $$->astnode.expression.rhs->nodetype = Constant;
+          $$->astnode.expression.rhs->astnode.constant.number =
+               strdup("*");
         }
-     | FMT EQ String
+     | IOSPEC_FMT EQ String
         {
-          $$ = $3;
+          $$ = addnode();
+          $$->token = IOSPEC_FMT;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = $3;
         }
-     | String
-        {
-          $$ = $1;
-        }
-     | FMT EQ UndeclaredName
+     | IOSPEC_FMT EQ UndeclaredName
         {
           fprintf(stderr,"Warning - ignoring FMT = %s\n",
              $3->astnode.ident.name);
           $$ = addnode();
-	  $$->token = INTEGER;
-          $$->nodetype = Constant;
-          $$->astnode.constant.number = strdup("*");
-	  $$->vartype = Integer;
+          $$->token = IOSPEC_FMT;
+          $$->nodetype = FormatOrUnknownSpec;
+          $$->astnode.expression.rhs = $3;
         }
 ;
 
-Read: READ OP UnitExp CM FormatSpec CP IoExplist NL
+Read: READ OP Cilist CP IoExplist NL
       {
          AST *temp;
 
          $$ = addnode();
+         $$->nodetype = Read;
+
+         $$->astnode.io_stmt.arg_list = switchem($5);
          $$->astnode.io_stmt.io_type = Read;
-         $$->astnode.io_stmt.fmt_list = NULL;
-         $$->astnode.io_stmt.end_num = -1;
 
-         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
-         if($$->astnode.io_stmt.unit_desc)
-           $$->astnode.io_stmt.unit_desc->parent = $$; 
-
-         if($5->nodetype == Constant)
-         {
-           if($5->astnode.constant.number[0] == '*') {
-             $$->astnode.io_stmt.format_num = -1;
-             free_ast_node($5);
-           }
-           else if($5->token == STRING) {
-             $$->astnode.io_stmt.format_num = -1;
-             $$->astnode.io_stmt.fmt_list = $5;
-           }
-           else {
-             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
-             free_ast_node($5);
-           }
-         }
-         else
-         {
-           /* is this case ever reached??  i don't think so.  --kgs */
-           $$->astnode.io_stmt.format_num = -1;
-           $$->astnode.io_stmt.fmt_list = $5;
-         }
-
-         $$->astnode.io_stmt.arg_list = switchem($7);
-
-         if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
-           free_ast_node($$->astnode.io_stmt.arg_list->parent);
-
-         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
-           temp->parent = $$;
-      }
-    | READ OP UnitExp CM FormatSpec CM Cilist CP IoExplist NL
-      {
-         AST *temp;
-
-         $$ = addnode();
-         $$->astnode.io_stmt.io_type = Read;
-         $$->astnode.io_stmt.fmt_list = NULL;
-
-         $$->astnode.io_stmt.unit_desc = $3->astnode.expression.rhs;
-         if($$->astnode.io_stmt.unit_desc)
-           $$->astnode.io_stmt.unit_desc->parent = $$; 
-
-         if($5->nodetype == Constant)
-         {
-           if($5->astnode.constant.number[0] == '*') {
-             $$->astnode.io_stmt.format_num = -1;
-             free_ast_node($5);
-           }
-           else if($5->token == STRING) {
-             $$->astnode.io_stmt.format_num = -1;
-             $$->astnode.io_stmt.fmt_list = $5;
-           }
-           else {
-             $$->astnode.io_stmt.format_num = atoi($5->astnode.constant.number);
-             free_ast_node($5);
-           }
-         }
-         else
-         {
-           /* is this case ever reached??  i don't think so.  --kgs */
-           $$->astnode.io_stmt.format_num = -1;
-           $$->astnode.io_stmt.fmt_list = $5;
-         }
-
-         $7 = switchem($7);
-
-         get_info_from_cilist($$, $7);
-
-         if(!$$->astnode.open.unit_expr) {
-           yyerror("ERROR: READ statement has no unit specifier\n");
-           exit(EXIT_FAILURE);
-         }
-
-         $$->astnode.io_stmt.arg_list = switchem($9);
+         $3 = switchem($3);
+         get_info_from_cilist($$, $3);
 
          if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
            free_ast_node($$->astnode.io_stmt.arg_list->parent);
@@ -5529,14 +5353,101 @@ assign_function_return_type(AST *func, AST *specs)
 void
 get_info_from_cilist(AST *root, AST *cilist)
 {
-  AST *otemp;
+  int i, count, unit_cnt, fmt_cnt, err_cnt, end_cnt, iostat_cnt, rec_cnt;
+  AST *temp, **IoSpecArr;
 
-  for(otemp=cilist;otemp!=NULL;otemp=otemp->nextstmt) {
-    if(otemp->nodetype == UnitSpec) {
-      root->astnode.io_stmt.unit_desc = otemp->astnode.expression.rhs;
-      root->astnode.io_stmt.unit_desc->parent = root;
+  unit_cnt = fmt_cnt = err_cnt = end_cnt = iostat_cnt = rec_cnt = 0;
+
+  root->astnode.io_stmt.format_num = -1;
+  root->astnode.io_stmt.err = -1;
+  root->astnode.io_stmt.end_num = -1;
+  root->astnode.io_stmt.unit_desc = NULL;
+  root->astnode.io_stmt.iostat = NULL;
+  root->astnode.io_stmt.rec = NULL;
+  root->astnode.io_stmt.fmt_list = NULL;
+
+  count = 0;
+  for(temp=cilist;temp!=NULL;temp=temp->nextstmt)
+    count++;
+
+  if(count < 2) {
+    yyerror("ERROR (cilist) needs at least UNIT and FMT specifiers");
+    exit(EXIT_FAILURE);
+  }
+
+  IoSpecArr = (AST **) f2jcalloc(count,sizeof(AST *));
+
+  count = 0;
+  for(temp=cilist;temp!=NULL;temp=temp->nextstmt)
+    IoSpecArr[count++] = temp;
+
+  if(IoSpecArr[0]->token == IOSPEC_EMPTY) {
+    /* this is either an asterisk or an expression without an
+     * explicit UNIT=, so we assume it is the unit specifier.
+     */
+
+    root->astnode.io_stmt.unit_desc = IoSpecArr[0]->astnode.expression.rhs;
+    if(root->astnode.io_stmt.unit_desc)
+      root->astnode.io_stmt.unit_desc->parent = root; 
+
+    unit_cnt++;
+
+    /* set this entry to null so we know we've processed it */
+    IoSpecArr[0] = NULL;
+  }
+
+  if(IoSpecArr[1]->token == IOSPEC_EMPTY) {
+    AST *io_expr;
+
+    /* this is either an asterisk or an expression without an
+     * explicit FMT=, so we assume it is the format specifier.
+     */
+
+    io_expr = IoSpecArr[1]->astnode.expression.rhs;
+
+    if(io_expr->nodetype == Constant)
+    {
+      if(io_expr->astnode.constant.number[0] == '*') {
+        root->astnode.io_stmt.format_num = -1;
+        free_ast_node(io_expr);
+      }
+      else if(io_expr->token == STRING) {
+        root->astnode.io_stmt.format_num = -1;
+        root->astnode.io_stmt.fmt_list = io_expr;
+      }
+      else {
+        root->astnode.io_stmt.format_num = atoi(io_expr->astnode.constant.number);
+        free_ast_node(io_expr);
+      }
     }
-    else if(otemp->nodetype == Ios) {
+    else
+    {
+      /* is this case ever reached??  i don't think so.  --kgs */
+      root->astnode.io_stmt.format_num = -1;
+      root->astnode.io_stmt.fmt_list = io_expr;
+    }
+
+    fmt_cnt++;
+
+    /* set this entry to null so we know we've processed it */
+    IoSpecArr[1] = NULL;
+  }
+
+  for(i=0;i<count;i++) {
+    if(!IoSpecArr[i]) 
+      continue;
+
+    if(IoSpecArr[i]->token == IOSPEC_EMPTY) {
+      yyerror("ERROR: can't put unspecified control items at this position");
+      exit(EXIT_FAILURE);
+    }
+
+    if(IoSpecArr[i]->nodetype == UnitExp) {
+      root->astnode.io_stmt.unit_desc = IoSpecArr[i]->astnode.expression.rhs;
+      root->astnode.io_stmt.unit_desc->parent = root;
+      unit_cnt++;
+    }
+    else if(IoSpecArr[i]->nodetype == IostatExp) {
       AST *pnode;
 
       /* the IOSTAT variable is emitted as the lhs of an assignment
@@ -5544,7 +5455,7 @@ get_info_from_cilist(AST *root, AST *cilist)
        * so here we create a dummy parent node of type Assignment so
        * that when we call name_emit() it will do the right thing.
        */
-      root->astnode.io_stmt.iostat = otemp->astnode.expression.rhs;
+      root->astnode.io_stmt.iostat = IoSpecArr[i]->astnode.expression.rhs;
 
       pnode = addnode();
       pnode->nodetype = Assignment;
@@ -5552,26 +5463,377 @@ get_info_from_cilist(AST *root, AST *cilist)
       pnode->astnode.assignment.rhs = root;
 
       root->astnode.io_stmt.iostat->parent = pnode;
+      iostat_cnt++;
     }
-    else if(otemp->nodetype == RecExp) {
-      root->astnode.io_stmt.rec = otemp->astnode.expression.rhs;
+    else if(IoSpecArr[i]->nodetype == RecExp) {
+      root->astnode.io_stmt.rec = IoSpecArr[i]->astnode.expression.rhs;
       root->astnode.io_stmt.rec->parent = root;
+      rec_cnt++;
     }
-    else if(otemp->nodetype == EndExp) {
+    else if(IoSpecArr[i]->nodetype == EndExp) {
       root->astnode.io_stmt.end_num = 
-         atoi(otemp->astnode.expression.rhs->astnode.constant.number);
+         atoi(IoSpecArr[i]->astnode.expression.rhs->astnode.constant.number);
       if(root->astnode.io_stmt.end_num <= 0) {
-        yyerror("ERROR: READ() END specifier must be pos. integer\n");
+        yyerror("ERROR (cilist) END specifier must be pos. integer");
         exit(EXIT_FAILURE);
       }
+      end_cnt++;
+    }
+    else if(IoSpecArr[i]->nodetype == ErrExp) {
+      root->astnode.io_stmt.err =
+         atoi(IoSpecArr[i]->astnode.expression.rhs->astnode.constant.number);
+      if(root->astnode.io_stmt.err <= 0) {
+        yyerror("ERROR (cilist) ERR specifier must be pos. integer");
+        exit(EXIT_FAILURE);
+      }
+      err_cnt++;
+    }
+    else if(IoSpecArr[i]->nodetype == FormatOrUnknownSpec) {
+      AST *fmt_expr;
+
+      fmt_expr = IoSpecArr[i]->astnode.expression.rhs;
+
+      if(fmt_expr->nodetype == Constant) {
+        if(fmt_expr->token == INTEGER) {
+          root->astnode.io_stmt.fmt_list = NULL;
+          root->astnode.io_stmt.format_num = 
+             atoi(fmt_expr->astnode.constant.number);
+        }
+        else if(fmt_expr->token == STAR) {
+          root->astnode.io_stmt.fmt_list = NULL;
+          root->astnode.io_stmt.format_num = -1;
+        }
+        else if(fmt_expr->token == STRING) {
+          root->astnode.io_stmt.fmt_list = fmt_expr;
+          root->astnode.io_stmt.format_num = -1;
+        }
+      }
+      else {
+        yyerror("Internal error - expected Constant in fmt spec");
+        exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      yyerror("Internal error - unknown IO specifier in cilist");
+      fprintf(stderr, "type %s\n", print_nodetype(IoSpecArr[i]));
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  if(unit_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(fmt_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one FMT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(err_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one ERR specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(end_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one END specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(iostat_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one IOSTAT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(rec_cnt > 1) {
+    yyerror("ERROR (cilist) cannot have more than one REC specifier");
+    exit(EXIT_FAILURE);
+  }
+}
+
+/*****************************************************************************
+ * get_info_from_olist                                                       *
+ *                                                                           *
+ * Loops through the Olist (which is the list of IO specifiers for OPEN      *
+ * statements), checks the nodetype, and assigns the values to the           *
+ * relevant fields of the open struct.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+get_info_from_olist(AST *root, AST *olist)
+{
+  int unit_cnt, file_cnt, err_cnt, end_cnt, iostat_cnt, recl_cnt,
+      status_cnt, access_cnt, form_cnt, blank_cnt;
+  AST *otemp;
+
+  unit_cnt = file_cnt = err_cnt = end_cnt = iostat_cnt = recl_cnt = 0;
+  status_cnt = access_cnt = form_cnt = blank_cnt = 0;
+
+  root->vartype = Integer;
+  root->expr_side = right;
+  root->nodetype = Open;
+  root->astnode.open.unit_expr = NULL;
+  root->astnode.open.file_expr = NULL;
+  root->astnode.open.iostat = NULL;
+  root->astnode.open.recl = NULL;
+  root->astnode.open.status = NULL;
+  root->astnode.open.access = NULL;
+  root->astnode.open.form = NULL;
+  root->astnode.open.blank = NULL;
+  root->astnode.open.err = -1;
+
+  if(!olist) {
+    yyerror("ERROR: OPEN stmt needs at least a UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(olist->token == IOSPEC_EMPTY) {
+    /* this is either an asterisk or an expression without an
+     * explicit UNIT=, so we assume it is the unit specifier.
+     */
+
+    root->astnode.open.unit_expr = olist->astnode.expression.rhs;
+    root->astnode.open.unit_expr->parent = root;
+    olist = olist->nextstmt;
+    unit_cnt++;
+  }
+
+  for(otemp=olist;otemp!=NULL;otemp=otemp->nextstmt) {
+    if(otemp->token == IOSPEC_EMPTY) {
+      yyerror("ERROR: can't put unspecified control items at this position");
+      exit(EXIT_FAILURE);
+    }
+
+    if(otemp->nodetype == UnitExp) {
+      root->astnode.open.unit_expr = otemp->astnode.expression.rhs;
+      root->astnode.open.unit_expr->parent = root;
+      unit_cnt++;
+    }
+    else if(otemp->nodetype == IostatExp) {
+      AST *pnode;
+
+      /* the IOSTAT variable is emitted as the lhs of an assignment
+       * for example:  k = __ftn_file_mgr.open( ... );
+       * so here we create a dummy parent node of type Assignment so
+       * that when we call name_emit() it will do the right thing.
+       */
+      root->astnode.open.iostat = otemp->astnode.expression.rhs;
+
+      pnode = addnode();
+      pnode->nodetype = Assignment;
+      pnode->astnode.assignment.lhs = root->astnode.open.iostat; 
+      pnode->astnode.assignment.rhs = root;
+
+      root->astnode.open.iostat->parent = pnode;
+      iostat_cnt++;
+    }
+    else if(otemp->nodetype == OpenFileSpec) {
+      root->astnode.open.file_expr = otemp->astnode.expression.rhs;
+      root->astnode.open.file_expr->parent = root;
+      file_cnt++;
+    }
+    else if(otemp->nodetype == StatusExp) {
+      root->astnode.open.status = otemp->astnode.expression.rhs;
+      root->astnode.open.status->parent = root;
+      status_cnt++;
+    }
+    else if(otemp->nodetype == AccessExp) {
+      root->astnode.open.access = otemp->astnode.expression.rhs;
+      root->astnode.open.access->parent = root;
+      access_cnt++;
+    }
+    else if(otemp->nodetype == FormExp) {
+      root->astnode.open.form = otemp->astnode.expression.rhs;
+      root->astnode.open.form->parent = root;
+      form_cnt++;
+    }
+    else if(otemp->nodetype == BlankExp) {
+      root->astnode.open.blank = otemp->astnode.expression.rhs;
+      root->astnode.open.blank->parent = root;
+      blank_cnt++;
+    }
+    else if(otemp->nodetype == ReclExp) {
+      root->astnode.open.recl = otemp->astnode.expression.rhs;
+      root->astnode.open.recl->parent = root;
+      recl_cnt++;
     }
     else if(otemp->nodetype == ErrExp) {
-      root->astnode.io_stmt.err =
+      root->astnode.open.err =
          atoi(otemp->astnode.expression.rhs->astnode.constant.number);
-      if(root->astnode.io_stmt.err <= 0) {
-        yyerror("ERROR: READ() ERR specifier must be pos. integer\n");
+      if(root->astnode.open.err <= 0) {
+        yyerror("ERROR: OPEN() ERR specifier must be pos. integer");
         exit(EXIT_FAILURE);
       }
+      err_cnt++;
     }
+  }
+
+  if(unit_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(file_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one FILE specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(err_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one ERR specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(end_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one END specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(iostat_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one IOSTAT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(recl_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one RECL specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(status_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one STATUS specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(access_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one ACCESS specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(form_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one FORM specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(blank_cnt > 1) {
+    yyerror("ERROR (olist) cannot have more than one BLANK specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(root->astnode.open.unit_expr->token == STAR) {
+    yyerror("ERROR: OPEN statement may not have unit specifier '*'");
+    exit(EXIT_FAILURE);
+  }
+}
+
+/*****************************************************************************
+ * get_info_from_cllist                                                      *
+ *                                                                           *
+ * Loops through the Cllist (which is the list of IO specifiers for CLOSE    *
+ * statements), checks the nodetype, and assigns the values to the           *
+ * relevant fields of the open struct.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+get_info_from_cllist(AST *root, AST *cllist)
+{
+  int unit_cnt, iostat_cnt, err_cnt, status_cnt;
+  AST *cltemp;
+
+  unit_cnt = iostat_cnt = err_cnt = status_cnt = 0;
+
+  root->vartype = Integer;
+  root->expr_side = right;
+  root->astnode.close.unit_expr = NULL;
+  root->astnode.close.iostat = NULL;
+  root->astnode.close.err = -1;
+  root->astnode.close.status = NULL;
+
+  if(!cllist) {
+    yyerror("ERROR: CLOSE stmt needs at least a UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(cllist->token == IOSPEC_EMPTY) {
+    /* this is either an asterisk or an expression without an
+     * explicit UNIT=, so we assume it is the unit specifier.
+     */
+
+    root->astnode.close.unit_expr = cllist->astnode.expression.rhs;
+    root->astnode.close.unit_expr->parent = root;
+    cllist = cllist->nextstmt;
+    unit_cnt++;
+  }
+
+  /* need to look for the required unit number */
+
+  for(cltemp=cllist;cltemp!=NULL;cltemp=cltemp->nextstmt) {
+    if(cltemp->token == IOSPEC_EMPTY) {
+      yyerror("ERROR: can't put unspecified control items at this position");
+      exit(EXIT_FAILURE);
+    }
+
+    if(cltemp->nodetype == UnitExp) {
+      root->astnode.close.unit_expr = cltemp->astnode.expression.rhs;
+      root->astnode.close.unit_expr->parent = root;
+      unit_cnt++;
+    }
+    else if(cltemp->nodetype == IostatExp) {
+      AST *pnode;
+
+      /* the IOSTAT variable is emitted as the lhs of an assignment
+       * for example:  k = __ftn_file_mgr.close( ... );
+       * so here we create a dummy parent node of type Assignment so
+       * that when we call name_emit() it will do the right thing.
+       */
+      root->astnode.close.iostat = cltemp->astnode.expression.rhs;
+
+      pnode = addnode();
+      pnode->nodetype = Assignment;
+      pnode->astnode.assignment.lhs = root->astnode.close.iostat; 
+      pnode->astnode.assignment.rhs = root;
+
+      root->astnode.close.iostat->parent = pnode;
+      iostat_cnt++;
+    }
+    else if(cltemp->nodetype == StatusExp) {
+      root->astnode.close.status = cltemp->astnode.expression.rhs;
+      root->astnode.close.status->parent = root;
+      status_cnt++;
+    }
+    else if(cltemp->nodetype == ErrExp) {
+      root->astnode.close.err =
+         atoi(cltemp->astnode.expression.rhs->astnode.constant.number);
+      if(root->astnode.close.err <= 0) {
+        yyerror("ERROR: CLOSE() ERR specifier must be pos. integer");
+        exit(EXIT_FAILURE);
+      }
+      err_cnt++;
+    }
+  }
+
+  if(unit_cnt > 1) {
+    yyerror("ERROR (cllist) cannot have more than one UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(iostat_cnt > 1) {
+    yyerror("ERROR (cllist) cannot have more than one IOSTAT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(err_cnt > 1) {
+    yyerror("ERROR (cllist) cannot have more than one ERR specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(status_cnt > 1) {
+    yyerror("ERROR (cllist) cannot have more than one STATUS specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(root->astnode.close.unit_expr->token == STAR) {
+    yyerror("ERROR: CLOSE statement may not have unit specifier '*'");
+    exit(EXIT_FAILURE);
   }
 }

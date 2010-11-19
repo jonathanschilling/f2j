@@ -69,11 +69,11 @@ AST
 
 BOOL 
   import_reflection,    /* does this class need to import reflection         */
-  import_blas,          /* does it need to import the BLAS library           */
   bytecode_gen=TRUE,    /* is bytecode generation currently enabled          */
   save_all_locals;      /* should all locals be declared static?             */
 
 unsigned int 
+  iostat_lvar = -1,     /* local var number of the temp iostat variable      */
   stdin_lvar = -1,      /* local var number of the EasyIn object             */
   iovec_lvar = -1,      /* local var number of the input/output Vector       */
   filemgr_lvar = -1;    /* locar var number of the fortran file manager      */
@@ -193,14 +193,6 @@ emit (AST * root)
           else
             import_reflection = FALSE; 
 
-          /* needs_blas is also determined during typecheck */
-
-          if(root->astnode.source.progtype->astnode.source.needs_blas &&
-             !type_lookup(blas_routine_table,tmpname))
-            import_blas = TRUE;
-          else
-            import_blas = FALSE; 
-
           prepare_comments(root);
 
           open_output_file(root->astnode.source.progtype, classname);
@@ -313,6 +305,16 @@ emit (AST * root)
             bc_gen_store_op(cur_method, iovec_lvar, jvm_Object);
           }
 
+          /* initialize a variable for holding the return value of READ()
+           * statements when the user has not specified IOSTAT=var.
+           */
+          if(root->astnode.source.progtype->astnode.source.needs_iostat) {
+            fprintf(curfp, "  int %s = 0;\n", F2J_TMP_IOSTAT);
+            iostat_lvar = bc_get_next_local(cur_method, jvm_Int);
+            bc_push_int_const(cur_method, 0);
+            bc_gen_store_op(cur_method, iostat_lvar, jvm_Int);
+          }
+
           /* Initialize the file manager instance if necessary */
 
           if(root->astnode.source.progtype->astnode.source.needs_files) {
@@ -320,10 +322,6 @@ emit (AST * root)
             fprintf(curfp, "= FortranFileMgr.getInstance();\n");
 
             filemgr_lvar = bc_get_next_local(cur_method, jvm_Object);
-
-            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, FILEMGR_CLASS);
-            bc_append(cur_method, jvm_new,c);
-            bc_append(cur_method, jvm_dup);
 
             c = bc_new_methodref(cur_class_file, FILEMGR_CLASS, "getInstance",
                    FILEMGR_DESC);
@@ -1195,8 +1193,11 @@ open_emit(JVM_METHOD *meth, AST *root)
     fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.open.err);
   }
-  else
+  else {
     fprintf(curfp, ");\n");
+    if(!root->astnode.open.iostat)
+      bc_append(meth, jvm_pop);
+  }
 }
 
 /*****************************************************************************
@@ -1271,8 +1272,11 @@ close_emit(JVM_METHOD *meth, AST *root)
     fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
         root->astnode.close.err);
   }
-  else
+  else {
     fprintf(curfp, ");\n");
+    if(!root->astnode.close.iostat)
+      bc_append(meth, jvm_pop);
+  }
 }
 
 /*****************************************************************************
@@ -8640,6 +8644,9 @@ emit_skip_line(JVM_METHOD *meth, AST *root)
   c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "readString",
         "(I)Ljava/lang/String;");
   bc_append(meth, jvm_invokevirtual, c);
+
+  /* we don't use the return value, so just pop it off the stack */
+  bc_append(meth, jvm_pop);
 }
 
 /*****************************************************************************
@@ -8672,12 +8679,13 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
     return;
   }
 
-  /* if the READ statement includes an END label, then we
-   * use a try block to determine EOF.  the catch block, emitted
-   * below, just contains the GOTO. 
+  /* if the READ statement includes an END or ERR specifier, then we
+   * use a try block to determine EOF and/or error.  the catch block(s),
+   * emitted below, just branch to the target(s) of the END and/or ERR. 
    */
 
-  if(root->astnode.io_stmt.end_num > 0 )
+  if((root->astnode.io_stmt.end_num > 0) ||
+     (root->astnode.io_stmt.err > 0))
   {
     fprintf(curfp,"try {\n");
     funcname = input_func_eof;
@@ -8739,20 +8747,36 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
   c = bc_new_methodref(cur_class_file, EASYIN_CLASS, "skipRemaining", "()V");
   bc_append(meth, jvm_invokevirtual, c);
 
-  /* Emit the catch block for when we hit EOF.  We only care if
-   * the READ statement has an END label.
+  /* last statement before catch block(s).  if IOSTAT was specified, then
+   * set that variable to 0 here (signifying no error).
    */
+  if(root->astnode.io_stmt.iostat) {
+    name_emit(meth, root->astnode.io_stmt.iostat);
+    fprintf(curfp, " = 0;\n");
+    bc_append(meth, jvm_iconst_0);
+    LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
+  }
+
+  if((root->astnode.io_stmt.end_num > 0) ||
+     (root->astnode.io_stmt.err > 0))
+    fprintf(curfp,"}\n");
+
+  /* Emit the catch block for when we hit EOF */
 
   if(root->astnode.io_stmt.end_num > 0)
   {
-    fprintf(curfp,"} catch (java.io.EOFException e) {\n");
+    fprintf(curfp,"catch (java.io.EOFException e) {\n");
+    if(root->astnode.io_stmt.iostat) {
+      name_emit(meth, root->astnode.io_stmt.iostat);
+      fprintf(curfp, " = -1;\n");
+    }
     fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
       root->astnode.io_stmt.end_num);
     fprintf(curfp,"}\n");
 
     goto_node1 = bc_append(meth, jvm_goto);  /* skip the exception handler */
 
-    /* following is the exception handler for IOException.  this
+    /* following is the exception handler for EOFException.  this
      * implements Fortrans END specifier (eg READ(*,*,END=100)).
      * the exception handler just consists of a pop to get the stack
      * back to normal and a goto to branch to the label specified
@@ -8765,18 +8789,61 @@ unformatted_read_emit(JVM_METHOD *meth, AST * root)
      */
     bc_set_stack_depth(pop_node, 1);
 
+    if(root->astnode.io_stmt.iostat) {
+      bc_append(meth, jvm_iconst_m1);
+      LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
+    }
+
     goto_node2 = bc_append(meth, jvm_goto);
     bc_set_integer_branch_label(goto_node2, root->astnode.io_stmt.end_num);
 
     bc_set_branch_target(goto_node1, bc_append(meth, jvm_xxxunusedxxx));
 
-    et_entry = (JVM_EXCEPTION_TABLE_ENTRY *) f2jalloc(sizeof(JVM_EXCEPTION_TABLE_ENTRY));
-    et_entry->from = try_start;
-    et_entry->to = pop_node;
-    et_entry->target = pop_node;
-    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, EOFEXCEPTION);
-    et_entry->catch_type = c;
+    et_entry = bc_new_exception_table_entry(meth, try_start, pop_node,
+      pop_node, EOFEXCEPTION);
+    bc_add_exception_handler(meth, et_entry);
+  }
 
+  /* Emit the catch block for when we hit a read error */
+
+  if(root->astnode.io_stmt.err > 0)
+  {
+    fprintf(curfp,"catch (java.lang.Exception e) {\n");
+    if(root->astnode.io_stmt.iostat) {
+      name_emit(meth, root->astnode.io_stmt.iostat);
+      fprintf(curfp, " = 1;\n");
+    }
+    fprintf(curfp,"Dummy.go_to(\"%s\",%d);\n",cur_filename,
+      root->astnode.io_stmt.err);
+    fprintf(curfp,"}\n");
+
+    goto_node1 = bc_append(meth, jvm_goto);  /* skip the exception handler */
+
+    /* following is the exception handler for IOException.  this
+     * implements Fortrans ERR specifier (eg READ(*,*,ERR=100)).
+     * the exception handler just consists of a pop to get the stack
+     * back to normal and a goto to branch to the label specified
+     * in the ERR spec.
+     */
+    pop_node = bc_append(meth, jvm_pop);
+
+    /* artificially set stack depth at beginning of exception
+     * handler to 1.
+     */
+    bc_set_stack_depth(pop_node, 1);
+
+    if(root->astnode.io_stmt.iostat) {
+      bc_append(meth, jvm_iconst_1);
+      LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
+    }
+
+    goto_node2 = bc_append(meth, jvm_goto);
+    bc_set_integer_branch_label(goto_node2, root->astnode.io_stmt.err);
+
+    bc_set_branch_target(goto_node1, bc_append(meth, jvm_xxxunusedxxx));
+
+    et_entry = bc_new_exception_table_entry(meth, try_start, pop_node,
+      pop_node, JLEXCEPTION);
     bc_add_exception_handler(meth, et_entry);
   }
 }
@@ -8907,14 +8974,23 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
 
   gen_clear_io_vec(meth);
 
-  if(root->astnode.io_stmt.end_num > 0 )
+  if((root->astnode.io_stmt.end_num > 0) ||
+     (root->astnode.io_stmt.err > 0))
   {
     JVM_CODE_GRAPH_NODE *if_node, *goto_node;
+
+    if(root->astnode.io_stmt.iostat) {
+      name_emit(meth, root->astnode.io_stmt.iostat);
+      fprintf(curfp, " =");
+    }
+    else {
+      fprintf(curfp, "%s =", F2J_TMP_IOSTAT);
+    }
 
     /* the READ statement includes an END label, so we
      * test the return value to determine EOF.
      */
-    fprintf(curfp, "if(Util.f77read(");
+    fprintf(curfp, " Util.f77read(");
     emit_unit_desc(meth, root);
     fprintf(curfp, ", ");
 
@@ -8922,15 +8998,61 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     bc_gen_load_op(meth, iovec_lvar, jvm_Object);
     c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
     bc_append(meth, jvm_invokestatic, c);
+    
+    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
 
-    fprintf(curfp, "\"%s\", %s) == 0)\n", fmt_str, F2J_IO_VEC);
-    fprintf(curfp,"   Dummy.go_to(\"%s\",%d);\n",cur_filename,
-        root->astnode.io_stmt.end_num);
+    if((root->astnode.io_stmt.end_num > 0) ||
+       (root->astnode.io_stmt.err > 0))
+    {
+      if(root->astnode.io_stmt.iostat)
+        LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
+      else {
+        bc_append(meth, jvm_dup);
+        bc_gen_store_op(meth, iostat_lvar, jvm_Int);
+      }
+    }
 
-    if_node = bc_append(meth, jvm_ifne);
-    goto_node = bc_append(meth, jvm_goto);
-    bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.end_num);
-    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+    if(root->astnode.io_stmt.iostat) {
+      /* iostat's parent is a dummy assignment whose lhs is the iostat var.
+       * that allows correct bytecode generation since iostat will be used
+       * in a lhs context.  however, after this point we will use iostat in
+       * a rhs context, so we just set parent's lhs to null.  --kgs
+       */
+      root->astnode.io_stmt.iostat->parent->astnode.assignment.lhs = NULL;
+    }
+
+    if(root->astnode.io_stmt.end_num > 0) {
+      fprintf(curfp, "   if(");
+      if(root->astnode.io_stmt.iostat)
+        name_emit(meth, root->astnode.io_stmt.iostat);
+      else
+        fprintf(curfp, "%s", F2J_TMP_IOSTAT);
+      fprintf(curfp, " == -1)\n");
+      fprintf(curfp, "     Dummy.go_to(\"%s\",%d);\n",cur_filename,
+         root->astnode.io_stmt.end_num);
+
+      bc_append(meth, jvm_iconst_m1);
+      if_node = bc_append(meth, jvm_if_icmpne);
+      goto_node = bc_append(meth, jvm_goto);
+      bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.end_num);
+      bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+    }
+
+    if(root->astnode.io_stmt.err > 0) {
+      fprintf(curfp, "   if(");
+      if(root->astnode.io_stmt.iostat)
+        name_emit(meth, root->astnode.io_stmt.iostat);
+      else
+        fprintf(curfp, "%s", F2J_TMP_IOSTAT);
+      fprintf(curfp, " > 0)\n");
+      fprintf(curfp, "     Dummy.go_to(\"%s\",%d);\n",cur_filename,
+         root->astnode.io_stmt.err);
+
+      if_node = bc_append(meth, jvm_ifle);
+      goto_node = bc_append(meth, jvm_goto);
+      bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.err);
+      bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+    }
   }
   else {
     fprintf(curfp, "Util.f77read(");
@@ -9354,6 +9476,7 @@ write_argument_emit(JVM_METHOD *meth, AST *root)
 void
 write_emit(JVM_METHOD *meth, AST * root)
 {
+  JVM_CODE_GRAPH_NODE *if_node, *goto_node;
   char *fmt_str, tmp[100];
   HASHNODE *hnode;
   AST *temp;
@@ -9384,6 +9507,15 @@ write_emit(JVM_METHOD *meth, AST * root)
       write_argument_emit(meth, temp);
   }
 
+  /* if ERR is set, then generate the conditional branch in case of error */
+  if(root->astnode.io_stmt.err > 0)
+    fprintf(curfp, "  if((");
+
+  if(root->astnode.io_stmt.iostat) {
+    name_emit(meth, root->astnode.io_stmt.iostat);
+    fprintf(curfp, " = ");
+  }
+
   fprintf(curfp, "Util.f77write(");
 
   if(root->astnode.io_stmt.unit_desc && 
@@ -9398,11 +9530,11 @@ write_emit(JVM_METHOD *meth, AST * root)
   }
 
   if(fmt_str) {
-    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+    fprintf(curfp, "\"%s\", %s)", fmt_str, F2J_IO_VEC);
     bc_push_string_const(meth, fmt_str);
   }
   else {
-    fprintf(curfp, "null, %s);\n", F2J_IO_VEC);
+    fprintf(curfp, "null, %s)", F2J_IO_VEC);
     bc_append(meth, jvm_aconst_null);
   }
 
@@ -9410,6 +9542,32 @@ write_emit(JVM_METHOD *meth, AST * root)
 
   c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77write", F77_WRITE_DESC);
   bc_append(meth, jvm_invokestatic, c);
+
+  if((root->astnode.io_stmt.err > 0) && root->astnode.io_stmt.iostat)
+    bc_append(meth, jvm_dup);
+
+  /* if IOSTAT is set, then emit the LHS assignment to set the ret value */
+  if(root->astnode.io_stmt.iostat)
+    LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
+
+  if(root->astnode.io_stmt.err > 0) {
+    if_node = bc_append(meth, jvm_ifle);
+
+    goto_node = bc_append(meth, jvm_goto);
+
+    bc_set_integer_branch_label(goto_node, root->astnode.io_stmt.err);
+
+    bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
+
+    fprintf(curfp, ") > 0)\n");
+    fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
+        root->astnode.io_stmt.err);
+  }
+  else {
+    fprintf(curfp, ";\n");
+    if(!root->astnode.io_stmt.iostat)
+      bc_append(meth, jvm_pop);
+  }
 }
 
 /*****************************************************************************
@@ -13126,8 +13284,8 @@ print_nodetype (AST *root)
       return("MainComment");
     case Dimension:
       return("Dimension");
-    case UnitSpec:
-      return("UnitSpec");
+    case UnitExp:
+      return("UnitExp");
     case OpenFileSpec:
       return("OpenFileSpec");
     case Open:
@@ -13136,6 +13294,8 @@ print_nodetype (AST *root)
       return("Close");
     case CharExp:
       return("CharExp");
+    case FormatOrUnknownSpec:
+      return("FormatOrUnknownSpec");
     default:
       sprintf(temp, "print_nodetype(): Unknown Node: %d", root->nodetype);
       return(temp);

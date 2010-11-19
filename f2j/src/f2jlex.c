@@ -454,7 +454,10 @@ yylex ()
    */
 
   if(!token && (firsttoken == READ))
-    token = keyscan (read_toks, &buffer);
+    token = keyscan (read_write_toks, &buffer);
+
+  if(!token && (firsttoken == WRITE))
+    token = keyscan (read_write_toks, &buffer);
 
   if(!token && (firsttoken == OPEN))
     token = keyscan (open_toks, &buffer);
@@ -2043,8 +2046,6 @@ tok2str(int tok)
       return("COMMENT");
     case WRITE:
       return("WRITE");
-    case FMT:
-      return("FMT");
     case READ:
       return("READ");
     case EDIT_DESC:
@@ -2067,6 +2068,8 @@ tok2str(int tok)
       return("IOSPEC_FORM");
     case IOSPEC_UNIT:
       return("IOSPEC_UNIT");
+    case IOSPEC_FMT:
+      return("IOSPEC_FMT");
     case IOSPEC_RECL:
       return("IOSPEC_RECL");
     case IOSPEC_REC:

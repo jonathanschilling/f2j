@@ -383,6 +383,10 @@ typecheck (AST * root)
         printf ("typecheck(): Read statement.\n");
 
       cur_check_unit->astnode.source.needs_input = TRUE;
+      if(((root->astnode.io_stmt.err >= 0) ||
+          (root->astnode.io_stmt.end_num >= 0)) 
+         && (root->astnode.io_stmt.iostat == NULL))
+        cur_check_unit->astnode.source.needs_iostat = TRUE;
 
       read_write_check (root);
       if (root->nextstmt != NULL)
@@ -1387,6 +1391,9 @@ open_check(AST * root)
 
   if(root->astnode.open.recl)
     expr_check(root->astnode.open.recl);
+
+  if(root->astnode.open.iostat)
+    expr_check(root->astnode.open.iostat);
 }
 
 /*****************************************************************************
@@ -1422,6 +1429,9 @@ read_write_check (AST * root)
 
   if(root->astnode.io_stmt.rec)
     expr_check(root->astnode.io_stmt.rec);
+
+  if(root->astnode.io_stmt.iostat)
+    expr_check(root->astnode.io_stmt.iostat);
 
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
@@ -1531,13 +1541,6 @@ call_check (AST * root)
   if(checkdebug)
     printf("the name of this function/subroutine is %s\n",
          root->astnode.ident.name);
-
-  /* now is a convenient time to determine whether we should import the
-   * BLAS library.
-   */
-
-  if(type_lookup(blas_routine_table,root->astnode.ident.name))
-    cur_check_unit->astnode.source.needs_blas = TRUE;
 
   if( (ht = type_lookup(chk_type_table,root->astnode.ident.name)) != NULL)
   {

@@ -1,6 +1,7 @@
       program foo
+C      external blah
       integer x,y
-      double precision z
+      double precision z,blah
       x= 12
       y = 34
 *

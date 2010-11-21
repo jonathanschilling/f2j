@@ -52,6 +52,18 @@ char yytext[YYTEXTLEN];          /* token text                               */
 BOOL letterseen;                 /* we have seen a letter in this line       */
 BOOL equalseen;                  /* we have seen an equals in this line      */
 BOOL commaseen;                  /* we have seen a comma in this line        */
+BOOL progseen;                   /* we have seen a PROGRAM decl in this unit */
+BOOL in_iolist;                  /* we are inside an I/O specifier list      */
+BOOL iolist_finished;            /* we have finished lexing the I/O spec list*/
+
+/*****************************************************************************
+ * A couple of globals for keeping track of tokens we want to pass on        *
+ * subsequent calls to yylex().  This is sort of a hack to let us peek       *
+ * ahead in the token stream.                                                *
+ *****************************************************************************/
+
+int next_tok[NT_NUM];
+YYSTYPE next_yylval[NT_NUM];
 
 /*****************************************************************************
  * a couple of buffers for manipulating the text of the current line.        *
@@ -69,8 +81,8 @@ BUFFER;
  *****************************************************************************/
 
 int 
-  yylex (void),
-  prelex (BUFFER *);
+  yylex(void),
+  prelex(BUFFER *);
 
 char 
   *tok2str(int),
@@ -80,19 +92,19 @@ FILE
   *open_included_file(char *);
 
 int
-  name_scan (BUFFER *),
-  keyscan (register KWDTAB *, BUFFER *),
-  number_scan (BUFFER *, int, int),
-  string_or_char_scan (BUFFER *);
+  name_scan(BUFFER *),
+  keyscan(register KWDTAB *, BUFFER *),
+  number_scan(BUFFER *, int, int),
+  string_or_char_scan(BUFFER *);
 
 void
   truncate_bang_comments(BUFFER *),
-  check_continued_lines (FILE *, char *),
-  collapse_white_space (BUFFER *),
+  check_continued_lines(FILE *, char *),
+  collapse_white_space(BUFFER *),
   collapse_white_space_internal(BUFFER *, int);
 
 METHODTAB
-  * methodscan (METHODTAB *, char *);
+  * methodscan(METHODTAB *, char *);
 
 extern Dlist
   file_stack;
@@ -116,28 +128,28 @@ union yylval_ {
  * if STANDALONE is defined.                                                 *
  *****************************************************************************/
 
-main (int argc, char **argv)
+main(int argc, char **argv)
 {
   extern FILE *ifp;
   int token = 1;
-  ifp = fopen (argv[1], "rb");
+  ifp = fopen(argv[1], "rb");
 
-  while (token != 0)
+  while(token != 0)
   {
-    token = yylex ();
+    token = yylex();
 
     /* This prints out some random int on the EOF 
      * condition. 
      */
 
     if(lexdebug) {
-      printf ("From main: %d\n", token);
-      printf ("yytext: %s\n\n", yytext);
+      printf("From main: %d\n", token);
+      printf("yytext: %s\n\n", yytext);
     }
   }
 
   if(lexdebug)
-    printf ("EOF\n");
+    printf("EOF\n");
 }				/*   Close main().  */
 
 #endif /*    STANDALONE   */
@@ -153,13 +165,14 @@ main (int argc, char **argv)
  *****************************************************************************/
 
 int
-yylex ()
+yylex()
 {
   static int tokennumber;
   static int firsttoken;
   static int parencount = 0;
   static int format_stmt;    /* are we lexing a format statement */
-  int token = 0;
+  static int first_call = 1;
+  int i, token = 0;
 
   /* yyparse() makes a call to yylex() each time it needs a
    * token.  To get a statement to parse, yylex() calls
@@ -178,14 +191,48 @@ yylex ()
     {0}                /* Text string.   */
   };
 
+  /* on the first call to yylex(), initialize some variables */
+
+  if(first_call) {
+    first_call = 0;
+    progseen = FALSE;
+
+    for(i=0;i<NT_NUM;i++) {
+      next_tok[i] = 0;
+      memset(&next_yylval[i], 0, sizeof(next_yylval[i]));
+    }
+  }
+
+  /* if there were tokens saved from a previous call, then
+   * return them now.  as mentioned above, this is a hack to
+   * provide some lookahead.
+   */
+  for(i=0;i<NT_NUM;i++) {
+    if(next_tok[i]) {
+      if(lexdebug)
+         printf("0: lexer returns previous saved token %s (%s)\n",
+            tok2str(next_tok[i]),buffer.stmt);
+
+      token = next_tok[i];
+
+      /* clear out this entry so we don't try to return it next time */
+
+      next_tok[i] = 0;
+      memcpy(&yylval, &next_yylval[i], sizeof(next_yylval[i]));
+      memset(&next_yylval[i], 0, sizeof(next_yylval[i]));
+
+      return token;
+    }
+  }
+
   /* Test so that yylex will know when to call prelex to get 
    * another character string.  
    */
 
-  if (buffer.stmt[0] == '\0')
+  if(buffer.stmt[0] == '\0')
   {
     if(lexdebug) printf("calling prelex\n");
-    token = prelex (&buffer);   /* No more tokens? Get another statement. */
+    token = prelex(&buffer);   /* No more tokens? Get another statement. */
 
     if(token == INCLUDE) {
       INCLUDED_FILE *newfile;
@@ -262,7 +309,7 @@ yylex ()
 
   /* Check for end of file condition.  */
 
-  if (*buffer.stmt == '\0') {
+  if(*buffer.stmt == '\0') {
     /* I am not sure exactly what is going on here...
      * I may later comment this out to investigate the
      * behavior.  If this does work, it is confusing with
@@ -295,17 +342,44 @@ yylex ()
    * certain very specific circumstances (detailed in
    * technical report.  */
 
-  if (tokennumber == 0)
+  if(tokennumber == 0)
   {
-    if (commaseen == FALSE &&
-        equalseen == TRUE &&
-        letterseen == FALSE)
+    if(commaseen == FALSE &&
+       equalseen == TRUE &&
+       letterseen == FALSE)
     {
-      if (isalpha ( (int) *buffer.stmt))
-        token = name_scan (&buffer);
+      if(isalpha( (int) *buffer.stmt))
+        token = name_scan(&buffer);
 
-      if (token)
+      if(token)
       {
+        /* at this point we are looking at a NAME token */
+
+        if(!progseen) {
+          /* we haven't seen a PROGRAM declaration yet and we
+           * are looking at a NAME token, so there cannot be
+           * an explicit PROGRAM decl, so we return NO_PROGRAM
+           * here.  it's a bit messy here, but it makes things
+           * easier in the parser (avoiding conflicts).
+           */
+          progseen = TRUE;
+
+          /* here we set up the next two tokens:
+           *   NO_PROGRAM - return on this call
+           *   next_tok[0] = current token (i.e. NAME), return on next call
+           *   next_tok[1] = unused
+           */
+
+          next_tok[0] = token;
+          memcpy(&next_yylval[0], &yylval, sizeof(yylval));
+          next_tok[1] = 0;
+          memset(&next_yylval[1], 0, sizeof(next_yylval[0]));
+          token = NO_PROGRAM;
+          if(lexdebug)
+            printf("0.8: lexer returns %s (%s)\n",
+               tok2str(token),buffer.stmt);
+          return token;
+        }
         tokennumber++;
         if(lexdebug)
           printf("1: lexer returns %s (%s)\n",
@@ -319,13 +393,76 @@ yylex ()
       if(lexdebug)
         printf("keyscanning %s, ",buffer.stmt);
 
-      token = keyscan (tab_type, &buffer);
+      /* check for type declarations, e.g. INTEGER, REAL, LOGICAL, etc. */
+
+      token = keyscan(tab_type, &buffer);
 
       if(lexdebug)
         printf("token = %d\n",token);
 
-      if (token)
+      if(token)
       {
+        if(!progseen) {
+          /* we haven't seen a PROGRAM declaration yet and we
+           * are looking at either an ARITH_TYPE or CHAR_TYPE token,
+           * (INTEGER, REAL, CHARACTER, etc).  This can either be a
+           * variable declaration or a function declaration,
+           * depending on the following token.  if this is a type
+           * declaration and we haven't seen a PROGRAM declaration,
+           * then we return NO_PROGRAM here.  if this is a function
+           * declaration, then this is the beginning of a new
+           * FUNCTION program unit, so we do not want to return
+           * NO_PROGRAM, just return the tokens as usual.
+           */
+          progseen = TRUE;
+
+          /* here we set up the next tokens:
+           *   NO_PROGRAM - return on this call
+           *   next_tok[0] = current token (i.e. NAME), return on next call
+           *   next_tok[1] = unused
+           */
+
+          /* NOTE: the order of the statements here is important.
+           * we don't want to set any next_tok[..] before the call to yylex()
+           * because then it will just return that token instead of lexing the
+           * next token.
+           *
+           * first, save yylval (it's ok to write to next_yylval[0] before
+           * the yylex() call because it only checks whether next_tok[..] is
+           * set).  then call yylex() to get the next token (to check if
+           * it's a function or variable name).  then we can save the tokens
+           * in next_tok[..] for the next call.
+           */
+          memcpy(&next_yylval[0], &yylval, sizeof(yylval));
+          next_tok[1] = yylex();
+          memcpy(&next_yylval[1], &yylval, sizeof(yylval));
+          next_tok[0] = token;
+
+          if(next_tok[1] == FUNCTION) {
+            /* if this declaration is for a FUNCTION, then we basically
+             * want to set things back to the original state - but since
+             * we've already lexed the next token to check for the function
+             * decl, we need to use next_tok[..] here.  'token' still
+             * contains the original token, so just return that now and
+             * put the FUNCTION token in next_tok[0] to be returned next time.
+             */
+            memcpy(&yylval, &next_yylval[0], sizeof(yylval));
+            memcpy(&next_yylval[0], &next_yylval[1], sizeof(yylval));
+            next_tok[0] = next_tok[1];
+            next_tok[1] = 0;
+            memset(&next_yylval[1], 0, sizeof(next_yylval[1]));
+          }
+          else {
+            /* not a function, so return NO_PROGRAM as described above */
+            token = NO_PROGRAM;
+          }
+
+          if(lexdebug)
+            printf("0.9: lexer returns %s (%s)\n",
+               tok2str(token),buffer.stmt);
+          return token;
+        }
+
         firsttoken = token;
         tokennumber++;
         if(lexdebug)
@@ -334,15 +471,61 @@ yylex ()
         return token;
       }
 
-      token = keyscan (tab_stmt, &buffer);
+      token = keyscan(tab_stmt, &buffer);
 
-      if (token)
+      if(token)
       {
         firsttoken = token;
         tokennumber++;
-        if(token == END)
-          func_stmt_num = 0;
+
+        if((token == PROGRAM) || (token == SUBROUTINE) || (token == FUNCTION))
+          progseen = TRUE;
+
         yylval.lexeme[0] = '\0';
+
+        if(!progseen) {
+          /* see comments above for a description of the NO_PROGRAM token.
+           * here we are looking at a statement token - DO, IF, READ, WRITE,
+           * CALL, etc. (see tab_stmt[]).  
+           */
+          progseen = TRUE;
+
+          /* here we set up the next two tokens:
+           *   NO_PROGRAM - return on this call
+           *   next_tok[0] = current token, return on next call
+           *   next_tok[1] = unused
+           */
+
+          next_tok[0] = token;
+          memcpy(&next_yylval[0], &yylval, sizeof(yylval));
+          next_tok[1] = 0;
+          memset(&next_yylval[1], 0, sizeof(next_yylval[1]));
+
+          if(token == END) {
+            /* this handles a pretty obscure case - if the only line in
+             * the file is "END", then return NO_PROGRAM, DUMMY, and
+             * finally the current token (END).  DUMMY is just a non-terminal
+             * for the parser to pick up on.
+             */
+            next_tok[0] = DUMMY;
+            memset(&next_yylval[0], 0, sizeof(next_yylval[0]));
+            next_tok[1] = token;
+            memcpy(&next_yylval[1], &yylval, sizeof(yylval));
+          }
+
+          token = NO_PROGRAM;
+
+          if(lexdebug)
+            printf("2.9: lexer returns %s (%s)\n",
+               tok2str(token),buffer.stmt);
+          return token;
+        }
+
+        if(token == END) {
+          func_stmt_num = 0;
+          progseen = FALSE;
+        }
+
         if(lexdebug)
           printf("3: lexer returns %s (%s)\n",
             tok2str(token),buffer.stmt);
@@ -350,10 +533,10 @@ yylex ()
       }
 
       /*  Scan for a labeled (numbered) statement. */
-      if (isdigit ((int) *buffer.stmt))
-        token = number_scan (&buffer, format_stmt, tokennumber);
+      if(isdigit((int) *buffer.stmt))
+        token = number_scan(&buffer, format_stmt, tokennumber);
 
-      if (token)
+      if(token)
       {
         firsttoken = token;
         tokennumber++;
@@ -385,6 +568,30 @@ yylex ()
           return token;
         }
 
+        if(!progseen) {
+          /* see comments above for a description of the NO_PROGRAM token.
+           * here we are looking at a labeled statement.  handle this the same
+           * way as above.
+           */
+          progseen = TRUE;
+
+          /* here we set up the next two tokens:
+           *   NO_PROGRAM - return on this call
+           *   next_tok[0] = current token, return on next call
+           *   next_tok[1] = unused
+           */
+
+          next_tok[0] = token;
+          memcpy(&next_yylval[0], &yylval, sizeof(yylval));
+          next_tok[1] = 0;
+          memset(&next_yylval[1], 0, sizeof(next_yylval[0]));
+          token = NO_PROGRAM;
+          if(lexdebug)
+            printf("3.9: lexer returns %s (%s)\n",
+               tok2str(token),buffer.stmt);
+          return token;
+        }
+
         if(lexdebug)
           printf("4: lexer returns %s (%s)\n",
             tok2str(token),buffer.stmt);
@@ -403,9 +610,9 @@ yylex ()
      ((firsttoken == ARITH_TYPE) || (firsttoken == CHAR_TYPE)) && 
       (tokennumber ==1))
   {
-    token = keyscan (tab_stmt, &buffer);
+    token = keyscan(tab_stmt, &buffer);
 
-    if (token)
+    if(token)
     {
       tokennumber++;
       if(lexdebug)
@@ -426,11 +633,11 @@ yylex ()
       printf("first tok is IMPLICIT, parentcount = %d\n",parencount);
 
     if(parencount > 0) {
-      if (isalpha ( (int) *buffer.stmt))
-        token = name_scan (&buffer);
+      if(isalpha( (int) *buffer.stmt))
+        token = name_scan(&buffer);
     }
     else {
-      token = keyscan (tab_type, &buffer);
+      token = keyscan(tab_type, &buffer);
     }
 
     if(token) {
@@ -447,29 +654,45 @@ yylex ()
    * sniffing for parens... 
    */
 
-  token = keyscan (tab_toks, &buffer);
+  token = keyscan(tab_toks, &buffer);
 
-  /* if we found no keyword and this is a READ statement,
-   * check for an END keyword 
+  /* set a flag for when we are lexing the list of IO specifiers.
+   * trying to avoid problems with variable names that clash with
+   * the specifiers (e.g. WRITE(*,*) ERROR was getting lexed as ERR).
+   */
+  if((firsttoken == READ) || (firsttoken == WRITE) ||
+     (firsttoken == OPEN) || (firsttoken == CLOSE))
+  {
+    if((token == OP) && !in_iolist)
+      in_iolist = TRUE;
+
+    if((token == CP) && (parencount == 1) && in_iolist)
+      iolist_finished = TRUE;
+  }
+
+  /* if we found no keyword and this is an I/O statement,
+   * check for io specifier keywords (UNIT, ERR, etc).
    */
 
-  if(!token && (firsttoken == READ))
-    token = keyscan (read_write_toks, &buffer);
+  if(!iolist_finished) {
+    if(!token && (firsttoken == READ))
+      token = keyscan(read_write_toks, &buffer);
 
-  if(!token && (firsttoken == WRITE))
-    token = keyscan (read_write_toks, &buffer);
+    if(!token && (firsttoken == WRITE))
+      token = keyscan(read_write_toks, &buffer);
 
-  if(!token && (firsttoken == OPEN))
-    token = keyscan (open_toks, &buffer);
+    if(!token && (firsttoken == OPEN))
+      token = keyscan(open_toks, &buffer);
 
-  if(!token && (firsttoken == CLOSE))
-    token = keyscan (close_toks, &buffer);
+    if(!token && (firsttoken == CLOSE))
+      token = keyscan(close_toks, &buffer);
+  }
 
-  if (token)
+  if(token)
   {
-    if (token == OP)
+    if(token == OP)
       parencount++;
-    if (token == CP)
+    if(token == CP)
       parencount--;
     tokennumber++;
 
@@ -486,20 +709,20 @@ yylex ()
    * statement keywords.  
    */
 
-  if ((letterseen == TRUE        &&
+  if((letterseen == TRUE        &&
       (firsttoken == IF || firsttoken == ELSEIF)     &&
        parencount == 0)          ||
 	/*  Takes care of labeled (numbered) statements,
 	 *  i.e. 10 CONTINUE.  */
        firsttoken == INTEGER)
   {
-    if (equalseen == TRUE)
+    if(equalseen == TRUE)
     {
       char *stmt_copy = strdup(buffer.stmt);
       char *text_copy = strdup(buffer.text);
 
       /*Changed on 2/27/01 added if statement to catch if variable*/     
-      token = keyscan (tab_stmt, &buffer);
+      token = keyscan(tab_stmt, &buffer);
       if(  ((token == DO) || (token == IF)) 
          && 
           /* (((tokennumber != 1) && (firsttoken != INTEGER)) || */
@@ -516,7 +739,7 @@ yylex ()
          /* First, look for labeled DO statement */
          strcpy(buffer.stmt,stmt_copy);
          strcpy(buffer.text,text_copy);
-         if((token = keyscan (tab_stmt, &buffer)) == DO)
+         if((token = keyscan(tab_stmt, &buffer)) == DO)
          {
            if(lexdebug)
              printf("7.1: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
@@ -526,7 +749,7 @@ yylex ()
          }
          strcpy(buffer.stmt,stmt_copy);
          strcpy(buffer.text,text_copy);
-         if((token = keyscan (tab_stmt, &buffer)) == IF)
+         if((token = keyscan(tab_stmt, &buffer)) == IF)
          {
            if(lexdebug)
              printf("7.1.2: lexer returns %s (%s)\n", tok2str(token), buffer.stmt);
@@ -537,10 +760,10 @@ yylex ()
       strcpy(buffer.stmt,stmt_copy);
       strcpy(buffer.text,text_copy);
 
-      if (isalpha ((int) *buffer.stmt))
-        token = name_scan (&buffer);
+      if(isalpha((int) *buffer.stmt))
+        token = name_scan(&buffer);
 
-      if (token)
+      if(token)
       {
         tokennumber++;
         if(lexdebug)
@@ -562,11 +785,11 @@ yylex ()
       char *stmt_copy = strdup(buffer.stmt);
       char *text_copy = strdup(buffer.text);
 
-      token = keyscan (tab_stmt, &buffer);
+      token = keyscan(tab_stmt, &buffer);
 
       /* There should probably be a trap in here to catch
             bad keywords. */
-      if (token)  
+      if(token)  
       {
         if(  ((token == DO) || (token == IF) || (token == DATA))
            && 
@@ -618,7 +841,7 @@ yylex ()
          */
 
         if(!commaseen && (tokennumber == 3)) {
-          token = keyscan (assign_toks, &buffer);
+          token = keyscan(assign_toks, &buffer);
 
           if(token) {
             tokennumber++;
@@ -642,7 +865,7 @@ yylex ()
    */
 
   if((firsttoken == ASSIGN) && (tokennumber == 2)) {
-    token = keyscan (assign_toks, &buffer);
+    token = keyscan(assign_toks, &buffer);
 
     if(token) {
       tokennumber++;
@@ -654,10 +877,10 @@ yylex ()
     }
   }
 
-  if (isalpha ((int) *buffer.stmt))
-    token = name_scan (&buffer);
+  if(isalpha((int) *buffer.stmt))
+    token = name_scan(&buffer);
 
-  if (token)
+  if(token)
   {
     tokennumber++;
 
@@ -749,11 +972,11 @@ yylex ()
     return token;
   }
 
-  if(isdigit ((int) *buffer.stmt) || *buffer.stmt == '.') {
-    token = number_scan (&buffer,format_stmt, tokennumber);
+  if(isdigit((int) *buffer.stmt) || *buffer.stmt == '.') {
+    token = number_scan(&buffer,format_stmt, tokennumber);
   }
 
-  if (token)
+  if(token)
   {
     tokennumber++;
 
@@ -765,9 +988,9 @@ yylex ()
     return token;
   }
 
-  token = string_or_char_scan (&buffer);
+  token = string_or_char_scan(&buffer);
 
-  if (token)
+  if(token)
   {
     tokennumber++;
     if(lexdebug)
@@ -778,32 +1001,32 @@ yylex ()
 #endif   /* SALES  */
 
 #if NOTSALES	    
-  token = keyscan (tab_type, &buffer);
-  if (token)
+  token = keyscan(tab_type, &buffer);
+  if(token)
     return token;
 
-  token = keyscan (tab_toks, &buffer);
-  if (token)
+  token = keyscan(tab_toks, &buffer);
+  if(token)
     return token;
 
-  token = keyscan (tab_stmt, &buffer);
-  if (token)
+  token = keyscan(tab_stmt, &buffer);
+  if(token)
     return token;
 
   /* Else... we gotta scan the silly string for NAMES or CONSTS. */
 
-  if (isalpha (*buffer.stmt))
-    token = name_scan (&buffer);
-  if (token)
+  if(isalpha(*buffer.stmt))
+    token = name_scan(&buffer);
+  if(token)
     return token;
 
-  if (isdigit (*buffer.stmt))
-    token = number_scan (&buffer,format_stmt, tokennumber);
-  if (token)
+  if(isdigit(*buffer.stmt))
+    token = number_scan(&buffer,format_stmt, tokennumber);
+  if(token)
     return token;
 
-  token = string_or_char_scan (&buffer);
-  if (token)
+  token = string_or_char_scan(&buffer);
+  if(token)
     return token;
 #endif  /* NOTSALES  */
 
@@ -813,7 +1036,7 @@ yylex ()
    */
 
   if(lexdebug) {
-    printf ("Token (yylex): %d\n",token);
+    printf("Token (yylex): %d\n",token);
     printf("(second): lexer returning 0\n");
   }
 
@@ -869,13 +1092,13 @@ open_included_file(char *filename)
  *****************************************************************************/
 
 int
-prelex (BUFFER * bufstruct)
+prelex(BUFFER * bufstruct)
 {
   if(lexdebug)
     printf("entering prelex()\n");
 
   do {
-    if (f2j_fgets (bufstruct->stmt, BIGBUFF, ifp) != NULL)
+    if(f2j_fgets(bufstruct->stmt, BIGBUFF, ifp) != NULL)
     {
       if(lexdebug)
         printf("the line is [%s](%d)\n",bufstruct->stmt,
@@ -891,10 +1114,10 @@ prelex (BUFFER * bufstruct)
        * source or assembler code. 
        */
 
-      if (bufstruct->stmt[0] == 'c' ||
-          bufstruct->stmt[0] == 'C' ||
-          bufstruct->stmt[0] == '*' ||
-          bufstruct->stmt[0] == '\n')
+      if(bufstruct->stmt[0] == 'c' ||
+         bufstruct->stmt[0] == 'C' ||
+         bufstruct->stmt[0] == '*' ||
+         bufstruct->stmt[0] == '\n')
       {
         lineno++;
         strcpy(yylval.lexeme, bufstruct->stmt);
@@ -902,7 +1125,7 @@ prelex (BUFFER * bufstruct)
       }
   
       if(lexdebug)
-        printf ("First char in buffer: %c\n", bufstruct->stmt[0]);
+        printf("First char in buffer: %c\n", bufstruct->stmt[0]);
   
       /* Ok, we have a line that is not a comment and that 
        * does not start and end with a newline, i.e. blank.
@@ -911,8 +1134,8 @@ prelex (BUFFER * bufstruct)
        * current statement.
        */
   
-      check_continued_lines (ifp, bufstruct->stmt);
-      collapse_white_space (bufstruct);
+      check_continued_lines(ifp, bufstruct->stmt);
+      collapse_white_space(bufstruct);
       truncate_bang_comments(bufstruct);
 
       if(bufstruct->stmt[0] == '\n') {
@@ -974,7 +1197,7 @@ prelex (BUFFER * bufstruct)
       }
 
       if(lexdebug)
-        printf ("From prelex: %s\n", bufstruct->stmt);
+        printf("From prelex: %s\n", bufstruct->stmt);
 
       lineno++;
       statementno++;
@@ -985,7 +1208,7 @@ prelex (BUFFER * bufstruct)
     /* EOF conditions. */
 
     if(lexdebug)
-      printf ("EOF\n");
+      printf("EOF\n");
 
     current_file_info = (INCLUDED_FILE *)dl_pop(file_stack);
     if(current_file_info != NULL) {
@@ -1013,7 +1236,7 @@ truncate_bang_comments(BUFFER * bufstruct)
   BOOL in_string = FALSE;
   char *cp;
 
-  for (cp = bufstruct->stmt; *cp; cp++)
+  for(cp = bufstruct->stmt; *cp; cp++)
   {
     /* if we see a '!' and we're not in the middle of a string, then
      * truncate the remaining comment.
@@ -1094,6 +1317,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
   int i, parens = 0;
 
   commaseen = FALSE, equalseen = FALSE, letterseen = FALSE; 
+  iolist_finished = in_iolist = FALSE;
 
   tcp = tempbuf;
   yycp = bufstruct->text;
@@ -1103,12 +1327,12 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
       bufstruct->stmt);
  
   
-  for (cp = bufstruct->stmt; *cp; cp++)
+  for(cp = bufstruct->stmt; *cp; cp++)
   {
     /* Get rid of all of the newlines, tabs, whitespace.  */
-    if (*cp == ' ' ||
-        *cp == '\t' ||
-        *cp == '\n')
+    if(*cp == ' ' ||
+       *cp == '\t' ||
+       *cp == '\n')
       continue;
 
     /* if we are looking at a format statement and this is a digit,
@@ -1173,7 +1397,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
      * handled with at hack.
      */
 
-    if (*cp == '\'')  /* Escape the tick mark with a slash "\" */
+    if(*cp == '\'')  /* Escape the tick mark with a slash "\" */
     {
       int done=FALSE;
 
@@ -1187,7 +1411,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 
       while(!done) 
       {
-        while (*cp != '\'')  /* Literal copy until next tick. */
+        while(*cp != '\'')  /* Literal copy until next tick. */
         {
           *tcp = *cp;
           tcp++;
@@ -1247,7 +1471,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
       if(*cp == '=') 
         equalseen = TRUE;
 
-      if (*cp == ')')
+      if(*cp == ')')
       {
         char * lpp;  /* Last parens pointer, temporary. */
 
@@ -1256,14 +1480,14 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
          * loop merely sets the pointer for look-ahead. 
          */
 
-        for (lpp=cp+1;isspace((int) *lpp);lpp++);
+        for(lpp=cp+1;isspace((int) *lpp);lpp++);
 
         /* Since we have an opportunity, let's trap the
          * error condition of having isspace() pick up
          * a newline following the last paren.  */
 
         /*
-         * if (*lpp == '\n')
+         * if(*lpp == '\n')
          * {
          *   printf("Bad syntax, \" followed by \"\\n\"\n");
          *   exit(EXIT_FAILURE);
@@ -1271,14 +1495,14 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
          * else
          */
 
-        if (isalpha((int) *lpp)) letterseen = TRUE;
+        if(isalpha((int) *lpp)) letterseen = TRUE;
 
       }  /*  End if for ")".  */
     }    /*  End if for no parens. */
 
     *yycp = *cp;
     yycp++;
-    *tcp = toupper (*cp);
+    *tcp = toupper(*cp);
     tcp++;
   }  /* End of for() loop. */
 
@@ -1298,8 +1522,8 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 
   /* Our new string is ready for lexing!  */
 
-  strcpy (bufstruct->stmt, tempbuf);
-  strcpy (line_buffer, tempbuf);
+  strcpy(bufstruct->stmt, tempbuf);
+  strcpy(line_buffer, tempbuf);
 } 
 
 
@@ -1311,7 +1535,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
  *****************************************************************************/
 
 void
-check_continued_lines (FILE * fp, char *current_line)
+check_continued_lines(FILE * fp, char *current_line)
 {
   int items, short_line;
   char next_line[100];
@@ -1325,7 +1549,7 @@ check_continued_lines (FILE * fp, char *current_line)
   for(;;)
   {
     next_line[0] = '\0';
-    items = fread (next_line, 1, 6, fp);
+    items = fread(next_line, 1, 6, fp);
 
     /* If we are NOT at the end of file, reset the 
      * pointer to the start of the line so that 
@@ -1348,7 +1572,7 @@ check_continued_lines (FILE * fp, char *current_line)
 
     if(short_line || (next_line[0] != ' '))
     {
-      if( fseek (fp, -items, SEEK_CUR) < 0 ) {
+      if( fseek(fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");
         perror("reason");
       }
@@ -1382,7 +1606,7 @@ check_continued_lines (FILE * fp, char *current_line)
       if(lexdebug)
         printf("no continuation marker.\n");
 
-      if( fseek (fp, -items, SEEK_CUR) < 0 ) {
+      if( fseek(fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");
         perror("reason");
       }
@@ -1395,9 +1619,9 @@ check_continued_lines (FILE * fp, char *current_line)
        */
 
       if(lexdebug)
-        printf ("char 6, next_line: %c\n", next_line[5]);
+        printf("char 6, next_line: %c\n", next_line[5]);
 
-      f2j_fgets (next_line, 100, fp);
+      f2j_fgets(next_line, 100, fp);
 
       if(lexdebug)
         printf("the next_line is [%s](%d)\n",next_line,
@@ -1410,7 +1634,7 @@ check_continued_lines (FILE * fp, char *current_line)
       /*  truncate anything beyond 72 characters (72-6=66) */
       j = strlen(next_line);
 
-      for (i=66;i<j;i++)
+      for(i=66;i<j;i++)
         next_line[i] = '\0';
 
       /* rws August 21, 2003
@@ -1421,7 +1645,7 @@ check_continued_lines (FILE * fp, char *current_line)
       if(current_line[strlen(current_line)-1] == '\n')
         current_line[strlen(current_line)-1] = '\0';
 
-      strcat (current_line, next_line);
+      strcat(current_line, next_line);
       lineno++;
     }
   }
@@ -1436,14 +1660,14 @@ check_continued_lines (FILE * fp, char *current_line)
  *****************************************************************************/
 
 int 
-keyscan (register KWDTAB * tab, BUFFER * bufstruct)
+keyscan(register KWDTAB * tab, BUFFER * bufstruct)
 {
   unsigned int tokenlength;
   char *scp, *yycp, swap_buf[BIGBUFF];
   scp = bufstruct->stmt;
   yycp = bufstruct->text;
 
-  while (tab->kwd)
+  while(tab->kwd)
   {
     /* Get the stringlength of the token in the symbol table.
      * A better way to do this might be to include the length
@@ -1451,16 +1675,16 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
      * everytime. 
      */
 
-    tokenlength = strlen (tab->kwd);	
+    tokenlength = strlen(tab->kwd);	
 
     /* Try to match a substring of the  current string (scp).*/
-    if (!strncmp (scp, tab->kwd, tokenlength))
+    if(!strncmp(scp, tab->kwd, tokenlength))
     {
       if(tokenlength > YYTEXTLEN-1)
         fprintf(stderr,"Warning: going to write past yytext (%d)\n",
           tokenlength);
 
-      strncpy (yytext, yycp, tokenlength);
+      strncpy(yytext, yycp, tokenlength);
       yycp += tokenlength;
       yytext[tokenlength] = '\0';
 
@@ -1506,7 +1730,7 @@ keyscan (register KWDTAB * tab, BUFFER * bufstruct)
  *****************************************************************************/
 
 METHODTAB *
-methodscan (METHODTAB * tab, char * name)
+methodscan(METHODTAB * tab, char * name)
 {
 
   /*  The method translation table is initialized in
@@ -1517,11 +1741,11 @@ methodscan (METHODTAB * tab, char * name)
    *  loop.  
    */
 
-  while (tab->fortran_name != NULL) { 
-    if (tab->fortran_name == NULL) 
+  while(tab->fortran_name != NULL) { 
+    if(tab->fortran_name == NULL) 
       return NULL;
 
-    if (!strcmp (tab->fortran_name,name)) {
+    if(!strcmp(tab->fortran_name,name)) {
       if(lexdebug)
         printf("java_name: %s\n", tab->java_method); 
 
@@ -1542,7 +1766,7 @@ methodscan (METHODTAB * tab, char * name)
  *****************************************************************************/
 
 int
-name_scan (BUFFER * bufstruct)
+name_scan(BUFFER * bufstruct)
 {
   char *ncp, *tcp, swap_buf[BIGBUFF];
   unsigned int tokenlength = 0;
@@ -1555,13 +1779,13 @@ name_scan (BUFFER * bufstruct)
    * it was alphabetic. 
    */
 
-  while (isalnum ((int) *ncp) || (*ncp == '_'))
+  while(isalnum ((int) *ncp) || (*ncp == '_'))
   {
     ncp++;
     tokenlength++;
   }
 
-  strncpy (yylval.lexeme, tcp, tokenlength);
+  strncpy(yylval.lexeme, tcp, tokenlength);
   yylval.lexeme[tokenlength] = '\0';
   tcp += tokenlength;
 
@@ -1593,7 +1817,7 @@ name_scan (BUFFER * bufstruct)
  *****************************************************************************/
 
 int
-number_scan (BUFFER * bufstruct, int fmt, int toknum)
+number_scan(BUFFER * bufstruct, int fmt, int toknum)
 {
   char *ncp, *tcp, swap_buf[BIGBUFF];
   BUFFER tempbuf;
@@ -1610,7 +1834,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
   }
 
   if(fmt || (toknum == 0)) {
-    while(isdigit ((int) *ncp)) {
+    while(isdigit((int) *ncp)) {
       ncp++;
       tokenlength++;
     }
@@ -1623,14 +1847,14 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
      *  efficient, but they should be easy to read.
      */
 
-    while (isdigit ((int) *ncp) ||
+    while(isdigit ((int) *ncp) ||
            *ncp == '.' ||
            *ncp == 'D' ||
            *ncp == 'd' ||
            *ncp == 'E' ||
            *ncp == 'e')
     {
-      switch (*ncp)
+      switch(*ncp)
       {
         case '.':
 
@@ -1639,11 +1863,11 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
            * .AND., .OR., etc.
            */
 
-          strcpy (tempbuf.stmt, ncp);
-          strcpy (tempbuf.text, tcp);
-          token = keyscan (tab_toks, &tempbuf);
+          strcpy(tempbuf.stmt, ncp);
+          strcpy(tempbuf.text, tcp);
+          token = keyscan(tab_toks, &tempbuf);
 
-          if (token) 
+          if(token) 
             break; /* Leave the while() loop. */
 
           /* Else if there is no token returned, check for 
@@ -1655,7 +1879,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
            * else get out of while loop.
            */
 
-          if (isdigit ((int) *(ncp + 1)))
+          if(isdigit((int) *(ncp + 1)))
           {
             ncp += 2;
             tokenlength += 2;
@@ -1692,7 +1916,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
            * 1.0e+1 or 1.0e-1. 
            */
 
-          if (*(ncp + 1) == '+' || *(ncp + 1) == '-')
+          if(*(ncp + 1) == '+' || *(ncp + 1) == '-')
           {
             if(*ncp == 'e' || *ncp == 'E')
               type = E_EXPONENTIAL;
@@ -1707,7 +1931,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
 
           /*  Now take care of cases that look like this:  1.0e1.  */
 
-          if (isdigit ((int) *(ncp + 1)))
+          if(isdigit((int) *(ncp + 1)))
           {
             if(*ncp == 'e' || *ncp == 'E')
               type = E_EXPONENTIAL;
@@ -1737,11 +1961,11 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
     printf(" and tokenlength = %d\n",tokenlength);
   }
 
-  strncpy (yylval.lexeme, tcp, tokenlength);
+  strncpy(yylval.lexeme, tcp, tokenlength);
   yylval.lexeme[tokenlength] = '\0';
 
   if(lexdebug)
-    printf ("Number: %s\n", yytext);
+    printf("Number: %s\n", yytext);
 
   tcp += tokenlength;
 
@@ -1763,7 +1987,7 @@ number_scan (BUFFER * bufstruct, int fmt, int toknum)
  *****************************************************************************/
 
 int
-string_or_char_scan (BUFFER * bufstruct)
+string_or_char_scan(BUFFER * bufstruct)
 {
   unsigned int tokenlength = 0;
   char *scp, *textcp, swap_buf[BIGBUFF];
@@ -1772,7 +1996,7 @@ string_or_char_scan (BUFFER * bufstruct)
 
   /*  Test and see if there is a tic (`'') mark.  */
 
-  if (*scp == '\'')
+  if(*scp == '\'')
   {
     int done = FALSE;
 
@@ -1780,13 +2004,13 @@ string_or_char_scan (BUFFER * bufstruct)
     textcp++;
 
     if(lexdebug)
-      printf ("scp: %s\n", scp);
+      printf("scp: %s\n", scp);
 
     /* Loop until we find another tick (') mark. */
 
     while(!done)
     {
-      while (*scp != '\'')
+      while(*scp != '\'')
       {
         scp++;
         tokenlength++;
@@ -1818,7 +2042,7 @@ string_or_char_scan (BUFFER * bufstruct)
       fprintf(stderr,"Warning: going to write past yytext (%d)\n",
         tokenlength);
 
-    strncpy (yytext, textcp, tokenlength);
+    strncpy(yytext, textcp, tokenlength);
     yytext[tokenlength] = '\0'; /* Terminate the string at tick. */
     strcpy(yylval.lexeme, yytext); 
     textcp += tokenlength;
@@ -1839,7 +2063,7 @@ string_or_char_scan (BUFFER * bufstruct)
 
     tokenlength = strlen(yylval.lexeme);
 
-    if (tokenlength == 1)
+    if(tokenlength == 1)
       return CHAR;
     else
       return STRING;
@@ -2078,6 +2302,10 @@ tok2str(int tok)
       return("IOSPEC_BLANK");
     case LOWER_THAN_COMMENT:
       return("LOWER_THAN_COMMENT");
+    case NO_PROGRAM:
+      return("NO_PROGRAM");
+    case DUMMY:
+      return("DUMMY");
     default:
     {
       static char asdf[20];

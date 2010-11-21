@@ -159,6 +159,11 @@ optScalar(AST *root)
       if(ht->variable->astnode.ident.passByRef)
         temp->astnode.ident.passByRef = TRUE;
 
+  if(optdebug) {
+    printf("looking for %s in function_table\n",
+      root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
+  }
+
   ht = type_lookup(function_table, 
     root->astnode.source.progtype->astnode.source.name->astnode.ident.name);
 
@@ -170,7 +175,13 @@ optScalar(AST *root)
     ht->variable->astnode.source.descriptor =
         get_method_descriptor(root->astnode.source.progtype, 
            opt_type_table, opt_common_table, opt_external_table);
+
+    if(optdebug)
+      printf("found! set descriptor to %s\n", 
+         ht->variable->astnode.source.descriptor);
   }
+  else if(optdebug)
+    printf("not found.\n");
 }
 
 /*****************************************************************************
@@ -197,7 +208,9 @@ optimize (AST * root, AST * rptr)
       if (optdebug)
         printf ("Source.\n");
 
-      optimize(root->astnode.source.typedecs, rptr);
+      if(root->astnode.source.typedecs)
+        optimize(root->astnode.source.typedecs, rptr);
+
       optimize(root->astnode.source.progtype, rptr);
       optimize(root->astnode.source.statements, rptr);
 
@@ -534,6 +547,9 @@ name_optimize (AST * root, AST *rptr)
   {
     if(optdebug)
       printf("looks like an intrinsic\n");
+
+    if(root->astnode.ident.arraylist->nodetype != EmptyArgList)
+      args_optimize(root,rptr);
   }
   else
     switch (root->token)

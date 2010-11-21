@@ -131,7 +131,7 @@ ITAB_ENTRY implicit_table[26];
 
 %token PLUS MINUS OP CP STAR POW DIV CAT CM EQ COLON NL
 %token NOT AND OR
-%token  RELOP EQV NEQV
+%token RELOP EQV NEQV
 %token <lexeme>  NAME DOUBLE INTEGER E_EXPONENTIAL D_EXPONENTIAL
 %token CONST_EXP TrUE FaLSE ICON RCON LCON CCON
 %token FLOAT CHARACTER LOGICAL COMPLEX NONE
@@ -143,7 +143,7 @@ ITAB_ENTRY implicit_table[26];
 %token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
 %token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
 %token <type> ARITH_TYPE CHAR_TYPE 
-%token DIMENSION INCLUDE
+%token DIMENSION INCLUDE NO_PROGRAM DUMMY
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
 %token SAVE DATA COMMENT READ WRITE PRINT EDIT_DESC REPEAT
 
@@ -318,7 +318,7 @@ Fprogram:   Program Specstmts Statements End
               {
                 if(debug)
                   printf("Fprogram -> Program  Specstmts  Statements End\n");
-                
+
                 add_implicit_to_tree($2);
 
                 $$ = addnode();
@@ -356,7 +356,7 @@ Fprogram:   Program Specstmts Statements End
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
-	        $2->parent = $$; /* 9-4-97 - Keith */
+	        if($2) $2->parent = $$; /* 9-4-97 - Keith */
 	        $3->parent = $$; /* 9-4-97 - Keith */
 	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
@@ -381,12 +381,12 @@ Fsubroutine: Subroutine Specstmts Statements End
 
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
-               
+
                 add_implicit_to_tree($2);
                 
                 $$ = addnode();
 	        $1->parent = $$; 
-	        $2->parent = $$;
+	        if($2) $2->parent = $$;
 	        $3->parent = $$;
 	        $4->parent = $$;
                 $$->nodetype = Progunit;
@@ -497,7 +497,7 @@ Ffunction:   Function Specstmts Statements  End
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
 
 	        $1->parent = $$; /* 9-4-97 - Keith */
-	        $2->parent = $$; /* 9-4-97 - Keith */
+	        if($2) $2->parent = $$; /* 9-4-97 - Keith */
 	        $3->parent = $$; /* 9-4-97 - Keith */
 	        $4->parent = $$; /* 9-4-97 - Keith */
                 $$->nodetype = Progunit;
@@ -547,6 +547,37 @@ Program:      PROGRAM UndeclaredName NL
                  init_tables();
                 
                  fprintf(stderr," MAIN %s:\n",$2->astnode.ident.name);
+              }
+        |     NO_PROGRAM
+              {
+                AST *name_node;
+
+                if(debug)
+                  printf("Program ->  NO_PROGRAM\n");
+
+                unit_args = NULL;
+
+                name_node = addnode();
+                name_node->token = NAME;
+                name_node->nodetype = Identifier;
+
+                name_node->astnode.ident.needs_declaration = FALSE;
+
+                if(omitWrappers)
+                  name_node->astnode.ident.passByRef = FALSE;
+
+                strcpy(name_node->astnode.ident.name, "f2jmain");
+
+                $$ = addnode();
+                name_node->parent = $$;
+                $$->astnode.source.name = name_node;
+                $$->nodetype = Program;
+                $$->token = PROGRAM;
+                $$->astnode.source.args = NULL;
+
+                init_tables();
+
+                fprintf(stderr," MAIN %s:\n",name_node->astnode.ident.name);
               }
 ;
 
@@ -673,6 +704,10 @@ Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
                  fprintf(stderr, "warning: didn't find %s in symbol table\n", 
                    tmparg->astnode.ident.name);
              }
+           }
+         | /* NULL */  %prec LOWER_THAN_COMMENT
+           {
+             $$ = NULL;
            }
 ;
 
@@ -1341,6 +1376,14 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Unimplemented;
               }
+            | DUMMY
+              {
+                $$ = addnode();
+                $$->token = COMMENT;
+                $$->nodetype = Comment;
+                $$->astnode.ident.len = 0;
+                strcpy($$->astnode.ident.name, "dummy stmt\n");
+              }
 ;           
 
 Comment: COMMENT NL
@@ -1501,14 +1544,14 @@ CllistItem: UnitExp
            }
 ;
 
-UnitExp: IOSPEC_UNIT EQ Exp
+UnitExp: IOSPEC_UNIT Exp
          {
            $$ = addnode();
            $$->token = IOSPEC_UNIT;
            $$->nodetype = UnitExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
-       | IOSPEC_UNIT EQ STAR
+       | IOSPEC_UNIT STAR
          {
            $$ = addnode();
            $$->token = IOSPEC_UNIT;
@@ -1521,84 +1564,84 @@ UnitExp: IOSPEC_UNIT EQ Exp
          }
 ;
 
-OpenFileSpec: IOSPEC_FILE EQ CharExp
+OpenFileSpec: IOSPEC_FILE CharExp
           {
             $$ = addnode();
             $$->token = IOSPEC_FILE;
             $$->nodetype = OpenFileSpec;
-            $$->astnode.expression.rhs = $3;
+            $$->astnode.expression.rhs = $2;
           }
 ;
 
-ReclExp: IOSPEC_RECL EQ Exp
+ReclExp: IOSPEC_RECL Exp
          {
            $$ = addnode();
            $$->token = IOSPEC_RECL;
            $$->nodetype = ReclExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
-RecExp: IOSPEC_REC EQ Exp
+RecExp: IOSPEC_REC Exp
          {
            $$ = addnode();
            $$->token = IOSPEC_REC;
            $$->nodetype = RecExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
-StatusExp: IOSPEC_STATUS EQ CharExp
+StatusExp: IOSPEC_STATUS CharExp
            {
              $$ = addnode();
              $$->token = IOSPEC_STATUS;
              $$->nodetype = StatusExp;
-             $$->astnode.expression.rhs = $3;
+             $$->astnode.expression.rhs = $2;
            }
 ;
 
-AccessExp: IOSPEC_ACCESS EQ CharExp
+AccessExp: IOSPEC_ACCESS CharExp
            {
              $$ = addnode();
              $$->token = IOSPEC_ACCESS;
              $$->nodetype = AccessExp;
-             $$->astnode.expression.rhs = $3;
+             $$->astnode.expression.rhs = $2;
            }
 ;
 
-FormExp: IOSPEC_FORM EQ CharExp
+FormExp: IOSPEC_FORM CharExp
          {
            $$ = addnode();
            $$->token = IOSPEC_FORM;
            $$->nodetype = FormExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
-BlankExp: IOSPEC_BLANK EQ CharExp
+BlankExp: IOSPEC_BLANK CharExp
          {
            $$ = addnode();
            $$->token = IOSPEC_BLANK;
            $$->nodetype = BlankExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
-ErrExp: IOSPEC_ERR EQ Integer
+ErrExp: IOSPEC_ERR Integer
          {
            $$ = addnode();
            $$->token = IOSPEC_ERR;
            $$->nodetype = ErrExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
-EndExp: IOSPEC_END EQ Integer
+EndExp: IOSPEC_END Integer
          {
            $$ = addnode();
            $$->token = IOSPEC_END;
            $$->nodetype = EndExp;
-           $$->astnode.expression.rhs = $3;
+           $$->astnode.expression.rhs = $2;
          }
 ;
 
@@ -1612,12 +1655,12 @@ CharExp: UndeclaredName
          }
 ;
 
-IostatExp: IOSPEC_IOSTAT EQ Lhs
+IostatExp: IOSPEC_IOSTAT Lhs
            {
              $$ = addnode();
              $$->token = IOSPEC_IOSTAT;
              $$->nodetype = IostatExp;
-             $$->astnode.expression.rhs = $3;
+             $$->astnode.expression.rhs = $2;
            }
 ;
 
@@ -2536,12 +2579,12 @@ PrintIoList: CM IoExplist
 ;
 
 FormatOrUnknownSpec:
-       IOSPEC_FMT EQ Integer
+       IOSPEC_FMT Integer
         {
           $$ = addnode();
           $$->token = IOSPEC_FMT;
           $$->nodetype = FormatOrUnknownSpec;
-          $$->astnode.expression.rhs = $3;
+          $$->astnode.expression.rhs = $2;
         }
      | Exp
         {
@@ -2550,7 +2593,7 @@ FormatOrUnknownSpec:
           $$->nodetype = FormatOrUnknownSpec;
           $$->astnode.expression.rhs = $1;
         }
-     | IOSPEC_FMT EQ STAR
+     | IOSPEC_FMT STAR
         {
           $$ = addnode();
           $$->token = IOSPEC_FMT;
@@ -2572,21 +2615,21 @@ FormatOrUnknownSpec:
           $$->astnode.expression.rhs->astnode.constant.number =
                strdup("*");
         }
-     | IOSPEC_FMT EQ String
+     | IOSPEC_FMT String
         {
           $$ = addnode();
           $$->token = IOSPEC_FMT;
           $$->nodetype = FormatOrUnknownSpec;
-          $$->astnode.expression.rhs = $3;
+          $$->astnode.expression.rhs = $2;
         }
-     | IOSPEC_FMT EQ UndeclaredName
+     | IOSPEC_FMT UndeclaredName
         {
           fprintf(stderr,"Warning - ignoring FMT = %s\n",
-             $3->astnode.ident.name);
+             $2->astnode.ident.name);
           $$ = addnode();
           $$->token = IOSPEC_FMT;
           $$->nodetype = FormatOrUnknownSpec;
-          $$->astnode.expression.rhs = $3;
+          $$->astnode.expression.rhs = $2;
         }
 ;
 
@@ -4866,6 +4909,8 @@ add_implicit_to_tree(AST *typedec)
 {
   Dlist t_table, tmp;
   AST *ast, *new_node, *last_typedec;
+
+  if(!typedec) return;
 
   last_typedec = typedec;
   while(last_typedec->nextstmt!=NULL) {

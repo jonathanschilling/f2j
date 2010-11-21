@@ -248,7 +248,8 @@ emit_vcg (AST * root, int parent)
       if(vcg_debug)
         printf("case Source: Going to emit TYPEDECS\n");
 
-      emit_vcg (root->astnode.source.typedecs, my_node);
+      if(root->astnode.source.typedecs)
+        emit_vcg(root->astnode.source.typedecs, my_node);
 
       if(vcg_debug)
         printf("case Source: Going to emit STATEMENTS\n");

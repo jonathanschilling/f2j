@@ -64,8 +64,7 @@ JVM_CLASS
 
 AST 
   *cur_equivList,       /* list of equivalences                              */
-  *cur_unit,            /* program unit currently being translated.          */
-  *local_list;          /* saved pointer to list of local vars.              */
+  *cur_unit;            /* program unit currently being translated.          */
 
 BOOL 
   import_reflection,    /* does this class need to import reflection         */
@@ -230,11 +229,10 @@ emit (AST * root)
            * nothing.
            */
 
-          /* save pointer for local vars in local_emit */
-          local_list = root->astnode.source.typedecs;
-         
-          emit (root->astnode.source.typedecs);
-          emit (root->astnode.source.progtype);
+          if(root->astnode.source.typedecs)
+            emit(root->astnode.source.typedecs);
+
+          emit(root->astnode.source.progtype);
 
           /* check whether any class initialization code was generated.
            * if so, finish initializing the method and insert it into this

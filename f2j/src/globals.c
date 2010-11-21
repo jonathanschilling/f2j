@@ -186,7 +186,7 @@ KWDTAB tab_toks[] =
     {".GE.", RELOP, rel_ge},
     {".TRUE.", TrUE, 1},
     {".FALSE.", FaLSE, 0},
-    {"FMT", IOSPEC_FMT, 0},
+    {"FMT=", IOSPEC_FMT, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
@@ -196,12 +196,12 @@ KWDTAB tab_toks[] =
 
 KWDTAB read_write_toks[] =
 {
-    {"UNIT", IOSPEC_UNIT, 0},
-    {"FMT", IOSPEC_FMT, 0},
-    {"ERR", IOSPEC_ERR, 0},
-    {"REC", IOSPEC_REC, 0},
-    {"IOSTAT", IOSPEC_IOSTAT, 0},
-    {"END", IOSPEC_END, 0},
+    {"UNIT=", IOSPEC_UNIT, 0},
+    {"FMT=", IOSPEC_FMT, 0},
+    {"ERR=", IOSPEC_ERR, 0},
+    {"REC=", IOSPEC_REC, 0},
+    {"IOSTAT=", IOSPEC_IOSTAT, 0},
+    {"END=", IOSPEC_END, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
@@ -212,15 +212,15 @@ KWDTAB read_write_toks[] =
 
 KWDTAB open_toks[] =
 {
-    {"IOSTAT", IOSPEC_IOSTAT, 0},
-    {"ERR", IOSPEC_ERR, 0},
-    {"FILE", IOSPEC_FILE, 0},
-    {"STATUS", IOSPEC_STATUS, 0},
-    {"ACCESS", IOSPEC_ACCESS, 0},
-    {"FORM", IOSPEC_FORM, 0},
-    {"UNIT", IOSPEC_UNIT, 0},
-    {"RECL", IOSPEC_RECL, 0},
-    {"BLANK", IOSPEC_BLANK, 0},
+    {"IOSTAT=", IOSPEC_IOSTAT, 0},
+    {"ERR=", IOSPEC_ERR, 0},
+    {"FILE=", IOSPEC_FILE, 0},
+    {"STATUS=", IOSPEC_STATUS, 0},
+    {"ACCESS=", IOSPEC_ACCESS, 0},
+    {"FORM=", IOSPEC_FORM, 0},
+    {"UNIT=", IOSPEC_UNIT, 0},
+    {"RECL=", IOSPEC_RECL, 0},
+    {"BLANK=", IOSPEC_BLANK, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 
@@ -230,10 +230,10 @@ KWDTAB open_toks[] =
 
 KWDTAB close_toks[] =
 {
-    {"IOSTAT", IOSPEC_IOSTAT, 0},
-    {"ERR", IOSPEC_ERR, 0},
-    {"STATUS", IOSPEC_STATUS, 0},
-    {"UNIT", IOSPEC_UNIT, 0},
+    {"IOSTAT=", IOSPEC_IOSTAT, 0},
+    {"ERR=", IOSPEC_ERR, 0},
+    {"STATUS=", IOSPEC_STATUS, 0},
+    {"UNIT=", IOSPEC_UNIT, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
 /*****************************************************************************

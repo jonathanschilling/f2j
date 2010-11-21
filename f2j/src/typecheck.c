@@ -147,9 +147,12 @@ typecheck (AST * root)
 
       check_equivalences(root->astnode.source.equivalences);
 
-      typecheck (root->astnode.source.progtype);
-      typecheck (root->astnode.source.typedecs);
-      typecheck (root->astnode.source.statements);
+      typecheck(root->astnode.source.progtype);
+
+      if(root->astnode.source.typedecs)
+        typecheck(root->astnode.source.typedecs);
+
+      typecheck(root->astnode.source.statements);
 
       break;
     case Subroutine:

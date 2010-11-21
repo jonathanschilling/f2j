@@ -99,10 +99,14 @@
  * reallaoc when buffer overflows instead.                                   *
  *                                                                           *
  * YYTEXTLEN is the maximum size in characters of the token string.          *
+ *                                                                           *
+ * NT_NUM is the size of a small buffer for holding saved tokens that we     *
+ * want to pass on subsequent calls to the lexer.                            *
  *****************************************************************************/
 
 #define BIGBUFF    2000
 #define YYTEXTLEN  2000
+#define NT_NUM        2
 
 struct _str {
   unsigned int size;

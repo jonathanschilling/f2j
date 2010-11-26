@@ -29,6 +29,7 @@
  * for commonly used methods.                                                *
  *                                                                           *
  * JL_STRING is the fully-qualified name of the String class                 *
+ * JL_MATH is the fully-qualified name of the Math class                     *
  * STR_CONST_DESC is the descriptor for the String constructor               *
  * TRIM_DESC is the descriptor for java.lang.String.trim()                   *
  * STREQV_DESC is the descriptor for java.lang.String.equalsIgnoreCase()     *
@@ -44,6 +45,7 @@
  *****************************************************************************/
 
 #define JL_STRING "java/lang/String"
+#define JL_MATH "java/lang/Math"
 #define JL_CHAR "java/lang/Character"
 #define JL_OBJECT "java/lang/Object"
 #define JL_NUMBER "java/lang/Number"

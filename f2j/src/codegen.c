@@ -5793,16 +5793,30 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
        */
 
       if(temp != NULL) {
-        if( (ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
+        if(gendebug)
+          printf("ifunc_LEN: looking up arg '%s'\n", temp->astnode.ident.name);
+
+        if((ht=type_lookup(cur_type_table,temp->astnode.ident.name)) != NULL)
         {
           if(ht->variable->astnode.ident.len > 0) {
-            fprintf (curfp, " %d ", ht->variable->astnode.ident.len);
-
-            bc_push_int_const(meth, ht->variable->astnode.ident.len);
-
             if(gendebug)
               printf("LEN(%s) = %d\n",temp->astnode.ident.name,
                 ht->variable->astnode.ident.len);
+
+            fprintf(curfp, " Math.max(%d, ", ht->variable->astnode.ident.len);
+
+            bc_push_int_const(meth, ht->variable->astnode.ident.len);
+            expr_emit(meth, temp);
+            fprintf(curfp, ".length())");
+
+            c = bc_new_methodref(cur_class_file, JL_STRING,
+                 "length", STRLEN_DESC);
+            bc_append(meth, jvm_invokevirtual, c);
+
+            c = bc_new_methodref(cur_class_file, JL_MATH, 
+                 "max", "(II)I");
+
+            bc_append(meth, jvm_invokestatic, c);
           }
           else {
             int c;
@@ -5815,16 +5829,19 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
             bc_append(meth, jvm_invokevirtual, c);
           }
         }
-        else
-        {
-          fprintf (curfp, " 1 ");
+        else {
+          fprintf(curfp, " 1 ");
 
           bc_append(meth, jvm_iconst_1);
 
           if(gendebug)
-            printf("LEN(%s) = 1\n",temp->astnode.ident.name);
+            printf("LEN(%s) = 1 (default, not found in type table)\n",
+               temp->astnode.ident.name);
         }
       }
+      else
+        fprintf(stderr, "Warning: ignoring empty LEN() intrinsic call\n");
+
       break;
 
       /* Index of substring */

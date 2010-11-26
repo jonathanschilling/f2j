@@ -44,6 +44,28 @@ public class FortranFileMgr {
     return instance;
   }
 
+  /**
+   * Opens the specified file and associates it with the specified unit number.
+   *
+   * @param unit - the unit number to use for referencing this file
+   * @param filename - the name of the file to open
+   * @param status - "old", "new", "scratch", or "unknown"
+   *   "old" if the file exists, "new" if it should be created,
+   *   "scratch" if the file should be temporary and deleted upon close(),
+   *   "unknown" is processor dependent.
+   * @param access - "sequential" for sequential files, and "direct" for
+   *   direct access files.
+   * @param form - "formatted" or "unformatted"
+   * @param recl - the length of each record in a file being connected for
+   *   direct access
+   * @param blank - "null" or "zero.  if "null", all blank characters in
+   *   numeric formatted input fields are ignored.  if "zero", all blanks
+   *   other than leading blanks are treated as zeros.
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return -1.
+   *
+   * @returns 0 on success, -1 on error.
+   */
   public int open(int unit, String filename, String status, String access,
     String form, int recl, String blank, boolean terminate_on_error)
   {
@@ -67,6 +89,17 @@ public class FortranFileMgr {
     return 0;
   }
 
+  /**
+   * Closes the specified unit.
+   *
+   * @param unit - the unit to be closed
+   * @param status - "keep" or "delete".  if "delete", the file is
+   *   removed.  if "keep", it is not removed.
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return -1.
+   *
+   * @returns 0 on success, -1 on error.
+   */
   public int close(int unit, String status, boolean terminate_on_error)
   {
     FortranFile ff;
@@ -83,7 +116,7 @@ public class FortranFileMgr {
     rv = ff.close(status, terminate_on_error);
 
     if((rv != 0) && !terminate_on_error)
-        return rv;
+      return rv;
 
     files.remove(new Integer(unit));
 

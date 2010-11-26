@@ -26,14 +26,15 @@ import java.util.Vector;
  */
 
 public class FortranFile extends File {
+  /* some default values for file properties */
   public static final String DEFAULT_STATUS = "UNKNOWN";
   public static final String DEFAULT_ACCESS = "SEQUENTIAL";
   public static final String DEFAULT_FORM_DIRECT = "UNFORMATTED";
   public static final String DEFAULT_FORM_SEQ = "FORMATTED";
   public static final String DEFAULT_BLANK = "NULL";
-
   public static final int DEFAULT_RECL = 0;
 
+  /* various error codes */
   public static final int ERR_OPEN = 14;
   public static final int ERR_CLOSE = 142;
   public static final int ERR_KEEP_SCRATCH = 33;
@@ -69,16 +70,28 @@ public class FortranFile extends File {
   private String errmsg = null;
 
   /**
-   * Creates a new FortranFile with default filename of 'fort.x', where x
-   * is the unit number.  Every file must have a unit number to identify it.
+   * Creates a new FortranFile associated with the specified unit number.
+   * Every file must have a unit number to identify it.
    *
-   * @param unit - the unit number of the file.
-   **/
-
+   * @param unit - the unit number to use for referencing this file
+   * @param filename - the name of the file to open
+   * @param status - "old", "new", "scratch", or "unknown"
+   *   "old" if the file exists, "new" if it should be created,
+   *   "scratch" if the file should be temporary and deleted upon close(),
+   *   "unknown" is processor dependent.
+   * @param access - "sequential" for sequential files, and "direct" for
+   *   direct access files.
+   * @param form - "formatted" or "unformatted"
+   * @param recl - the length of each record in a file being connected for
+   *   direct access
+   * @param blank - "null" or "zero.  if "null", all blank characters in
+   *   numeric formatted input fields are ignored.  if "zero", all blanks
+   *   other than leading blanks are treated as zeros.
+   */
   public FortranFile(int unit, String filename, String status, String access,
     String form, int recl, String blank)
   {
-    super(filename);
+    super((filename != null) ? filename : ("fort." + Integer.toString(unit)));
 
     /* trim only trailing whitespace as required in f77 spec */
 
@@ -96,12 +109,17 @@ public class FortranFile extends File {
     blank_flag = blank != null;
   }
 
+  /**
+   * Opens this file.
+   *
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return a positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
   public int open(boolean terminate_on_error) {
     File f = null;
     int retval = 0;
-
-    if(filename == null)
-      return ERR_OPEN;
 
     retval = check_open_args(filename, status, access,
        form, recl, blank);
@@ -154,6 +172,10 @@ public class FortranFile extends File {
         }
       }
 
+      if(status.equalsIgnoreCase("truncate"))
+        if(f.exists())
+          f.delete();
+
       ra_file = new RandomAccessFile(f, "rw");
     }
     catch (Exception e) {
@@ -167,6 +189,16 @@ public class FortranFile extends File {
     return 0;
   }
 
+  /**
+   * Closes this file.
+   *
+   * @param status - "keep" or "delete".  if "delete", the file is
+   *   removed.  if "keep", it is not removed.
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
   public int close(String close_status, boolean terminate_on_error)
   {
     int retval = 0;
@@ -217,6 +249,11 @@ public class FortranFile extends File {
     return 0;
   }
 
+  /**
+   * Gets a PrintStream associated with this unit.
+   *
+   * @returns the PrintStream
+   */
   public PrintStream getPrintStream() {
     PrintStream ps = null;
     try {
@@ -234,6 +271,11 @@ public class FortranFile extends File {
     return ps;
   }
 
+  /**
+   * Gets a DataInputStream associated with this unit.
+   *
+   * @returns the DataInputStream
+   */
   public DataInputStream getDataInputStream() {
     DataInputStream ds = null;
     try {
@@ -246,6 +288,13 @@ public class FortranFile extends File {
     return ds;
   }
 
+  /**
+   * Removes trailing blanks from the given string.
+   *
+   * @param s - string to be processed
+   *
+   * @returns copy of the string with trailing blanks removed.
+   */ 
   private String removeTrailingBlanks(String s)
   {
     if(s == null) return null;
@@ -253,6 +302,25 @@ public class FortranFile extends File {
     return s.replaceAll("\\s+$", "");
   }
 
+  /**
+   * Checks whether the arguments given to the open() call are valid.
+   *
+   * @param filename - the name of the file to open
+   * @param status - "old", "new", "scratch", or "unknown"
+   *   "old" if the file exists, "new" if it should be created,
+   *   "scratch" if the file should be temporary and deleted upon close(),
+   *   "unknown" is processor dependent.
+   * @param access - "sequential" for sequential files, and "direct" for
+   *   direct access files.
+   * @param form - "formatted" or "unformatted"
+   * @param recl - the length of each record in a file being connected for
+   *   direct access
+   * @param blank - "null" or "zero.  if "null", all blank characters in
+   *   numeric formatted input fields are ignored.  if "zero", all blanks
+   *   other than leading blanks are treated as zeros.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
   private int check_open_args(String filename, String status,
     String access, String form, int recl, String blank)
   {
@@ -260,6 +328,7 @@ public class FortranFile extends File {
        !status.equalsIgnoreCase("old") &&
        !status.equalsIgnoreCase("new") &&
        !status.equalsIgnoreCase("scratch") &&
+       !status.equalsIgnoreCase("truncate") &&
        !status.equalsIgnoreCase("unknown"))
     {
       errmsg =
@@ -339,6 +408,14 @@ public class FortranFile extends File {
     return 0;
   }
 
+  /**
+   * Checks whether the arguments given to the close() call are valid.
+   *
+   * @param status - "keep" or "delete".  if "delete", the file is
+   *   removed.  if "keep", it is not removed.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
   private int check_close_args(String close_status)
   {
     if(close_status != null) {

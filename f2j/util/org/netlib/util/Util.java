@@ -481,6 +481,19 @@ public class Util {
         outstream = System.err;
     }
 
+    if(outstream == null) {
+      if(fmgr.open(unit, null, "truncate", null, null, 0, null, false) == 0) {
+        ff = fmgr.get(new Integer(unit));
+
+        if(ff == null)
+          outstream = null;
+        else
+          outstream = ff.getPrintStream();
+      }
+      else
+        outstream = null;
+    }
+
     return outstream;
   }
 

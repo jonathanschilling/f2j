@@ -1134,9 +1134,9 @@ prelex(BUFFER * bufstruct)
        * current statement.
        */
   
+      truncate_bang_comments(bufstruct);
       check_continued_lines(ifp, bufstruct->stmt);
       collapse_white_space(bufstruct);
-      truncate_bang_comments(bufstruct);
 
       if(bufstruct->stmt[0] == '\n') {
         lineno++;
@@ -1184,7 +1184,6 @@ prelex(BUFFER * bufstruct)
           yidx++;
         }
 
-
         if(! ftickseen) {
           fprintf(stderr,"Badly formed INCLUDE statement\n");
           strcpy(yylval.lexeme, bufstruct->stmt);
@@ -1225,8 +1224,7 @@ prelex(BUFFER * bufstruct)
  *                                                                           *
  * truncate_bang_comments                                                    *
  *                                                                           *
- * This routine takes the buffer after it has had all continued lines        *
- * appended and removes "!" style comments.                                  *
+ * This routine takes the buffer and removes "!" style comments.             *
  *                                                                           *
  *****************************************************************************/
 
@@ -1326,7 +1324,6 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
     printf("entering collapse_white_space, buffer is [%s]\n",
       bufstruct->stmt);
  
-  
   for(cp = bufstruct->stmt; *cp; cp++)
   {
     /* Get rid of all of the newlines, tabs, whitespace.  */

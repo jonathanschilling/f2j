@@ -98,7 +98,7 @@ int
   string_or_char_scan(BUFFER *);
 
 void
-  truncate_bang_comments(BUFFER *),
+  truncate_bang_comments(char *),
   check_continued_lines(FILE *, char *),
   collapse_white_space(BUFFER *),
   collapse_white_space_internal(BUFFER *, int);
@@ -507,6 +507,7 @@ yylex()
              * finally the current token (END).  DUMMY is just a non-terminal
              * for the parser to pick up on.
              */
+            func_stmt_num = 0;
             next_tok[0] = DUMMY;
             memset(&next_yylval[0], 0, sizeof(next_yylval[0]));
             next_tok[1] = token;
@@ -524,6 +525,10 @@ yylex()
         if(token == END) {
           func_stmt_num = 0;
           progseen = FALSE;
+          next_tok[0] = token;
+          memset(&next_yylval[0], 0, sizeof(next_yylval[0]));
+          next_tok[1] = 0;
+          token = DUMMY;
         }
 
         if(lexdebug)
@@ -1134,7 +1139,7 @@ prelex(BUFFER * bufstruct)
        * current statement.
        */
   
-      truncate_bang_comments(bufstruct);
+      truncate_bang_comments(bufstruct->stmt);
       check_continued_lines(ifp, bufstruct->stmt);
       collapse_white_space(bufstruct);
 
@@ -1229,12 +1234,12 @@ prelex(BUFFER * bufstruct)
  *****************************************************************************/
 
 void
-truncate_bang_comments(BUFFER * bufstruct)
+truncate_bang_comments(char *line)
 {
   BOOL in_string = FALSE;
   char *cp;
 
-  for(cp = bufstruct->stmt; *cp; cp++)
+  for(cp = line; *cp; cp++)
   {
     /* if we see a '!' and we're not in the middle of a string, then
      * truncate the remaining comment.
@@ -1633,6 +1638,9 @@ check_continued_lines(FILE * fp, char *current_line)
 
       for(i=66;i<j;i++)
         next_line[i] = '\0';
+
+      /* also truncate '!' style comments */
+      truncate_bang_comments(next_line);
 
       /* rws August 21, 2003
        * next line no longer needed

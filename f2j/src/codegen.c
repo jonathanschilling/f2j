@@ -327,16 +327,12 @@ emit (AST * root)
             bc_gen_store_op(cur_method, filemgr_lvar, jvm_Object);
           }
 
-          if((type_lookup(cur_external_table, "etime") != NULL)
-             || type_lookup(cur_external_table, "second") != NULL)
-          {
-            fprintf(curfp, "  Etime.etime();\n");
+          fprintf(curfp, "  Etime.etime();\n");
 
-            c = bc_new_methodref(cur_class_file, ETIME_CLASS, 
-                        "etime", ETIME_DESC);
+          c = bc_new_methodref(cur_class_file, ETIME_CLASS, 
+                      "etime", ETIME_DESC);
  
-            bc_append(cur_method, jvm_invokestatic, c);
-          }
+          bc_append(cur_method, jvm_invokestatic, c);
 
           /* if one of the arguments is a function, we must use the
            * reflection mechanism to perform the method call.
@@ -500,9 +496,9 @@ emit (AST * root)
         if (gendebug)
           printf ("Call.\n");
 
-        call_emit (cur_method, root);
+        call_emit(cur_method, root);
         if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+          emit(root->nextstmt);
         break;
       case Forloop:
         if (gendebug)
@@ -5312,6 +5308,89 @@ scalar_emit(JVM_METHOD *meth, AST *root, HASHNODE *hashtemp)
 }
 
 /*****************************************************************************
+ * etime_sub_emit                                                            *
+ *                                                                           *
+ * This function emits a call to ETIME(), which returns the number of        *
+ * seconds of runtime since the start of the process's execution.            *
+ *                                                                           *
+ * This emits the subroutine call to ETIME().  For the function call version *
+ * see etime_func_emit().                                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+etime_sub_emit(JVM_METHOD *meth, METHODTAB *entry, AST *arglist)
+{
+  AST *assign_temp, *temp;
+  int c;
+
+  if(gendebug)
+    printf("emitting ETIME subroutine call...\n");
+
+  /* first, make sure there are enough args to work with */
+  if((arglist == NULL) && (arglist->nextstmt == NULL)) {
+    fprintf(stderr, "ETIME subroutine requires two args.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  temp = arglist->nextstmt;
+
+  /* make a dummy assignment node so we emit the correct LHS store code */
+  assign_temp = addnode();
+  assign_temp->nodetype = Assignment;
+  temp->parent = assign_temp;
+  assign_temp->astnode.assignment.lhs = temp;
+
+  name_emit(meth, assign_temp->astnode.assignment.lhs);
+
+  fprintf(curfp, " = Etime.etime(");
+  expr_emit(meth, arglist);
+  fprintf(curfp, ");\n");
+
+  c = bc_new_methodref(cur_class_file, entry->class_name,
+                    entry->method_name, entry->descriptor);
+
+  bc_append(meth, jvm_invokestatic, c);
+
+  LHS_bytecode_emit(meth, assign_temp);
+}
+
+/*****************************************************************************
+ * etime_func_emit                                                           *
+ *                                                                           *
+ * This function emits a call to ETIME(), which returns the number of        *
+ * seconds of runtime since the start of the process's execution.            *
+ *                                                                           *
+ * This emits the function call to ETIME().  For the subroutine call version *
+ * see etime_sub_emit().                                                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+etime_func_emit(JVM_METHOD *meth, METHODTAB *entry, AST *arglist)
+{
+  int c;
+
+  /* first, make sure there are enough args to work with */
+  if(arglist == NULL) {
+    fprintf(stderr,"No args to ETIME\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(gendebug)
+    printf("emitting ETIME function call...\n");
+
+  fprintf(curfp, "Etime.etime(");
+  expr_emit(meth, arglist);
+  fprintf(curfp, ")");
+
+  c = bc_new_methodref(cur_class_file, entry->class_name,
+                    entry->method_name, entry->descriptor);
+
+  bc_append(meth, jvm_invokestatic, c);
+}
+
+/*****************************************************************************
  *                                                                           *
  * external_emit                                                             *
  *                                                                           *
@@ -5394,7 +5473,7 @@ external_emit(JVM_METHOD *meth, AST *root)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
-  entry = methodscan (intrinsic_toks, tempname);
+  entry = methodscan(intrinsic_toks, tempname);
 
   /*  
    *  This block of code is only called if the identifier
@@ -5403,7 +5482,7 @@ external_emit(JVM_METHOD *meth, AST *root)
    *  something in the blas or lapack packages.  
    */
 
-  if (entry == NULL)
+  if(entry == NULL)
   {
     if (root->astnode.ident.arraylist != NULL)
       call_emit (meth, root);
@@ -5426,24 +5505,7 @@ external_emit(JVM_METHOD *meth, AST *root)
     temp = root->astnode.ident.arraylist;
 
     if(!strcmp(tempname, "ETIME")) {
-      /* first, make sure there are enough args to work with */
-      if(temp == NULL) {
-        fprintf(stderr,"No args to ETIME\n");
-        f2jfree(tempname, strlen(tempname)+1);
-        return;
-      } 
-
-      if(gendebug)
-        printf("emitting ETIME...\n");
-
-      fprintf (curfp, "Etime.etime(");
-      expr_emit(meth, temp);
-      fprintf (curfp, ")");
-
-      c = bc_new_methodref(cur_class_file, entry->class_name, 
-                        entry->method_name, entry->descriptor);
-
-      bc_append(meth, jvm_invokestatic, c);
+      etime_func_emit(meth, entry, temp);
     }
     else if(!strcmp(tempname, "SECOND")) {
       if(gendebug)
@@ -5493,7 +5555,7 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
   tempname = strdup(root->astnode.ident.name);
   uppercase(tempname);
 
-  entry = methodscan (intrinsic_toks, tempname);
+  entry = methodscan(intrinsic_toks, tempname);
 
   if(!entry) {
     fprintf(stderr,"Error: not expecting null entry at this point.\n");
@@ -6009,6 +6071,9 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
       intrinsic_lexical_compare_emit(meth, root, entry);
       break;
 
+    case ifunc_ETIME:
+      etime_func_emit(meth, entry, root->astnode.ident.arraylist);
+      break;
     default:
       fprintf(stderr,"WARNING: codegen() unimplemented intrinsic: '%s'\n",
          tempname);
@@ -10027,7 +10092,7 @@ else_emit (AST * root)
  *****************************************************************************/
 
 int
-method_name_emit (JVM_METHOD *meth, AST *root, BOOL adapter)
+method_name_emit(JVM_METHOD *meth, AST *root, BOOL adapter)
 {
   char *tempname;
   HASHNODE *ht;
@@ -10038,8 +10103,8 @@ method_name_emit (JVM_METHOD *meth, AST *root, BOOL adapter)
    *   lowercase (root->astnode.ident.name);
    */
 
-  tempname = strdup (root->astnode.ident.name);
-  *tempname = toupper (*tempname);
+  tempname = strdup(root->astnode.ident.name);
+  *tempname = toupper(*tempname);
 
   /* If this function was passed in as an argument, we call an
    * 'adapter' which performs the reflective method invocation..
@@ -10433,11 +10498,26 @@ get_methodref(AST *node)
     srch_mref = find_method(node->astnode.ident.name, descriptor_table);
     if(!srch_mref)
     {
+      METHODTAB *entry;
+
       /* if we reach this, then we cannot find this method anywhere.
        * try to guess at the descriptor.  Since the guess is likely to
        * be wrong, generate a warning message (unless this is a function
        * passed in as an argument).
        */
+
+      tempname = strdup(node->astnode.ident.name);
+      uppercase(tempname);
+
+      entry = methodscan(intrinsic_toks, tempname);
+
+      if(entry) {
+        new_mref->classname = strdup(entry->class_name);
+        new_mref->methodname = strdup(entry->method_name);
+        new_mref->descriptor = strdup(entry->descriptor);
+
+        return(new_mref);
+      }
 
       if(type_lookup(cur_args_table, node->astnode.ident.name) == NULL) {
         fprintf(stderr, "WARNING: could not resolve call to '%s'.\n",
@@ -10489,22 +10569,41 @@ get_methodref(AST *node)
  *****************************************************************************/
 
 void
-call_emit (JVM_METHOD *meth, AST * root)
+call_emit(JVM_METHOD *meth, AST * root)
 {
   BOOL adapter;
   JVM_METHODREF *mref;
   int c;
 
-  assert (root != NULL);
+  assert(root != NULL);
 
   if(gendebug)
     printf("@##@ in call_emit, %s\n",root->astnode.ident.name);
+
+  if(!type_lookup(function_table, root->astnode.ident.name) &&
+     !find_method(root->astnode.ident.name, descriptor_table))
+  {
+    METHODTAB *entry;
+    char *tempname;
+
+    tempname = strdup(root->astnode.ident.name);
+    uppercase(tempname);
+
+    entry = methodscan(intrinsic_toks, tempname);
+
+    if(entry) {
+      if(!strcmp("ETIME", tempname)) {
+        etime_sub_emit(meth, entry, root->astnode.ident.arraylist);
+        return;
+      }
+    }
+  }
 
   adapter = needs_adapter(root);
 
   /* if method_name_emit() already completely generated the call, return now */
 
-  if( method_name_emit(meth, root, adapter) )
+  if(method_name_emit(meth, root, adapter))
     return;
 
   if(gendebug)

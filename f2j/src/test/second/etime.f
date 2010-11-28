@@ -6,12 +6,14 @@
 
       print *, 'Start'
 
-      do i = 1, 5000000   ! That's five million
+      j = 0
+      do i = 1, 50000000   ! That's fifty million
          j = j + 1
       end do
 
       total = etime(elapsed)
       print *, 'End: total=', total, ' user=', elapsed(1),
-     &         ' system=', elapsed(2)
+     &         ' system=', elapsed(2), ' ignore this: ',
+     &         j
       stop
       end

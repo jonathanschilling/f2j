@@ -1028,7 +1028,7 @@ call_optimize (AST * root, AST *rptr)
   if(optdebug)
     printf("enter call_optimize\n");
 
-  assert (root != NULL);
+  assert(root != NULL);
 
   /* If this function was passed in as an argument, we call an
    * 'adapter' which performs the reflective method invocation..
@@ -1041,6 +1041,42 @@ call_optimize (AST * root, AST *rptr)
       return;
   }
 
+  if(!type_lookup(global_func_table, root->astnode.ident.name) &&
+     !find_method(root->astnode.ident.name,descriptor_table))
+  {
+    char *tempname;
+
+    tempname = strdup(root->astnode.ident.name);
+    uppercase(tempname);
+
+    if(methodscan(intrinsic_toks, tempname) && !strcmp("ETIME", tempname)) {
+      if(root->astnode.ident.arraylist && 
+         root->astnode.ident.arraylist->nextstmt)
+      {
+        SYMTABLE *opt_common_table = rptr->astnode.source.common_table;
+        SYMTABLE *opt_array_table = rptr->astnode.source.array_table;
+        SYMTABLE *opt_type_table = rptr->astnode.source.type_table;
+        HASHNODE *ht;
+        AST *lhs;
+
+        lhs = root->astnode.ident.arraylist->nextstmt;
+
+        ht=type_lookup(opt_type_table,lhs->astnode.ident.name);
+
+        if(ht) {
+          if(lhs->astnode.ident.arraylist == NULL)
+            if(type_lookup(opt_args_table, lhs->astnode.ident.name) && 
+               !type_lookup(opt_common_table, lhs->astnode.ident.name) &&
+               !type_lookup(opt_array_table, lhs->astnode.ident.name))
+                  ht->variable->astnode.ident.passByRef = TRUE;
+
+          if( optdebug )
+            if( ht->variable->astnode.ident.passByRef == TRUE )
+              printf("set passByRef for '%s'\n", lhs->astnode.ident.name);
+        }
+      }
+    }
+  }
 
   if(type_lookup(opt_args_table, root->astnode.ident.name)) {
 

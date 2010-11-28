@@ -8654,7 +8654,7 @@ forloop_end_bytecode(JVM_METHOD *meth, AST *root)
  *****************************************************************************/
 
 void
-read_emit (JVM_METHOD *meth, AST * root)
+read_emit(JVM_METHOD *meth, AST * root)
 {
   char *fmt_str, tmp[100];
   HASHNODE *hnode;
@@ -9086,10 +9086,8 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     {
       if(root->astnode.io_stmt.iostat)
         LHS_bytecode_emit(meth, root->astnode.io_stmt.iostat->parent);
-      else {
-        bc_append(meth, jvm_dup);
+      else
         bc_gen_store_op(meth, iostat_lvar, jvm_Int);
-      }
     }
 
     if(root->astnode.io_stmt.iostat) {
@@ -9105,8 +9103,10 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
       fprintf(curfp, "   if(");
       if(root->astnode.io_stmt.iostat)
         name_emit(meth, root->astnode.io_stmt.iostat);
-      else
+      else {
         fprintf(curfp, "%s", F2J_TMP_IOSTAT);
+        bc_gen_load_op(meth, iostat_lvar, jvm_Int);
+      }
       fprintf(curfp, " == -1)\n");
       fprintf(curfp, "     Dummy.go_to(\"%s\",%d);\n",cur_filename,
          root->astnode.io_stmt.end_num);
@@ -9122,8 +9122,10 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
       fprintf(curfp, "   if(");
       if(root->astnode.io_stmt.iostat)
         name_emit(meth, root->astnode.io_stmt.iostat);
-      else
+      else {
         fprintf(curfp, "%s", F2J_TMP_IOSTAT);
+        bc_gen_load_op(meth, iostat_lvar, jvm_Int);
+      }
       fprintf(curfp, " > 0)\n");
       fprintf(curfp, "     Dummy.go_to(\"%s\",%d);\n",cur_filename,
          root->astnode.io_stmt.err);

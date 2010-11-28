@@ -577,6 +577,19 @@ public class Util {
     return 0;
   }
 
+  private static int longwidth(long lval) {
+    int count = 0;
+
+    if(lval == 0)
+      return 0;
+
+    while((lval = lval / 10) >= 1) {
+      count++;
+    }
+
+    return count+1;
+  }
+
   /**
    * Print an unformatted element.
    *
@@ -585,6 +598,9 @@ public class Util {
    * @param os the stream to print the element to.
    */
   private static void output_unformatted_element(Object o, PrintStream os) {
+    PrintfFormat pf;
+    String s, pre_pad, post_pad;
+
     if(o instanceof Boolean) {
       /* print true/false as T/F like fortran does */
       if(((Boolean) o).booleanValue())
@@ -592,10 +608,104 @@ public class Util {
       else
         os.print(" F");
     }
-    else if((o instanceof Float) || (o instanceof Double))
-      os.print("  " + o);  // two spaces
+    else if(o instanceof Float) {
+      float fv = ((Float)o).floatValue();
+      int iw, tw;
+
+      if(fv < 0)
+        pre_pad = " ";
+      else
+        pre_pad = "  ";
+     
+      post_pad = "    ";
+
+      fv = Math.abs(fv);
+
+      iw = longwidth((long)fv);
+      tw = 8;
+
+      if(fv < 0.1) {
+        pf = new PrintfFormat("%12.8E");
+        os.print(pre_pad + pf.sprintf(o));
+      }
+      else if((tw-iw) < 0) {
+        pf = new PrintfFormat("%12.8E");
+        os.print(pre_pad + pf.sprintf(o));
+      }
+      else if(fv < 1.0) {
+        pf = new PrintfFormat("%12.8f");
+        os.print(pf.sprintf(o) + post_pad);
+      }
+      else {
+        Object [] oarr = new Object[2];
+        oarr[0] = new Integer(tw - iw);
+        oarr[1] = o;
+
+        if((tw - iw) == 0) {
+          pf = new PrintfFormat("%11.*f");
+          os.print(pf.sprintf(oarr) + "." + post_pad);
+        }
+        else {
+          pf = new PrintfFormat("%12.*f");
+          os.print(pf.sprintf(oarr) + post_pad);
+        }
+      }
+    }
+    else if(o instanceof Double) {
+      double dv = ((Double)o).doubleValue();
+      int iw, tw;
+
+      if(dv < 0)
+        pre_pad = " ";
+      else
+        pre_pad = "  ";
+    
+      post_pad = "     ";
+
+      dv = Math.abs(dv);
+
+      iw = longwidth((long)dv);
+      tw = 17;
+
+      if(dv < 0.1) {
+        pf = new PrintfFormat("%21.17LE");
+        os.print(pre_pad + pf.sprintf(o));
+      }
+      else if((tw-iw) < 0) {
+        pf = new PrintfFormat("%21.17LE");
+        os.print(pre_pad + pf.sprintf(o));
+      }
+      else if(dv < 1.0) {
+        pf = new PrintfFormat("%21.17f");
+        os.print(pf.sprintf(o) + post_pad);
+      }
+      else {
+        Object [] oarr = new Object[2];
+        oarr[0] = new Integer(tw - iw);
+        oarr[1] = o;
+
+        if((tw - iw) == 0) {
+          pf = new PrintfFormat("%20.*f");
+          os.print(pf.sprintf(oarr) + "." + post_pad);
+        }
+        else {
+          pf = new PrintfFormat("%21.*f");
+          os.print(pf.sprintf(oarr) + post_pad);
+        }
+      }
+    }
     else if(o instanceof String)
       os.print(o);
+    else if(o instanceof Integer) {
+      if(((Integer)o).intValue() < 0)
+        pre_pad = " ";
+      else
+        pre_pad = "  ";
+
+      pf = new PrintfFormat("%12d");
+      s = pf.sprintf(o);
+      os.print(s);
+    }
     else
       os.print(" " + o);   // one space
   }

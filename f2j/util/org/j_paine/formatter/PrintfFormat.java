@@ -25,6 +25,7 @@
 // http://java.sun.com/nav/business/index.html for further important licensing 
 // information for the Java Technology.
 //
+
 package org.j_paine.formatter;
 
 import java.util.Enumeration;
@@ -1538,8 +1539,9 @@ public class PrintfFormat {
       if (expon<0) ca2[i++]='-';
       else ca2[i++]='+';
       expon = Math.abs(expon);
-      if (expon>=100) {
+      if (expon>=100 || optionalL) {
         switch(expon/100) {
+        case 0: ca2[i]='0'; break;
         case 1: ca2[i]='1'; break;
         case 2: ca2[i]='2'; break;
         case 3: ca2[i]='3'; break;

@@ -90,7 +90,7 @@
 #define STR_INIT  50
 #define STR_CHUNK 20
 
-#define MAX_CONST_LEN 80
+#define MAX_CONST_LEN 256
 
 /*****************************************************************************
  * BIGBUFF is the maximum size in characters of an input line (including)    *
@@ -100,12 +100,16 @@
  *                                                                           *
  * YYTEXTLEN is the maximum size in characters of the token string.          *
  *                                                                           *
+ * COMMENT_BUFLEN is the number of lines of comments to buffer when we are   *
+ * in the middle of combining continued lines.                               *
+ *                                                                           *
  * NT_NUM is the size of a small buffer for holding saved tokens that we     *
  * want to pass on subsequent calls to the lexer.                            *
  *****************************************************************************/
 
 #define BIGBUFF    2000
 #define YYTEXTLEN  2000
+#define COMMENT_BUFLEN 8192
 #define NT_NUM        2
 
 struct _str {
@@ -482,7 +486,8 @@ struct _ident
     name[MAX_CONST_LEN],            /* this ident's name                     */
     *merged_name,                   /* this ident's merged name (e.g. in     *
                                      * cases of equivalence or COMMON)       */
-    *descriptor;                    /* constant pool descriptor of the ident */
+    *descriptor,                    /* constant pool descriptor of the ident */
+    *buffered_comments;             /* comments found within continued lines */
 };
 
 /*****************************************************************************

@@ -850,6 +850,23 @@ class FormatE extends FormatIOElement
          Integer.toString(this.d) + "E";
       s = new PrintfFormat(fmtstr).sprintf(o);
 
+      /* what follows is an ugly hack to make f2j's output match gfortran's.
+       * if we get a result formatted with all zeroes in the exponent,
+       * convert it to ..E+01 form.  gfortran never seems to emit numbers
+       * with a zero exponent.  surely there's a better way to handle this.
+       */
+      int e_idx = s.indexOf('E');
+      int d_idx = s.indexOf('.');
+      String pre_zero = (s.length() > getWidth()) ? "" : "0";
+      String news = s.substring(0,d_idx-1) + pre_zero + "." + 
+         s.charAt(d_idx-1) + s.substring(d_idx+1, e_idx-1);
+
+      if(s.endsWith("+00") || s.endsWith("-00"))
+        s = news + "E+01";
+
+      if(s.endsWith("+000") || s.endsWith("-000"))
+        s = news + "E+001";
+
       /* Throw an exception if the string won't fit. */
       if ( s.length() > getWidth() ) {
         // instead of throwing an exception, pad the field with asterisks to

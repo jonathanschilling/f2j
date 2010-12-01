@@ -145,7 +145,7 @@ ITAB_ENTRY implicit_table[26];
 %token <type> ARITH_TYPE CHAR_TYPE 
 %token DIMENSION INCLUDE NO_PROGRAM DUMMY
 %token COMMON EQUIVALENCE EXTERNAL PARAMETER INTRINSIC IMPLICIT
-%token SAVE DATA COMMENT READ WRITE PRINT EDIT_DESC REPEAT
+%token SAVE DATA COMMENT BLOCK_COMMENT READ WRITE PRINT EDIT_DESC REPEAT
 
 %token IOSPEC_IOSTAT IOSPEC_ERR IOSPEC_FILE IOSPEC_STATUS IOSPEC_ACCESS 
 %token IOSPEC_FORM IOSPEC_UNIT IOSPEC_RECL IOSPEC_REC IOSPEC_BLANK
@@ -683,9 +683,9 @@ Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            {
              AST *tmparg;
 
-             if(debug){
+             if(debug)
                printf("Specstmts -> SpecStmtList\n");
-             }
+
              $1 = switchem($1);
              type_hash($1); 
              $$=$1;
@@ -707,6 +707,9 @@ Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            }
          | /* NULL */  %prec LOWER_THAN_COMMENT
            {
+             if(debug)
+               printf("Specstmts -> [NULL]\n");
+
              $$ = NULL;
            }
 ;
@@ -1388,11 +1391,48 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
 
 Comment: COMMENT NL
          {
+           if(debug)
+             printf("Comment -> COMMENT NL\n");
+
            $$ = addnode();
            $$->token = COMMENT;
            $$->nodetype = Comment;
            $$->astnode.ident.len = 0;
-           strcpy($$->astnode.ident.name, yylval.lexeme);
+
+           /* check global var from lexer */
+           if(comment_buffer[0]) {
+             int idx, len;
+
+             idx = len = 0;
+
+             for(idx = 0; comment_buffer[idx]; idx++)
+               len += strlen(comment_buffer[idx]);
+
+             /* if there is only one line of comments buffered, then just copy
+              * it to ident.name (if it's small enough to fit).  that will allow
+              * the comment to be emitted on one line with the '//' comment marker
+              * rather than three lines with the block style comment markers.
+              */
+             if((idx == 1) && (len < MAX_CONST_LEN)) {
+               strcpy($$->astnode.ident.name, comment_buffer[0]);
+             }
+             else {
+               if(len > 0) {
+                 $$->astnode.ident.buffered_comments = (char *) f2jalloc(len+1);
+                 $$->astnode.ident.buffered_comments[0] = '\0';
+
+                 for(idx = 0; comment_buffer[idx]; idx++)
+                   strcat($$->astnode.ident.buffered_comments, comment_buffer[idx]);
+               }
+             }
+
+             for(idx = 0; comment_buffer[idx]; idx++) {
+               f2jfree(comment_buffer[idx], strlen(comment_buffer[idx])+1);
+               comment_buffer[idx] = 0;
+             }
+           }
+           else
+             strcpy($$->astnode.ident.name, yylval.lexeme);
          }
 ;
 

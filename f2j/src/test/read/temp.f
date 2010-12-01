@@ -1,4 +1,4 @@
-      program form5
+      program temp
       real a,b,c
       READ(*,140,end=30) a, b, c
       goto 30

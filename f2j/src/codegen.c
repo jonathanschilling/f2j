@@ -674,11 +674,10 @@ emit (AST * root)
         if (gendebug)
           printf ("Comment.\n");
 
-        if(curfp != NULL)
-          fprintf(curfp,"// %s", root->astnode.ident.name);
+        comment_emit(root);
 
         if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+          emit(root->nextstmt);
         break;
       case Dimension:
         if(gendebug)
@@ -757,6 +756,40 @@ prepare_comments(AST *root)
         root->astnode.source.progtype->astnode.source.javadocComments = pc;
         root->astnode.source.prologComments = NULL;
       }
+    }
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * comment_emit                                                              *
+ *                                                                           *
+ * Handles generating comments.  We will either have a single-line comment   *
+ * in root->astnode.ident.name or a comment block in                         *
+ * root->astnode.ident.buffered_comments.                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+comment_emit(AST *root)
+{
+  if(curfp != NULL) {
+    if(root->astnode.ident.name[0] != '\0')
+      fprintf(curfp, "// %s", root->astnode.ident.name);
+
+    if(root->astnode.ident.buffered_comments) {
+      char *cp;
+
+      /* sanitize comment to avoid early termination of the comment.
+       * basically just strip the trailing slash.
+       */
+      for(cp=root->astnode.ident.buffered_comments;*(cp+1) != '\0';cp++)
+        if((*cp == '*') && (*(cp+1) == '/'))
+          *cp = '_';
+
+      fprintf(curfp, "/***\n");
+      fprintf(curfp, "%s", root->astnode.ident.buffered_comments);
+      fprintf(curfp, "***/\n");
     }
   }
 }

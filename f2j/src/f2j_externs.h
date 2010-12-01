@@ -21,8 +21,8 @@ extern char
   *inputfilename,          /* name of the input file                         */
   *package_name,           /* what to name the package, e.g. org.netlib.blas */
   *output_dir,             /* path to which f2java should store class files  */
+  *comment_buffer[],       /* holds comments found between continued stmts   */
   line_buffer[];           /* copy of the fortran line                       */
-
 
 extern BOOL 
   strictFp,                /* should we declare generated code as strictfp   */

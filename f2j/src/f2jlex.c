@@ -35,6 +35,7 @@
 
 int lexdebug = FALSE;
 char line_buffer[BIGBUFF];
+char *comment_buffer[COMMENT_BUFLEN];
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -121,7 +122,7 @@ union yylval_ {
   int tok;                            /* token ID                            */
   enum returntype type;               /* data type                           */
   char lexeme[30];                    /* text token                          */
-}yylval;
+} yylval;
 
 /*****************************************************************************
  * This main function is used for testing the lexer.  It is only compiled    *
@@ -195,12 +196,16 @@ yylex()
 
   if(first_call) {
     first_call = 0;
+    lineno = 0;
     progseen = FALSE;
 
     for(i=0;i<NT_NUM;i++) {
       next_tok[i] = 0;
       memset(&next_yylval[i], 0, sizeof(next_yylval[i]));
     }
+
+    for(i=0;i<COMMENT_BUFLEN;i++)
+      comment_buffer[i] = NULL;
   }
 
   /* if there were tokens saved from a previous call, then
@@ -231,6 +236,11 @@ yylex()
 
   if(buffer.stmt[0] == '\0')
   {
+    tokennumber = 0;    /* Reset for each statement. */
+    parencount  = 0;    /* Reset for each statement. */
+    format_stmt = 0;    /* Reset for each statement. */
+    firsttoken  = 0;    /* Reset for each statement. */
+
     if(lexdebug) printf("calling prelex\n");
     token = prelex(&buffer);   /* No more tokens? Get another statement. */
 
@@ -289,23 +299,28 @@ yylex()
       return COMMENT;
     }
 
+    if(token == BLOCK_COMMENT) {
+      if(lexdebug)
+         printf("0.1: lexer returns COMMENT [was buffered] (%s)\n",
+            buffer.stmt);
+
+      next_tok[0] = NL;
+      memset(&next_yylval[0], 0, sizeof(next_yylval[0]));
+
+      return COMMENT;
+    }
+
     if(token == COMMENT) {
       if(lexdebug)
-         printf("0.1: lexer returns %s (%s)\n", tok2str(token),buffer.stmt);
+         printf("0.2: lexer returns %s (%s)\n", tok2str(token),buffer.stmt);
       buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
       buffer.text[0] = '\n'; buffer.text[1] = '\0';
       return COMMENT;
     }
-
-    tokennumber = 0;    /* Reset for each statement. */
-    parencount  = 0;    /* Reset for each statement. */
-    format_stmt = 0;    /* Reset for each statement. */
-    firsttoken  = 0;    /* Reset for each statement. */
   }
 
   if(lexdebug)
     printf("here in yylex(), buffer.stmt = \"%s\"\n",buffer.stmt);
-
 
   /* Check for end of file condition.  */
 
@@ -1100,13 +1115,15 @@ int
 prelex(BUFFER * bufstruct)
 {
   if(lexdebug)
-    printf("entering prelex()\n");
+    printf("entering prelex() \n");
 
   do {
     if(f2j_fgets(bufstruct->stmt, BIGBUFF, ifp) != NULL)
     {
+      lineno++;
+
       if(lexdebug)
-        printf("the line is [%s](%d)\n",bufstruct->stmt,
+        printf("lineno:%d, line is [%s](%d)\n", lineno, bufstruct->stmt,
            (int)strlen(bufstruct->stmt));
 
       /* truncate anything beyond 72 characters */
@@ -1122,9 +1139,9 @@ prelex(BUFFER * bufstruct)
       if(bufstruct->stmt[0] == 'c' ||
          bufstruct->stmt[0] == 'C' ||
          bufstruct->stmt[0] == '*' ||
+         bufstruct->stmt[0] == '!' ||
          bufstruct->stmt[0] == '\n')
       {
-        lineno++;
         strcpy(yylval.lexeme, bufstruct->stmt);
         return COMMENT;
       }
@@ -1143,8 +1160,10 @@ prelex(BUFFER * bufstruct)
       check_continued_lines(ifp, bufstruct->stmt);
       collapse_white_space(bufstruct);
 
+      if(comment_buffer[0] != NULL)
+        return BLOCK_COMMENT;
+
       if(bufstruct->stmt[0] == '\n') {
-        lineno++;
         strcpy(yylval.lexeme, bufstruct->stmt);
         return COMMENT;
       }
@@ -1203,7 +1222,6 @@ prelex(BUFFER * bufstruct)
       if(lexdebug)
         printf("From prelex: %s\n", bufstruct->stmt);
 
-      lineno++;
       statementno++;
       func_stmt_num++;
       return 0;
@@ -1542,6 +1560,9 @@ check_continued_lines(FILE * fp, char *current_line)
   int items, short_line;
   char next_line[100];
   int i,j ; /* rws indexes for chopping off end of line */
+  int c_idx;
+
+  c_idx = 0;
 
   /* Now we have to determine whether the statement
    * is continued on the next line by getting another 
@@ -1572,9 +1593,30 @@ check_continued_lines(FILE * fp, char *current_line)
         break;
       }
 
+    /* check if the next line is a comment.  we are dealing with
+     * this here in case there is a continuation after the comment(s).
+     */
+    if(next_line[0] == 'c' ||
+       next_line[0] == 'C' ||
+       next_line[0] == '*' ||
+       next_line[0] == '!' ||
+       next_line[0] == '\n')
+    {
+      if(fseek(fp, -items, SEEK_CUR) < 0 ) {
+        printf("could not seek\n");
+        perror("reason");
+      }
+
+      f2j_fgets(next_line, 100, fp);
+      comment_buffer[c_idx++] = strdup(next_line);
+      lineno++;
+
+      continue;
+    }
+
     if(short_line || (next_line[0] != ' '))
     {
-      if( fseek(fp, -items, SEEK_CUR) < 0 ) {
+      if(fseek(fp, -items, SEEK_CUR) < 0 ) {
         printf("could not seek\n");
         perror("reason");
       }
@@ -1624,6 +1666,7 @@ check_continued_lines(FILE * fp, char *current_line)
         printf("char 6, next_line: %c\n", next_line[5]);
 
       f2j_fgets(next_line, 100, fp);
+      lineno++;
 
       if(lexdebug)
         printf("the next_line is [%s](%d)\n",next_line,
@@ -1651,7 +1694,6 @@ check_continued_lines(FILE * fp, char *current_line)
         current_line[strlen(current_line)-1] = '\0';
 
       strcat(current_line, next_line);
-      lineno++;
     }
   }
 }   /* End of check_continued_lines().  */
@@ -2281,6 +2323,8 @@ tok2str(int tok)
       return("EDIT_DESC");
     case REPEAT:
       return("REPEAT");
+    case BLOCK_COMMENT:
+      return("BLOCK_COMMENT");
     case IOSPEC_IOSTAT:
       return("IOSPEC_IOSTAT");
     case IOSPEC_ERR:

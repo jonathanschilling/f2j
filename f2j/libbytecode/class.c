@@ -1077,10 +1077,10 @@ calc_offsets(JVM_METHOD *meth, JVM_CODE_GRAPH_NODE *val)
     stack_inc = 0;
   }
 
-  dec_stack(meth, stack_dec);
-
-  if(meth->stacksize < 0)
-    debug_msg("\tpc = %d\n", val->pc);
+  if(dec_stack(meth, stack_dec) == -1) {
+    debug_err("WARNING: negative stack in method '%s'!  ", meth->name);
+    debug_err("pc = %d\n", val->pc);
+  }
 
   inc_stack(meth, stack_inc);
 
@@ -1796,23 +1796,27 @@ inc_stack(JVM_METHOD *meth, int inc)
 }
 
 /**
- * Decrement the stacksize by the specified amount.                          *
+ * Decrement the stacksize by the specified amount.
  *
  * @param meth -- The method whose stack should be decreased.
  * @param dec -- The amount to decrease the stack.
+ *
+ * @returns 0 on success, -2 on error, -1 on negative stack.
  */
 
-static void
+static int
 dec_stack(JVM_METHOD *meth, int dec) {
   if(!meth) {
     BAD_ARG(); 
-    return;
+    return -2;
   }
 
   meth->stacksize -= dec;
 
   if(meth->stacksize < 0)
-    debug_err("WARNING: negative stack! (%s)\n", meth->name);
+    return -1;
+
+  return 0;
 }
 
   

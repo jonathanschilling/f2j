@@ -20,12 +20,12 @@ static void
   write_u4(u4, FILE *),
   write_tableswitch(JVM_CODE_GRAPH_NODE *, FILE *),
   write_lookupswitch(JVM_CODE_GRAPH_NODE *, FILE *),
-  dec_stack(JVM_METHOD *, int),
   inc_stack(JVM_METHOD *, int),
   calc_offsets(JVM_METHOD *meth, JVM_CODE_GRAPH_NODE *);
 
 static int
   find_label(Dlist, const char *),
+  dec_stack(JVM_METHOD *, int),
   write_attributes(JVM_CLASS *, Dlist, FILE *),
   num_empty_switch_cases(JVM_CODE_GRAPH_NODE *),
   switch_entry_compare(const void *, const void *),

@@ -102,18 +102,18 @@ extern FILE *devnull;   /* file pointer to /dev/null, opened in f2jmain.c    */
  *****************************************************************************/
 
 void
-emit (AST * root)
+emit(AST * root)
 {
     int c;
     int locals;
 
-    switch (root->nodetype)
+    switch(root->nodetype)
     {
       case 0:
-        if (gendebug)
-          fprintf (stderr,"Bad node\n");
+        if(gendebug)
+          fprintf(stderr,"Bad node\n");
 
-        emit (root->nextstmt);
+        emit(root->nextstmt);
         break;
       case Progunit:
         {
@@ -124,8 +124,8 @@ emit (AST * root)
           char *classname;
           char *tmpname;
 
-          if (gendebug)
-            printf ("Source.\n");
+          if(gendebug)
+            printf("Source.\n");
 
           save_all_locals = root->astnode.source.save_all;
 
@@ -393,160 +393,160 @@ emit (AST * root)
           break;
         }
       case Subroutine:
-        if (gendebug)
-          printf ("Subroutine.\n");
+        if(gendebug)
+          printf("Subroutine.\n");
 
         returnname = NULL;	/* Subroutines return void. */
         cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
         if(gendebug)
-          printf ("Subroutine name: %s\n",  unit_name);
+          printf("Subroutine name: %s\n",  unit_name);
 
-        constructor (root);
+        constructor(root);
         break;
       case Function:
-        if (gendebug)
-          printf ("Function.\n");
+        if(gendebug)
+          printf("Function.\n");
 
         returnname = root->astnode.source.name->astnode.ident.name;
         cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
         if(gendebug)
-          printf ("Function name: %s\n",  unit_name);
+          printf("Function name: %s\n",  unit_name);
 
-        constructor (root);
+        constructor(root);
         break;
       case Program:
-        if (gendebug)
-          printf ("Program.\n");
+        if(gendebug)
+          printf("Program.\n");
 
         returnname = NULL;	/* programs return void. */
         cur_unit = root;
         unit_name = root->astnode.source.name->astnode.ident.name;
 
-        if (gendebug)
-          printf ("Program name: %s\n", unit_name);
+        if(gendebug)
+          printf("Program name: %s\n", unit_name);
 
         constructor(root);
         break;
       case Typedec:
-        if (gendebug)
-          printf ("Typedec.\n");
+        if(gendebug)
+          printf("Typedec.\n");
 
         if(save_all_override)
-          typedec_emit_all_static (cur_method, root);
+          typedec_emit_all_static(cur_method, root);
         else
-          typedec_emit (cur_method, root);
+          typedec_emit(cur_method, root);
 
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case DataList:
-        if (gendebug)
-          printf ("Data.\n");
+        if(gendebug)
+          printf("Data.\n");
 
-        data_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of data list. */
-          emit (root->nextstmt);
+        data_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of data list. */
+          emit(root->nextstmt);
         break;
       case Specification:
-        if (gendebug)
-          printf ("Specification.\n");
+        if(gendebug)
+          printf("Specification.\n");
 
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Equivalence:
-        if (gendebug)
-          printf ("Equivalence.\n");
+        if(gendebug)
+          printf("Equivalence.\n");
 
-        equiv_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        equiv_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Statement:
-        if (gendebug)
-          printf ("Statement.\n");
+        if(gendebug)
+          printf("Statement.\n");
 
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Assignment:
-        if (gendebug)
-          printf ("Assignment.\n");
+        if(gendebug)
+          printf("Assignment.\n");
 
-        assign_emit (cur_method, root);
-        fprintf (curfp, ";\n");
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        assign_emit(cur_method, root);
+        fprintf(curfp, ";\n");
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case StmtLabelAssign:
-        if (gendebug)
-          printf ("StmtLabelAssign.\n");
+        if(gendebug)
+          printf("StmtLabelAssign.\n");
 
-        assign_emit (cur_method, root);
-        fprintf (curfp, ";\n");
+        assign_emit(cur_method, root);
+        fprintf(curfp, ";\n");
         
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Call:
-        if (gendebug)
-          printf ("Call.\n");
+        if(gendebug)
+          printf("Call.\n");
 
         call_emit(cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
           emit(root->nextstmt);
         break;
       case Forloop:
-        if (gendebug)
-          printf ("Forloop.\n");
+        if(gendebug)
+          printf("Forloop.\n");
 
-        forloop_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        forloop_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Blockif:
-        if (gendebug)
-          printf ("Blockif.\n");
+        if(gendebug)
+          printf("Blockif.\n");
 
-        blockif_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        blockif_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Elseif:
-        if (gendebug)
-          printf ("Elseif.\n");
+        if(gendebug)
+          printf("Elseif.\n");
 
-        elseif_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        elseif_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Else:
-        if (gendebug)
-          printf ("Else.\n");
+        if(gendebug)
+          printf("Else.\n");
 
-        else_emit (root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        else_emit(root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Logicalif:
-        if (gendebug)
-          printf ("Logicalif.\n");
+        if(gendebug)
+          printf("Logicalif.\n");
 
-        logicalif_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        logicalif_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Arithmeticif:
-        if (gendebug)
-          printf ("Arithmeticif.\n");
+        if(gendebug)
+          printf("Arithmeticif.\n");
 
-        arithmeticif_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        arithmeticif_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Return:
         if(gendebug)
@@ -562,121 +562,121 @@ emit (AST * root)
         fprintf(curfp,"Dummy.go_to(\"%s\",999999);\n",cur_filename);
 
         return_emit(cur_method);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Goto:
-        if (gendebug)
-          printf ("Goto.\n");
+        if(gendebug)
+          printf("Goto.\n");
 
-        goto_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        goto_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case ComputedGoto:
-        if (gendebug)
-          printf ("Computed Goto.\n");
+        if(gendebug)
+          printf("Computed Goto.\n");
 
-        computed_goto_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        computed_goto_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case AssignedGoto:
-        if (gendebug)
-          printf ("Assigned Goto.\n");
+        if(gendebug)
+          printf("Assigned Goto.\n");
 
-        assigned_goto_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        assigned_goto_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Label:
-        if (gendebug)
-          printf ("Label.\n");
+        if(gendebug)
+          printf("Label.\n");
 
-        label_emit (cur_method, root);
-        if (root->nextstmt != NULL)	/* End of typestmt list. */
-          emit (root->nextstmt);
+        label_emit(cur_method, root);
+        if(root->nextstmt != NULL)	/* End of typestmt list. */
+          emit(root->nextstmt);
         break;
       case Write:
-        if (gendebug)
-          printf ("Write statement.\n");
+        if(gendebug)
+          printf("Write statement.\n");
 
-        write_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        write_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Read:
-        if (gendebug)
-          printf ("Read statement.\n");
+        if(gendebug)
+          printf("Read statement.\n");
 
-        read_emit (cur_method, root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        read_emit(cur_method, root);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Format:
-        if (gendebug)
+        if(gendebug)
           printf("skipping format statement\n");
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Stop:
-        if (gendebug)
-          printf ("Stop.\n");
+        if(gendebug)
+          printf("Stop.\n");
 
         stop_emit(cur_method, root);
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Pause:
-        if (gendebug)
-          printf ("Pause.\n");
+        if(gendebug)
+          printf("Pause.\n");
 
         pause_emit(cur_method, root);
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case End:
-        if (gendebug)
-          printf ("End.\n");
+        if(gendebug)
+          printf("End.\n");
         end_emit(cur_method);
         break;
       case Save:
-        if (gendebug)
-          printf ("Save (ignoring).\n");
+        if(gendebug)
+          printf("Save (ignoring).\n");
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Common:
         fprintf(stderr,"Warning: hit case Common in emit()\n");
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case CommonList:
-        if (gendebug)
-          printf ("Common.\n");
+        if(gendebug)
+          printf("Common.\n");
 
         common_emit(root);
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case MainComment:
         while(root->nextstmt != NULL && root->nextstmt->nodetype == Comment)
           root = root->nextstmt;
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Comment:
-        if (gendebug)
-          printf ("Comment.\n");
+        if(gendebug)
+          printf("Comment.\n");
 
         comment_emit(root);
 
-        if (root->nextstmt != NULL)
+        if(root->nextstmt != NULL)
           emit(root->nextstmt);
         break;
       case Dimension:
@@ -685,8 +685,8 @@ emit (AST * root)
      
         /* ignore */
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Open:
         if(gendebug)
@@ -694,8 +694,8 @@ emit (AST * root)
      
         open_emit(cur_method, root);
         
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Close:
         if(gendebug)
@@ -703,21 +703,21 @@ emit (AST * root)
 
         close_emit(cur_method, root);
 
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Unimplemented:
-        fprintf (curfp, 
+        fprintf(curfp, 
            " ; // WARNING: Unimplemented statement in Fortran source.\n");
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
       case Constant:
       default:
         fprintf(stderr,"emit(): Error, bad nodetype (%s)\n",
           print_nodetype(root));
-        if (root->nextstmt != NULL)
-          emit (root->nextstmt);
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
         break;
     }				/* switch on nodetype.  */
 
@@ -10663,16 +10663,16 @@ call_emit(JVM_METHOD *meth, AST * root)
     bc_append(meth, jvm_invokestatic, c);
 
     if(root->nodetype == Call)
-      fprintf (curfp, "();\n");
+      fprintf(curfp, "();\n");
     else
-      fprintf (curfp, "()");
+      fprintf(curfp, "()");
 
     bc_free_fieldref(mref);
 
     return;
   }
 
-  fprintf (curfp, "(");
+  fprintf(curfp, "(");
 
   /* for reflective method call adapters, the first paramter should
    * be the method to invoke.
@@ -10714,9 +10714,9 @@ call_emit(JVM_METHOD *meth, AST * root)
    */
 
   if(root->nodetype == Call)
-    fprintf (curfp, ");\n");
+    fprintf(curfp, ");\n");
   else
-    fprintf (curfp, ")");
+    fprintf(curfp, ")");
 
   if(gendebug)printf("leaving-call emit\n");
   bc_free_fieldref(mref);
@@ -10839,7 +10839,7 @@ emit_call_args_known(JVM_METHOD *meth, AST *root, char *desc, BOOL adapter)
         c = bc_new_methodref(cur_class_file,full_wrappername[temp->vartype],
                "<init>", wrapper_descriptor[temp->vartype]);
 
-        expr_emit (meth, temp);
+        expr_emit(meth, temp);
         fprintf(curfp,")");
 
         bc_append(meth, jvm_invokespecial, c);
@@ -10924,7 +10924,7 @@ arrayacc_arg_emit(JVM_METHOD *meth, AST *temp, char *dptr, BOOL adapter)
         isext = FALSE;
     }
 
-    func_array_emit (meth, temp->astnode.ident.arraylist, 
+    func_array_emit(meth, temp->astnode.ident.arraylist, 
       temp->astnode.ident.name, isarg, isext);
 
     if(!isext)
@@ -11156,17 +11156,17 @@ emit_call_args_unknown(JVM_METHOD *meth, AST *root)
        ||
         (temp->nodetype == Constant))
     {
-      expr_emit (meth, temp);
+      expr_emit(meth, temp);
     }
     else
     {
       if(omitWrappers) {
-        expr_emit (meth, temp);
+        expr_emit(meth, temp);
       }
       else
       {
         fprintf(curfp,"new %s(", wrapper_returns[temp->vartype]);
-        expr_emit (meth, temp);
+        expr_emit(meth, temp);
         fprintf(curfp,")");
       }
     }
@@ -11407,7 +11407,7 @@ needs_adapter(AST *root)
  *****************************************************************************/
 
 void
-assign_emit (JVM_METHOD *meth, AST * root)
+assign_emit(JVM_METHOD *meth, AST * root)
 {
   enum returntype ltype, rtype;
   int c;
@@ -11457,8 +11457,8 @@ assign_emit (JVM_METHOD *meth, AST * root)
      substring_assign_emit(meth, root);
   }
   else {
-    name_emit (meth, root->astnode.assignment.lhs);
-    fprintf (curfp, " = ");
+    name_emit(meth, root->astnode.assignment.lhs);
+    fprintf(curfp, " = ");
 
     if(ltype != rtype)    /* lhs and rhs have different types */
     {
@@ -11467,7 +11467,7 @@ assign_emit (JVM_METHOD *meth, AST * root)
       {
         /* non-String = String */
         fprintf(curfp,"%s.valueOf(",java_wrapper[ltype]);
-        expr_emit (meth, root->astnode.assignment.rhs);
+        expr_emit(meth, root->astnode.assignment.rhs);
         fprintf(curfp,").%sValue()",returnstring[ltype]);
 
         c = bc_new_methodref(cur_class_file,numeric_wrapper[ltype], "valueOf",
@@ -11481,13 +11481,13 @@ assign_emit (JVM_METHOD *meth, AST * root)
 
         bc_append(meth, jvm_invokevirtual, c);
       }
-      else if( (ltype == Logical) && (rtype != String) )
+      else if((ltype == Logical) && (rtype != String) )
       {
         JVM_CODE_GRAPH_NODE *if_node = NULL, *goto_node = NULL, 
             *iconst_node = NULL, *next_node = NULL;
 
         /* boolean = numeric value */
-        expr_emit (meth, root->astnode.assignment.rhs);
+        expr_emit(meth, root->astnode.assignment.rhs);
         fprintf(curfp," == 0 ? false : true");
         if(rtype == Integer) {
           if_node = bc_append(meth, jvm_ifeq);
@@ -11534,13 +11534,13 @@ assign_emit (JVM_METHOD *meth, AST * root)
 
         /* numeric value = numeric value of some other type */
         fprintf(curfp,"(%s)(",returnstring[ltype]);
-        expr_emit (meth, root->astnode.assignment.rhs);
+        expr_emit(meth, root->astnode.assignment.rhs);
         fprintf(curfp,")");
         bc_append(meth, typeconv_matrix[rtype][ltype]);
       }
     }
     else   /* lhs and rhs have same types, everything is cool */
-      expr_emit (meth, root->astnode.assignment.rhs);
+      expr_emit(meth, root->astnode.assignment.rhs);
   }
 
   LHS_bytecode_emit(meth, root);
@@ -11589,13 +11589,13 @@ LHS_bytecode_emit(JVM_METHOD *meth, AST *root)
      */
 
     ht = type_lookup(cur_type_table,name);
-    if (ht == NULL)
+    if(ht == NULL)
       fprintf(stderr,"assign_emit:Cant find %s in type_table\n", name);
     else if(ht->variable->astnode.ident.merged_name != NULL)
       name = ht->variable->astnode.ident.merged_name;
 
     class = strdup(com_prefix);
-    while( (idx = strchr(class, '.')) != NULL )
+    while((idx = strchr(class, '.')) != NULL )
       *idx = '/';
     class[strlen(class)-1] = '\0';
   }
@@ -11792,7 +11792,7 @@ substring_assign_emit(JVM_METHOD *meth, AST *root)
 int
 dl_int_examine(Dlist l)
 {
-  return ( *( (int *) dl_val(dl_last(l)) ) );
+  return( *( (int *) dl_val(dl_last(l)) ) );
 }
 
 /*****************************************************************************
@@ -11809,7 +11809,7 @@ dl_astnode_examine(Dlist l)
   if(dl_empty(l))
     return NULL;
 
-  return ( (AST *) dl_val(dl_last(l)) );
+  return( (AST *) dl_val(dl_last(l)) );
 }
 
 /*****************************************************************************
@@ -11982,7 +11982,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
           /* (other_call->astnode.ident.arraylist != NULL) && */
           type_lookup(cur_array_table, other_call->astnode.ident.name);
 
-    if( (dptr[0] == 'L') &&
+    if((dptr[0] == 'L') &&
         (this_arg_is_arrayacc != other_arg_is_arrayacc ))
     {
       diff = TRUE;
@@ -11993,7 +11993,7 @@ adapter_insert_from_descriptor(AST *node, AST *ptr, char *desc)
     other_arg_is_scalar = !type_lookup(cur_array_table, 
         other_call->astnode.ident.name);
 
-    if( (dptr[0] == '[') && (this_arg_is_scalar != other_arg_is_scalar ))
+    if((dptr[0] == '[') && (this_arg_is_scalar != other_arg_is_scalar ))
     {
       diff = TRUE;
     }
@@ -12277,7 +12277,7 @@ adapter_args_emit_from_descriptor(JVM_METHOD *meth, AST *arg,
       /* consume the offset arg */
       dptr = bc_next_desc_token(dptr);
     }
-    else if ( (arg->nodetype == Identifier) &&
+    else if((arg->nodetype == Identifier) &&
               /* (arg->astnode.ident.arraylist != NULL) && */
               type_lookup(cur_array_table,arg->astnode.ident.name) &&
               (dptr[0] != '[') )
@@ -13166,7 +13166,7 @@ char_substitution(char *str, int from_char, int to_char)
   char *newstr = strdup(str);
   char *idx;
     
-  while( (idx = strchr(newstr, from_char)) != NULL )
+  while((idx = strchr(newstr, from_char)) != NULL )
     *idx = to_char; 
 
   return newstr;
@@ -13256,7 +13256,7 @@ assign_varnums_to_arguments(AST * root)
   /* This loop takes care of the stuff coming in from the
    * argument list.  
    */
-  for (locallist = root ; locallist; locallist = locallist->nextstmt)
+  for(locallist = root ; locallist; locallist = locallist->nextstmt)
   {
     if(gendebug)
       printf("assign_varnums_to_arguments(%s): arg list name: %s, local varnum: %d\n",
@@ -13323,7 +13323,7 @@ assign_varnums_to_arguments(AST * root)
  *****************************************************************************/
 
 char * 
-print_nodetype (AST *root) 
+print_nodetype(AST *root) 
 {
   static char temp[100];
 
@@ -13331,7 +13331,7 @@ print_nodetype (AST *root)
     return("print_nodetpe: NULL root");
   }
 
-  switch (root->nodetype)
+  switch(root->nodetype)
   {
     case Source:
       return("Source");
@@ -13671,7 +13671,7 @@ get_adapter_desc(char *dptr, AST *arg)
 
       dptr = bc_next_desc_token(dptr);
     }
-    else if ( (arg->nodetype == Identifier) && 
+    else if((arg->nodetype == Identifier) && 
               type_lookup(cur_array_table,arg->astnode.ident.name))
     {
       if(omitWrappers && !isPassByRef_desc(dptr)) {

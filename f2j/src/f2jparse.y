@@ -1110,7 +1110,8 @@ DataList:   DataItem
 
 DataItem:   LhsList DIV DataConstantList DIV
             {
-              AST *temp;
+              AST *temp, *newnode, *prevnode, *last;
+              int i, num;
 
               $$ = addnode();
               $$->astnode.data.nlist = switchem($1);
@@ -1132,6 +1133,43 @@ DataItem:   LhsList DIV DataConstantList DIV
                      temp->astnode.forloop.Label->astnode.ident.name);
                 else
                   type_insert(data_table, temp, Float, temp->astnode.ident.name);
+              }
+
+              temp=$$->astnode.data.clist;
+              while(temp != NULL) {
+                if(temp->nodetype == Binaryop) {
+                  num = atoi(temp->astnode.expression.lhs->astnode.constant.number);
+
+                  if(num < 0) {
+                    yyerror("ERROR: data repeat spec must be a positive integer");
+                    exit(EXIT_FAILURE);
+                  }
+
+                  last = newnode = prevnode = NULL;
+
+                  for(i=0;i<num;i++) {
+                    newnode = addnode();
+                    newnode->nodetype = Constant;
+                    newnode->vartype = temp->astnode.expression.rhs->vartype;
+                    newnode->token = temp->astnode.expression.rhs->token;
+                    newnode->astnode.constant.number = 
+                      strdup(temp->astnode.expression.rhs->astnode.constant.number);
+                    newnode->nextstmt = prevnode;
+                    
+                    if(i==0)
+                      last = newnode;
+
+                    prevnode = newnode;
+                  }
+
+                  if(newnode) {
+                    last->nextstmt = temp->nextstmt;
+                    temp->nextstmt = newnode;
+                    temp = last;
+                  }
+                }
+
+                temp=temp->nextstmt;
               }
             }
 ;

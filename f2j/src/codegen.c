@@ -3615,8 +3615,10 @@ data_string_emit(JVM_METHOD *meth, int length, AST *Ctemp, AST *Ntemp)
   for(i=0,count=0;(length==-1)?(Ctemp != NULL):(i< length);i++) {
 
     if(Ctemp->nodetype == Binaryop) {
-      fprintf(stderr, "repeated characters in data stmts not supported\n");
-      exit(EXIT_FAILURE);
+      /* just skip this case.  decrement i since we didn't use an entry
+       * and it'll be incremented on the next iteration.
+       */
+      i--;
     }
     else {
 

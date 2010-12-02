@@ -1110,7 +1110,7 @@ DataList:   DataItem
 
 DataItem:   LhsList DIV DataConstantList DIV
             {
-              AST *temp, *newnode, *prevnode, *last;
+              AST *temp, *newnode, *prevnode, *last, *cprev;
               int i, num;
 
               $$ = addnode();
@@ -1136,6 +1136,7 @@ DataItem:   LhsList DIV DataConstantList DIV
               }
 
               temp=$$->astnode.data.clist;
+              cprev = temp;
               while(temp != NULL) {
                 if(temp->nodetype == Binaryop) {
                   num = atoi(temp->astnode.expression.lhs->astnode.constant.number);
@@ -1144,6 +1145,10 @@ DataItem:   LhsList DIV DataConstantList DIV
                     yyerror("ERROR: data repeat spec must be a positive integer");
                     exit(EXIT_FAILURE);
                   }
+
+                  if(debug)
+                    printf("@@ handling repeated data spec: %d x %s\n",
+                       num, temp->astnode.expression.rhs->astnode.constant.number);
 
                   last = newnode = prevnode = NULL;
 
@@ -1164,12 +1169,27 @@ DataItem:   LhsList DIV DataConstantList DIV
 
                   if(newnode) {
                     last->nextstmt = temp->nextstmt;
-                    temp->nextstmt = newnode;
+                    if(temp == $$->astnode.data.clist)
+                      $$->astnode.data.clist = newnode;
+                    else
+                      cprev->nextstmt = newnode;
                     temp = last;
                   }
                 }
 
+                cprev = temp;
                 temp=temp->nextstmt;
+              }
+
+              if(debug) {
+                printf("now data clist is:\n");
+                for(temp=$$->astnode.data.clist;temp!=NULL;temp=temp->nextstmt) {
+                  printf("=== %s === ", print_nodetype(temp));
+                  if(temp->nodetype == Constant)
+                    printf("%s", temp->astnode.constant.number);
+                  printf("\n");
+                }
+                printf("----end of data clist----\n");
               }
             }
 ;

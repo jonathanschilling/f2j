@@ -19,12 +19,11 @@
 #include"f2j.h"
 #include"symtab.h"
 #include"f2jmem.h"
+#include"f2j_externs.h"
 
 /*****************************************************************************
  * Globals and Function prototypes:                                          *
  *****************************************************************************/
-
-BOOL symdebug = FALSE;          /* set TRUE for debugging output             */
 
 /*  define which of three possible hashing functions to use.                 */
 

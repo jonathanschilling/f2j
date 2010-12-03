@@ -43,6 +43,13 @@ char
   *output_dir;             /* path to which f2java should store class files  */
 
 BOOL 
+  gendebug,                /* flag for debugging output from code generator  */
+  lexdebug,                /* flag for debugging output from lexical analyzer*/
+  optdebug,                /* flag for debugging output from 'optimizer'     */
+  symdebug,                /* flag for debugging output from symbol table    */
+  checkdebug,              /* flag for debugging output from type checker    */
+  debug,                   /* flag for debugging output from parser          */
+  vcg_debug,               /* flag for debugging output from VCG emitter     */
   strictFp,                /* should we declare generated code as strictfp   */
   strictMath,              /* should we use Java's StrictMath library        */
   omitWrappers,            /* should we try to optimize use of wrappers      */

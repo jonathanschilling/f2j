@@ -25,6 +25,13 @@ extern char
   line_buffer[];           /* copy of the fortran line                       */
 
 extern BOOL 
+  gendebug,                /* flag for debugging output from code generator  */
+  lexdebug,                /* flag for debugging output from lexical analyzer*/
+  optdebug,                /* flag for debugging output from 'optimizer'     */
+  symdebug,                /* flag for debugging output from symbol table    */
+  checkdebug,              /* flag for debugging output from type checker    */
+  debug,                   /* flag for debugging output from parser          */
+  vcg_debug,               /* flag for debugging output from VCG emitter     */
   strictFp,                /* should we declare generated code as strictfp   */
   strictMath,              /* should we use Java's strict fp math mode       */
   omitWrappers,            /* should we try to optimize use of wrappers      */

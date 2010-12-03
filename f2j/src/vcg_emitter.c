@@ -57,7 +57,6 @@ METHODTAB
  *****************************************************************************/
 
 int 
-  vcg_debug = FALSE,            /* set to TRUE to get debugging output       */
   node_num = 1;                 /* initialize node counter                   */
 
 char 

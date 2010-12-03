@@ -74,8 +74,6 @@ extern METHODTAB intrinsic_toks[];
  * Global variables.                                                         *
  *****************************************************************************/
 
-int checkdebug = FALSE;              /* set to TRUE for debugging output     */
-
 AST *cur_check_unit;                 /* program unit currently being checked */
 
 SYMTABLE 

@@ -34,7 +34,6 @@
  *****************************************************************************/
 
 int 
-  debug = FALSE,                  /* set to TRUE for debugging output        */
   emittem = 1,                    /* set to 1 to emit Java, 0 to just parse  */
   len = 1,                        /* keeps track of the size of a data type  */
   temptok,                        /* temporary token for an inline expr      */
@@ -98,12 +97,16 @@ void
   get_info_from_cllist(AST *, AST *),
   get_info_from_olist(AST *, AST *),
   printbits(char *, void *, int),
+  process_unit_args(AST *),
   print_sym_table_names(SYMTABLE *);
 
 AST 
   * dl_astnode_examine(Dlist l),
+  * init_common_spec(char *, AST *),
   * addnode(void),
   * switchem(AST *),
+  * get_merged_declist(AST *),
+  * get_implicit_declist(),
   * gen_incr_expr(AST *, AST *),
   * gen_iter_expr(AST *, AST *, AST *),
   * initialize_name(char *),
@@ -319,7 +322,7 @@ Fprogram:   Program Specstmts Statements End
                 if(debug)
                   printf("Fprogram -> Program  Specstmts  Statements End\n");
 
-                add_implicit_to_tree($2);
+                $2 = get_merged_declist($2);
 
                 $$ = addnode();
 
@@ -382,7 +385,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 if(debug)
                   printf("Fsubroutine -> Subroutine Specstmts Statements End\n");
 
-                add_implicit_to_tree($2);
+                $2 = get_merged_declist($2);
                 
                 $$ = addnode();
 	        $1->parent = $$; 
@@ -461,7 +464,7 @@ Ffunction:   Function Specstmts Statements  End
                 if(!$1->astnode.source.explicit_decl)
                   assign_function_return_type($1, $2);
 
-                add_implicit_to_tree($2);
+                $2 = get_merged_declist($2);
 
                 $$ = addnode();
 
@@ -681,8 +684,6 @@ Function:  AnySimpleType FUNCTION UndeclaredName Functionargs NL
 
 Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
            {
-             AST *tmparg;
-
              if(debug)
                printf("Specstmts -> SpecStmtList\n");
 
@@ -690,20 +691,7 @@ Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
              type_hash($1); 
              $$=$1;
 
-             for(tmparg = unit_args; tmparg; tmparg=tmparg->nextstmt) {
-               HASHNODE *ht;
-
-               ht = type_lookup(type_table, tmparg->astnode.ident.name);
-
-               if(ht) {
-                 if(!ht->variable->astnode.ident.explicit)
-                   ht->variable->vartype = 
-                     implicit_table[tolower(tmparg->astnode.ident.name[0]) - 'a'].type;
-               }
-               else
-                 fprintf(stderr, "warning: didn't find %s in symbol table\n", 
-                   tmparg->astnode.ident.name);
-             }
+             process_unit_args(unit_args);
            }
          | /* NULL */  %prec LOWER_THAN_COMMENT
            {
@@ -711,6 +699,8 @@ Specstmts: SpecStmtList    %prec LOWER_THAN_COMMENT
                printf("Specstmts -> [NULL]\n");
 
              $$ = NULL;
+
+             process_unit_args(unit_args);
            }
 ;
 
@@ -876,68 +866,24 @@ CommonList: CommonSpec
 
 CommonSpec: DIV UndeclaredName DIV ArithTypevarlist
            {
-              AST *temp;
-              int pos;
+              if(debug)
+                printf("CommonSpec -> DIV UndeclaredName DIV Namelist\n");
 
-              if(debug){
-                 printf("CommonSpec -> DIV UndeclaredName DIV Namelist\n");
-              }
-
-              $$ = addnode();
-              $$->nodetype = Common;
-              $$->astnode.common.name = strdup($2->astnode.ident.name);
-              $$->astnode.common.nlist = switchem($4);
-
-              pos = 0;
-
-              /* foreach variable in the COMMON block... */
-              for(temp=$$->astnode.common.nlist;temp!=NULL;temp=temp->nextstmt)
-              {
-                temp->astnode.ident.commonBlockName = 
-                  strdup($2->astnode.ident.name);
-
-                if(omitWrappers)
-                  temp->astnode.ident.position = pos++;
-
-                /* insert this name into the common table */
-                if(debug)
-                  printf("@insert %s (block = %s) into common table\n",
-                    temp->astnode.ident.name, $2->astnode.ident.name);
-
-                type_insert(common_table, temp, Float, temp->astnode.ident.name);
-              }
-
-              type_insert(global_common_table, $$, Float, $$->astnode.common.name);
-              free_ast_node($2);
+              $$ = init_common_spec($2->astnode.ident.name, $4);
            }
          | CAT ArithTypevarlist     /* CAT is // */
            {
-              AST *temp;
+              if(debug)
+                printf("CommonSpec -> DIV DIV Namelist\n");
 
-              /* This is an unnamed common block */
-              if(debug){
-                printf("CommonSpec -> CAT Namelist\n");
-              }
+              $$ = init_common_spec("Blank", $2);
+           }
+         | ArithTypevarlist
+           {
+              if(debug)
+                printf("CommonSpec -> Namelist\n");
 
-              $$ = addnode();
-              $$->nodetype = Common;
-              $$->astnode.common.name = strdup("Blank");
-              $$->astnode.common.nlist = switchem($2);
-
-              /* foreach variable in the COMMON block... */
-              for(temp=$2;temp!=NULL;temp=temp->prevstmt) {
-                temp->astnode.ident.commonBlockName = "Blank";
-
-                /* insert this name into the common table */
-
-                if(debug)
-                  printf("@@insert %s (block = unnamed) into common table\n",
-                    temp->astnode.ident.name);
-
-                type_insert(common_table, temp, Float, temp->astnode.ident.name);
-              }
-
-              type_insert(global_common_table, $$, Float, $$->astnode.common.name);
+              $$ = init_common_spec("Blank", $1);
            }
 ;
 
@@ -1260,6 +1206,11 @@ DataConstant:  Constant
                  free($2->astnode.constant.number);
                  $2->astnode.constant.number = neg_string;
 
+                 $$ = $2;
+               }
+            |  PLUS Constant
+               {
+                 $2->astnode.constant.number = strdup($2->astnode.constant.number);
                  $$ = $2;
                }
 ;
@@ -2572,14 +2523,12 @@ meaning of a negative repeat specification.
 */
 ;
 
-Continue:  Integer CONTINUE NL
+Continue:  CONTINUE NL
        {
          $$ = addnode();
-	 $1->parent = $$; /* 9-4-97 - Keith */
-	 $$->nodetype = Label;
-	 $$->astnode.label.number = atoi($1->astnode.constant.number);
-	 $$->astnode.label.stmt = NULL;
-         free_ast_node($1);
+         $$->nodetype = Label;
+         $$->astnode.label.number = -1;
+         $$->astnode.label.stmt = NULL;
        }
 ;
 
@@ -4309,25 +4258,45 @@ merge_common_blocks(AST *root)
 {
   HASHNODE *ht;
   AST *Clist, *temp;
-  int count;
+  int i, count, ht_count;
   char ** name_array;
   char *comvar = NULL, *var, und_var[80], 
        var_und[80], und_var_und[80], *t;
 
+  if(debug)
+    printf("merge_common_blocks(): let's get started...\n");
+
   for(Clist = root; Clist != NULL; Clist = Clist->nextstmt)
   {
+    ht_count=0;
+
     /* 
      * First check whether this common block is already in
      * the table.
      */
 
-    ht=type_lookup(common_block_table,Clist->astnode.common.name);
+    ht = type_lookup(common_block_table, Clist->astnode.common.name);
+
+    if(debug)
+      printf("common block '%s' -> %p\n", Clist->astnode.common.name, ht);
+
+    if(ht) {
+      while(((char **)ht->variable)[ht_count])
+        ht_count++;
+
+      if(debug)
+        printf("count from common_block_table entry = %d\n", ht_count);
+    }
 
     for(temp=Clist->astnode.common.nlist, count = 0; 
               temp!=NULL; temp=temp->nextstmt) 
       count++;
 
-    name_array = (char **) f2jalloc( count * sizeof(name_array) );
+    if(debug)
+      printf("count = %d (number of variables in the common block)\n", count);
+
+    /* allocate count entries, plus an extra NULL entry for a sentinel */
+    name_array = (char **)f2jcalloc(MAX(count,ht_count)+1, sizeof(name_array));
 
     /* foreach COMMON variable */
 
@@ -4336,12 +4305,19 @@ merge_common_blocks(AST *root)
     {
       var = temp->astnode.ident.name;
 
+      if(debug)
+        printf("var = %s\n", var);
+
       /* to merge two names we concatenate the second name
        * to the first name, separated by an underscore.
        */
 
       if(ht != NULL) {
         comvar = ((char **)ht->variable)[count];
+
+        if(debug)
+          printf("try to merge '%s' and '%s'\n", var, comvar);
+
         und_var[0] = '_';
         und_var[1] = 0;
         strcat(und_var,var);
@@ -4354,6 +4330,9 @@ merge_common_blocks(AST *root)
       if(ht == NULL) {
         name_array[count] = (char *) f2jalloc( strlen(var) + 1 );
         strcpy(name_array[count], var);
+
+        if(debug)
+          printf("set name_array[%d] = %s\n", count, name_array[count]);
       }
       else {
         if(!strcmp(var,comvar) || 
@@ -4374,6 +4353,24 @@ merge_common_blocks(AST *root)
           strcat(name_array[count],((char **)ht->variable)[count]);
         }
       }
+    }
+
+    if(debug)
+      printf("ht = %p, count = %d, ht_count = %d\n", ht, count, ht_count);
+
+    if(ht && (count < ht_count))
+      for(i=count;i<ht_count;i++)
+        name_array[i] = strdup(((char **)ht->variable)[i]);
+
+    if(debug) {
+      printf("going to insert name_array = {");
+      i=0;
+
+      while(name_array[i])
+        printf("%s ", name_array[i++]);
+
+      printf("} in common_block_table for '%s'\n",
+        Clist->astnode.common.name);
     }
 
     type_insert(common_block_table, (AST *)name_array, Float,
@@ -4996,24 +4993,59 @@ initialize_implicit_table(ITAB_ENTRY *itab)
 
 /*****************************************************************************
  *                                                                           * 
- * add_implicit_to_tree                                                      *   
+ * get_merged_declist                                                        *   
  *                                                                           * 
- * this adds a node for an implicit variable to typedec                      * 
+ * this function returns a list containing any implicit declarations         *
+ * followed by a list containing normal declarations and/or spec stmts.      *
+ *                                                                           * 
+ * if typdec is NULL and there are no implicit decs, return NULL             * 
+ * if typdec is non-NULL and there are no implicit decs, just return typedec * 
+ * if typdec is NULL and implicit decs exist, return a pointer to the        *
+ *       implicit dec list                                                   * 
+ * if typdec is non-NULL and implicit decs exist, append the typedecs to the *
+ *       list of implicit decs and return a pointer to the implicit dec list * 
  *                                                                           * 
  *****************************************************************************/
 
-void
-add_implicit_to_tree(AST *typedec)
+AST *
+get_merged_declist(AST *typedec)
+{
+  AST *idecs, *list_end, *rv;
+
+  idecs = list_end = NULL;
+
+  idecs = get_implicit_declist();
+
+  if(idecs) {
+    list_end = idecs;
+    while(list_end->nextstmt!=NULL)
+      list_end = list_end->nextstmt;
+    list_end->nextstmt = typedec;
+    rv = idecs;
+  }
+  else
+    rv = typedec;
+
+  return rv;
+}
+
+/*****************************************************************************
+ *                                                                           * 
+ * get_implicit_declist                                                      *   
+ *                                                                           * 
+ * builds a linked list of the variables that were implicitly declared, then * 
+ * f2j uses this list to explicitly declare the variables in the java source *
+ * and bytecode.                                                             *
+ *                                                                           * 
+ *****************************************************************************/
+
+AST *
+get_implicit_declist()
 {
   Dlist t_table, tmp;
-  AST *ast, *new_node, *last_typedec;
+  AST *ast, *new_node, *prev;
 
-  if(!typedec) return;
-
-  last_typedec = typedec;
-  while(last_typedec->nextstmt!=NULL) {
-    last_typedec = last_typedec->nextstmt;
-  }
+  new_node = prev = NULL;
 
   t_table = enumerate_symtable(type_table);
   dl_traverse(tmp, t_table) {
@@ -5026,10 +5058,12 @@ add_implicit_to_tree(AST *typedec)
       new_node->nodetype = Typedec;
       ast->parent = new_node;
       new_node->astnode.typeunit.declist = clone_ident(ast);
-      last_typedec->nextstmt = new_node;
-      last_typedec = last_typedec->nextstmt;
+      new_node->nextstmt = prev;
+      prev = new_node;
     }
   }
+
+  return new_node;
 }
 
 /*****************************************************************************
@@ -5978,5 +6012,96 @@ get_info_from_cllist(AST *root, AST *cllist)
   if(root->astnode.close.unit_expr->token == STAR) {
     yyerror("ERROR: CLOSE statement may not have unit specifier '*'");
     exit(EXIT_FAILURE);
+  }
+}
+
+/*****************************************************************************
+ * init_common_spec                                                          *
+ *                                                                           *
+ * initializes a COMMON specification - adds all members to the common table *
+ * and adds the common block name to the global common block table.          *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+init_common_spec(char *block_name, AST *nlist)
+{
+  int pos, local_count, table_count;
+  AST *temp, *newnode;
+  HASHNODE *ht;
+
+  local_count = table_count = 0;
+  if(debug)
+    printf("@initializing common block\n");
+
+  /* list hasn't been reversed yet, so use prevstmt */
+  for(temp=nlist;temp!=NULL;temp=temp->prevstmt)
+    local_count++;
+
+  ht = type_lookup(global_common_table, block_name);
+
+  if(ht) {
+    if(debug)
+      printf("looks like we've seen this common block before\n");
+
+    for(temp = ht->variable->astnode.common.nlist; temp != NULL; 
+           temp = temp->nextstmt)
+      table_count++;
+  }
+
+  newnode = addnode();
+  newnode->nodetype = Common;
+  newnode->astnode.common.name = strdup(block_name);
+  newnode->astnode.common.nlist = switchem(nlist);
+  newnode->astnode.common.descriptor = NULL;
+
+  pos = 0;
+
+  /* foreach variable in the COMMON block... */
+  for(temp=newnode->astnode.common.nlist;temp!=NULL;temp=temp->nextstmt)
+  {
+    temp->astnode.ident.commonBlockName = strdup(block_name);
+
+    if(omitWrappers)
+      temp->astnode.ident.position = pos++;
+
+    /* insert this name into the common table */
+    if(debug)
+      printf("@insert %s (block = %s) into common table\n",
+        temp->astnode.ident.name, block_name);
+
+    type_insert(common_table, temp, Float, temp->astnode.ident.name);
+  }
+
+  if(local_count > table_count)
+    type_insert(global_common_table, newnode, Float, newnode->astnode.common.name);
+
+  return newnode;
+}
+
+/*****************************************************************************
+ * process_unit_args                                                         *
+ *                                                                           *
+ * this sets the implicit type for unit arguments.                           *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+process_unit_args(AST *args)
+{
+  HASHNODE *ht;
+  AST *tmparg;
+
+  for(tmparg = args; tmparg; tmparg=tmparg->nextstmt) {
+    ht = type_lookup(type_table, tmparg->astnode.ident.name);
+
+    if(ht) {
+      if(!ht->variable->astnode.ident.explicit)
+        ht->variable->vartype = 
+          implicit_table[tolower(tmparg->astnode.ident.name[0]) - 'a'].type;
+     }
+     else
+       fprintf(stderr, "warning: didn't find %s in symbol table\n", 
+         tmparg->astnode.ident.name);
   }
 }

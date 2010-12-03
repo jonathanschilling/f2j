@@ -29,11 +29,6 @@
 #include"f2jmem.h"
 #include"f2j_externs.h"
 
-/*****************************************************************************
- * Set lexdebug TRUE for debugging output from the lexer routines.           *
- *****************************************************************************/
-
-int lexdebug = FALSE;
 char line_buffer[BIGBUFF];
 char *comment_buffer[COMMENT_BUFLEN];
 

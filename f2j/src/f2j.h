@@ -32,7 +32,8 @@
 #define F2J_ADAPTER_ACC (JVM_ACC_PRIVATE | JVM_ACC_STATIC)
 #define F2J_INIT_ACC (JVM_ACC_PUBLIC)
 
-#define MIN(x,y) ((x)<(y)?(x):(y))       /* the minimum of two numbers       */
+#define MAX(a,b) (((a)>(b))?(a):(b))    /* the maximum of two numbers       */
+#define MIN(x,y) (((x)<(y))?(x):(y))    /* the minimum of two numbers       */
 
 /*****************************************************************************
  * Define VCG as 1 if VCG output is desired (VCG == Visualization of         *
@@ -583,6 +584,7 @@ struct _data_stmt
 struct _commonblock
 {
   char *name;                       /* the name of the common block          */
+  char *descriptor;                 /* the common block descriptor           */
   struct ast_node *nlist;           /* list of variables in this block       */
 };
 
@@ -741,8 +743,7 @@ void
   print_vcg_node(FILE *, int, char *),
   print_vcg_nearedge(FILE *, int, int),
   print_vcg_edge(FILE *, int, int),
-  print_vcg_typenode(FILE *, int, char *),
-  add_implicit_to_tree(AST *);
+  print_vcg_typenode(FILE *, int, char *);
 
 Dlist
   build_method_table(char *);

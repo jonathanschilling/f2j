@@ -121,8 +121,6 @@
 #define CB_DELIMITER '|'
 #define CB_SEPARATOR ','
 
-#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
-
 /*****************************************************************************
  * comment out the following line to disable the generation of VCG control   *
  * flow graphs.                                                              *
@@ -165,7 +163,7 @@ char
   * getFieldDescFromCommonDesc(char *, int),
   * getMergedName(AST *),
   * getMergedDescriptor(AST *, enum returntype),
-  * getCommonVarName(AST *);
+  * getCommonVarName(char *);
 
 METHODTAB
   * methodscan (METHODTAB * , char * );

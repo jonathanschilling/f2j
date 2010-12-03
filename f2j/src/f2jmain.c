@@ -168,6 +168,18 @@ will most likely not work for other code.\n\n";
  to generate arrays\nas static class variables,\
   but other\nvariables are generated as locals.\n\n";
 
+  char f2java_help_V_option[] = "The -V option causes f2j\
+ to output internal debug\ninformation to stdout.  There are\
+ a number of\ncomponents you can enable for debug output:\n\
+   lex: lexical analysis\n\
+   parse: parsing\n\
+   type: type checking/assignment\n\
+   opt: scalar variable wrapper 'optimization'\n\
+   codegen: code generation\n\
+   sym: symbol table\n\
+   all: enable all debugging output\n\
+You can use multiple -V options (e.g. -V parse -V lex)\n";
+
   signal(SIGSEGV,handle_segfault);
 
   omitWrappers      = TRUE;
@@ -182,6 +194,9 @@ will most likely not work for other code.\n\n";
   save_all_override = FALSE;
   f2j_arrays_static = FALSE;
 
+  /* by default, all debugging is off */
+  lexdebug = debug = checkdebug = optdebug = gendebug = symdebug = FALSE;
+
   file_stack = make_dl();
   include_paths = make_dl();
   dl_insert_b(include_paths, ".");
@@ -189,7 +204,7 @@ will most likely not work for other code.\n\n";
   ignored_formatting = 0;
   bad_format_count = 0;
 
-  while((c = getopt(argc,argv,"I:c:p:wif:sdho:v:")) != EOF)
+  while((c = getopt(argc,argv,"I:c:p:wif:sdho:v:V:")) != EOF)
     switch(c) {
       case 'I':
         dl_insert_b(include_paths, optarg);
@@ -228,6 +243,7 @@ will most likely not work for other code.\n\n";
         printf("%s",f2java_help_fb_option);
         printf("%s",f2java_help_vs_option);
         printf("%s",f2java_help_va_option);
+        printf("%s",f2java_help_V_option);
         exit(EXIT_SUCCESS);
         break;
       case 'i':
@@ -250,6 +266,29 @@ will most likely not work for other code.\n\n";
         }
 
         break;
+      case 'V':
+        if(!strcmp("lex", optarg))
+          lexdebug = TRUE;
+        else if(!strcmp("parse", optarg))
+          debug = TRUE;
+        else if(!strcmp("type", optarg))
+          checkdebug = TRUE;
+        else if(!strcmp("opt", optarg))
+          optdebug = TRUE;
+        else if(!strcmp("codegen", optarg))
+          gendebug = TRUE;
+        else if(!strcmp("sym", optarg))
+          symdebug = TRUE;
+        else if(!strcmp("all", optarg))
+          lexdebug = debug = checkdebug = optdebug = gendebug = symdebug = TRUE;
+        else {
+          fprintf(stderr, "-V%s: bad argument, ",optarg);
+          fprintf(stderr, "must be one of: lex, parse, type,");
+          fprintf(stderr, " opt, codegen, sym, or all\n");
+          errflg++;
+        }
+
+        break;
       case 'o':
         output_dir = optarg;
         break;
@@ -263,9 +302,10 @@ will most likely not work for other code.\n\n";
 
   if(errflg || (argc < 2))
   {
-    fprintf(stderr, "Usage: f2java [-I include path] [-c search path]");
-    fprintf(stderr, "  [-p package name] [-o output dir]");
-    fprintf(stderr, " [-w] [-i] [-s] [-d] [-vs] [-va] [-fs] [-fm] [-fb] <filename>\n");
+    fprintf(stderr, "Usage: f2java [-I include path] [-c search path] ");
+    fprintf(stderr, "[-p package name] [-o output dir] ");
+    fprintf(stderr, "[-w] [-i] [-s] [-d] [-vs] [-va] [-fs] [-fm] [-fb] ");
+    fprintf(stderr, "[-V component name] <filename>\n");
     fprintf(stderr, "For help: f2java -h\n");
     exit(EXIT_FAILURE);
   }

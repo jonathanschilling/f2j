@@ -21,9 +21,6 @@
  *   Global variables, a necessary evil when working with yacc.              *
  *****************************************************************************/
 
-int
-  gendebug = FALSE;     /* set to TRUE to generate debugging output          */
-
 char 
   *unit_name,           /* name of this function/subroutine                  */
   *returnname,          /* return type of this prog. unit                    */
@@ -1693,7 +1690,7 @@ emit_javadoc_comments(AST *root)
 
 
 void 
-equiv_emit (JVM_METHOD *meth, AST *root)
+equiv_emit(JVM_METHOD *meth, AST *root)
 {
   HASHNODE *ht;
   AST *temp;
@@ -1857,29 +1854,32 @@ getVarNameFromCommonEntry(const char *p)
  *****************************************************************************/
 
 void
-assign_merged_names(AST *Ctemp, JVM_METHODREF *mtmp)
+assign_merged_names(AST *Ctemp, char *dp)
 {
-  HASHNODE *hashtemp;
+  HASHNODE *ht;
   AST *Ntemp;
-  char *dp;
-
-  dp = mtmp->descriptor;
 
   if(!dp) return;
 
   for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
   {
-    if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))==NULL)
+    if((ht=type_lookup(cur_type_table, Ntemp->astnode.ident.name))==NULL)
     {
       if(gendebug)
         printf("assign_merged_names: Var Not Found\n");
       continue;
     }
 
-    hashtemp->variable->astnode.ident.merged_name = 
-      getVarNameFromCommonEntry(dp);
-    hashtemp->variable->astnode.ident.descriptor = 
-      getVarDescFromCommonEntry(dp);
+    if(!dp) {
+      fprintf(stderr, "Error: descriptor mismatch for common block '%s'\n",
+        Ctemp->astnode.common.name);
+      fprintf(stderr, "  make sure that there aren't any conflicting .f2j\n");
+      fprintf(stderr, "  files containing this common block.\n"); 
+      exit(EXIT_FAILURE);
+    }
+
+    ht->variable->astnode.ident.merged_name = getVarNameFromCommonEntry(dp);
+    ht->variable->astnode.ident.descriptor = getVarDescFromCommonEntry(dp);
     
     dp = skipCommonVarEntry(dp);
   }
@@ -1903,14 +1903,15 @@ void
 common_emit(AST *root)
 {
   JVM_METHOD *clinit_method;
-  HASHNODE *hashtemp;
+  HASHNODE *hashtemp, *cbht, *ht3;
   JVM_METHODREF *mtmp;
   AST *Ctemp, *Ntemp, *temp;
-  char *common_classname=NULL, *filename=NULL;
+  char *common_classname=NULL, *filename=NULL, *varname;
   FILE *commonfp;
   char * prefix = strtok(strdup(inputfilename),".");
   JVM_CLASS *save_class_file;
   char *save_filename;
+  int i, local_count, table_count;
 
   /* save the current global variables pointing to the class file.  this is
    * necessary because we're in the middle of generating the class file
@@ -1944,15 +1945,35 @@ common_emit(AST *root)
       mtmp = find_commonblock(Ctemp->astnode.common.name, descriptor_table);
       if(mtmp) {
         if(gendebug)
-          printf("common_emit.3: %s,%s,%s\n", mtmp->classname,
+          printf("common_emit.3: block found.  %s,%s,%s\n", mtmp->classname,
             mtmp->methodname, mtmp->descriptor);
         
-        assign_merged_names(Ctemp, mtmp);
+        assign_merged_names(Ctemp, mtmp->descriptor);
         continue;
-      }else{
+      }
+      else {
         if(gendebug)
           printf("common name not found in descriptor table\n");
       }
+
+      ht3 = type_lookup(global_common_table, Ctemp->astnode.common.name);
+      if(ht3) {
+        if(gendebug) {
+          printf("found %s in the global_common_table\n",
+            Ctemp->astnode.common.name);
+          if(ht3->variable->astnode.common.descriptor)
+            printf("  desc = %s\n", ht3->variable->astnode.common.descriptor);
+          else
+            printf("  desc is null\n");
+        }
+
+        if(ht3->variable->astnode.common.descriptor) {
+          assign_merged_names(Ctemp, ht3->variable->astnode.common.descriptor);
+          continue;
+        }
+      }
+
+      cbht = type_lookup(common_block_table, Ctemp->astnode.common.name);
 
       /* common block filename will be a concatenation of
        * the original input filename and the name of this
@@ -2005,25 +2026,44 @@ common_emit(AST *root)
       fprintf(indexfp,"%s:common_block/%s:",cur_filename,
         Ctemp->astnode.common.name);
 
+      local_count = table_count = 0;
       for(Ntemp=Ctemp->astnode.common.nlist;Ntemp!=NULL;Ntemp=Ntemp->nextstmt)
+        local_count++;
+
+      if(cbht)
+        while(((char **)cbht->variable)[table_count])
+          table_count++;
+
+      if(gendebug)
+        printf("common block variable count: %d local, %d from table\n",
+          local_count, table_count);
+     
+      Ntemp = Ctemp->astnode.common.nlist;
+      for(i=0;i<MAX(local_count,table_count);i++)
       {
+        if(Ntemp) {
+          varname = Ntemp->astnode.ident.name;
+          Ntemp = Ntemp->nextstmt;
+        }
+        else {
+          if(cbht)
+            varname = ((char **)cbht->variable)[i];
+          else
+            break;  /* don't really expect to hit this case */
+        }
+
         if(gendebug)
         {
-          printf("Common block %s -- %s\n",Ctemp->astnode.common.name,
-            Ntemp->astnode.ident.name);
-          printf("Looking up %s in the type table\n",
-            Ntemp->astnode.ident.name);
+          printf("Common block %s -- %s\n",Ctemp->astnode.common.name, varname);
+          printf("Looking up %s in the type table\n", varname);
         }
-  
+
         /* each variable in the common block should have a type
          * declaration associated with it.
          */
 
-        if((hashtemp=type_lookup(cur_type_table,Ntemp->astnode.ident.name))
-          == NULL)
-        {
-          fprintf(stderr,"Error: can't find type for common %s\n",
-            Ntemp->astnode.ident.name);
+        if((hashtemp=type_lookup(cur_type_table, varname)) == NULL) {
+          fprintf(stderr,"Error: can't find type for common %s\n", varname);
           if(gendebug)
             printf("Not Found\n");
           continue;
@@ -2034,10 +2074,39 @@ common_emit(AST *root)
 
         temp = hashtemp->variable;
 
-        if(gendebug)printf("drew field_emit: %c%s, %s (parent=%p)\n", CB_DELIMITER, 
-             getVarDescriptor(temp), getCommonVarName(Ntemp), (void *)temp->parent);
+        if(gendebug)
+          printf("drew field_emit: %c%s, %s (parent=%p)\n", CB_DELIMITER, 
+             getVarDescriptor(temp), getCommonVarName(varname),
+             (void *)temp->parent);
+
         fprintf(indexfp,"%c%s,%s",CB_DELIMITER, getVarDescriptor(temp),
-            getCommonVarName(Ntemp));
+            getCommonVarName(varname));
+
+        if(ht3) {
+          char *str1, *str2, *desctmp;
+          AST *ht3var;
+          int slen;
+
+          ht3var = ht3->variable;
+
+          str1 = getVarDescriptor(temp);
+          str2 = getCommonVarName(varname);
+
+          slen = strlen(str1) + strlen(str2) + 3;
+
+          if(ht3var->astnode.common.descriptor)
+            slen += strlen(ht3var->astnode.common.descriptor);
+
+          desctmp = (char *)f2jalloc(slen);
+
+          if(ht3var->astnode.common.descriptor)
+            sprintf(desctmp,"%s%c%s,%s",ht3var->astnode.common.descriptor,
+               CB_DELIMITER, str1, str2);
+          else
+            sprintf(desctmp,"%c%s,%s",CB_DELIMITER, str1, str2);
+
+          ht3->variable->astnode.common.descriptor = desctmp;
+        }
 
         field_emit(temp);
 
@@ -2181,12 +2250,12 @@ getFieldDescFromCommonDesc(char *desc, int idx)
  *****************************************************************************/
 
 char *
-getCommonVarName(AST *root)
+getCommonVarName(char *varname)
 {
   HASHNODE *ht2;
 
-  if(type_lookup(cur_common_table,root->astnode.ident.name) != NULL) {
-    ht2 = type_lookup(cur_type_table,root->astnode.ident.name);
+  if(type_lookup(cur_common_table, varname) != NULL) {
+    ht2 = type_lookup(cur_type_table, varname);
 
     return ht2->variable->astnode.ident.merged_name;
   }
@@ -8588,6 +8657,10 @@ label_emit (JVM_METHOD *meth, AST * root)
   if(gendebug)
     printf("looking at label %d\n", num);
 
+  /* skip CONTINUE statements with no label */
+  if(num < 0)
+    return;
+
   root->astnode.label.instr = bc_append(meth, jvm_xxxunusedxxx);
 
   /* if this continue statement corresponds with the most
@@ -8599,6 +8672,8 @@ label_emit (JVM_METHOD *meth, AST * root)
   if((loop != NULL) &&
      (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num))
   {
+    int first = 1;
+
     do {
       /*
        * finally pop this loop's label number off the stack and
@@ -8608,10 +8683,13 @@ label_emit (JVM_METHOD *meth, AST * root)
       fprintf(curfp,"Dummy.label(\"%s\",%d);\n",cur_filename,num);
 
       dl_pop(doloop);
-
-      if((root->astnode.label.stmt != NULL) &&
+ 
+      /* the "first" check here is to avoid emitting duplicate
+       * statements when the do loop's target is not a CONTINUE.
+       */
+      if(first && (root->astnode.label.stmt != NULL) &&
          (root->astnode.label.stmt->nodetype != Format))
-        emit (root->astnode.label.stmt);
+        emit(root->astnode.label.stmt);
 
       fprintf(curfp, "}              //  Close for() loop. \n");
       fprintf(curfp, "}\n");
@@ -8619,6 +8697,7 @@ label_emit (JVM_METHOD *meth, AST * root)
       forloop_end_bytecode(meth, loop);
 
       loop = dl_astnode_examine(doloop);
+      first = 0;
     } while((loop != NULL) &&
        (atoi(loop->astnode.forloop.Label->astnode.constant.number) == num));
   }

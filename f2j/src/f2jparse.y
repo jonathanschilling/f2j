@@ -96,6 +96,7 @@ void
   get_info_from_cilist(AST *, AST *),
   get_info_from_cllist(AST *, AST *),
   get_info_from_olist(AST *, AST *),
+  get_info_from_alist(AST *, AST *),
   printbits(char *, void *, int),
   process_unit_args(AST *),
   print_sym_table_names(SYMTABLE *);
@@ -186,7 +187,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Name UndeclaredName Namelist UndeclaredNamelist
 %type <ptnode> LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
-%type <ptnode> Read IoExp IoExplist Return  Rewind
+%type <ptnode> Read IoExp IoExplist Return Rewind
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement StmtLabelAssign Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
@@ -203,6 +204,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> IostatExp CharExp ReclExp OlistItem Olist OpenFileSpec
 %type <ptnode> ErrExp StatusExp AccessExp FormExp BlankExp UnitExp
 %type <ptnode> RecExp EndExp CllistItem Cllist CilistItem Cilist
+%type <ptnode> Alist AlistItem
 
 %%
 
@@ -1386,7 +1388,7 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
             | Rewind
               {
                 $$ = $1;
-                $$->nodetype = Unimplemented;
+                $$->nodetype = Rewind;
               }
             | DUMMY
               {
@@ -1551,6 +1553,39 @@ OlistItem: UnitExp
              $$ = $1;
            }
          | BlankExp
+           {
+             $$ = $1;
+           }
+;
+
+Alist: Alist CM AlistItem
+       {
+         $3->prevstmt = $1;
+         $$ = $3;
+       }
+     | AlistItem
+       {
+         $$ = $1;
+       }
+;
+
+AlistItem: UnitExp
+           {
+             $$ = $1;
+           }
+         | Exp
+           {
+             /* this is for a unit specifier without the "UNIT=" */
+             $$ = addnode();
+             $$->token = IOSPEC_UNIT;
+             $$->nodetype = UnitExp;
+             $$->astnode.expression.rhs = $1;
+           }
+         | IostatExp
+           {
+             $$ = $1;
+           }
+         | ErrExp
            {
              $$ = $1;
            }
@@ -1734,8 +1769,26 @@ Close: CLOSE OP Cllist CP NL
 
 Rewind: REWIND UndeclaredName NL
         {
-          fprintf(stderr,"Warning: REWIND not implemented.\n");
-          $$ = $2;
+          $$ = addnode();
+          $$->nodetype = Rewind;
+          $$->astnode.rewind.unit_expr = $2;
+          $$->astnode.rewind.unit_expr->parent = $$;
+        }
+      | REWIND Integer NL
+        {
+          $$ = addnode();
+          $$->nodetype = Rewind;
+          $$->astnode.rewind.unit_expr = $2;
+          $$->astnode.rewind.unit_expr->parent = $$;
+        }
+      | REWIND OP Alist CP NL
+        {
+          $$ = addnode();
+          $$->nodetype = Rewind;
+
+          $3 = switchem($3);
+
+          get_info_from_alist($$, $3);
         }
 ;
 
@@ -5898,6 +5951,108 @@ get_info_from_olist(AST *root, AST *olist)
 
   if(root->astnode.open.unit_expr->token == STAR) {
     yyerror("ERROR: OPEN statement may not have unit specifier '*'");
+    exit(EXIT_FAILURE);
+  }
+}
+
+/*****************************************************************************
+ * get_info_from_alist                                                       *
+ *                                                                           *
+ * Loops through the Alist (which is the list of IO specifiers for REWIND    *
+ * statements), checks the nodetype, and assigns the values to the           *
+ * relevant fields of the open struct.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+get_info_from_alist(AST *root, AST *alist)
+{
+  int unit_cnt, iostat_cnt, err_cnt;
+  AST *cltemp;
+
+  unit_cnt = iostat_cnt = err_cnt = 0;
+
+  root->vartype = Integer;
+  root->expr_side = right;
+  root->astnode.rewind.unit_expr = NULL;
+  root->astnode.rewind.iostat = NULL;
+  root->astnode.rewind.err = -1;
+
+  if(!alist) {
+    yyerror("ERROR: REWIND stmt needs at least a UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(alist->token == IOSPEC_EMPTY) {
+    /* this is either an asterisk or an expression without an
+     * explicit UNIT=, so we assume it is the unit specifier.
+     */
+
+    root->astnode.rewind.unit_expr = alist->astnode.expression.rhs;
+    root->astnode.rewind.unit_expr->parent = root;
+    alist = alist->nextstmt;
+    unit_cnt++;
+  }
+
+  /* need to look for the required unit number */
+
+  for(cltemp=alist;cltemp!=NULL;cltemp=cltemp->nextstmt) {
+    if(cltemp->token == IOSPEC_EMPTY) {
+      yyerror("ERROR: can't put unspecified control items at this position");
+      exit(EXIT_FAILURE);
+    }
+
+    if(cltemp->nodetype == UnitExp) {
+      root->astnode.rewind.unit_expr = cltemp->astnode.expression.rhs;
+      root->astnode.rewind.unit_expr->parent = root;
+      unit_cnt++;
+    }
+    else if(cltemp->nodetype == IostatExp) {
+      AST *pnode;
+
+      /* the IOSTAT variable is emitted as the lhs of an assignment
+       * for example:  k = __ftn_file_mgr.rewind( ... );
+       * so here we create a dummy parent node of type Assignment so
+       * that when we call name_emit() it will do the right thing.
+       */
+      root->astnode.rewind.iostat = cltemp->astnode.expression.rhs;
+
+      pnode = addnode();
+      pnode->nodetype = Assignment;
+      pnode->astnode.assignment.lhs = root->astnode.rewind.iostat; 
+      pnode->astnode.assignment.rhs = root;
+
+      root->astnode.rewind.iostat->parent = pnode;
+      iostat_cnt++;
+    }
+    else if(cltemp->nodetype == ErrExp) {
+      root->astnode.rewind.err =
+         atoi(cltemp->astnode.expression.rhs->astnode.constant.number);
+      if(root->astnode.rewind.err <= 0) {
+        yyerror("ERROR: REWIND() ERR specifier must be pos. integer");
+        exit(EXIT_FAILURE);
+      }
+      err_cnt++;
+    }
+  }
+
+  if(unit_cnt > 1) {
+    yyerror("ERROR (alist) cannot have more than one UNIT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(iostat_cnt > 1) {
+    yyerror("ERROR (alist) cannot have more than one IOSTAT specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(err_cnt > 1) {
+    yyerror("ERROR (alist) cannot have more than one ERR specifier");
+    exit(EXIT_FAILURE);
+  }
+
+  if(root->astnode.rewind.unit_expr->token == STAR) {
+    yyerror("ERROR: REWIND statement may not have unit specifier '*'");
     exit(EXIT_FAILURE);
   }
 }

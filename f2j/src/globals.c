@@ -243,6 +243,19 @@ KWDTAB close_toks[] =
     {"UNIT=", IOSPEC_UNIT, 0},
     { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
 };
+
+/*****************************************************************************
+ * Tokens found within a REWIND statement.                                   *
+ *****************************************************************************/
+
+KWDTAB rewind_toks[] =
+{
+    {"IOSTAT=", IOSPEC_IOSTAT, 0},
+    {"ERR=", IOSPEC_ERR, 0},
+    {"UNIT=", IOSPEC_UNIT, 0},
+    { NULL, 0, 0}  /*  Ensures that the scanning loop ends if nothing is matched. */
+};
+
 /*****************************************************************************
  * Tokens found within an ASSIGN statement.                                  *
  *****************************************************************************/

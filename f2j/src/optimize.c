@@ -74,6 +74,7 @@ void
   spec_optimize(AST *, AST*),
   open_optimize(AST *, AST*),
   close_optimize(AST *, AST*),
+  rewind_optimize(AST *, AST*),
   read_implied_loop_optimize(AST *, AST *),
   name_optimize (AST *, AST *),
   subcall_optimize(AST *, AST *),
@@ -337,6 +338,15 @@ optimize (AST * root, AST * rptr)
         printf ("Close statement.\n");
 
       close_optimize (root, rptr);
+
+      if (root->nextstmt != NULL)
+        optimize (root->nextstmt, rptr);
+      break;
+    case Rewind:
+      if (optdebug)
+        printf ("Rewind statement.\n");
+
+      rewind_optimize (root, rptr);
 
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
@@ -789,7 +799,7 @@ open_optimize(AST *root, AST *rptr)
  *                                                                           *
  * close_optimize                                                            *
  *                                                                           *
- * Optimize an CLOSE statement.  Not much to do here really.                 *
+ * Optimize a CLOSE statement.  Not much to do here really.                  *
  *                                                                           *
  *****************************************************************************/
 
@@ -798,6 +808,21 @@ close_optimize(AST *root, AST *rptr)
 {
   if(root->astnode.close.unit_expr)
     expr_optimize(root->astnode.close.unit_expr, rptr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * rewind_optimize                                                           *
+ *                                                                           *
+ * Optimize a REWIND statement.  Not much to do here really.                 *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+rewind_optimize(AST *root, AST *rptr)
+{
+  if(root->astnode.rewind.unit_expr)
+    expr_optimize(root->astnode.rewind.unit_expr, rptr);
 }
 
 /*****************************************************************************

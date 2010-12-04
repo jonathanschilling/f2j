@@ -37,6 +37,7 @@ public class FortranFile extends File {
   /* various error codes */
   public static final int ERR_OPEN = 14;
   public static final int ERR_CLOSE = 142;
+  public static final int ERR_REWIND = 143;
   public static final int ERR_KEEP_SCRATCH = 33;
   public static final int ERR_OLD_FILE_DOESNT_EXIST = 6;
   public static final int ERR_NEW_FILE_EXISTS = 107;
@@ -239,6 +240,35 @@ public class FortranFile extends File {
     }
 
     if(retval != 0) {
+      if(!terminate_on_error)
+        return retval;
+
+      System.err.println("Runtime error: " + errmsg);
+      System.exit(1);
+    }
+
+    return 0;
+  }
+
+  /**
+   * Rewinds this file.
+   *
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
+  public int rewind(boolean terminate_on_error)
+  {
+    int retval = 0;
+
+    try {
+      if(ra_file != null)
+        ra_file.seek(0);
+    } catch (Exception e) {
+      errmsg = "REWIND error: unable to rewind file";
+      retval = ERR_REWIND;
+
       if(!terminate_on_error)
         return retval;
 

@@ -52,6 +52,7 @@ void
   read_write_check(AST *),
   open_check(AST *),
   close_check(AST *),
+  rewind_check(AST *),
   merge_equivalences(AST *),
   check_equivalences(AST *),
   insertEquivalences(AST *),
@@ -410,6 +411,16 @@ typecheck(AST * root)
       cur_check_unit->astnode.source.needs_files = TRUE;
 
       close_check(root);
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Rewind:
+      if(checkdebug)
+        printf("typecheck(): Rewind statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      rewind_check(root);
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
@@ -1410,6 +1421,21 @@ close_check(AST * root)
 {
   if(root->astnode.close.unit_expr)
     expr_check(root->astnode.close.unit_expr);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * rewind_check                                                              *
+ *                                                                           *
+ * Performs typechecking on REWIND statements.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+rewind_check(AST * root)
+{
+  if(root->astnode.rewind.unit_expr)
+    expr_check(root->astnode.rewind.unit_expr);
 }
 
 /*****************************************************************************

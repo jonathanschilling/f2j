@@ -676,7 +676,8 @@ yylex()
    * the specifiers (e.g. WRITE(*,*) ERROR was getting lexed as ERR).
    */
   if((firsttoken == READ) || (firsttoken == WRITE) ||
-     (firsttoken == OPEN) || (firsttoken == CLOSE))
+     (firsttoken == OPEN) || (firsttoken == CLOSE) ||
+     (firsttoken == REWIND))
   {
     if((token == OP) && !in_iolist)
       in_iolist = TRUE;
@@ -701,6 +702,9 @@ yylex()
 
     if(!token && (firsttoken == CLOSE))
       token = keyscan(close_toks, &buffer);
+
+    if(!token && (firsttoken == REWIND))
+      token = keyscan(rewind_toks, &buffer);
   }
 
   if(token)

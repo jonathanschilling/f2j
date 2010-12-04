@@ -498,6 +498,24 @@ public class Util {
   }
 
   /**
+   * fixFormat - this is a hack to work around what looks like a bug
+   * in the formatter.  if we use a format like "I3/7X,I5" it only
+   * returns the first two tokens.  however, putting a comma before
+   * the slash makes it work, so we just fix up the format string
+   * before calling.  I tried to find where to fix this in the formatter
+   * but seems like my javacc is incompatible, so i couldn't create a
+   * working parser.
+   *
+   * @param fmt - the format string to fix
+   *
+   * @returns the fixed format string.
+   */
+  private static String fixFormat(String fmt)
+  {
+    return fmt.replaceAll("/", ",/");
+  }
+
+  /**
    * Formatted write.
    *
    * @param unit Unit number to which output should go
@@ -516,7 +534,7 @@ public class Util {
     outstream = getPrintStream(unit);
 
     try {
-      Formatter f = new Formatter(fmt);
+      Formatter f = new Formatter(fixFormat(fmt));
       Vector newvec = processVector(v);
       f.write( newvec, outstream );
       outstream.println();
@@ -556,16 +574,8 @@ public class Util {
 
     outstream = getPrintStream(unit);
 
-    /* fortran seems to prepend a space before the first
-     * unformatted element.  since non-string types get
-     * a string prepended in the loop below, we only
-     * do it for strings here.
-     */
-
     if(e.hasMoreElements()) {
       o = e.nextElement();
-      if(o instanceof String)
-        outstream.print(" ");
       output_unformatted_element(o, outstream);
     }
 
@@ -695,7 +705,7 @@ public class Util {
       }
     }
     else if(o instanceof String)
-      os.print(o);
+      os.print(" " + o);
     else if(o instanceof Integer) {
       if(((Integer)o).intValue() < 0)
         pre_pad = " ";
@@ -738,7 +748,7 @@ public class Util {
 
     try {
       is = getDataInputStream(unit);
-      Formatter f = new Formatter(fmt);
+      Formatter f = new Formatter(fixFormat(fmt));
       f.read( v, is );
     }
     catch ( EndOfFileWhenStartingReadException eof_exc) {

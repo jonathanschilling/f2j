@@ -24,7 +24,6 @@ public class Formatter
   private Format format = null;
   private FormatMap format_map = null;
 
-
   public Formatter( String format ) throws InvalidFormatException
   {
     this( new Format(format) );
@@ -751,12 +750,31 @@ class FormatF extends FormatIOElement
     /* Convert the number to a string. */
     if ( o instanceof Integer || o instanceof Long ||
          o instanceof Float || o instanceof Double ) {
-      String fmtstr = "%" + Integer.toString(getWidth()) + "." + 
-         Integer.toString(this.d) + "f";
-      s = new PrintfFormat(fmtstr).sprintf(o);
+      String fmtstr;
+
+      /* hack to match gfortran.  if the width after the decimal point is zero,
+       * then append "." since the PrintfFormat doesn't do it.   --kgs
+       */
+      if(this.d == 0) {
+        fmtstr = "%" + Integer.toString(getWidth()-1) + "." + 
+           Integer.toString(this.d) + "f";
+        s = new PrintfFormat(fmtstr).sprintf(o) + ".";
+      }
+      else {
+        fmtstr = "%" + Integer.toString(getWidth()) + "." + 
+           Integer.toString(this.d) + "f";
+        s = new PrintfFormat(fmtstr).sprintf(o);
+      }
 
       /* Throw an exception if the string won't fit. */
       if ( s.length() > getWidth() ) {
+
+        /* another hack to match gfortran.  if the number is just one char too long, but
+         * it begins with "0.", then just drop the zero to fit in the given width. --kgs
+         */
+        if(s.startsWith("0.") && (s.length() == getWidth()+1))
+          return s.substring(1);
+
         // instead of throwing an exception, pad the field with asterisks to
         // match the behavior of g77/gfortran.   --kgs
 
@@ -854,6 +872,7 @@ class FormatE extends FormatIOElement
        * if we get a result formatted with all zeroes in the exponent,
        * convert it to ..E+01 form.  gfortran never seems to emit numbers
        * with a zero exponent.  surely there's a better way to handle this.
+       * --kgs
        */
       int e_idx = s.indexOf('E');
       int d_idx = s.indexOf('.');
@@ -1271,7 +1290,14 @@ class InputStreamAndBuffer
   public String readLine_hack() throws java.io.IOException
   {
     StringBuffer sb = new StringBuffer();
-    int c = 0;
+    int c = 0, skip = 0;
+
+    /* if the first format spec is nX, then the ptr will be greater than zero,
+     * but nothing_read will be true. in that case, skip the first n chars.
+     * --kgs
+     */
+    if(this.nothing_read && (this.ptr > 0))
+      skip = this.ptr;
 
     while(c >= 0) {
       c = in.read();
@@ -1282,7 +1308,10 @@ class InputStreamAndBuffer
       if((char)c == '\n')
         break;
 
-      sb.append((char) c);
+      if(skip > 0)
+        skip--;
+      else
+        sb.append((char) c);
     }
 
     return sb.toString();
@@ -1344,6 +1373,7 @@ class InputStreamAndBuffer
   {
     if ( this.nothing_read )
       readLine( vecptr, format );
+
     if ( this.ptr+width > this.line.length() ) {
       /* if there aren't 'width' characters left, just return the
        * remainder of the line.  --kgs

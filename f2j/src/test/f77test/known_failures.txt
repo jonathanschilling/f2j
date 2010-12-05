@@ -1,0 +1,12 @@
+#
+# this file is read by the run_tests.sh script to display the
+# reasons for known errors.  the format is:
+#
+# num - reason
+#
+# 001 - tests the failure code, so a fail here is really a pass
+# 011 - mixes COMMON/EQUIVALENCE, not supported by f2j
+# 020 - uses statement functions, not supported by f2j
+# 022 - mixes COMMON/EQUIVALENCE, not supported by f2j
+# 023 - mixes COMMON/EQUIVALENCE, not supported by f2j
+# 024 - mixes COMMON/EQUIVALENCE, not supported by f2j

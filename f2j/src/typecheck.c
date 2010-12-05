@@ -52,7 +52,7 @@ void
   read_write_check(AST *),
   open_check(AST *),
   close_check(AST *),
-  rewind_check(AST *),
+  reb_check(AST *),
   merge_equivalences(AST *),
   check_equivalences(AST *),
   insertEquivalences(AST *),
@@ -420,7 +420,27 @@ typecheck(AST * root)
 
       cur_check_unit->astnode.source.needs_files = TRUE;
 
-      rewind_check(root);
+      reb_check(root);
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Endfile:
+      if(checkdebug)
+        printf("typecheck(): Endfile statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      reb_check(root);
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
+    case Backspace:
+      if(checkdebug)
+        printf("typecheck(): Backspace statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      reb_check(root);
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
@@ -1425,17 +1445,17 @@ close_check(AST * root)
 
 /*****************************************************************************
  *                                                                           *
- * rewind_check                                                              *
+ * reb_check                                                                 *
  *                                                                           *
- * Performs typechecking on REWIND statements.                               *
+ * Performs typechecking on REWIND/ENDFILE/BACKSPACE statements.             *
  *                                                                           *
  *****************************************************************************/
 
 void
-rewind_check(AST * root)
+reb_check(AST * root)
 {
-  if(root->astnode.rewind.unit_expr)
-    expr_check(root->astnode.rewind.unit_expr);
+  if(root->astnode.reb.unit_expr)
+    expr_check(root->astnode.reb.unit_expr);
 }
 
 /*****************************************************************************

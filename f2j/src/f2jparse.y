@@ -165,7 +165,7 @@ ITAB_ENTRY implicit_table[26];
  * non-terminals are in alphabetic order because I have had to 
  * change the grammar quite a bit.  It is tiring trying to root
  * out the location of a non-terminal, much easier to find when
- * in alphabetic order. 
+ * in alphabetic order.  [not really alphabetized anymore]
  */
 
 %type <ptnode> Arraydeclaration Arrayname Arraynamelist Assignment
@@ -187,7 +187,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Name UndeclaredName Namelist UndeclaredNamelist
 %type <ptnode> LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
-%type <ptnode> Read IoExp IoExplist Return Rewind
+%type <ptnode> Read IoExp IoExplist Return Rewind Backspace Endfile
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
 %type <ptnode> Statement StmtLabelAssign Subroutinecall
 %type <ptnode> Sourcecodes  Sourcecode Star
@@ -1390,6 +1390,16 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Rewind;
               }
+            | Endfile
+              {
+                $$ = $1;
+                $$->nodetype = Endfile;
+              }
+            | Backspace
+              {
+                $$ = $1;
+                $$->nodetype = Backspace;
+              }
             | DUMMY
               {
                 $$ = addnode();
@@ -1767,19 +1777,69 @@ Close: CLOSE OP Cllist CP NL
        }
 ;
 
+Backspace: BACKSPACE UndeclaredName NL
+        {
+          $$ = addnode();
+          $$->nodetype = Backspace;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | BACKSPACE Integer NL
+        {
+          $$ = addnode();
+          $$->nodetype = Backspace;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | BACKSPACE OP Alist CP NL
+        {
+          $$ = addnode();
+          $$->nodetype = Backspace;
+
+          $3 = switchem($3);
+
+          get_info_from_alist($$, $3);
+        }
+;
+
+Endfile: ENDFILE UndeclaredName NL
+        {
+          $$ = addnode();
+          $$->nodetype = Endfile;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | ENDFILE Integer NL
+        {
+          $$ = addnode();
+          $$->nodetype = Endfile;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | ENDFILE OP Alist CP NL
+        {
+          $$ = addnode();
+          $$->nodetype = Endfile;
+
+          $3 = switchem($3);
+
+          get_info_from_alist($$, $3);
+        }
+;
+
 Rewind: REWIND UndeclaredName NL
         {
           $$ = addnode();
           $$->nodetype = Rewind;
-          $$->astnode.rewind.unit_expr = $2;
-          $$->astnode.rewind.unit_expr->parent = $$;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
         }
       | REWIND Integer NL
         {
           $$ = addnode();
           $$->nodetype = Rewind;
-          $$->astnode.rewind.unit_expr = $2;
-          $$->astnode.rewind.unit_expr->parent = $$;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
         }
       | REWIND OP Alist CP NL
         {
@@ -5958,9 +6018,9 @@ get_info_from_olist(AST *root, AST *olist)
 /*****************************************************************************
  * get_info_from_alist                                                       *
  *                                                                           *
- * Loops through the Alist (which is the list of IO specifiers for REWIND    *
- * statements), checks the nodetype, and assigns the values to the           *
- * relevant fields of the open struct.                                       *
+ * Loops through the Alist (which is the list of IO specifiers for REWIND,   *
+ * BACKSPACE, and ENDFILE statements), checks the nodetype, and assigns the  *
+ * values to the relevant fields of the open struct.                         *
  *                                                                           *
  *****************************************************************************/
 
@@ -5974,12 +6034,12 @@ get_info_from_alist(AST *root, AST *alist)
 
   root->vartype = Integer;
   root->expr_side = right;
-  root->astnode.rewind.unit_expr = NULL;
-  root->astnode.rewind.iostat = NULL;
-  root->astnode.rewind.err = -1;
+  root->astnode.reb.unit_expr = NULL;
+  root->astnode.reb.iostat = NULL;
+  root->astnode.reb.err = -1;
 
   if(!alist) {
-    yyerror("ERROR: REWIND stmt needs at least a UNIT specifier");
+    yyerror("ERROR: this stmt needs at least a UNIT specifier");
     exit(EXIT_FAILURE);
   }
 
@@ -5988,8 +6048,8 @@ get_info_from_alist(AST *root, AST *alist)
      * explicit UNIT=, so we assume it is the unit specifier.
      */
 
-    root->astnode.rewind.unit_expr = alist->astnode.expression.rhs;
-    root->astnode.rewind.unit_expr->parent = root;
+    root->astnode.reb.unit_expr = alist->astnode.expression.rhs;
+    root->astnode.reb.unit_expr->parent = root;
     alist = alist->nextstmt;
     unit_cnt++;
   }
@@ -6003,8 +6063,8 @@ get_info_from_alist(AST *root, AST *alist)
     }
 
     if(cltemp->nodetype == UnitExp) {
-      root->astnode.rewind.unit_expr = cltemp->astnode.expression.rhs;
-      root->astnode.rewind.unit_expr->parent = root;
+      root->astnode.reb.unit_expr = cltemp->astnode.expression.rhs;
+      root->astnode.reb.unit_expr->parent = root;
       unit_cnt++;
     }
     else if(cltemp->nodetype == IostatExp) {
@@ -6015,21 +6075,21 @@ get_info_from_alist(AST *root, AST *alist)
        * so here we create a dummy parent node of type Assignment so
        * that when we call name_emit() it will do the right thing.
        */
-      root->astnode.rewind.iostat = cltemp->astnode.expression.rhs;
+      root->astnode.reb.iostat = cltemp->astnode.expression.rhs;
 
       pnode = addnode();
       pnode->nodetype = Assignment;
-      pnode->astnode.assignment.lhs = root->astnode.rewind.iostat; 
+      pnode->astnode.assignment.lhs = root->astnode.reb.iostat; 
       pnode->astnode.assignment.rhs = root;
 
-      root->astnode.rewind.iostat->parent = pnode;
+      root->astnode.reb.iostat->parent = pnode;
       iostat_cnt++;
     }
     else if(cltemp->nodetype == ErrExp) {
-      root->astnode.rewind.err =
+      root->astnode.reb.err =
          atoi(cltemp->astnode.expression.rhs->astnode.constant.number);
-      if(root->astnode.rewind.err <= 0) {
-        yyerror("ERROR: REWIND() ERR specifier must be pos. integer");
+      if(root->astnode.reb.err <= 0) {
+        yyerror("ERROR: ERR specifier must be pos. integer");
         exit(EXIT_FAILURE);
       }
       err_cnt++;
@@ -6051,8 +6111,8 @@ get_info_from_alist(AST *root, AST *alist)
     exit(EXIT_FAILURE);
   }
 
-  if(root->astnode.rewind.unit_expr->token == STAR) {
-    yyerror("ERROR: REWIND statement may not have unit specifier '*'");
+  if(root->astnode.reb.unit_expr->token == STAR) {
+    yyerror("ERROR: this statement may not have unit specifier '*'");
     exit(EXIT_FAILURE);
   }
 }

@@ -81,6 +81,8 @@
 #define OPEN_DESC "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Z)I"
 #define CLOSE_DESC "(ILjava/lang/String;Z)I"
 #define REWIND_DESC "(IZ)I"
+#define BACKSPACE_DESC "(IZ)I"
+#define ENDFILE_DESC "(IZ)I"
 #define EASYIN_CLASS "org/netlib/util/EasyIn"
 #define EASYIN_DESC "()V"
 #define ETIME_CLASS "org/netlib/util/Etime"
@@ -255,7 +257,7 @@ void
   end_emit(JVM_METHOD *),
   open_emit(JVM_METHOD *, AST *),
   close_emit(JVM_METHOD *, AST *),
-  rewind_emit(JVM_METHOD *, AST *),
+  reb_emit(JVM_METHOD *, AST *),
   emit (AST *),
   field_emit(AST *),
   invoke_constructor(JVM_METHOD *, char *, AST *, char *),

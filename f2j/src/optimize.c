@@ -74,7 +74,7 @@ void
   spec_optimize(AST *, AST*),
   open_optimize(AST *, AST*),
   close_optimize(AST *, AST*),
-  rewind_optimize(AST *, AST*),
+  reb_optimize(AST *, AST*),
   read_implied_loop_optimize(AST *, AST *),
   name_optimize (AST *, AST *),
   subcall_optimize(AST *, AST *),
@@ -346,10 +346,28 @@ optimize (AST * root, AST * rptr)
       if (optdebug)
         printf ("Rewind statement.\n");
 
-      rewind_optimize (root, rptr);
+      reb_optimize (root, rptr);
 
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
+      break;
+    case Backspace:
+      if (optdebug)
+        printf("Backspace statement.\n");
+
+      reb_optimize(root, rptr);
+
+      if(root->nextstmt != NULL)
+        optimize(root->nextstmt, rptr);
+      break;
+    case Endfile:
+      if(optdebug)
+        printf("Endfile statement.\n");
+
+      reb_optimize(root, rptr);
+
+      if(root->nextstmt != NULL)
+        optimize(root->nextstmt, rptr);
       break;
     case StmtLabelAssign:
       if (optdebug)
@@ -812,17 +830,17 @@ close_optimize(AST *root, AST *rptr)
 
 /*****************************************************************************
  *                                                                           *
- * rewind_optimize                                                           *
+ * reb_optimize                                                              *
  *                                                                           *
- * Optimize a REWIND statement.  Not much to do here really.                 *
+ * Optimize a REWIND/BACKSPACE/ENDFILE statement. Not much to do here really *
  *                                                                           *
  *****************************************************************************/
 
 void
-rewind_optimize(AST *root, AST *rptr)
+reb_optimize(AST *root, AST *rptr)
 {
-  if(root->astnode.rewind.unit_expr)
-    expr_optimize(root->astnode.rewind.unit_expr, rptr);
+  if(root->astnode.reb.unit_expr)
+    expr_optimize(root->astnode.reb.unit_expr, rptr);
 }
 
 /*****************************************************************************

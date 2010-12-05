@@ -30,7 +30,7 @@ extern KWDTAB read_write_toks[];           /* tokens found in read/write stmt*/
 extern KWDTAB open_toks[];                 /* tokens found in open stmts     */
 extern KWDTAB close_toks[];                /* tokens found in close stmts    */
 extern KWDTAB close_toks[];                /* tokens found in close stmts    */
-extern KWDTAB rewind_toks[];               /* tokens found in rewind stmts   */
+extern KWDTAB reb_toks[];                  /* rewind/endfile/backspace tokens*/
 extern KWDTAB assign_toks[];               /* tokens found in ASSIGN stmts   */
 
 extern METHODTAB intrinsic_toks[];         /* fortran intrinsic functions    */

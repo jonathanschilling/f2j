@@ -126,7 +126,7 @@ public class FortranFileMgr {
   /**
    * Rewinds the specified unit.
    *
-   * @param unit - the unit to be closed
+   * @param unit - the unit to rewind
    * @param terminate_on_error - if true, call System.exit() on error,
    *   otherwise return -1.
    *
@@ -143,6 +143,60 @@ public class FortranFileMgr {
       return 0;
 
     rv = ff.rewind(terminate_on_error);
+
+    if((rv != 0) && !terminate_on_error)
+      return rv;
+
+    return 0;
+  }
+
+  /**
+   * Backspace the specified unit.
+   *
+   * @param unit - the unit to backspace
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return -1.
+   *
+   * @returns 0 on success, -1 on error.
+   */
+  public int backspace(int unit, boolean terminate_on_error)
+  {
+    FortranFile ff;
+    int rv;
+
+    ff = get(new Integer(unit));
+
+    if(ff == null)
+      return 0;
+
+    rv = ff.backspace(terminate_on_error);
+
+    if((rv != 0) && !terminate_on_error)
+      return rv;
+
+    return 0;
+  }
+
+  /**
+   * Writes an 'endfile' record to the specified unit.
+   *
+   * @param unit - the unit to write the endfile record to
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return -1.
+   *
+   * @returns 0 on success, -1 on error.
+   */
+  public int endfile(int unit, boolean terminate_on_error)
+  {
+    FortranFile ff;
+    int rv;
+
+    ff = get(new Integer(unit));
+
+    if(ff == null)
+      return 0;
+
+    rv = ff.endfile(terminate_on_error);
 
     if((rv != 0) && !terminate_on_error)
       return rv;

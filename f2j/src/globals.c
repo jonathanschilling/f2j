@@ -94,6 +94,7 @@ INCLUDED_FILE
 
 KWDTAB tab_stmt[] =
 {
+    {"ENDFILE", REWIND, 0},
     {"CALL", CALL, 0},
     {"CLOSE", CLOSE, 0},
     {"COMMON", COMMON, 0},
@@ -122,6 +123,7 @@ KWDTAB tab_stmt[] =
     {"READ", READ, 0},
     {"RETURN", RETURN, 0},
     {"REWIND", REWIND, 0},
+    {"BACKSPACE", REWIND, 0},
     {"SAVE", SAVE, 0},
     {"STOP", STOP, 0},
     {"PAUSE", PAUSE, 0},
@@ -245,10 +247,10 @@ KWDTAB close_toks[] =
 };
 
 /*****************************************************************************
- * Tokens found within a REWIND statement.                                   *
+ * Tokens found within REWIND/ENDFILE/BACKSPACE statements.                  *
  *****************************************************************************/
 
-KWDTAB rewind_toks[] =
+KWDTAB reb_toks[] =
 {
     {"IOSTAT=", IOSPEC_IOSTAT, 0},
     {"ERR=", IOSPEC_ERR, 0},

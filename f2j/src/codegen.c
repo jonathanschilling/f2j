@@ -707,7 +707,25 @@ emit(AST * root)
         if(gendebug)
           printf("Rewind\n");
 
-        rewind_emit(cur_method, root);
+        reb_emit(cur_method, root);
+
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
+        break;
+      case Backspace:
+        if(gendebug)
+          printf("Backspace\n");
+
+        reb_emit(cur_method, root);
+
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
+        break;
+      case Endfile:
+        if(gendebug)
+          printf("Endfile\n");
+
+        reb_emit(cur_method, root);
 
         if(root->nextstmt != NULL)
           emit(root->nextstmt);
@@ -1235,34 +1253,54 @@ open_emit(JVM_METHOD *meth, AST *root)
 
 /*****************************************************************************
  *                                                                           *
- * rewind_emit                                                               *
+ * reb_emit                                                                  *
  *                                                                           *
- * This emits code to rewind a file (i.e. Fortran REWIND statements).        *
+ * This emits code to handle REWIND/ENDFILE/BACKSPACE statements.            *
+ * the codegen for all three is basically the same, so they are grouped here *
  *                                                                           *
  *****************************************************************************/
 
 void
-rewind_emit(JVM_METHOD *meth, AST *root)
+reb_emit(JVM_METHOD *meth, AST *root)
 {
   JVM_CODE_GRAPH_NODE *if_node, *goto_node;
-  int rewind_ref;
+  int mref;
+  char *func, *desc;
+
+  switch(root->nodetype) {
+    case Rewind:
+      func = "rewind";
+      desc = REWIND_DESC;
+      break;
+    case Endfile:
+      func = "endfile";
+      desc = ENDFILE_DESC;
+      break;
+    case Backspace:
+      func = "backspace";
+      desc = BACKSPACE_DESC;
+      break;
+    default:
+      fprintf(stderr, "Internal error: hit unexepected case in reb_emit()\n");
+      exit(EXIT_FAILURE);
+  }
 
   /* if ERR is set, then generate the conditional branch in case of error */
-  if(root->astnode.rewind.err > 0)
+  if(root->astnode.reb.err > 0)
     fprintf(curfp, "  if((");
 
   bc_gen_load_op(meth, filemgr_lvar, jvm_Object);
 
-  if(root->astnode.rewind.iostat) {
-    name_emit (meth, root->astnode.rewind.iostat);
+  if(root->astnode.reb.iostat) {
+    name_emit (meth, root->astnode.reb.iostat);
     fprintf(curfp, " =");
   }
 
-  fprintf(curfp, "  %s.rewind(", F2J_FILE_MGR);
-  expr_emit(meth, root->astnode.rewind.unit_expr);
+  fprintf(curfp, "  %s.%s(", F2J_FILE_MGR, func);
+  expr_emit(meth, root->astnode.reb.unit_expr);
   fprintf(curfp, ", ");
 
-  if(root->astnode.rewind.iostat || (root->astnode.rewind.err > 0)) {
+  if(root->astnode.reb.iostat || (root->astnode.reb.err > 0)) {
     bc_append(meth, jvm_iconst_0);
     fprintf(curfp, "false");
   }
@@ -1271,33 +1309,33 @@ rewind_emit(JVM_METHOD *meth, AST *root)
     fprintf(curfp, "true");
   }
 
-  rewind_ref = bc_new_methodref(cur_class_file, FILEMGR_CLASS,
-               "rewind", REWIND_DESC);
-  bc_append(meth, jvm_invokevirtual, rewind_ref);
+  mref = bc_new_methodref(cur_class_file, FILEMGR_CLASS,
+               func, desc);
+  bc_append(meth, jvm_invokevirtual, mref);
 
-  if((root->astnode.rewind.err > 0) && root->astnode.rewind.iostat)
+  if((root->astnode.reb.err > 0) && root->astnode.reb.iostat)
     bc_append(meth, jvm_dup);
 
   /* if IOSTAT is set, then emit the LHS assignment to set the ret value */
-  if(root->astnode.rewind.iostat)
-    LHS_bytecode_emit(meth, root->astnode.rewind.iostat->parent);
+  if(root->astnode.reb.iostat)
+    LHS_bytecode_emit(meth, root->astnode.reb.iostat->parent);
 
-  if(root->astnode.rewind.err > 0) {
+  if(root->astnode.reb.err > 0) {
     if_node = bc_append(meth, jvm_ifeq);
 
     goto_node = bc_append(meth, jvm_goto);
 
-    bc_set_integer_branch_label(goto_node, root->astnode.rewind.err);
+    bc_set_integer_branch_label(goto_node, root->astnode.reb.err);
 
     bc_set_branch_target(if_node, bc_append(meth, jvm_xxxunusedxxx));
 
     fprintf(curfp, ")) != 0)\n");
     fprintf(curfp,"    Dummy.go_to(\"%s\",%d);\n",cur_filename,
-        root->astnode.rewind.err);
+        root->astnode.reb.err);
   }
   else {
     fprintf(curfp, ");\n");
-    if(!root->astnode.rewind.iostat)
+    if(!root->astnode.reb.iostat)
       bc_append(meth, jvm_pop);
   }
 }
@@ -13602,6 +13640,10 @@ print_nodetype(AST *root)
       return("Close");
     case Rewind:
       return("Rewind");
+    case Backspace:
+      return("Backspace");
+    case Endfile:
+      return("Endfile");
     case CharExp:
       return("CharExp");
     case FormatOrUnknownSpec:

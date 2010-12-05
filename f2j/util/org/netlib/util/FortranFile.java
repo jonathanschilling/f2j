@@ -38,6 +38,8 @@ public class FortranFile extends File {
   public static final int ERR_OPEN = 14;
   public static final int ERR_CLOSE = 142;
   public static final int ERR_REWIND = 143;
+  public static final int ERR_BACKSPACE = 144;
+  public static final int ERR_ENDFILE = 145;
   public static final int ERR_KEEP_SCRATCH = 33;
   public static final int ERR_OLD_FILE_DOESNT_EXIST = 6;
   public static final int ERR_NEW_FILE_EXISTS = 107;
@@ -268,6 +270,68 @@ public class FortranFile extends File {
     } catch (Exception e) {
       errmsg = "REWIND error: unable to rewind file";
       retval = ERR_REWIND;
+
+      if(!terminate_on_error)
+        return retval;
+
+      System.err.println("Runtime error: " + errmsg);
+      System.exit(1);
+    }
+
+    return 0;
+  }
+
+  /**
+   * Backspace this file.
+   *
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
+  public int backspace(boolean terminate_on_error)
+  {
+    int retval = 0;
+
+    try {
+      // NOT IMPLEMENTED YET!
+
+      //if(ra_file != null)
+      //  ra_file.seek(0);
+    } catch (Exception e) {
+      errmsg = "BACKSPACE error: unable to backspace file";
+      retval = ERR_BACKSPACE;
+
+      if(!terminate_on_error)
+        return retval;
+
+      System.err.println("Runtime error: " + errmsg);
+      System.exit(1);
+    }
+
+    return 0;
+  }
+
+  /**
+   * Writes 'endfile' record to this file.
+   *
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
+  public int endfile(boolean terminate_on_error)
+  {
+    int retval = 0;
+
+    try {
+      // NOT IMPLEMENTED YET!
+
+      //if(ra_file != null)
+      //  ra_file.seek(0);
+    } catch (Exception e) {
+      errmsg = "ENDFILE error: unable to write endfile record";
+      retval = ERR_ENDFILE;
 
       if(!terminate_on_error)
         return retval;

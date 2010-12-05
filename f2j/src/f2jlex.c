@@ -677,7 +677,8 @@ yylex()
    */
   if((firsttoken == READ) || (firsttoken == WRITE) ||
      (firsttoken == OPEN) || (firsttoken == CLOSE) ||
-     (firsttoken == REWIND))
+     (firsttoken == REWIND) || (firsttoken == ENDFILE) ||
+     (firsttoken == BACKSPACE))
   {
     if((token == OP) && !in_iolist)
       in_iolist = TRUE;
@@ -704,7 +705,13 @@ yylex()
       token = keyscan(close_toks, &buffer);
 
     if(!token && (firsttoken == REWIND))
-      token = keyscan(rewind_toks, &buffer);
+      token = keyscan(reb_toks, &buffer);
+
+    if(!token && (firsttoken == BACKSPACE))
+      token = keyscan(reb_toks, &buffer);
+
+    if(!token && (firsttoken == ENDFILE))
+      token = keyscan(reb_toks, &buffer);
   }
 
   if(token)

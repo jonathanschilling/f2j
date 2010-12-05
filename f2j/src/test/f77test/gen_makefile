@@ -1,0 +1,17 @@
+#!/bin/sh
+
+echo "F2J=f2java"
+echo "JAVA=java"
+echo "JAVAC=javac"
+echo ""
+
+for file in *.f; do
+  testnum=`echo $file | sed s/FM// | cut -d . -f 1`
+  echo "test${testnum}: clean"
+  echo "	\$(F2J) FM${testnum}.f"
+  echo "	\$(JAVA) Fm${testnum}"
+  echo ""
+done
+
+echo "clean:"
+echo "	/bin/rm -f *.class *.java *.f2j *.old a.out fort.*"

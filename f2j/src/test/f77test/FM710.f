@@ -1,5 +1,3 @@
-      PROGRAM FM710
-
       PROGRAM FM710                                                     00010710
 C                                                                       00020710
 C     THIS ROUTINE TESTS SUBSCRIPT EXPRESSIONS AND          ANS REF.    00030710

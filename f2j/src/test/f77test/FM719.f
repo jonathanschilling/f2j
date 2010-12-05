@@ -1,5 +1,3 @@
-      PROGRAM FM719
-
       PROGRAM FM719                                                     00010719
 C                                                                       00020719
 C     THIS ROUTINE TESTS DO STATEMENTS USING REAL,         ANS REF.     00030719

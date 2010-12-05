@@ -1,5 +1,3 @@
-      PROGRAM FM509
-
       PROGRAM FM509                                                     00010509
 C                                                                       00020509
 C     THIS ROUTINE TESTS SUBROUTINE SUBPROGRAMS AND        ANS REF.     00030509

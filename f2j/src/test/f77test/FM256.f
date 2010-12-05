@@ -1,5 +1,3 @@
-      PROGRAM FM256
-
       PROGRAM FM256                                                     00010256
 C                                                                       00020256
 C                                                                       00030256

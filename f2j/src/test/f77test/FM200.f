@@ -1,5 +1,3 @@
-      PROGRAM FM200
-
       PROGRAM FM200                                                     00010200
 C                                                                       00020200
 C                                                                       00030200

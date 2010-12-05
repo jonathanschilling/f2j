@@ -1,5 +1,3 @@
-      PROGRAM FM311
-
       PROGRAM FM311                                                     00010311
 C                                                                       00020311
 C                                                                       00030311

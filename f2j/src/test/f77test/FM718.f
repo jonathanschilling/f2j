@@ -1,5 +1,3 @@
-      PROGRAM FM718
-
       PROGRAM FM718                                                     00010718
 C                                                                       00020718
 C     THIS ROUTINE TESTS LOGICAL EXPRESSIONS AND            ANS REF.    00030718

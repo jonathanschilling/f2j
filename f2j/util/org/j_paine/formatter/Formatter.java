@@ -770,10 +770,13 @@ class FormatF extends FormatIOElement
       if ( s.length() > getWidth() ) {
 
         /* another hack to match gfortran.  if the number is just one char too long, but
-         * it begins with "0.", then just drop the zero to fit in the given width. --kgs
+         * it begins with "0." or "-0.", then just drop the zero to fit in the given
+         * width. --kgs
          */
         if(s.startsWith("0.") && (s.length() == getWidth()+1))
           return s.substring(1);
+        else if(s.startsWith("-0.") && (s.length() == getWidth()+1))
+          return "-" + s.substring(2);
 
         // instead of throwing an exception, pad the field with asterisks to
         // match the behavior of g77/gfortran.   --kgs

@@ -1,5 +1,3 @@
-      PROGRAM FM317
-
       PROGRAM FM317                                                     00010317
 C                                                                       00020317
 C                                                                       00030317

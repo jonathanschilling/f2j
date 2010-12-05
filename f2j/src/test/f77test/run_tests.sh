@@ -30,7 +30,7 @@ for testcase in ${TEST_NUMS}; do
   echo -n "$testcase --"
   /bin/rm -f ${TMPFILE}
   if make test${testcase} > ${TMPFILE} 2>&1; then
-    if grep FAILED ${TMPFILE} >/dev/null ; then
+    if grep " FAIL " ${TMPFILE} >/dev/null ; then
       FAIL=1
     else
       echo " passed"

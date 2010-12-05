@@ -287,14 +287,14 @@ emit(AST * root)
            * formatted write routine (f77write).
            */
           if(root->astnode.source.progtype->astnode.source.needs_output) {
-            fprintf(curfp,"  java.util.Vector %s = new java.util.Vector();\n", F2J_IO_VEC);
+            fprintf(curfp,"  IOVector %s = new IOVector();\n", F2J_IO_VEC);
             iovec_lvar = bc_get_next_local(cur_method, jvm_Object);
 
-            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, VECTOR_CLASS);
+            c = cp_find_or_insert(cur_class_file, CONSTANT_Class, IOVECTOR_CLASS);
             bc_append(cur_method, jvm_new,c);
             bc_append(cur_method, jvm_dup);
 
-            c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "<init>", 
+            c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "<init>", 
                    VECTOR_DESC);
             bc_append(cur_method, jvm_invokespecial, c);
             bc_gen_store_op(cur_method, iovec_lvar, jvm_Object);
@@ -1266,6 +1266,9 @@ reb_emit(JVM_METHOD *meth, AST *root)
   JVM_CODE_GRAPH_NODE *if_node, *goto_node;
   int mref;
   char *func, *desc;
+
+  if(gendebug)
+    printf("in reb_emit(), nodetype is %s\n", print_nodetype(root));
 
   switch(root->nodetype) {
     case Rewind:
@@ -7302,72 +7305,24 @@ relationalop_emit(JVM_METHOD *meth, AST *root)
       (root->astnode.expression.rhs->vartype == Character)))
   {
     int c;
-    int len;
 
     if((root->token != rel_eq) && (root->token != rel_ne)) {
       fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
       return;
     }
 
-    c = bc_new_methodref(cur_class_file,JL_STRING,
-           "regionMatches", REGIONMATCHES_DESC);
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "strEquals", STREQV_DESC);
 
     if(root->token == rel_ne)
       fprintf(curfp,"!");
 
+    fprintf(curfp,"Util.strEquals(");
     expr_emit (meth, root->astnode.expression.lhs);
-
-    bc_append(meth, jvm_iconst_0);
-    fprintf(curfp,".regionMatches(0, ");
-
+    fprintf(curfp,", ");
     expr_emit (meth, root->astnode.expression.rhs);
-    bc_append(meth, jvm_iconst_0);
+    fprintf(curfp,")");
 
-    len = 1;
-      
-    if(root->astnode.expression.lhs->nodetype == Constant) {
-      len = strlen(root->astnode.expression.lhs->astnode.constant.number);
-    }
-    else if(root->astnode.expression.lhs->nodetype == Identifier) {
-      HASHNODE *h;
-
-      h = type_lookup(cur_type_table, 
-            root->astnode.expression.lhs->astnode.ident.name);
-
-      if(h) {
-        if(h->variable->astnode.ident.len < 0)
-          len = 1;
-        else
-          len = h->variable->astnode.ident.len;
-      }
-    }
-
-    if(root->astnode.expression.rhs->nodetype == Constant) {
-      int rlen;
-
-      rlen = strlen(root->astnode.expression.rhs->astnode.constant.number);
-
-      if(rlen < len)
-        len = rlen;
-    }
-    else if(root->astnode.expression.rhs->nodetype == Identifier) {
-      HASHNODE *h;
-
-      h = type_lookup(cur_type_table, 
-            root->astnode.expression.rhs->astnode.ident.name);
-
-      if(h)
-        if((h->variable->astnode.ident.len < len) &&
-          (h->variable->astnode.ident.len > 0))
-          len = h->variable->astnode.ident.len;
-    }
-    
-    /* bc_append(jvm_iconst_1); */
-    bc_push_int_const(meth, len);
-
-    fprintf(curfp,", 0, %d) ",len);
-
-    bc_append(meth, jvm_invokevirtual, c);  /* call regionMatches() */
+    bc_append(meth, jvm_invokestatic, c);
 
     /* now check the op type & reverse if .NE. */
     if(root->token == rel_ne) {
@@ -9200,9 +9155,19 @@ formatted_read_assign_emit(JVM_METHOD *meth, AST *temp,
 
   bc_gen_load_op(meth, iovec_lvar, jvm_Object);
   bc_append(meth, jvm_iconst_0);
+  if((temp->vartype == Character) || (temp->vartype == String)) {
+    if(temp->astnode.ident.len > 0)
+      bc_push_int_const(meth, temp->astnode.ident.len);
+    else
+      bc_append(meth, jvm_iconst_0);
 
-  c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "remove",
+    c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "remove",
+            VEC_REMOVE_PAD_DESC);
+  }
+  else
+    c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "remove",
             VEC_REMOVE_DESC);
+
   bc_append(meth, jvm_invokevirtual, c);
 
   if((temp->vartype == Character) || (temp->vartype == String)) {
@@ -9215,9 +9180,14 @@ formatted_read_assign_emit(JVM_METHOD *meth, AST *temp,
           numeric_wrapper[temp->vartype]);
     bc_append(meth, jvm_checkcast, c);
 
-    if(emit_source)
-      fprintf(curfp," = (%s) %s.remove(0);\n", java_wrapper[temp->vartype],
+    if(emit_source) {
+      fprintf(curfp, " = (%s) %s.remove(0", java_wrapper[temp->vartype],
          F2J_IO_VEC);
+      if(temp->astnode.ident.len > 0)
+        fprintf(curfp, ", %d);\n", temp->astnode.ident.len);
+      else
+        fprintf(curfp, ", 0);\n");
+    }
   }
   else if(temp->vartype == Logical) {
     /* special case for boolean since java.lang.Boolean can't be cast
@@ -9687,7 +9657,7 @@ gen_clear_io_vec(JVM_METHOD *meth)
   fprintf(curfp, "%s.clear();\n", F2J_IO_VEC);
 
   bc_gen_load_op(meth, iovec_lvar, jvm_Object);
-  c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "clear", "()V");
+  c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "clear", "()V");
   bc_append(meth, jvm_invokevirtual, c);
 }
 
@@ -9726,7 +9696,7 @@ write_argument_emit(JVM_METHOD *meth, AST *root)
            array_spec_descriptor[root->vartype]);
 
     bc_append(cur_method, jvm_invokespecial, c);
-    c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+    c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "addElement",
         VEC_ADD_DESC);
     bc_append(meth, jvm_invokevirtual, c);
   }
@@ -9770,7 +9740,7 @@ write_argument_emit(JVM_METHOD *meth, AST *root)
     }
 
     bc_append(meth, jvm_invokespecial, c);
-    c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement",
+    c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "addElement",
         VEC_ADD_DESC);
     bc_append(meth, jvm_invokevirtual, c);
   }
@@ -10042,7 +10012,7 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       pushConst(meth, temp);
 
       bc_append(meth, jvm_invokespecial, c);
-      c = bc_new_methodref(cur_class_file, VECTOR_CLASS, "addElement", 
+      c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "addElement", 
           VEC_ADD_DESC);
       bc_append(meth, jvm_invokevirtual, c);
     }

@@ -1,5 +1,3 @@
-      PROGRAM FM715
-
       PROGRAM FM715                                                     00010715
 C                                                                       00020715
 C     THIS ROUTINE TESTS CHARACTER EXPRESSIONS           ANS REF.       00030715

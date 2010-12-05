@@ -1,5 +1,3 @@
-      PROGRAM FM257
-
       PROGRAM FM257                                                     00010257
 C                                                                       00020257
 C                                                                       00030257

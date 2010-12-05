@@ -95,6 +95,143 @@ public class Util {
   }
 
   /**
+   * Pads the end of a string with the given pad character up to the total
+   * length specified.
+   *
+   * @param str - the string to be padded
+   * @param size - the total length of the padded string
+   * @param padChar - the character to pad with
+   *
+   * @returns the padded string
+   */
+  public static String pad(String str, int size, char padChar)
+  {
+    if (str.length() < size)
+    {
+      char[] temp = new char[size];
+      int i = 0;
+
+      while (i < str.length()) {
+        temp[i] = str.charAt(i);
+        i++;
+      }
+
+      while (i < size) {
+        temp[i] = padChar;
+        i++;
+      }
+
+      str = new String(temp);
+    }
+
+    return str;
+  }
+
+  /**
+   * Compares two strings.  If the lengths are different, pad the
+   * shorter string with blanks to match the length of the longer
+   * string (see f77 spec).
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return 0 if the strings are equal
+   *        -1 if s1 < s2
+   *         1 if s1 > s2
+   */
+
+  public static int strCompare(String s1, String s2) {
+    String short_str, long_str;
+    int short_len, long_len;
+
+    short_str = s1;
+    long_str = s2;
+    short_len = short_str.length();
+    long_len = long_str.length();
+
+    if(short_len != long_len) {
+      if(short_len > long_len) {
+        int tmp = short_len;
+        short_len = long_len;
+        long_len = tmp;
+        short_str = s2;
+        long_str = s1;
+      }
+
+      short_str = pad(short_str, long_len, ' ');
+    }
+
+    return short_str.compareTo(long_str);
+  }
+
+  /**
+   * Checks whether the two strings are equal according to the definition
+   * in the Fortran spec.  In particular, it says that if the operands are
+   * of unequal length, the shorter operand is considered as if it were
+   * extended on the right with blanks to the length of the longer operand.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if the strings are equal, false otherwise.
+   */
+  public static boolean strEquals(String s1, String s2) {
+    return strCompare(s1, s2) == 0;
+  }
+
+  /**
+   * Checks whether the first string is greater than the
+   * second string.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if s1 is greater than to s2
+   */
+  public static boolean strCompGT(String s1, String s2) {
+    return strCompare(s1, s2) > 0;
+  }
+
+  /**
+   * Checks whether the first string is greater than or equal to the
+   * second string.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if s1 is greater than or equal to s2
+   */
+  public static boolean strCompGE(String s1, String s2) {
+    return strCompare(s1, s2) >= 0;
+  }
+
+  /**
+   * Checks whether the first string is less than
+   * second string.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if s1 is less than to s2
+   */
+  public static boolean strCompLT(String s1, String s2) {
+    return strCompare(s1, s2) < 0;
+  }
+
+  /**
+   * Checks whether the first string is less than or equal to the
+   * second string.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if s1 is less than or equal to s2
+   */
+  public static boolean strCompLE(String s1, String s2) {
+    return strCompare(s1, s2) <= 0;
+  }
+
+  /**
    * Three argument integer max function.
    *
    * @param x value 1

@@ -1,5 +1,3 @@
-      PROGRAM FM203
-
       PROGRAM FM203                                                     00010203
 C                                                                       00020203
 C                                                                       00030203

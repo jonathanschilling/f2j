@@ -1,5 +1,3 @@
-      PROGRAM FM700
-
       PROGRAM FM700                                                     00010700
 C                                                                       00020700
 C     THIS PROGRAM TESTS THE DATA STATEMENT WITH           ANS REF.     00030700

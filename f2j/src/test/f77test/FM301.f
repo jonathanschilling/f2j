@@ -1,5 +1,3 @@
-      PROGRAM FM301
-
       PROGRAM FM301                                                     00010301
 C                                                                       00020301
 C                                                                       00030301

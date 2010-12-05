@@ -32,7 +32,7 @@
  * JL_MATH is the fully-qualified name of the Math class                     *
  * STR_CONST_DESC is the descriptor for the String constructor               *
  * TRIM_DESC is the descriptor for java.lang.String.trim()                   *
- * STREQV_DESC is the descriptor for java.lang.String.equalsIgnoreCase()     *
+ * STREQV_DESC is the descriptor for org.netlib.util.Util.strEquals()        *
  * SUBSTR_DESC is the descriptor for java.lang.String.substring(int,int)     *
  * F2J_UTIL defines the default name of the f2java utility package.          *
  * UTIL_CLASS is where the insertString() method is defined.                 *
@@ -52,7 +52,7 @@
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define CHAR_ARRAY_DESC "([C)V"
 #define TRIM_DESC "()Ljava/lang/String;"
-#define STREQV_DESC "(Ljava/lang/String;)Z"
+#define STREQV_DESC "(Ljava/lang/String;Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
 #define F77_READ_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
@@ -72,9 +72,11 @@
 #define TOSTRING_DESC "()Ljava/lang/String;"
 #define VEC_ADD_DESC "(Ljava/lang/Object;)V"
 #define VEC_REMOVE_DESC "(I)Ljava/lang/Object;"
+#define VEC_REMOVE_PAD_DESC "(II)Ljava/lang/Object;"
 #define CHARAT_DESC "(I)C"
 #define COMPARE_DESC "(Ljava/lang/String;)I"
 #define VECTOR_CLASS "java/util/Vector"
+#define IOVECTOR_CLASS "org/netlib/util/IOVector"
 #define VECTOR_DESC "()V"
 #define FILEMGR_CLASS "org/netlib/util/FortranFileMgr"
 #define FILEMGR_DESC "()Lorg/netlib/util/FortranFileMgr;"

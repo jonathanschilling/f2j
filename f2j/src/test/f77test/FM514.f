@@ -1,5 +1,3 @@
-      PROGRAM FM514
-
       PROGRAM FM514                                                     00010514
 C                                                                       00020514
 C     THIS ROUTINE TESTS SUBROUTINE STATEMENT WITH         ANS REF.     00030514

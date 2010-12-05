@@ -1,5 +1,3 @@
-      PROGRAM FM308
-
       PROGRAM FM308                                                     00010308
 C                                                                       00020308
 C                                                                       00030308

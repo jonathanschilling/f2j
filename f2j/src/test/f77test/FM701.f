@@ -1,5 +1,3 @@
-      PROGRAM FM701
-
       PROGRAM FM701                                                     00010701
 C                                                                       00020701
 C     THIS ROUTINE TESTS ARRAY DECLARATORS WHERE DIMENSION      ANS REF.00030701

@@ -1,5 +1,3 @@
-      PROGRAM FM328
-
       PROGRAM FM328                                                     00010328
 C                                                                       00020328
 C                                                                       00030328

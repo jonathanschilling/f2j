@@ -1,5 +1,3 @@
-      PROGRAM FM520
-
       PROGRAM FM520                                                     00010520
 C                                                                       00020520
 C     TESTING PARAMETER STATEMENT                                       00030520

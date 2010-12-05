@@ -294,10 +294,24 @@ public class FortranFile extends File {
     int retval = 0;
 
     try {
-      // NOT IMPLEMENTED YET!
+      long fpos;
 
-      //if(ra_file != null)
-      //  ra_file.seek(0);
+      /* seek back in the file until the previous newline is found (or until the
+       * beginning of the file is reached.  this seems like a hack, but i'm not
+       * sure of a better way to do it, unless you keep track of all the previous
+       * record lengths written.
+       */
+      for(fpos = ra_file.getFilePointer()-2;fpos>=0;fpos--) {
+        ra_file.seek(fpos);
+
+        if(ra_file.readByte() == '\n') {
+          ra_file.seek(fpos+1);
+          break;
+        }
+      }
+
+      if(fpos < 0)
+        ra_file.seek(0);
     } catch (Exception e) {
       errmsg = "BACKSPACE error: unable to backspace file";
       retval = ERR_BACKSPACE;
@@ -326,9 +340,6 @@ public class FortranFile extends File {
 
     try {
       // NOT IMPLEMENTED YET!
-
-      //if(ra_file != null)
-      //  ra_file.seek(0);
     } catch (Exception e) {
       errmsg = "ENDFILE error: unable to write endfile record";
       retval = ERR_ENDFILE;

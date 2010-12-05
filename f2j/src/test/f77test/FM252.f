@@ -1,5 +1,3 @@
-      PROGRAM FM252
-
       PROGRAM FM252                                                     00010252
 C                                                                       00020252
 C                                                                       00030252

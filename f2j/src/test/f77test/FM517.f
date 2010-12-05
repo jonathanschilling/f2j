@@ -1,5 +1,3 @@
-      PROGRAM FM517
-
       PROGRAM FM517                                                     00010517
 C                                                                       00020517
 C     THIS PROGRAM TESTS THE RETURN STATEMENT              ANS REF.     00030517

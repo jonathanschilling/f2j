@@ -1,5 +1,3 @@
-      PROGRAM FM352
-
       PROGRAM FM352                                                     00010352
 C                                                                       00020352
 C                                                                       00030352

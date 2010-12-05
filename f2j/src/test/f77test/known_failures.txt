@@ -10,3 +10,7 @@
 # 022 - mixes COMMON/EQUIVALENCE, not supported by f2j
 # 023 - mixes COMMON/EQUIVALENCE, not supported by f2j
 # 024 - mixes COMMON/EQUIVALENCE, not supported by f2j
+# 107 - uses nested implied do loops, not supported by f2j
+# 110 - uses P scaling, not supported by f2j
+# 111 - uses nested implied do loops, not supported by f2j
+# 200 - uses numbered typedec stmts, not supported by f2j

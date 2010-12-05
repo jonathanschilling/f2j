@@ -1,5 +1,3 @@
-      PROGRAM FM255
-
       PROGRAM FM255                                                     00010255
 C                                                                       00020255
 C                                                                       00030255

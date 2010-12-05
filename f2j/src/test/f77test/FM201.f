@@ -1,5 +1,3 @@
-      PROGRAM FM201
-
       PROGRAM FM201                                                     00010201
 C                                                                       00020201
 C                                                                       00030201

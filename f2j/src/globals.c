@@ -94,7 +94,7 @@ INCLUDED_FILE
 
 KWDTAB tab_stmt[] =
 {
-    {"ENDFILE", REWIND, 0},
+    {"ENDFILE", ENDFILE, 0},
     {"CALL", CALL, 0},
     {"CLOSE", CLOSE, 0},
     {"COMMON", COMMON, 0},
@@ -123,7 +123,7 @@ KWDTAB tab_stmt[] =
     {"READ", READ, 0},
     {"RETURN", RETURN, 0},
     {"REWIND", REWIND, 0},
-    {"BACKSPACE", REWIND, 0},
+    {"BACKSPACE", BACKSPACE, 0},
     {"SAVE", SAVE, 0},
     {"STOP", STOP, 0},
     {"PAUSE", PAUSE, 0},

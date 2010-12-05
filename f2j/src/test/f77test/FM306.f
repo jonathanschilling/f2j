@@ -1,5 +1,3 @@
-      PROGRAM FM306
-
       PROGRAM FM306                                                     00010306
 C                                                                       00020306
 C                                                                       00030306

@@ -70,6 +70,7 @@ double
 
 char 
   * lowercase(char * ),
+  * strdup_strip_leading_zero(char *),
   * first_char_is_minus(char *),
   * unary_negate_string(char *),
   * tok2str(int );
@@ -2508,6 +2509,12 @@ Format: FORMAT OP FormatExplist CP
          $$->nodetype = Format;
          $$->astnode.label.stmt = switchem($3);
        }
+      | FORMAT OP CP
+       {
+         $$ = addnode();
+         $$->nodetype = Format;
+         $$->astnode.label.stmt = NULL;
+       }
 ;
 
 FormatExplist:   FormatExp
@@ -3482,7 +3489,8 @@ Integer :     INTEGER
                $$ = addnode();
                $$->token = INTEGER;
                $$->nodetype = Constant;
-               $$->astnode.constant.number = strdup(yylval.lexeme);
+               $$->astnode.constant.number = 
+                  strdup_strip_leading_zero(yylval.lexeme);
                $$->vartype = Integer;
              }
 ;
@@ -3801,7 +3809,6 @@ Intrinsic: INTRINSIC UndeclaredNamelist NL
 
 %%
 
-
 /*****************************************************************************
  *                                                                           *
  * yyerror                                                                   *
@@ -3827,6 +3834,30 @@ yyerror(char *s)
 
     printf("\tincluded from: %s:%d\n", pfile->name, pfile->line_num);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * strdup_strip_leading_zero                                                 *
+ *                                                                           *
+ * this routine takes a string representing an integer value and returns a   *
+ * duplicate of the string with any leading zeroes stripped off.             *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+strdup_strip_leading_zero(char *s)
+{
+  char *newstr;
+
+  if(!s)
+    return NULL;
+
+  newstr = (char *)f2jalloc(strlen(s));
+
+  sprintf(newstr, "%d", atoi(s));
+
+  return newstr;
 }
 
 /*****************************************************************************

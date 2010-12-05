@@ -1,5 +1,3 @@
-      PROGRAM FM302
-
       PROGRAM FM302                                                     00010302
 C                                                                       00020302
 C                                                                       00030302

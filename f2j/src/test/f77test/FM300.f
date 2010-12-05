@@ -1,5 +1,3 @@
-      PROGRAM FM300
-
       PROGRAM FM300                                                     00010300
 C                                                                       00020300
 C                                                                       00030300

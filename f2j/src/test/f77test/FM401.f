@@ -1,5 +1,3 @@
-      PROGRAM FM401
-
       PROGRAM FM401                                                     00010401
 C                                                                       00020401
 C                                                                       00030401

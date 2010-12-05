@@ -1,5 +1,3 @@
-      PROGRAM FM307
-
       PROGRAM FM307                                                     00010307
 C                                                                       00020307
 C                                                                       00030307

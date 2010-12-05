@@ -1,5 +1,3 @@
-      PROGRAM FM711
-
       PROGRAM FM711                                                     00010711
 C                                                                       00020711
 C     THIS ROUTINE TESTS ADJUSTABLE ARRAYS AND ADJUSTABLE       ANS REF.00030711

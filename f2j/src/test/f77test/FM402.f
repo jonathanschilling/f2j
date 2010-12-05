@@ -1,5 +1,3 @@
-      PROGRAM FM402
-
       PROGRAM FM402                                                     00010402
 C                                                                       00020402
 C                                                                       00030402

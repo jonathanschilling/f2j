@@ -310,28 +310,6 @@ public class Util {
   }
 
   /**
-   * Base-10 logarithm function.
-   *
-   * @param x the value
-   *
-   * @return base-10 log of x
-   */
-  public static double log10(double x) {
-    return Math.log(x) / 2.30258509;
-  }
-
-  /**
-   * Base-10 logarithm function.
-   *
-   * @param x the value
-   *
-   * @return base-10 log of x
-   */
-  public static float log10(float x) {
-    return (float) (Math.log(x) / 2.30258509);
-  }
-
-  /**
    * Fortran nearest integer (NINT) intrinsic function.
    * <p>
    * Returns:
@@ -471,39 +449,6 @@ public class Util {
    */
   public static double ddim(double a1, double a2) {
     return (a1 > a2) ? (a1 - a2) : 0;
-  }
-
-  /**
-   * Fortran hyperbolic sine (SINH) intrinsic function.
-   *
-   * @param a the value to get the sine of
-   *
-   * @return the hyperbolic sine of a
-   */
-  public static double sinh(double a) {
-    return ( Math.exp(a) - Math.exp(-a) ) * 0.5;
-  }
-
-  /**
-   * Fortran hyperbolic cosine (COSH) intrinsic function.
-   *
-   * @param a the value to get the cosine of
-   *
-   * @return the hyperbolic cosine of a
-   */
-  public static double cosh(double a) {
-    return ( Math.exp(a) + Math.exp(-a) ) * 0.5;
-  }
-
-  /**
-   * Fortran hyperbolic tangent (TANH) intrinsic function.
-   *
-   * @param a the value to get the tangent of
-   *
-   * @return the hyperbolic tangent of a
-   */
-  public static double tanh(double a) {
-    return sinh(a) / cosh(a);
   }
 
   /**

@@ -108,32 +108,6 @@ public strictfp class StrictUtil extends Util {
   }
 
   /**
-   * Base-10 logarithm function.
-   * <p>
-   * This function uses Java's StrictMath package.
-   *
-   * @param x the value
-   *
-   * @return base-10 log of x
-   */
-  public static double log10(double x) {
-    return StrictMath.log(x) / 2.30258509;
-  }
-
-  /**
-   * Base-10 logarithm function.
-   * <p>
-   * This function uses Java's StrictMath package.
-   *
-   * @param x the value
-   *
-   * @return base-10 log of x
-   */
-  public static float log10(float x) {
-    return (float) (StrictMath.log(x) / 2.30258509);
-  }
-
-  /**
    * Fortran nearest integer (NINT) intrinsic function.
    * <p>
    * Returns:
@@ -289,44 +263,5 @@ public strictfp class StrictUtil extends Util {
    */
   public static double ddim(double a1, double a2) {
     return (a1 > a2) ? (a1 - a2) : 0;
-  }
-
-  /**
-   * Fortran hyperbolic sine (SINH) intrinsic function.
-   * <p>
-   * This function uses Java's StrictMath package.
-   *
-   * @param a the value to get the sine of
-   *
-   * @return the hyperbolic sine of a
-   */
-  public static double sinh(double a) {
-    return ( StrictMath.exp(a) - StrictMath.exp(-a) ) * 0.5;
-  }
-
-  /**
-   * Fortran hyperbolic cosine (COSH) intrinsic function.
-   * <p>
-   * This function uses Java's StrictMath package.
-   *
-   * @param a the value to get the cosine of
-   *
-   * @return the hyperbolic cosine of a
-   */
-  public static double cosh(double a) {
-    return ( StrictMath.exp(a) + StrictMath.exp(-a) ) * 0.5;
-  }
-
-  /**
-   * Fortran hyperbolic tangent (TANH) intrinsic function.
-   * <p>
-   * This function uses Java's StrictMath package.
-   *
-   * @param a the value to get the tangent of
-   *
-   * @return the hyperbolic tangent of a
-   */
-  public static double tanh(double a) {
-    return sinh(a) / cosh(a);
   }
 }

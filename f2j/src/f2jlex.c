@@ -1104,6 +1104,25 @@ open_included_file(char *filename)
 }
 
 /*****************************************************************************
+ * line_is_blank                                                             *
+ *                                                                           *
+ * simple check for a blank line.  maybe extend later to other whitespace    *
+ * as necessary.  returns 1 if the line is blank, 0 otherwise.
+ *                                                                           *
+ *****************************************************************************/
+int
+line_is_blank(char *line)
+{
+  int i;
+
+  for(i=0;i<strlen(line);i++)
+    if((line[i] != ' ') && (line[i] != '\n'))
+      return 0;
+
+  return 1;
+}
+
+/*****************************************************************************
  *                                                                           *
  * prelex                                                                    *
  *                                                                           *
@@ -1146,7 +1165,8 @@ prelex(BUFFER * bufstruct)
          bufstruct->stmt[0] == 'C' ||
          bufstruct->stmt[0] == '*' ||
          bufstruct->stmt[0] == '!' ||
-         bufstruct->stmt[0] == '\n')
+         bufstruct->stmt[0] == '\n' ||
+         line_is_blank(bufstruct->stmt))
       {
         strcpy(yylval.lexeme, bufstruct->stmt);
         return COMMENT;
@@ -1550,7 +1570,7 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 
   strcpy(bufstruct->stmt, tempbuf);
   strcpy(line_buffer, tempbuf);
-} 
+}
 
 
 /*****************************************************************************

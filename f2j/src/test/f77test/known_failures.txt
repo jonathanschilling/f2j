@@ -5,12 +5,28 @@
 # num - reason
 #
 # 001 - tests the failure code, so a fail here is really a pass
-# 011 - mixes COMMON/EQUIVALENCE, not supported by f2j
-# 020 - uses statement functions, not supported by f2j
-# 022 - mixes COMMON/EQUIVALENCE, not supported by f2j
-# 023 - mixes COMMON/EQUIVALENCE, not supported by f2j
-# 024 - mixes COMMON/EQUIVALENCE, not supported by f2j
-# 107 - uses nested implied do loops, not supported by f2j
-# 110 - uses P scaling, not supported by f2j
-# 111 - uses nested implied do loops, not supported by f2j
-# 200 - uses numbered typedec stmts, not supported by f2j
+# 011 - mixes COMMON/EQUIVALENCE
+# 022 - mixes COMMON/EQUIVALENCE
+# 023 - mixes COMMON/EQUIVALENCE
+# 024 - mixes COMMON/EQUIVALENCE
+# 107 - uses nested implied do loops
+# 110 - uses P scaling
+# 111 - uses nested implied do loops
+# 200 - uses numbered typedec stmts
+# 202 - uses unsupported string relops (half-implemented)
+# 203 - uses unsupported string relops (half-implemented)
+# 204 - uses unsupported CHARACTER foo(6)*1 syntax
+# 205 - uses unsupported CHARACTER foo(6)*1 syntax
+# 252 - uses assigned variable for fmt in write() stmt
+# 254 - syntax error on empty ELSE IF block
+# 258 - syntax error on empty ELSE IF block
+# 300 - uses EQUIVALENCE on variables of different type
+# 301 - uses unsupported CHARACTER foo(6)*1 syntax
+# 302 - unsupported COMMON snytax, multiple blocks
+# 317 - passes intrinsic function as argument
+# 328 - passes intrinsic function as argument
+# 401 - syntax error on continued hollerith
+# 402 - syntax error on continued hollerith
+# 403 - syntax error on continued hollerith
+
+

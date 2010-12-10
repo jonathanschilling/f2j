@@ -248,6 +248,7 @@ enum _nodetype
   Arithmeticif,
   Typedec,
   Assignment,
+  StmtFuncDecl,
   Expression,
   Equivalence,
   Return,
@@ -466,6 +467,9 @@ struct _ident
     len,                            /* size of ident (e.g. CHARACTER*8 = 8)  */
     array_len,                      /* num elements in array (if not implied)*/
     localvnum,                      /* local variable number (for bytecode)  */
+    looks_like_array,               /* TRUE if name has parens after it, and */
+                                    /* thus looks like an array reference or */
+                                    /* subroutine call.                      */
     which_implicit;                 /* default 0, array 1, var 2, lfunc 3, intrin 4 */ 
 
   BOOL

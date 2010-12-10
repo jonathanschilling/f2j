@@ -231,6 +231,15 @@ optimize (AST * root, AST * rptr)
       if (root->nextstmt != NULL)
         optimize (root->nextstmt, rptr);
       break;
+    case StmtFuncDecl:
+      if(optdebug)
+        printf("StmtFuncDecl.\n");
+ 
+      /* nothing to do here */
+
+      if(root->nextstmt != NULL)
+        optimize(root->nextstmt, rptr);
+      break;
     case Call:
       if (optdebug)
         printf ("Call.\n");

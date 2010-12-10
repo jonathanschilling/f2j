@@ -315,6 +315,15 @@ typecheck(AST * root)
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
+    case StmtFuncDecl:
+      if(checkdebug)
+        printf("typecheck(): StmtFuncDecl.\n");
+
+      /* nothing to do here */
+
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
     case Call:
       if(checkdebug)
         printf("typecheck(): Call.\n");
@@ -1258,7 +1267,8 @@ expr_check(AST * root)
 
       expr_check(root->astnode.expression.rhs);
 
-      root->vartype = root->astnode.expression.rhs->vartype;
+      if(root->astnode.expression.parens)
+        root->vartype = root->astnode.expression.rhs->vartype;
       break;
     case Power:
       if(root->astnode.expression.lhs == NULL)

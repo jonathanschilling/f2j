@@ -479,6 +479,18 @@ emit(AST * root)
         if(root->nextstmt != NULL)
           emit(root->nextstmt);
         break;
+      case StmtFuncDecl:
+        if(gendebug)
+          printf("StmtFuncDecl.\n");
+
+        /* during codegen, statement function declarations are ignored.
+         * in the future, it could be useful to emit some sort of comment
+         * in the java source showing the declaration.
+         */
+
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
+        break;
       case StmtLabelAssign:
         if(gendebug)
           printf("StmtLabelAssign.\n");
@@ -2553,7 +2565,7 @@ is_local(AST *root){
     return FALSE;
   }
 
-  hashtemp = type_lookup(cur_equiv_table,temp->astnode.ident.name);
+  hashtemp = type_lookup(cur_equiv_table, temp->astnode.ident.name);
   if(hashtemp) {
     if(type_lookup(cur_common_table,temp->astnode.ident.name)) {
       fprintf(stderr,"Please dont mix COMMON and EQUIVALENCE.  ");
@@ -2857,7 +2869,7 @@ typedec_emit_all_static (JVM_METHOD *meth, AST * root)
      * declaration here.
      */
 
-    hashtemp = type_lookup(cur_equiv_table,temp->astnode.ident.name);
+    hashtemp = type_lookup(cur_equiv_table, temp->astnode.ident.name);
     if(hashtemp) {
       if(type_lookup(cur_common_table,temp->astnode.ident.name)) {
         fprintf(stderr,"Please dont mix COMMON and EQUIVALENCE.  ");
@@ -2973,7 +2985,7 @@ getMergedName(AST *root)
 
     name = ht2->variable->astnode.ident.merged_name;
   }
-  else if((ht=type_lookup(cur_equiv_table,root->astnode.ident.name))!=NULL)
+  else if((ht=type_lookup(cur_equiv_table, root->astnode.ident.name))!=NULL)
     name = ht->variable->astnode.ident.merged_name;
   else
     name = root->astnode.ident.name;
@@ -3010,7 +3022,7 @@ getMergedDescriptor(AST *root, enum returntype returns)
     desc = ht2->variable->astnode.ident.descriptor;
     if(gendebug)printf("@@## desc is '%s'\n", desc ? desc: "NULL");
   }
-  else if((ht=type_lookup(cur_equiv_table,root->astnode.ident.name))!=NULL) {
+  else if((ht=type_lookup(cur_equiv_table, root->astnode.ident.name))!=NULL) {
     desc = ht->variable->astnode.ident.descriptor;
   }
   else {
@@ -6939,8 +6951,11 @@ expr_emit (JVM_METHOD *meth, AST * root)
 void
 parenthesized_expr_emit(JVM_METHOD *meth, AST *root)
 {
-  if (root->astnode.expression.parens)
-    fprintf (curfp, "(");
+  AST *rhs;
+
+  fprintf (curfp, "(");
+
+  rhs = root->astnode.expression.rhs;
 
   /* is expression.lhs ever really non-null? i dont think so.
    * in any case, for bytecode generation, we are not concerned
@@ -6950,11 +6965,16 @@ parenthesized_expr_emit(JVM_METHOD *meth, AST *root)
   if (root->astnode.expression.lhs != NULL)
     expr_emit (meth, root->astnode.expression.lhs);
 
-  expr_emit (meth, root->astnode.expression.rhs);
+  if(rhs->vartype != root->vartype) {
+    fprintf(curfp," (%s)", returnstring[root->vartype]);
+    expr_emit (meth, root->astnode.expression.rhs);
+    bc_append(meth, typeconv_matrix[rhs->vartype][root->vartype]);
+  }
+  else
+    expr_emit (meth, root->astnode.expression.rhs);
 
-  if (root->astnode.expression.parens)
-    fprintf (curfp, ")");
-
+  fprintf (curfp, ")");
+  
   return;
 }
 
@@ -11601,6 +11621,10 @@ assign_emit(JVM_METHOD *meth, AST * root)
   if(gendebug) {
     printf("## ## codegen: ltype = %s (%d)\n",returnstring[ltype], ltype);
     printf("## ## codegen: rtype = %s (%d)\n",returnstring[rtype], rtype);
+    printf("## ##   lhs name '%s' in equiv table?  %s\n", 
+      root->astnode.assignment.lhs->astnode.ident.name,
+      type_lookup(cur_equiv_table, 
+        root->astnode.assignment.lhs->astnode.ident.name) ? "yes" : "no");
   }
 
   /* handle lhs substring operations elsewhere */
@@ -11771,10 +11795,18 @@ LHS_bytecode_emit(JVM_METHOD *meth, AST *root)
     class = strdup(cur_filename);
   } 
 
+  name = getMergedName(root->astnode.assignment.lhs);
+  desc = getMergedDescriptor(root->astnode.assignment.lhs,
+            root->astnode.assignment.lhs->vartype);
 
-  if(gendebug)
+  if(gendebug) {
     printf("in assign_emit, class = %s, name = %s, desc = %s\n",
       class, name, desc);
+    printf("     merged name = '%s'\n",
+      getMergedName(root->astnode.assignment.lhs));
+    printf("     in equiv table?  %s\n", 
+      type_lookup(cur_equiv_table, name) ? "yes" : "no");
+  }
   
   if((root->astnode.assignment.lhs->astnode.ident.arraylist == NULL) ||
      (root->astnode.assignment.lhs->nodetype == Substring))
@@ -13540,6 +13572,8 @@ print_nodetype(AST *root)
       return("Typedec");
     case Assignment:
       return("Assignment");
+    case StmtFuncDecl:
+      return("StmtFuncDecl");
     case Expression:
       return("Expression");
     case Return:

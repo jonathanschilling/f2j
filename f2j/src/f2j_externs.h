@@ -53,6 +53,7 @@ extern SYMTABLE
   *common_table,           /* variables contained in COMMON statements       */
   *parameter_table,        /* PARAMETER variables                            */
   *function_table,         /* table of functions                             */
+  *stmt_func_table,        /* table of 'statement function' declarations     */
   *java_keyword_table,     /* table of Java reserved words                   */
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */

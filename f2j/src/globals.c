@@ -75,6 +75,7 @@ SYMTABLE
   *common_block_table,     /* COMMON blocks                                  */
   *global_func_table,      /* Global function table                          */
   *global_common_table,    /* Global COMMON table                            */
+  *stmt_func_table,        /* table of 'statment function' declarations      */
   *generic_table;          /* table of the generic intrinsic functions       */
 
 Dlist 
@@ -369,10 +370,10 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DLOG, "DLOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", DOUBLE_ARG,  Double},
   {ifunc_CLOG, "CLOG", "Math.log", "StrictMath.log", "java/lang/Math", "java/lang/StrictMath", "log", "(D)D", COMPLEX_ARG, Complex},
 
-  /* Common Logarithm - use java's log function then divide by 2.30258509 */
-  {ifunc_LOG10,  "LOG10",  "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", RD_ARGS,    Double},
-  {ifunc_ALOG10, "ALOG10", "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", REAL_ARG,   Double},
-  {ifunc_DLOG10, "DLOG10", "Util.log10", "StrictUtil.log10", UTIL_CLASS, STRICT_UTIL_CLASS, "log10", "(D)D", DOUBLE_ARG, Double},
+  /* Common Logarithm */
+  {ifunc_LOG10,  "LOG10",  "Math.log10", "StrictMath.log10", "java/lang/Math", "java/lang/StrictMath", "log10", "(D)D", RD_ARGS,    Double},
+  {ifunc_ALOG10, "ALOG10", "Math.log10", "StrictMath.log10", "java/lang/Math", "java/lang/StrictMath", "log10", "(D)D", REAL_ARG,   Double},
+  {ifunc_DLOG10, "DLOG10", "Math.log10", "StrictMath.log10", "java/lang/Math", "java/lang/StrictMath", "log10", "(D)D", DOUBLE_ARG, Double},
 
   /* Sine */
   {ifunc_SIN,  "SIN",  "Math.sin", "StrictMath.sin", "java/lang/Math", "java/lang/StrictMath", "sin", "(D)D", RDC_ARGS,    Double},
@@ -403,16 +404,16 @@ METHODTAB intrinsic_toks[]=
   {ifunc_DATAN2, "DATAN2", "Math.atan2", "StrictMath.atan2", "java/lang/Math", "java/lang/StrictMath", "atan2", "(DD)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Sine */
-  {ifunc_SINH,  "SINH",  "Util.sinh", "StrictUtil.sinh", UTIL_CLASS, STRICT_UTIL_CLASS, "sinh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DSINH, "DSINH", "Util.sinh", "StrictUtil.sinh", UTIL_CLASS, STRICT_UTIL_CLASS, "sinh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_SINH,  "SINH",  "Math.sinh", "StrictMath.sinh", "java/lang/Math", "java/lang/StrictMath", "sinh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DSINH, "DSINH", "Math.sinh", "StrictMath.sinh", "java/lang/Math", "java/lang/StrictMath", "sinh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Cosine */
-  {ifunc_COSH,  "COSH",  "Util.cosh", "StrictUtil.cosh", UTIL_CLASS, STRICT_UTIL_CLASS, "cosh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DCOSH, "DCOSH", "Util.cosh", "StrictUtil.cosh", UTIL_CLASS, STRICT_UTIL_CLASS, "cosh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_COSH,  "COSH",  "Math.cosh", "StrictMath.cosh", "java/lang/Math", "java/lang/StrictMath", "cosh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DCOSH, "DCOSH", "Math.cosh", "StrictMath.cosh", "java/lang/Math", "java/lang/StrictMath", "cosh", "(D)D", DOUBLE_ARG, Double},
 
   /* Hyperbolic Tangent */
-  {ifunc_TANH,  "TANH",  "Util.tanh", "StrictUtil.tanh", UTIL_CLASS, STRICT_UTIL_CLASS, "tanh", "(D)D", RD_ARGS,    Double},
-  {ifunc_DTANH, "DTANH", "Util.tanh", "StrictUtil.tanh", UTIL_CLASS, STRICT_UTIL_CLASS, "tanh", "(D)D", DOUBLE_ARG, Double},
+  {ifunc_TANH,  "TANH",  "Math.tanh", "StrictMath.tanh", "java/lang/Math", "java/lang/StrictMath", "tanh", "(D)D", RD_ARGS,    Double},
+  {ifunc_DTANH, "DTANH", "Math.tanh", "StrictMath.tanh", "java/lang/Math", "java/lang/StrictMath", "tanh", "(D)D", DOUBLE_ARG, Double},
 
   /* Lexically Greater than or Equal to */
   {ifunc_LGE, "LGE", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},

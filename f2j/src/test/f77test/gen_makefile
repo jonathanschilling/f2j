@@ -9,7 +9,11 @@ for file in *.f; do
   testnum=`echo $file | sed s/FM// | cut -d . -f 1`
   echo "test${testnum}: clean"
   echo "	\$(F2J) FM${testnum}.f"
-  echo "	\$(JAVA) Fm${testnum}"
+  echo "	if \[ -e FM${testnum}.in \]; then \\"
+  echo "	\$(JAVA) Fm${testnum} < FM${testnum}.in ; \\"
+  echo "	else \\"
+  echo "	\$(JAVA) Fm${testnum} ; \\"
+  echo "	fi"
   echo ""
 done
 

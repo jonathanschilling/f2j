@@ -106,6 +106,7 @@ AST
   * dl_astnode_examine(Dlist l),
   * init_common_spec(char *, AST *),
   * addnode(void),
+  * copy_tree(AST *, SYMTABLE *),
   * switchem(AST *),
   * get_merged_declist(AST *),
   * get_implicit_declist(),
@@ -378,7 +379,6 @@ Fprogram:   Program Specstmts Statements End
                 $1->astnode.source.descriptor = MAIN_DESCRIPTOR;
               }
 ;
-
 
 Fsubroutine: Subroutine Specstmts Statements End 
               {
@@ -1286,7 +1286,6 @@ Statements:    Statement
 Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
               {
                 $$ = $1;
-                $$->nodetype = Assignment;   
               }
             | Call
               {
@@ -2309,11 +2308,28 @@ Assignment:  Lhs  EQ Exp /* NL (Assignment is also used in the parameter
                           */
              { 
                 $$ = addnode();
-                $1->parent = $$; /* 9-4-97 - Keith */
-                $3->parent = $$; /* 9-4-97 - Keith */
-                $$->nodetype = Assignment;
+                $1->parent = $$;
+                $3->parent = $$;
                 $$->astnode.assignment.lhs = $1;
                 $$->astnode.assignment.rhs = $3;
+
+                if(($1->nodetype == Identifier) && 
+                    $1->astnode.ident.looks_like_array &&
+                    !type_lookup(array_table, $1->astnode.ident.name))
+                {
+                  $$->nodetype = StmtFuncDecl;
+
+                  if(debug) {
+                    printf("inserting statement function declaration for '%s' \n",
+                      $1->astnode.ident.name);
+                    printf("in stmt_func_table.\n");
+                  }
+
+                  type_insert(stmt_func_table, $$, 0, $1->astnode.ident.name);
+                }
+                else {
+                  $$->nodetype = Assignment;
+                }
              }
 ;
 
@@ -2322,22 +2338,18 @@ Lhs:     Name
            $$=$1;
            $$->nextstmt = NULL;
            $$->prevstmt = NULL;
+           $$->astnode.ident.looks_like_array = FALSE;
          }
       |  Name OP Arrayindexlist CP
          {
            AST *temp;
 
-           /*   Use the following declaration in case we 
-            *   need to switch index order. 
-            *
-            *   HASHNODE * hashtemp;  
-            */
-
            $$ = addnode();
-           $1->parent = $$; /* 9-4-97 - Keith */
+           $1->parent = $$;
            $$->nodetype = Identifier;
            $$->prevstmt = NULL;
            $$->nextstmt = NULL;
+           $$->astnode.ident.looks_like_array = TRUE;
 
            free_ast_node($3->parent);
            for(temp = $3; temp != NULL; temp = temp->prevstmt)
@@ -2345,18 +2357,25 @@ Lhs:     Name
 
            strcpy($$->astnode.ident.name, $1->astnode.ident.name);
 
-           /*  This is in case we want to switch index order later.
-            *
-            *  hashtemp = type_lookup(array_table, $1->astnode.ident.name);
-            *  if(hashtemp)
-            *    $$->astnode.ident.arraylist = $3;
-            *  else
-            *    $$->astnode.ident.arraylist = switchem($3);
+           $$->astnode.ident.arraylist = switchem($3);
+           free_ast_node($1);
+         }
+      |  Name OP CP
+         {
+           /* I think an empty arg list on the LHS must be a
+            * 'statement function' declaration.
             */
 
-           /* We don't switch index order.  */
+           $$ = addnode();
+           $1->parent = $$;
+           $$->nodetype = Identifier;
+           $$->prevstmt = NULL;
+           $$->nextstmt = NULL;
+           $$->astnode.ident.looks_like_array = TRUE;
 
-           $$->astnode.ident.arraylist = switchem($3);
+           strcpy($$->astnode.ident.name, $1->astnode.ident.name);
+
+           $$->astnode.ident.arraylist = NULL;
            free_ast_node($1);
          }
       |  SubstringOp
@@ -3570,6 +3589,11 @@ Pause:  PAUSE NL
            $$ = $2;
            $$->nodetype = Pause;
         }
+      | PAUSE Integer NL
+        {
+           $$ = $2;
+           $$->nodetype = Pause;
+        }
 ;
 
 Stop:   STOP NL
@@ -4373,6 +4397,7 @@ init_tables()
   intrinsic_table = (SYMTABLE *) new_symtable(211);
   external_table  = (SYMTABLE *) new_symtable(211);
   args_table      = (SYMTABLE *) new_symtable(211);
+  stmt_func_table = (SYMTABLE *) new_symtable(211);
   constants_table = make_dl();
   assign_labels   = make_dl();
   equivList       = NULL;
@@ -4462,16 +4487,18 @@ merge_common_blocks(AST *root)
         if(debug)
           printf("try to merge '%s' and '%s'\n", var, comvar);
 
-        und_var[0] = '_';
-        und_var[1] = 0;
-        strcat(und_var,var);
-        strcpy(var_und,var);
-        strcat(var_und,"_");
-        strcpy(und_var_und,und_var);
-        strcat(und_var_und,"_");
+        if(comvar) {
+          und_var[0] = '_';
+          und_var[1] = 0;
+          strcat(und_var,var);
+          strcpy(var_und,var);
+          strcat(var_und,"_");
+          strcpy(und_var_und,und_var);
+          strcat(und_var_und,"_");
+        }
       }
 
-      if(ht == NULL) {
+      if((ht == NULL) || (comvar == NULL)) {
         name_array[count] = (char *) f2jalloc( strlen(var) + 1 );
         strcpy(name_array[count], var);
 
@@ -5232,7 +5259,9 @@ clone_ident(AST *ast)
   new_node->astnode.ident.dim  = ast->astnode.ident.dim;
   new_node->astnode.ident.position  = ast->astnode.ident.position;
   new_node->astnode.ident.len  = ast->astnode.ident.len;
+  new_node->astnode.ident.array_len  = ast->astnode.ident.array_len;
   new_node->astnode.ident.localvnum  = ast->astnode.ident.localvnum;
+  new_node->astnode.ident.looks_like_array  = ast->astnode.ident.looks_like_array;
   new_node->astnode.ident.which_implicit = ast->astnode.ident.which_implicit;
 
   new_node->astnode.ident.passByRef = ast->astnode.ident.passByRef;
@@ -5266,6 +5295,10 @@ clone_ident(AST *ast)
   if(ast->astnode.ident.descriptor)
     new_node->astnode.ident.descriptor = 
       strdup(ast->astnode.ident.descriptor);
+
+  if(ast->astnode.ident.buffered_comments)
+    new_node->astnode.ident.buffered_comments = 
+      strdup(ast->astnode.ident.buffered_comments);
 
   return new_node;
 }
@@ -5509,6 +5542,80 @@ process_array_declaration(AST *varname, AST *dimlist)
 
 /*****************************************************************************
  *                                                                           *
+ * process_stmt_func_call                                                    *
+ *                                                                           *
+ * Performs processing to handle calling a 'statement function'.             *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+process_stmt_func_call(AST *root, AST *explist)
+{
+  AST *newnode, *sfexp_copy, *sa, *ia, *Stemp, *Itemp;
+  SYMTABLE *trans_table;
+  int s_count, i_count;
+  HASHNODE *ht;
+  char *name;
+
+  if(debug)
+    printf("subcall/arrayacc: this is a statement function\n");
+
+  sa = root->astnode.expression.lhs->astnode.ident.arraylist;
+  ia = switchem(explist);
+
+  s_count = i_count = 0;
+
+  for(Stemp = sa; Stemp != NULL; Stemp = Stemp->nextstmt)
+    s_count++;
+  for(Itemp = ia; Itemp != NULL; Itemp = Itemp->nextstmt)
+    i_count++;
+
+  if(s_count != i_count) {
+    fprintf(stderr, "argument mismatch in statement function: ");
+    fprintf(stderr, "invocation has %d args, decl has %d\n",
+         i_count, s_count);
+    exit(EXIT_FAILURE);
+  }
+
+  trans_table = (SYMTABLE *) new_symtable(211);
+
+  Stemp = sa;
+  Itemp = ia;
+
+  while(Stemp != NULL) {
+    if(debug)
+      printf("insert '%s' into trans_table\n", Stemp->astnode.ident.name);
+
+    type_insert(trans_table, Itemp, 0, Stemp->astnode.ident.name);
+    Stemp = Stemp->nextstmt;
+    Itemp = Itemp->nextstmt;
+  }
+
+  sfexp_copy = copy_tree(root->astnode.expression.rhs, trans_table);
+
+  newnode = addnode();
+  sfexp_copy->parent = newnode;
+  newnode->nodetype = Expression;
+
+  /* note setting parens to FALSE - this flags this as a statement
+   * function call, so we can handle type conversions.
+   */
+  newnode->astnode.expression.parens = FALSE;
+  newnode->astnode.expression.rhs = sfexp_copy;
+  newnode->astnode.expression.lhs = NULL;
+
+  name = root->astnode.expression.lhs->astnode.ident.name;
+
+  if((ht=type_lookup(type_table, name)) != NULL)
+    newnode->vartype = ht->variable->vartype;
+  else
+    newnode->vartype = implicit_table[tolower(name[0]) - 'a'].type;
+ 
+  return newnode;
+}
+
+/*****************************************************************************
+ *                                                                           *
  * process_subroutine_call                                                   *
  *                                                                           *
  * Performs processing to handle a subroutine/function call or array access. *
@@ -5519,7 +5626,11 @@ AST *
 process_subroutine_call(AST *varname, AST *explist)
 {
   char *tempname;
+  HASHNODE *ht;
   AST *new;
+
+  if((ht=type_lookup(stmt_func_table, varname->astnode.ident.name)) != NULL)
+    return process_stmt_func_call(ht->variable, explist);
 
   new = addnode();
   varname->parent = new;
@@ -6350,4 +6461,106 @@ process_unit_args(AST *args)
        fprintf(stderr, "warning: didn't find %s in symbol table\n", 
          tmparg->astnode.ident.name);
   }
+}
+
+/*****************************************************************************
+ * copy_tree                                                                 *
+ *                                                                           *
+ * copies a subtree of the AST.  this is used for handling fortran           *
+ * 'statement functions'.                                                    *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+copy_tree(AST *root, SYMTABLE *trans_table)
+{
+  HASHNODE *ht;
+  AST *newnode;
+
+  if(debug)
+    printf("enter copy_tree():  nodetype = %s\n", print_nodetype(root));
+
+  if(root == NULL)
+    return NULL;
+
+  newnode = addnode();
+  newnode->token = root->token;
+  newnode->vartype = root->vartype;
+  newnode->expr_side = root->expr_side;
+  newnode->nodetype = root->nodetype;
+
+  switch(root->nodetype) {
+    case Constant:
+      newnode->astnode.constant.cp_index = root->astnode.constant.cp_index;
+      if(root->astnode.constant.opcode)
+        newnode->astnode.constant.opcode = 
+           strdup(root->astnode.constant.opcode);
+      if(root->astnode.constant.number)
+        newnode->astnode.constant.number = 
+           strdup(root->astnode.constant.number);
+      break;
+    case Identifier:
+    case Call:
+    case Substring:
+      free(newnode);
+      newnode = clone_ident(root);
+      newnode->nodetype = Identifier;
+
+      if(newnode->astnode.ident.arraylist) {
+        AST *temp, *nn, *prev, *front;
+
+        prev = NULL;
+        temp = newnode->astnode.ident.arraylist;
+        while(temp != NULL) {
+          nn = copy_tree(temp, trans_table);
+          if(prev)
+            prev->nextstmt = nn;
+          else
+            front = nn;
+          prev = nn;
+          temp = temp->nextstmt;
+        }
+
+        newnode->astnode.ident.arraylist = front;
+      }
+
+      if((ht = type_lookup(trans_table, newnode->astnode.ident.name)) != NULL) {
+        if(debug)
+          printf("copy_tree() found '%s' in trans_table, copying subtree\n",
+            newnode->astnode.ident.name);
+
+        newnode = copy_tree((AST *)(ht->variable), trans_table);
+      }
+      else {
+        if(debug)
+          printf("copy_tree() didn't see '%s' in trans_table, keeping ident\n",
+            newnode->astnode.ident.name);
+      }
+
+      break;
+    case Expression:
+    case Relationalop:
+    case Logicalop:
+    case Binaryop:
+    case Power:
+    case Unaryop:
+      newnode->astnode.expression.parens = root->astnode.expression.parens;
+      newnode->astnode.expression.minus = root->astnode.expression.minus;
+      newnode->astnode.expression.optype = root->astnode.expression.optype;
+      newnode->astnode.expression.lhs = copy_tree(root->astnode.expression.lhs,
+         trans_table);
+      newnode->astnode.expression.rhs = copy_tree(root->astnode.expression.rhs,
+         trans_table);
+      if(newnode->astnode.expression.lhs)
+        newnode->astnode.expression.lhs->parent = newnode;
+      if(newnode->astnode.expression.rhs)
+        newnode->astnode.expression.rhs->parent = newnode;
+      break;
+    default:
+      fprintf(stderr, "Internal error: unexpected nodetype '%s' in copy_tree()\n",
+        print_nodetype(root));
+      exit(EXIT_FAILURE);
+  }
+
+  return newnode;
 }

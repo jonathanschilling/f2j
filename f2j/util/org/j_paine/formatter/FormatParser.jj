@@ -7,7 +7,7 @@ This parser parses Fortran format strings.
 
 
 options {
-  STATIC = true;
+  STATIC = false;
   DEBUG_PARSER = false;
   DEBUG_TOKEN_MANAGER = false;
   DEBUG_LOOKAHEAD = false;
@@ -39,7 +39,7 @@ TOKEN :
 
 TOKEN :
 {
-  <STRING:  "'" ( ~["'"] )* "'" >
+  <STRING:  "'" ( ~["'"] | "''")* "'" >
 }
 // A string literal inside a format. We haven't implemented
 // embedded quotes yet.

@@ -992,7 +992,7 @@ class FormatString extends FormatElement
 
   public FormatString( String s )
   {
-    this.s = s;
+    this.s = s.replaceAll("''", "'");
   }
 
 

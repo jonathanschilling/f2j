@@ -141,10 +141,7 @@ class NumberParser implements NumberParserConstants {
    }
 
   public NumberParser(java.io.InputStream stream) {
-     this(stream, null);
-  }
-  public NumberParser(java.io.InputStream stream, String encoding) {
-    try { jj_input_stream = new SimpleCharStream(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
+    jj_input_stream = new SimpleCharStream(stream, 1, 1);
     token_source = new NumberParserTokenManager(jj_input_stream);
     token = new Token();
     jj_ntk = -1;
@@ -153,10 +150,7 @@ class NumberParser implements NumberParserConstants {
   }
 
   public void ReInit(java.io.InputStream stream) {
-     ReInit(stream, null);
-  }
-  public void ReInit(java.io.InputStream stream, String encoding) {
-    try { jj_input_stream.ReInit(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
+    jj_input_stream.ReInit(stream, 1, 1);
     token_source.ReInit(jj_input_stream);
     token = new Token();
     jj_ntk = -1;

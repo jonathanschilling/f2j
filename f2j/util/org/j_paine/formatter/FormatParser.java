@@ -3,7 +3,7 @@ package org.j_paine.formatter;
 
 class FormatParser implements FormatParserConstants {
 
-  static final public int Integer() throws ParseException {
+  final public int Integer() throws ParseException {
   Token t;
     t = jj_consume_token(INTEGER);
     {if (true) return (Integer.valueOf(t.image)).intValue();}
@@ -15,7 +15,7 @@ class FormatParser implements FormatParserConstants {
  * descriptor (F, E, D, or G) may follow a P edit descriptor
  * without a comma. --kgs
  */
-  static final public FormatElement FormatIOElementFloat() throws ParseException {
+  final public FormatElement FormatIOElementFloat() throws ParseException {
   FormatElement fe;
   int w, d, m;
   w = d = m = -1;
@@ -57,7 +57,7 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static final public FormatElement FormatIOElementNonFloat() throws ParseException {
+  final public FormatElement FormatIOElementNonFloat() throws ParseException {
   FormatElement fe;
   int w, d, m;
   w = d = m = -1;
@@ -104,7 +104,7 @@ class FormatParser implements FormatParserConstants {
 
 // This represents a format element that transfers one
 // data item.
-  static final public FormatElement FormatNonIOElement() throws ParseException {
+  final public FormatElement FormatNonIOElement() throws ParseException {
     jj_consume_token(X_DESC);
                 {if (true) return new FormatX();}
     throw new Error("Missing return statement in function");
@@ -112,7 +112,7 @@ class FormatParser implements FormatParserConstants {
 
 // This represents a format element that doesn't transfer
 // any data items.
-  static final public FormatElement FormatElement() throws ParseException {
+  final public FormatElement FormatElement() throws ParseException {
   FormatElement fe;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case F_DESC:
@@ -141,7 +141,7 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static final public FormatElement FormatScale() throws ParseException {
+  final public FormatElement FormatScale() throws ParseException {
   FormatElement fe = null;
   int r=1;
     jj_consume_token(P_DESC);
@@ -169,7 +169,7 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static final public FormatSlash FormatSlash() throws ParseException {
+  final public FormatSlash FormatSlash() throws ParseException {
     jj_consume_token(14);
         {if (true) return new FormatSlash();}
     throw new Error("Missing return statement in function");
@@ -179,7 +179,7 @@ class FormatParser implements FormatParserConstants {
 // Fortran permits several slashes to be concatenated without
 // commas to separate them, and you can't use a repetition
 // factor on them.
-  static final public FormatString FormatString() throws ParseException {
+  final public FormatString FormatString() throws ParseException {
   Token t;
   String s;
     t = jj_consume_token(STRING);
@@ -191,7 +191,7 @@ class FormatParser implements FormatParserConstants {
 
 // Another special case that can't be repeated, and can be
 // concatenated to other elements without commas.
-  static final public void OptionalFormatSlashesOrStrings(Format f) throws ParseException {
+  final public void OptionalFormatSlashesOrStrings(Format f) throws ParseException {
   FormatUniv fs;
     label_1:
     while (true) {
@@ -220,7 +220,7 @@ class FormatParser implements FormatParserConstants {
     }
   }
 
-  static final public FormatRepeatedItem FormatRepeatedItem() throws ParseException {
+  final public FormatRepeatedItem FormatRepeatedItem() throws ParseException {
   int r=1;
   FormatUniv fu;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -274,7 +274,7 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static final public void FormatGroup(Format f) throws ParseException {
+  final public void FormatGroup(Format f) throws ParseException {
   FormatRepeatedItem fri;
     OptionalFormatSlashesOrStrings(f);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -306,7 +306,7 @@ class FormatParser implements FormatParserConstants {
 // It also means that we can have empty format groups and format
 // groups that don't transfer any data elements. So for example,
 // the format ,/, is valid under this grammar.
-  static final public Format Format() throws ParseException {
+  final public Format Format() throws ParseException {
   FormatRepeatedItem fri;
   Format f = new Format();
     FormatGroup(f);
@@ -327,13 +327,12 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static private boolean jj_initialized_once = false;
-  static public FormatParserTokenManager token_source;
-  static SimpleCharStream jj_input_stream;
-  static public Token token, jj_nt;
-  static private int jj_ntk;
-  static private int jj_gen;
-  static final private int[] jj_la1 = new int[13];
+  public FormatParserTokenManager token_source;
+  SimpleCharStream jj_input_stream;
+  public Token token, jj_nt;
+  private int jj_ntk;
+  private int jj_gen;
+  final private int[] jj_la1 = new int[13];
   static private int[] jj_la1_0;
   static {
       jj_la1_0();
@@ -343,44 +342,6 @@ class FormatParser implements FormatParserConstants {
    }
 
   public FormatParser(java.io.InputStream stream) {
-     this(stream, null);
-  }
-  public FormatParser(java.io.InputStream stream, String encoding) {
-    if (jj_initialized_once) {
-      System.out.println("ERROR: Second call to constructor of static parser.  You must");
-      System.out.println("       either use ReInit() or set the JavaCC option STATIC to false");
-      System.out.println("       during parser generation.");
-      throw new Error();
-    }
-    jj_initialized_once = true;
-    try { jj_input_stream = new SimpleCharStream(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
-    token_source = new FormatParserTokenManager(jj_input_stream);
-    token = new Token();
-    jj_ntk = -1;
-    jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
-  }
-
-  static public void ReInit(java.io.InputStream stream) {
-     ReInit(stream, null);
-  }
-  static public void ReInit(java.io.InputStream stream, String encoding) {
-    try { jj_input_stream.ReInit(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
-    token_source.ReInit(jj_input_stream);
-    token = new Token();
-    jj_ntk = -1;
-    jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
-  }
-
-  public FormatParser(java.io.Reader stream) {
-    if (jj_initialized_once) {
-      System.out.println("ERROR: Second call to constructor of static parser.  You must");
-      System.out.println("       either use ReInit() or set the JavaCC option STATIC to false");
-      System.out.println("       during parser generation.");
-      throw new Error();
-    }
-    jj_initialized_once = true;
     jj_input_stream = new SimpleCharStream(stream, 1, 1);
     token_source = new FormatParserTokenManager(jj_input_stream);
     token = new Token();
@@ -389,7 +350,25 @@ class FormatParser implements FormatParserConstants {
     for (int i = 0; i < 13; i++) jj_la1[i] = -1;
   }
 
-  static public void ReInit(java.io.Reader stream) {
+  public void ReInit(java.io.InputStream stream) {
+    jj_input_stream.ReInit(stream, 1, 1);
+    token_source.ReInit(jj_input_stream);
+    token = new Token();
+    jj_ntk = -1;
+    jj_gen = 0;
+    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+  }
+
+  public FormatParser(java.io.Reader stream) {
+    jj_input_stream = new SimpleCharStream(stream, 1, 1);
+    token_source = new FormatParserTokenManager(jj_input_stream);
+    token = new Token();
+    jj_ntk = -1;
+    jj_gen = 0;
+    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+  }
+
+  public void ReInit(java.io.Reader stream) {
     jj_input_stream.ReInit(stream, 1, 1);
     token_source.ReInit(jj_input_stream);
     token = new Token();
@@ -399,13 +378,6 @@ class FormatParser implements FormatParserConstants {
   }
 
   public FormatParser(FormatParserTokenManager tm) {
-    if (jj_initialized_once) {
-      System.out.println("ERROR: Second call to constructor of static parser.  You must");
-      System.out.println("       either use ReInit() or set the JavaCC option STATIC to false");
-      System.out.println("       during parser generation.");
-      throw new Error();
-    }
-    jj_initialized_once = true;
     token_source = tm;
     token = new Token();
     jj_ntk = -1;
@@ -421,7 +393,7 @@ class FormatParser implements FormatParserConstants {
     for (int i = 0; i < 13; i++) jj_la1[i] = -1;
   }
 
-  static final private Token jj_consume_token(int kind) throws ParseException {
+  final private Token jj_consume_token(int kind) throws ParseException {
     Token oldToken;
     if ((oldToken = token).next != null) token = token.next;
     else token = token.next = token_source.getNextToken();
@@ -435,7 +407,7 @@ class FormatParser implements FormatParserConstants {
     throw generateParseException();
   }
 
-  static final public Token getNextToken() {
+  final public Token getNextToken() {
     if (token.next != null) token = token.next;
     else token = token.next = token_source.getNextToken();
     jj_ntk = -1;
@@ -443,7 +415,7 @@ class FormatParser implements FormatParserConstants {
     return token;
   }
 
-  static final public Token getToken(int index) {
+  final public Token getToken(int index) {
     Token t = token;
     for (int i = 0; i < index; i++) {
       if (t.next != null) t = t.next;
@@ -452,18 +424,18 @@ class FormatParser implements FormatParserConstants {
     return t;
   }
 
-  static final private int jj_ntk() {
+  final private int jj_ntk() {
     if ((jj_nt=token.next) == null)
       return (jj_ntk = (token.next=token_source.getNextToken()).kind);
     else
       return (jj_ntk = jj_nt.kind);
   }
 
-  static private java.util.Vector jj_expentries = new java.util.Vector();
-  static private int[] jj_expentry;
-  static private int jj_kind = -1;
+  private java.util.Vector jj_expentries = new java.util.Vector();
+  private int[] jj_expentry;
+  private int jj_kind = -1;
 
-  static public ParseException generateParseException() {
+  public ParseException generateParseException() {
     jj_expentries.removeAllElements();
     boolean[] la1tokens = new boolean[18];
     for (int i = 0; i < 18; i++) {
@@ -496,10 +468,10 @@ class FormatParser implements FormatParserConstants {
     return new ParseException(token, exptokseq, tokenImage);
   }
 
-  static final public void enable_tracing() {
+  final public void enable_tracing() {
   }
 
-  static final public void disable_tracing() {
+  final public void disable_tracing() {
   }
 
 }

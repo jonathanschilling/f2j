@@ -18,8 +18,6 @@
 # 204 - uses unsupported CHARACTER foo(6)*1 syntax
 # 205 - uses unsupported CHARACTER foo(6)*1 syntax
 # 252 - uses assigned variable for fmt in write() stmt
-# 254 - syntax error on empty ELSE IF block
-# 258 - syntax error on empty ELSE IF block
 # 300 - uses EQUIVALENCE on variables of different type
 # 301 - uses unsupported CHARACTER foo(6)*1 syntax
 # 302 - unsupported COMMON snytax, multiple blocks

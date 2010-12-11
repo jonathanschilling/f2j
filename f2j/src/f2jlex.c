@@ -61,6 +61,7 @@ BOOL iolist_finished;            /* we have finished lexing the I/O spec list*/
 
 int next_tok[NT_NUM];
 YYSTYPE next_yylval[NT_NUM];
+int incomplete_prelex;
 
 /*****************************************************************************
  * a couple of buffers for manipulating the text of the current line.        *
@@ -92,6 +93,8 @@ FILE
   *open_included_file(char *);
 
 int
+  process_include(BUFFER *),
+  lex_included_file(BUFFER *),
   name_scan(BUFFER *),
   keyscan(register KWDTAB *, BUFFER *),
   number_scan(BUFFER *, int, int),
@@ -197,6 +200,7 @@ yylex()
     first_call = 0;
     lineno = 0;
     progseen = FALSE;
+    incomplete_prelex = 0;
 
     for(i=0;i<NT_NUM;i++) {
       next_tok[i] = 0;
@@ -229,6 +233,29 @@ yylex()
     }
   }
 
+  /* this chunk of code is meant to handle the scenario in which there is
+   * an include statement followed by comments.  prelex will return a
+   * BLOCK_COMMENT token, so the include will not be processed.  so, here
+   * we check if prelex was incomplete - if so, process the include statement
+   * here.
+   */
+  if((buffer.stmt[0] != '\0') && incomplete_prelex && (tokennumber == 0)) {
+    if(!strncmp(buffer.stmt, "INCLUDE'", 8)) {
+      token = process_include(&buffer);
+      if(token != INCLUDE) {
+        incomplete_prelex = 0;
+        return token;
+      }
+
+      token = lex_included_file(&buffer);
+      if(lexdebug)
+        printf("include sniffer: lexer returns %s (%s)\n",
+           tok2str(token),buffer.stmt);
+      incomplete_prelex = 0;
+      return token;
+    }
+  }
+
   /* Test so that yylex will know when to call prelex to get 
    * another character string.  
    */
@@ -243,60 +270,8 @@ yylex()
     if(lexdebug) printf("calling prelex\n");
     token = prelex(&buffer);   /* No more tokens? Get another statement. */
 
-    if(token == INCLUDE) {
-      INCLUDED_FILE *newfile;
-      FILE *tempfp;
-      Dlist lp;
-      int tmplen;
-
-      buffer.stmt[0] = '\n'; buffer.stmt[1] = '\0';
-      buffer.text[0] = '\n'; buffer.text[1] = '\0';
-
-      /* check for cycle in the include stack */
-      dl_traverse(lp, file_stack) {
-        newfile = (INCLUDED_FILE *)dl_val(lp);
-        if( !strcmp(newfile->name, yylval.lexeme) ) {
-          fprintf(stderr,"Warning: loop in include (not including %s)\n",
-             yylval.lexeme);
-          strcpy(yylval.lexeme,"Include error\n");
-
-          return COMMENT;
-        }
-      }
-
-      tempfp = open_included_file(yylval.lexeme);
-
-      /* add the newline since we will send a COMMENT token back
-       * to the parser, with yylval containing the file name.  the
-       * parser expects all comments to be terminated with \n\0.
-       */
-      tmplen = strlen(yylval.lexeme);
-      yylval.lexeme[ tmplen ] = '\n';
-      yylval.lexeme[ tmplen + 1] = '\0';
-
-      if(!tempfp) {
-        fprintf(stderr,"Error: could not open include file %s",
-          yylval.lexeme);
-        return COMMENT;
-      }
-
-      current_file_info->line_num = lineno+1;
-
-      newfile = (INCLUDED_FILE *)f2jalloc(sizeof(INCLUDED_FILE));
-
-      /* for internal use, strip the newline from the file name */
-      newfile->name = strdup(yylval.lexeme);
-      newfile->name[strlen(newfile->name)-1] = '\0';
-      newfile->line_num = 0;
-      newfile->fp = tempfp;
-
-      dl_insert_b(file_stack, current_file_info);
-      ifp = tempfp;
-      current_file_info = newfile;
-      lineno = 0;
-
-      return COMMENT;
-    }
+    if(token == INCLUDE)
+      return lex_included_file(&buffer);
 
     if(token == BLOCK_COMMENT) {
       if(lexdebug)
@@ -1089,6 +1064,68 @@ yylex()
   return 0;
 }				/* Close yylex().  */
 
+/*****************************************************************************
+ * lex_included_file                                                         *
+ *                                                                           *
+ * handles opening the included file and setting up necessary data           *
+ * structures to keep track of the files.                                    *
+ *****************************************************************************/
+int
+lex_included_file(BUFFER *buffer)
+{
+  INCLUDED_FILE *newfile;
+  FILE *tempfp;
+  Dlist lp;
+  int tmplen;
+
+  buffer->stmt[0] = '\n'; buffer->stmt[1] = '\0';
+  buffer->text[0] = '\n'; buffer->text[1] = '\0';
+
+  /* check for cycle in the include stack */
+  dl_traverse(lp, file_stack) {
+    newfile = (INCLUDED_FILE *)dl_val(lp);
+    if( !strcmp(newfile->name, yylval.lexeme) ) {
+      fprintf(stderr,"Warning: loop in include (not including %s)\n",
+         yylval.lexeme);
+      strcpy(yylval.lexeme,"Include error\n");
+
+      return COMMENT;
+    }
+  }
+
+  tempfp = open_included_file(yylval.lexeme);
+
+  if(!tempfp) {
+    fprintf(stderr,"Error: could not open include file '%s'\n",
+      yylval.lexeme);
+    exit(EXIT_FAILURE);
+  }
+
+  /* add the newline since we will send a COMMENT token back
+   * to the parser, with yylval containing the file name.  the
+   * parser expects all comments to be terminated with \n\0.
+   */
+  tmplen = strlen(yylval.lexeme);
+  yylval.lexeme[ tmplen ] = '\n';
+  yylval.lexeme[ tmplen + 1] = '\0';
+
+  current_file_info->line_num = lineno+1;
+
+  newfile = (INCLUDED_FILE *)f2jalloc(sizeof(INCLUDED_FILE));
+
+  /* for internal use, strip the newline from the file name */
+  newfile->name = strdup(yylval.lexeme);
+  newfile->name[strlen(newfile->name)-1] = '\0';
+  newfile->line_num = 0;
+  newfile->fp = tempfp;
+
+  dl_insert_b(file_stack, current_file_info);
+  ifp = tempfp;
+  current_file_info = newfile;
+  lineno = 0;
+
+  return COMMENT;
+}
 
 /*****************************************************************************
  *                                                                           *
@@ -1141,6 +1178,69 @@ line_is_blank(char *line)
       return 0;
 
   return 1;
+}
+
+/*****************************************************************************
+ * process_include                                                           *
+ *                                                                           *
+ * handles statements to include a file, which take the form:                *
+ *    include 'filename'                                                     *
+ * here we just copy the filename part into yylval.lexeme and return         *
+ * the INCLUDE token.
+ *                                                                           *
+ *****************************************************************************/
+
+int
+process_include(BUFFER *bufstruct)
+{
+  /* we are probably looking at an include statement */
+  int iidx, yidx;
+  BOOL ftickseen;
+  
+#define FTICK 39
+#define INC_OFFSET 8
+
+  if(bufstruct->stmt[7] != FTICK) {
+    fprintf(stderr,"Badly formed INCLUDE statement\n");
+    strcpy(yylval.lexeme, bufstruct->stmt);
+    return COMMENT;
+  }
+  
+  yidx = 0;
+  iidx = INC_OFFSET;
+  ftickseen = FALSE;
+  
+  while( (bufstruct->stmt[iidx] != '\0') && (iidx < BIGBUFF)) {
+    if(bufstruct->stmt[iidx] == FTICK) {
+      if((bufstruct->stmt[iidx+1] == FTICK)) {
+        yylval.lexeme[yidx] = bufstruct->stmt[iidx];
+        yylval.lexeme[yidx+1] = bufstruct->stmt[iidx+1];
+  
+        iidx+=2;
+        yidx+=2;
+  
+        continue;
+      }
+      else {
+        ftickseen = TRUE;
+        break;
+      }
+    }
+  
+    yylval.lexeme[yidx] = bufstruct->stmt[iidx];
+    iidx++;
+    yidx++;
+  }
+
+  if(! ftickseen) {
+    fprintf(stderr,"Badly formed INCLUDE statement\n");
+    strcpy(yylval.lexeme, bufstruct->stmt);
+    return COMMENT;
+  }
+  
+  yylval.lexeme[yidx] = '\0';
+
+  return INCLUDE;
 }
 
 /*****************************************************************************
@@ -1207,64 +1307,18 @@ prelex(BUFFER * bufstruct)
       check_continued_lines(ifp, bufstruct->stmt);
       collapse_white_space(bufstruct);
 
-      if(comment_buffer[0] != NULL)
+      if(comment_buffer[0] != NULL) {
+        incomplete_prelex = 1;
         return BLOCK_COMMENT;
+      }
 
       if(bufstruct->stmt[0] == '\n') {
         strcpy(yylval.lexeme, bufstruct->stmt);
         return COMMENT;
       }
   
-      if( ! strncmp(bufstruct->stmt, "INCLUDE", 7) ) {
-        /* we are probably looking at an include statement */
-        int iidx, yidx;
-        BOOL ftickseen;
-  
-#define FTICK 39
-#define INC_OFFSET 8
-
-        if(bufstruct->stmt[7] != FTICK) {
-          fprintf(stderr,"Badly formed INCLUDE statement\n");
-          strcpy(yylval.lexeme, bufstruct->stmt);
-          return COMMENT;
-        }
-  
-        yidx = 0;
-        iidx = INC_OFFSET;
-        ftickseen = FALSE;
-  
-        while( (bufstruct->stmt[iidx] != '\0') && (iidx < BIGBUFF)) {
-          if(bufstruct->stmt[iidx] == FTICK) {
-            if((bufstruct->stmt[iidx+1] == FTICK)) {
-              yylval.lexeme[yidx] = bufstruct->stmt[iidx];
-              yylval.lexeme[yidx+1] = bufstruct->stmt[iidx+1];
-  
-              iidx+=2;
-              yidx+=2;
-  
-              continue;
-            }
-            else {
-              ftickseen = TRUE;
-              break;
-            }
-          }
-  
-          yylval.lexeme[yidx] = bufstruct->stmt[iidx];
-          iidx++;
-          yidx++;
-        }
-
-        if(! ftickseen) {
-          fprintf(stderr,"Badly formed INCLUDE statement\n");
-          strcpy(yylval.lexeme, bufstruct->stmt);
-          return COMMENT;
-        }
-  
-        yylval.lexeme[yidx] = '\0';
-
-        return INCLUDE;
-      }
+      if(!strncmp(bufstruct->stmt, "INCLUDE'", 8) )
+        return process_include(bufstruct);
 
       if(lexdebug)
         printf("From prelex: %s\n", bufstruct->stmt);
@@ -1435,7 +1489,7 @@ collapse_white_space(BUFFER *buf)
     while(cp && isdigit(*cp))
       cp++;
 
-    if(cp && !strncasecmp(cp, "format", 6)) {
+    if(cp && !strncasecmp(cp, "format(", 7)) {
       collapse_white_space_internal(buf, 1);
       return;
     }
@@ -2464,6 +2518,8 @@ tok2str(int tok)
       return("NO_PROGRAM");
     case DUMMY:
       return("DUMMY");
+    case INCLUDE:
+      return("INCLUDE");
     default:
     {
       static char asdf[20];

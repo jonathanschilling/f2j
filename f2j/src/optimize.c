@@ -1001,8 +1001,10 @@ blockif_optimize (AST * root, AST *rptr)
   if (root->astnode.blockif.stmts != NULL)
     optimize (root->astnode.blockif.stmts, rptr);
 
-  for(temp = root->astnode.blockif.elseifstmts; temp != NULL; temp = temp->nextstmt)
-    elseif_optimize (temp, rptr);
+  if(root->astnode.blockif.elseifstmts)
+    for(temp = root->astnode.blockif.elseifstmts; temp != NULL; 
+          temp = temp->nextstmt)
+      elseif_optimize (temp, rptr);
 
   if (root->astnode.blockif.elsestmts != NULL)
     else_optimize (root->astnode.blockif.elsestmts, rptr);

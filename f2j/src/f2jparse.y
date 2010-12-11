@@ -177,7 +177,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Data DataList DataConstantExpr DataConstant DataItem 
 %type <ptnode> /* DataElement */ Do_incr Doloop 
 %type <ptnode> DataLhs DataConstantList Dimension LoopBounds
-%type <ptnode> Do_vals Double Float
+%type <ptnode> Do_vals Double Float IfBlockStmts
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
 %type <ptnode> Else Elseif Elseifs EndIf End Exp Explist Exponential External
 %type <ptnode> Function Functionargs F2java
@@ -2977,15 +2977,32 @@ Elseifs:  /* Empty. */ {$$=0;} /* No `else if' statements, NULL pointer. */
           } 
 ;
 
+IfBlockStmts: Statements
+              {
+                $$=$1;
+              }
+            | /* empty */
+              {
+                $$ = addnode();
+                $$->token = COMMENT;
+                $$->nodetype = Comment;
+                $$->astnode.ident.len = 0;
+                strcpy($$->astnode.ident.name, "intentionally empty\n");
+              }
+;
 
-Elseif: ELSEIF OP Exp CP THEN NL Statements 
+Elseif: ELSEIF OP Exp CP THEN NL IfBlockStmts 
         {
           $$=addnode();
-	  $3->parent = $$;  
-	  $7->parent = $$; /* 9-4-97 - Keith */
-	  $$->nodetype = Elseif;
-	  $$->astnode.blockif.conds = $3;
-	  $$->astnode.blockif.stmts = switchem($7);
+          $3->parent = $$;  
+          $$->nodetype = Elseif;
+          $$->astnode.blockif.conds = $3;
+          if($7) {
+            $7->parent = $$;
+            $$->astnode.blockif.stmts = switchem($7);
+          }
+          else
+            $$->astnode.blockif.stmts = NULL;
         }
 ;
 

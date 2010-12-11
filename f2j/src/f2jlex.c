@@ -82,6 +82,7 @@ int
 
 char 
   *tok2str(int),
+  *check_hollerith(char *, int *),
   *f2j_fgets(char *, int, FILE *);
 
 FILE
@@ -1107,9 +1108,10 @@ open_included_file(char *filename)
  * line_is_blank                                                             *
  *                                                                           *
  * simple check for a blank line.  maybe extend later to other whitespace    *
- * as necessary.  returns 1 if the line is blank, 0 otherwise.
+ * as necessary.  returns 1 if the line is blank, 0 otherwise.               *
  *                                                                           *
  *****************************************************************************/
+
 int
 line_is_blank(char *line)
 {
@@ -1280,8 +1282,9 @@ prelex(BUFFER * bufstruct)
 void
 truncate_bang_comments(char *line)
 {
+  char *cp, *next_non_white;
   BOOL in_string = FALSE;
-  char *cp;
+  int i, hlen;
 
   for(cp = line; *cp; cp++)
   {
@@ -1293,6 +1296,25 @@ truncate_bang_comments(char *line)
       *cp = '\n';
       *(cp+1) = '\0';
       break;
+    }
+
+    /* check if we're in the middle of a hollerith constant */
+    if(isdigit(*cp)) {
+      next_non_white = check_hollerith(cp, &hlen);
+
+      if(hlen > 0) {
+        cp = next_non_white+1;
+
+        /* skip all the remaining characters.  don't just add hlen to cp since
+         * in the case of continued lines, there might not be that many chars
+         * in cp.
+         */
+        for(i=0;i<hlen;i++) {
+          if(!cp)
+            break;
+          cp++;
+        }
+      }
     }
 
     if(*cp == '\'') {
@@ -1307,6 +1329,58 @@ truncate_bang_comments(char *line)
       }
     }
   }
+}
+
+/*****************************************************************************
+ * check_hollerith                                                           *
+ *                                                                           *
+ * if 'line' points to the first digit of a possible hollerith constant,     *
+ * this function will check if it is really a hollerith constant or not.     *
+ * if so, it returns the length, otherwise it returns -1.                    *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+check_hollerith(char *line, int *len)
+{
+  char *end_digit, *next_non_white, *hp, hnstr[128];
+  int hlen;
+
+  if(lexdebug)
+    printf("found digit, checking for Hollerith constant\n");
+
+  /* first copy the digits to hnstr.  this will represent the
+   * Hollerith string length.
+   */
+  hp = hnstr;
+  end_digit = line;
+  while(end_digit && isdigit(*end_digit)) {
+    *hp = *end_digit;
+    end_digit++;
+    hp++;
+  }
+
+  *hp = '\0';
+  hlen = atoi(hnstr);
+
+  /* now skip all whitespace beyond the digits */
+  next_non_white = end_digit;
+  while(next_non_white && isspace(*next_non_white))
+    next_non_white++;
+
+  /* if the first non-whitespace character beyond the digits is an H or h,
+   * then this is a Hollerith descriptor.
+   */
+
+  if(*next_non_white == 'h' || *next_non_white == 'H') {
+    *len = hlen;
+    if(lexdebug)
+      printf("ok, this looks like a Hollerith constant of length %d\n", hlen);
+  }
+  else
+    *len = -1;
+
+  return next_non_white;
 }
 
 /*****************************************************************************
@@ -1385,33 +1459,13 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
      * then try to figure out if this is a Hollerith format descriptor.
      */
     if(fmt && isdigit(*cp)) {
-      char *end_digit, *next_non_white, *hp, hnstr[128];
+      char *next_non_white;
       int hlen;
 
-      /* first copy the digits to hnstr.  this will represent the
-       * Hollerith string length.
-       */
-      hp = hnstr;
-      end_digit = cp;
-      while(end_digit && isdigit(*end_digit)) {
-        *hp = *end_digit;
-        end_digit++;
-        hp++;
-      }
+      next_non_white = check_hollerith(cp, &hlen);
 
-      *hp = '\0'; 
-      hlen = atoi(hnstr);
+      if(hlen > 0) {
 
-      /* now skip all whitespace beyond the digits */
-      next_non_white = end_digit;
-      while(next_non_white && isspace(*next_non_white))
-        next_non_white++;
-
-      /* if the first non-whitespace character beyond the digits is an H or h,
-       * then this is a Hollerith descriptor.
-       */
-
-      if(*next_non_white == 'h' || *next_non_white == 'H') {
         *tcp = *yycp = '\'';
         tcp++;
         yycp++;
@@ -1445,6 +1499,10 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 
         /* decrement cp by one since continuing the for loop will increment it */
         cp--;
+
+        if(lexdebug)
+          printf("after grabbing hollerith, bufstruct->stmt = '%s'\n",
+            bufstruct->stmt);
 
         continue;
       }

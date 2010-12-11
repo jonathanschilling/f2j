@@ -26,6 +26,6 @@
 # 317 - passes intrinsic function as argument
 # 328 - passes intrinsic function as argument
 # 401 - unsupported logical constant
-# 403 - syntax error on continued hollerith
+# 403 - uses P scaling
 
 

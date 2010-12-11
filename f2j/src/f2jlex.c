@@ -1419,10 +1419,24 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
         cp = next_non_white+1;
 
         for(i=0; cp && (i < hlen); i++) {
-          *tcp = *yycp = *cp;
-          tcp++;
-          yycp++;
-          cp++;
+          /* escape single quotes in the hollerith since f2j will try to 
+           * lex the line again after the hollerith string is saved.
+           */
+          if(*cp == '\'') {
+            *tcp = *yycp = *cp = '\'';
+            tcp++;
+            yycp++;
+            *tcp = *yycp = *cp = '\'';
+            tcp++;
+            yycp++;
+            cp++;
+          }
+          else {
+            *tcp = *yycp = *cp;
+            tcp++;
+            yycp++;
+            cp++;
+          }
         }
 
         *tcp = *yycp = '\'';

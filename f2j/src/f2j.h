@@ -108,9 +108,9 @@
  * want to pass on subsequent calls to the lexer.                            *
  *****************************************************************************/
 
-#define BIGBUFF    2000
+#define BIGBUFF    262144
 #define YYTEXTLEN  2000
-#define COMMENT_BUFLEN 8192
+#define COMMENT_BUFLEN 16384
 #define NT_NUM        2
 
 struct _str {

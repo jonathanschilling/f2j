@@ -25,8 +25,7 @@
 # 302 - unsupported COMMON snytax, multiple blocks
 # 317 - passes intrinsic function as argument
 # 328 - passes intrinsic function as argument
-# 401 - syntax error on continued hollerith
-# 402 - syntax error on continued hollerith
+# 401 - unsupported logical constant
 # 403 - syntax error on continued hollerith
 
 

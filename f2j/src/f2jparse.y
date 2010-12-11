@@ -185,7 +185,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
 %type <ptnode> ImplicitSpecItem ImplicitLetterList ImplicitLetter
-%type <ptnode> Label Lhs Logicalif
+%type <ptnode> Label Lhs Logicalif DataLoopBound
 %type <ptnode> Name UndeclaredName Namelist UndeclaredNamelist
 %type <ptnode> LhsList Open
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
@@ -1243,7 +1243,7 @@ DataLhs:  Lhs
           }
 ;
 
-LoopBounds:  Integer CM Integer
+LoopBounds:  DataLoopBound CM DataLoopBound
              {
                $$ = addnode();
                $1->parent = $$;
@@ -1253,7 +1253,7 @@ LoopBounds:  Integer CM Integer
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = NULL;
              }
-           | Integer CM Integer CM Integer
+           | DataLoopBound CM DataLoopBound CM DataLoopBound
              {
                $$ = addnode();
                $1->parent = $$;
@@ -1264,6 +1264,21 @@ LoopBounds:  Integer CM Integer
                $$->astnode.forloop.stop = $3;
                $$->astnode.forloop.incr = $5;
              }
+;
+
+DataLoopBound: Integer
+               {
+                 $$ = $1;
+               }
+             | Name
+               {
+                 $$ = $1;
+
+                 if($1->nodetype != Constant) {
+                   yyerror("ERROR: Data implied loop bounds must be constant");
+                   exit(EXIT_FAILURE);
+                 }
+               }
 ;
 
 /*  Here is where the fun begins.  */

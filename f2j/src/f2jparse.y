@@ -3892,7 +3892,7 @@ strdup_strip_leading_zero(char *s)
   if(!s)
     return NULL;
 
-  newstr = (char *)f2jalloc(strlen(s));
+  newstr = (char *)f2jalloc(strlen(s)+1);
 
   sprintf(newstr, "%d", atoi(s));
 

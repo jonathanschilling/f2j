@@ -31,6 +31,7 @@
 
 char line_buffer[BIGBUFF];
 char *comment_buffer[COMMENT_BUFLEN];
+char tempbuf[BIGBUFF];
 
 char yytext[YYTEXTLEN];          /* token text                               */
 
@@ -71,6 +72,8 @@ typedef struct _buffer
   char text[BIGBUFF];            
 }
 BUFFER;
+
+BUFFER buffer_copy;
 
 /*****************************************************************************
  * Function prototypes:                                                      *
@@ -727,6 +730,22 @@ yylex()
       printf("6: lexer returns %s (%s)\n",
         tok2str(token),buffer.stmt);
 
+    /*
+     * this is a hack to work around what looks like a bug
+     * in the formatter.  if we use a format like "I3/7X,I5" it only
+     * returns the first two tokens.  however, putting a comma before
+     * the slash makes it work, so if we are looking at a format 
+     * statement and the token is DIV, then we just return CM then DIV.
+     * I tried to find where to fix this in the formatter but seems
+     * like my javacc is incompatible, so i couldn't create a
+     * working parser.
+     */
+    if(format_stmt && (token == DIV)) {
+      next_tok[0] = DIV;
+      memset(&next_yylval[0], 0, sizeof(next_yylval[0]));
+      return CM;
+    }
+
     return token;
   }
 
@@ -1021,7 +1040,7 @@ yylex()
   {
     tokennumber++;
     if(lexdebug)
-      printf("11: lexer returns %s (%s)\n",tok2str(token),buffer.stmt);
+      printf("11: lexer returns %s (%s)\n",tok2str(token), buffer.stmt);
     return token;
   }
     
@@ -1399,7 +1418,6 @@ check_hollerith(char *line, int *len)
 void
 collapse_white_space(BUFFER *buf)
 {
-  BUFFER buffer_copy;
   char *cp;
   
   /* copy the buffer, collapse white space and then check whether we are
@@ -1413,7 +1431,7 @@ collapse_white_space(BUFFER *buf)
 
   cp = buffer_copy.stmt;
 
-  if(isdigit(*cp)) {
+  if(cp && isdigit(*cp)) {
     while(cp && isdigit(*cp))
       cp++;
 
@@ -1434,7 +1452,6 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
    */
 
   register char *cp, *tcp, *yycp;
-  char tempbuf[BIGBUFF];
   int i, parens = 0;
 
   commaseen = FALSE, equalseen = FALSE, letterseen = FALSE; 
@@ -1499,10 +1516,6 @@ collapse_white_space_internal(BUFFER * bufstruct, int fmt)
 
         /* decrement cp by one since continuing the for loop will increment it */
         cp--;
-
-        if(lexdebug)
-          printf("after grabbing hollerith, bufstruct->stmt = '%s'\n",
-            bufstruct->stmt);
 
         continue;
       }
@@ -1965,7 +1978,6 @@ int
 number_scan(BUFFER * bufstruct, int fmt, int toknum)
 {
   char *ncp, *tcp, swap_buf[BIGBUFF];
-  BUFFER tempbuf;
   int token;
   unsigned int tokenlength = 0;
   int type = INTEGER;  /* Default, in case we find nothing else. */
@@ -2008,9 +2020,9 @@ number_scan(BUFFER * bufstruct, int fmt, int toknum)
            * .AND., .OR., etc.
            */
 
-          strcpy(tempbuf.stmt, ncp);
-          strcpy(tempbuf.text, tcp);
-          token = keyscan(tab_toks, &tempbuf);
+          strcpy(buffer_copy.stmt, ncp);
+          strcpy(buffer_copy.text, tcp);
+          token = keyscan(tab_toks, &buffer_copy);
 
           if(token) 
             break; /* Leave the while() loop. */
@@ -2153,10 +2165,9 @@ string_or_char_scan(BUFFER * bufstruct)
 
     /* Loop until we find another tick (') mark. */
 
-    while(!done)
-    {
-      while(*scp != '\'')
-      {
+    while(!done) {
+      while(*scp != '\'') {
+        *(textcp+tokenlength) = *scp;
         scp++;
         tokenlength++;
       }
@@ -2175,9 +2186,9 @@ string_or_char_scan(BUFFER * bufstruct)
 
       if( *(scp + 1) == '\'' )
       {
-        *(textcp + tokenlength) = ' ';
+        *(textcp + tokenlength) = '\'';
         scp+=2;
-        tokenlength+=2;
+        tokenlength++;
       }
       else
         done = TRUE;

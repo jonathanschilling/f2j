@@ -23,7 +23,6 @@
 # 302 - unsupported COMMON snytax, multiple blocks
 # 317 - passes intrinsic function as argument
 # 328 - passes intrinsic function as argument
-# 401 - unsupported logical constant
 # 403 - uses P scaling
 
 

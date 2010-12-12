@@ -694,6 +694,8 @@ class FormatL extends FormatIOElement
       char brep = s.substring(start).charAt(0);
       Boolean b;
 
+      if(brep == '.')
+        brep = s.substring(start+1).charAt(0);
       if(brep == 't' || brep == 'T')
         b = new Boolean(true);
       else if(brep == 'f' || brep == 'F')

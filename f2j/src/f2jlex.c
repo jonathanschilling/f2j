@@ -600,9 +600,9 @@ yylex()
     printf("func_stmt_num = %d, firsttoken = %d, and tokennumber = %d\n",
       func_stmt_num,firsttoken,tokennumber);
 
-  if((func_stmt_num == 1) && 
+  if((func_stmt_num == 0) && 
      ((firsttoken == ARITH_TYPE) || (firsttoken == CHAR_TYPE)) && 
-      (tokennumber ==1))
+      (tokennumber == 1))
   {
     token = keyscan(tab_stmt, &buffer);
 
@@ -2209,7 +2209,7 @@ string_or_char_scan(BUFFER * bufstruct)
 
   if(*scp == '\'')
   {
-    int done = FALSE;
+    int done = FALSE, skip = 0;
 
     scp++;
     textcp++;
@@ -2243,6 +2243,7 @@ string_or_char_scan(BUFFER * bufstruct)
         *(textcp + tokenlength) = '\'';
         scp+=2;
         tokenlength++;
+        skip++;
       }
       else
         done = TRUE;
@@ -2259,7 +2260,7 @@ string_or_char_scan(BUFFER * bufstruct)
 
     /* Now increment to get past the tic marks. */
     scp++;
-    textcp++;
+    textcp += skip + 1;
 
     strcpy(swap_buf, scp);
     strcpy(bufstruct->stmt, swap_buf);

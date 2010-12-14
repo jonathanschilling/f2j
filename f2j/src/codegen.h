@@ -49,6 +49,15 @@
 #define JL_CHAR "java/lang/Character"
 #define JL_OBJECT "java/lang/Object"
 #define JL_NUMBER "java/lang/Number"
+#define JL_INTEGER "java/lang/Integer"
+#define STREQ_FUNC "strCompEQ"
+#define STRNE_FUNC "strCompNE"
+#define STRLT_FUNC "strCompLT"
+#define STRLE_FUNC "strCompLE"
+#define STRGT_FUNC "strCompGT"
+#define STRGE_FUNC "strCompGE"
+#define NEW_INTEGER_DESC "(I)V"
+#define STR_RELOP_DESC "(Ljava/lang/String;Ljava/lang/String;)Z"
 #define STR_CONST_DESC "(Ljava/lang/String;)V"
 #define CHAR_ARRAY_DESC "([C)V"
 #define TRIM_DESC "()Ljava/lang/String;"
@@ -76,6 +85,10 @@
 #define CHARAT_DESC "(I)C"
 #define COMPARE_DESC "(Ljava/lang/String;)I"
 #define VECTOR_CLASS "java/util/Vector"
+#define HASHTAB_CLASS "java/util/Hashtable"
+#define HASHTAB_DESC "()V"
+#define HASHTAB_PUT_DESC "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
+#define HASHTAB_GET_DESC "(Ljava/lang/Object;)Ljava/lang/Object;"
 #define IOVECTOR_CLASS "org/netlib/util/IOVector"
 #define VECTOR_DESC "()V"
 #define FILEMGR_CLASS "org/netlib/util/FortranFileMgr"
@@ -112,6 +125,7 @@
 #define F2J_IO_VEC "__io_vec"
 #define F2J_FILE_MGR "__ftn_file_mgr"
 #define F2J_TMP_IOSTAT "__iostat"
+#define F2J_FMT_TAB "__f2j_fmt_tab"
 
 #define F77_STDIN 5
 #define F77_STDOUT 6
@@ -186,6 +200,7 @@ void
   read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   formatted_read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   write_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
+  fmt_tab_init(JVM_METHOD *),
   forloop_bytecode_emit(JVM_METHOD *, AST *),
   forloop_end_bytecode(JVM_METHOD *, AST *),
   LHS_bytecode_emit(JVM_METHOD *, AST *),
@@ -229,7 +244,8 @@ void
   local_emit(JVM_METHOD *, AST *),
   emit_adapters(void),
   newarray_emit(JVM_METHOD *, enum returntype),
-  constructor (AST *),
+  constructor(AST *),
+  emit_string_length_hack(JVM_METHOD *, AST *),
   typedec_emit (JVM_METHOD *, AST *),
   data_emit(JVM_METHOD *, AST *),
   equiv_emit (JVM_METHOD *, AST *),

@@ -357,6 +357,7 @@ Fprogram:   Program Specstmts Statements End
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_iostat = FALSE;
+                $$->astnode.source.needs_fmt_hashtab = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
 
                 if(omitWrappers)
@@ -425,6 +426,7 @@ Fsubroutine: Subroutine Specstmts Statements End
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_iostat = FALSE;
+                $$->astnode.source.needs_fmt_hashtab = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
 
                 if(omitWrappers)
@@ -498,6 +500,7 @@ Ffunction:   Function Specstmts Statements  End
                 $$->astnode.source.needs_output = FALSE;
                 $$->astnode.source.needs_files = FALSE;
                 $$->astnode.source.needs_iostat = FALSE;
+                $$->astnode.source.needs_fmt_hashtab = FALSE;
                 $$->astnode.source.needs_reflection = FALSE;
                 if(omitWrappers)
                   $$->astnode.source.scalarOptStatus = NOT_VISITED;
@@ -5886,9 +5889,9 @@ get_info_from_cilist(AST *root, AST *cilist)
     }
     else
     {
-      /* is this case ever reached??  i don't think so.  --kgs */
       root->astnode.io_stmt.format_num = -1;
       root->astnode.io_stmt.fmt_list = io_expr;
+      root->astnode.io_stmt.fmt_list->parent = root;
     }
 
     fmt_cnt++;
@@ -5973,8 +5976,9 @@ get_info_from_cilist(AST *root, AST *cilist)
         }
       }
       else {
-        yyerror("Internal error - expected Constant in fmt spec");
-        exit(EXIT_FAILURE);
+        root->astnode.io_stmt.format_num = -1;
+        root->astnode.io_stmt.fmt_list = fmt_expr;
+        root->astnode.io_stmt.fmt_list->parent = root;
       }
     }
     else {

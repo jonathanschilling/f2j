@@ -340,6 +340,7 @@ struct _source
     needs_output,                   /* does this unit write any data         */
     needs_files,                    /* does this unit open any files         */
     needs_reflection,               /* does this unit call a passed-in func  */
+    needs_fmt_hashtab,              /* need a runtime table of format stmts  */
     needs_iostat;                   /* does this unit need a temp iostat var */
  
   int

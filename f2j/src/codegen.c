@@ -72,6 +72,7 @@ unsigned int
   iostat_lvar = -1,     /* local var number of the temp iostat variable      */
   stdin_lvar = -1,      /* local var number of the EasyIn object             */
   iovec_lvar = -1,      /* local var number of the input/output Vector       */
+  fmt_tab_lvar = -1,    /* local var number of the format stmt hashtable     */
   filemgr_lvar = -1;    /* locar var number of the fortran file manager      */
 
 JVM_METHOD
@@ -324,12 +325,19 @@ emit(AST * root)
             bc_gen_store_op(cur_method, filemgr_lvar, jvm_Object);
           }
 
-          fprintf(curfp, "  Etime.etime();\n");
+          if(root->astnode.source.progtype->nodetype == Program) {
+            fprintf(curfp, "  Etime.etime();\n");
 
-          c = bc_new_methodref(cur_class_file, ETIME_CLASS, 
+            c = bc_new_methodref(cur_class_file, ETIME_CLASS, 
                       "etime", ETIME_DESC);
- 
-          bc_append(cur_method, jvm_invokestatic, c);
+            bc_append(cur_method, jvm_invokestatic, c);
+          }
+
+          if(root->astnode.source.progtype->nodetype != Program)
+            emit_string_length_hack(cur_method, root->astnode.source.progtype);
+
+          if(root->astnode.source.progtype->astnode.source.needs_fmt_hashtab)
+            fmt_tab_init(cur_method);
 
           /* if one of the arguments is a function, we must use the
            * reflection mechanism to perform the method call.
@@ -761,6 +769,61 @@ emit(AST * root)
 
 /*****************************************************************************
  *                                                                           *
+ * fmt_tab_init                                                              *
+ *                                                                           *
+ * emit code to set up the hash table of format statements.                  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+fmt_tab_init(JVM_METHOD *meth)
+{
+  Dlist f_table, tmp;
+  char *fstr;
+  AST *node;
+  int c;
+
+  fprintf(curfp,"  java.util.Hashtable %s = new java.util.Hashtable();\n",
+     F2J_FMT_TAB);
+  fmt_tab_lvar = bc_get_next_local(cur_method, jvm_Object);
+
+  c = cp_find_or_insert(cur_class_file, CONSTANT_Class, HASHTAB_CLASS);
+  bc_append(cur_method, jvm_new,c);
+  bc_append(cur_method, jvm_dup);
+
+  c = bc_new_methodref(cur_class_file, HASHTAB_CLASS, "<init>",
+         HASHTAB_DESC);
+  bc_append(cur_method, jvm_invokespecial, c);
+  bc_gen_store_op(cur_method, fmt_tab_lvar, jvm_Object);
+
+  fprintf(curfp, "// Register format statetments\n");
+  f_table = enumerate_symtable(cur_format_table);
+  dl_traverse(tmp, f_table) {
+    node = (AST *)dl_val(tmp);
+    fstr = format2str(node->astnode.label.stmt);
+    fprintf(curfp, "%s.put(new Integer(%d), ", F2J_FMT_TAB, 
+        node->astnode.label.number);
+    fprintf(curfp, "\"%s\");\n", fstr);
+    bc_gen_load_op(meth, fmt_tab_lvar, jvm_Object);
+    c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_INTEGER);
+    bc_append(meth, jvm_new, c);
+    bc_append(meth, jvm_dup);
+    bc_push_int_const(meth, node->astnode.label.number);
+    c = bc_new_methodref(cur_class_file, JL_INTEGER, "<init>",
+            NEW_INTEGER_DESC);
+    bc_append(meth, jvm_invokespecial, c);
+    bc_push_string_const(meth, fstr);
+    c = bc_new_methodref(cur_class_file, HASHTAB_CLASS, "put",
+            HASHTAB_PUT_DESC);
+    bc_append(meth, jvm_invokevirtual, c);
+    bc_append(meth, jvm_pop);
+  }
+
+  fprintf(curfp, "\n");
+}
+
+/*****************************************************************************
+ *                                                                           *
  * prepare_comments                                                          *
  *                                                                           *
  * Here we check whether there was a block of prologue comment statements.   *
@@ -810,8 +873,11 @@ void
 comment_emit(AST *root)
 {
   if(curfp != NULL) {
-    if(root->astnode.ident.name[0] != '\0')
+    if(root->astnode.ident.name[0] != '\0') {
       fprintf(curfp, "// %s", root->astnode.ident.name);
+      if(root->astnode.ident.name[strlen(root->astnode.ident.name)-1] != '\n')
+        fprintf(curfp, "\n");
+    }
 
     if(root->astnode.ident.buffered_comments) {
       char *cp;
@@ -1762,6 +1828,8 @@ emit_prolog_comments(AST *root)
   while( (temp != NULL) && (temp->nodetype == Comment))
   {
     fprintf(curfp,"// %s",temp->astnode.ident.name);
+    if(temp->astnode.ident.name[strlen(temp->astnode.ident.name)-1] != '\n')
+      fprintf(curfp, "\n");
     temp = temp->nextstmt;
   }
 }
@@ -3343,7 +3411,7 @@ print_string_initializer(JVM_METHOD *meth, AST *root)
       sprintf(src_initializer,"\"  \"");
     }
     else {
-      src_initializer = (char *)f2jalloc(ht->variable->astnode.ident.len+3);
+      src_initializer = (char *)f2jalloc(ht->variable->astnode.ident.len+4);
 
       sprintf(src_initializer,"\"%*s\"",ht->variable->astnode.ident.len," ");
     }
@@ -7324,31 +7392,42 @@ relationalop_emit(JVM_METHOD *meth, AST *root)
      ((root->astnode.expression.rhs->vartype == String) ||
       (root->astnode.expression.rhs->vartype == Character)))
   {
+    char *relfunc = NULL;
     int c;
 
-    if((root->token != rel_eq) && (root->token != rel_ne)) {
-      fprintf(stderr,"ERR: didn't expect this relop on a STring type!\n");
-      return;
+    switch (root->token)
+    {
+      case rel_eq:
+        relfunc = STREQ_FUNC;
+        break;
+      case rel_ne:
+        relfunc = STRNE_FUNC;
+        break;
+      case rel_lt:
+        relfunc = STRLT_FUNC;
+        break;
+      case rel_le:
+        relfunc = STRLE_FUNC;
+        break;
+      case rel_gt:
+        relfunc = STRGT_FUNC;
+        break;
+      case rel_ge:
+        relfunc = STRGE_FUNC;
+        break;
+      default:
+        fprintf(stderr, "internal error: unexpected string relop\n");
+        exit(EXIT_FAILURE);
     }
 
-    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "strEquals", STREQV_DESC);
-
-    if(root->token == rel_ne)
-      fprintf(curfp,"!");
-
-    fprintf(curfp,"Util.strEquals(");
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, relfunc,
+               STR_RELOP_DESC);
+    fprintf(curfp,"Util.%s(", relfunc);
     expr_emit (meth, root->astnode.expression.lhs);
     fprintf(curfp,", ");
     expr_emit (meth, root->astnode.expression.rhs);
     fprintf(curfp,")");
-
     bc_append(meth, jvm_invokestatic, c);
-
-    /* now check the op type & reverse if .NE. */
-    if(root->token == rel_ne) {
-      bc_append(meth, jvm_iconst_1);
-      bc_append(meth, jvm_ixor);
-    }
 
     return;   /* nothing more to do for strings here. */
   }
@@ -7738,14 +7817,14 @@ open_output_file(AST *root, char *classname)
  *****************************************************************************/
 
 void
-constructor (AST * root)
+constructor(AST *root)
 {
   enum returntype returns;
   AST *tempnode;
   char *tempstring;
   HASHNODE *hashtemp;
 
-  if (root->nodetype == Function)
+  if(root->nodetype == Function)
   {
     char *name;
 
@@ -7783,7 +7862,7 @@ constructor (AST * root)
 
   tempnode = root->astnode.source.args;
 
-  for (; tempnode != NULL; tempnode = tempnode->nextstmt)
+  for(; tempnode != NULL; tempnode = tempnode->nextstmt)
   {
     hashtemp = type_lookup (cur_type_table, tempnode->astnode.ident.name);
     if (hashtemp == NULL)
@@ -7880,8 +7959,83 @@ constructor (AST * root)
   }
 
   fprintf (curfp, ")  {\n\n");
+}
     
-}				/*  Close  constructor(). */
+/*****************************************************************************
+ *                                                                           *
+ * emit_string_length_hack                                                   *
+ *                                                                           *
+ * emits a hack for setting string args to the proper length.  for example   *
+ * if function A passes a character*6 to function B which declares the arg   *
+ * as character*1, then we cut off the extra characters.                     *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_string_length_hack(JVM_METHOD *meth, AST *root)
+{
+  AST *tempnode;
+  HASHNODE *hashtemp;
+
+  tempnode = root->astnode.source.args;
+
+  for(; tempnode != NULL; tempnode = tempnode->nextstmt)
+  {
+    hashtemp = type_lookup(cur_type_table, tempnode->astnode.ident.name);
+    if(hashtemp) {
+      if(hashtemp->variable->vartype == String) {
+        if(hashtemp->variable->astnode.ident.arraylist == NULL) {
+          AST *assign_temp, *left, *right, *start, *end;
+
+          if(gendebug) {
+            printf("looking at String arg local len = %d\n", 
+              hashtemp->variable->astnode.ident.len);
+            printf("..so emit arg passing hack\n");
+          }
+
+          if(hashtemp->variable->astnode.ident.len > 0) {
+            char len_str[256];
+
+            sprintf(len_str, "%d", hashtemp->variable->astnode.ident.len);
+
+            assign_temp = addnode();
+            assign_temp->nodetype = Assignment;
+
+            left = clone_ident(hashtemp->variable);
+            left->parent = assign_temp;
+
+            right = addnode();
+            right->parent = assign_temp;
+            right->nodetype = Substring;
+            right->token = NAME;
+            strcpy(right->astnode.ident.name, left->astnode.ident.name);
+
+            start = addnode();
+            start->token = INTEGER;
+            start->nodetype = Constant;
+            start->astnode.constant.number = strdup("1");
+            start->vartype = Integer;
+
+            end = addnode();
+            end->token = INTEGER;
+            end->nodetype = Constant;
+            end->astnode.constant.number = strdup(len_str);
+            end->vartype = Integer;
+
+            right->astnode.ident.startDim[0] = start;
+            right->astnode.ident.endDim[0] = end;
+
+            assign_temp->astnode.assignment.lhs = left;
+            assign_temp->astnode.assignment.rhs = right;
+
+            assign_emit(meth, assign_temp);
+            fprintf(curfp, ";\n");
+          }
+        }
+      }
+    }
+  }
+}
 
 /*****************************************************************************
  *                                                                           *
@@ -9789,11 +9943,12 @@ write_emit(JVM_METHOD *meth, AST * root)
   if(gendebug)
     printf("***Looking for format statement number: %s\n",tmp);
 
-  hnode = format_lookup(cur_format_table,tmp);
+  hnode = format_lookup(cur_format_table, tmp);
 
   if(hnode)
     fmt_str = format2str(hnode->variable->astnode.label.stmt);
-  else if(root->astnode.io_stmt.fmt_list != NULL)
+  else if((root->astnode.io_stmt.fmt_list != NULL) &&
+          (root->astnode.io_stmt.fmt_list->nodetype == Constant))
     fmt_str = strdup(root->astnode.io_stmt.fmt_list->astnode.constant.number);
   else
     fmt_str = NULL;
@@ -9836,8 +9991,29 @@ write_emit(JVM_METHOD *meth, AST * root)
     bc_push_string_const(meth, fmt_str);
   }
   else {
-    fprintf(curfp, "null, %s)", F2J_IO_VEC);
-    bc_append(meth, jvm_aconst_null);
+    if((root->astnode.io_stmt.fmt_list != NULL) &&
+          (root->astnode.io_stmt.fmt_list->nodetype != Constant))
+    {
+      bc_gen_load_op(meth, fmt_tab_lvar, jvm_Object);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_INTEGER);
+      bc_append(meth, jvm_new, c);
+      bc_append(meth, jvm_dup);
+      fprintf(curfp, "(String)%s.get(new Integer(", F2J_FMT_TAB);
+      expr_emit(meth, root->astnode.io_stmt.fmt_list);
+      fprintf(curfp, ")), %s)", F2J_IO_VEC);
+      c = bc_new_methodref(cur_class_file, JL_INTEGER, "<init>",
+            NEW_INTEGER_DESC);
+      bc_append(meth, jvm_invokespecial, c);
+      c = bc_new_methodref(cur_class_file, HASHTAB_CLASS, "get",
+            HASHTAB_GET_DESC);
+      bc_append(meth, jvm_invokevirtual, c);
+      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_STRING);
+      bc_append(meth, jvm_checkcast, c);
+    }
+    else {
+      fprintf(curfp, "null, %s)", F2J_IO_VEC);
+      bc_append(meth, jvm_aconst_null);
+    }
   }
 
   bc_gen_load_op(meth, iovec_lvar, jvm_Object);

@@ -142,7 +142,8 @@ public class Util {
 
   public static int strCompare(String s1, String s2) {
     String short_str, long_str;
-    int short_len, long_len;
+    int rv, short_len, long_len;
+    boolean swap = false;
 
     short_str = s1;
     long_str = s2;
@@ -156,12 +157,15 @@ public class Util {
         long_len = tmp;
         short_str = s2;
         long_str = s1;
+        swap = true;
       }
 
       short_str = pad(short_str, long_len, ' ');
     }
 
-    return short_str.compareTo(long_str);
+    rv = short_str.compareTo(long_str);
+
+    return swap ? -rv : rv;
   }
 
   /**
@@ -175,8 +179,20 @@ public class Util {
    *
    * @return true if the strings are equal, false otherwise.
    */
-  public static boolean strEquals(String s1, String s2) {
+  public static boolean strCompEQ(String s1, String s2) {
     return strCompare(s1, s2) == 0;
+  }
+
+  /**
+   * Checks whether the two strings are not equal.
+   *
+   * @param s1 first string to compare
+   * @param s2 second string to compare
+   *
+   * @return true if the strings are equal, false otherwise.
+   */
+  public static boolean strCompNE(String s1, String s2) {
+    return strCompare(s1, s2) != 0;
   }
 
   /**
@@ -630,7 +646,7 @@ public class Util {
   {
     PrintStream outstream = null;
     java.util.Enumeration e;
-    Object o;
+    Object o, prev;
 
     Vector newvec = processVector(v);
 
@@ -638,13 +654,19 @@ public class Util {
 
     outstream = getPrintStream(unit);
 
+    prev = null;
+
     if(e.hasMoreElements()) {
       o = e.nextElement();
-      output_unformatted_element(o, outstream);
+      output_unformatted_element(o, null, outstream);
+      prev = o;
     }
 
-    while(e.hasMoreElements())
-      output_unformatted_element(e.nextElement(), outstream);
+    while(e.hasMoreElements()) {
+      o = e.nextElement();
+      output_unformatted_element(o, prev, outstream);
+      prev = o;
+    }
 
     outstream.println();
     outstream.flush();
@@ -669,9 +691,11 @@ public class Util {
    *
    * @param o the object to be printed.  this is typically a numeric
    *          or string type wrapped in an Object (e.g. Integer, Float).
+   * @param prev the previous object (null if none).  this helps set the
+   *          correct padding for strings.
    * @param os the stream to print the element to.
    */
-  private static void output_unformatted_element(Object o, PrintStream os) {
+  private static void output_unformatted_element(Object o, Object prev, PrintStream os) {
     PrintfFormat pf;
     String s, pre_pad, post_pad;
 
@@ -768,8 +792,12 @@ public class Util {
         }
       }
     }
-    else if(o instanceof String)
-      os.print(" " + o);
+    else if(o instanceof String) {
+      if((prev != null) && (prev instanceof String))
+        os.print(o);
+      else
+        os.print(" " + o);
+    }
     else if(o instanceof Integer) {
       if(((Integer)o).intValue() < 0)
         pre_pad = " ";

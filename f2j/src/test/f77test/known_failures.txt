@@ -13,11 +13,9 @@
 # 110 - uses P scaling
 # 111 - uses nested implied do loops
 # 200 - uses numbered typedec stmts
-# 202 - uses unsupported string relops (half-implemented)
-# 203 - uses unsupported string relops (half-implemented)
+# 203 - error in character decl/handling
 # 204 - uses unsupported CHARACTER foo(6)*1 syntax
 # 205 - uses unsupported CHARACTER foo(6)*1 syntax
-# 252 - uses assigned variable for fmt in write() stmt
 # 300 - uses EQUIVALENCE on variables of different type
 # 301 - uses unsupported CHARACTER foo(6)*1 syntax
 # 302 - unsupported COMMON snytax, multiple blocks

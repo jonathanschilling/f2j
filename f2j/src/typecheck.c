@@ -1490,6 +1490,10 @@ read_write_check(AST * root)
   if(root->astnode.io_stmt.iostat)
     expr_check(root->astnode.io_stmt.iostat);
 
+  if(root->astnode.io_stmt.fmt_list)
+    if(root->astnode.io_stmt.fmt_list->nodetype != Constant)
+      cur_check_unit->astnode.source.needs_fmt_hashtab = TRUE;
+
   for(temp=root->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
   {
     if(temp->nodetype == IoImpliedLoop)

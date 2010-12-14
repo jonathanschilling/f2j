@@ -694,7 +694,6 @@ expr_optimize (AST * root, AST *rptr)
     case Power:
     case Binaryop:
     case Relationalop:
-
       expr_optimize (root->astnode.expression.lhs, rptr);
       expr_optimize (root->astnode.expression.rhs, rptr);
       break;
@@ -1168,6 +1167,68 @@ call_optimize (AST * root, AST *rptr)
 
 /*****************************************************************************
  *                                                                           *
+ * cur_unit_name                                                             *
+ *                                                                           *
+ * gets the current unit name we are checking, mainly for printing error     *
+ * diagnostics.  there is a global 'unit_name' already, but it doesn't seem  *
+ * to be accurate.  might need to look into that.                            *
+ *                                                                           *
+ *****************************************************************************/
+
+char *
+cur_unit_name(AST *rptr)
+{
+  char *curunit;
+
+  if(rptr && rptr->astnode.source.progtype && 
+      rptr->astnode.source.progtype->astnode.source.name && 
+      rptr->astnode.source.progtype->astnode.source.name->astnode.ident.name)
+    curunit = rptr->astnode.source.progtype->astnode.source.name->astnode.ident.name;
+  else
+    curunit = "unknown";
+
+  return curunit;
+}
+
+void
+dump_args_comparison(AST *alist1, AST *alist2)
+{
+  AST *temp, *t2;
+
+  temp = alist1;
+  t2 = alist2;
+
+  printf("%30s | %30s\n", "Caller arg info", "Declared arg info");
+  printf("---------------------------------------------------------------\n"); 
+
+  while(temp || t2) {
+    char *carg, *darg;
+
+    carg = "[none]";
+    darg = "[none]";
+
+    if(temp) {
+      if(temp->nodetype == Identifier)
+        carg = temp->astnode.ident.name;
+      else
+        carg = "[constant/non-ident]";
+    }
+    if(t2) {
+      if(t2->nodetype == Identifier)
+        darg = t2->astnode.ident.name;
+      else
+        darg = "[constant/non-ident]";
+    }
+
+    printf("%30s | %30s\n", carg, darg);
+    printf("---------------------------------------------------------------\n"); 
+    temp = temp->nextstmt;
+    t2 = t2->nextstmt;
+  }
+}
+
+/*****************************************************************************
+ *                                                                           *
  * args_optimize                                                             *
  *                                                                           *
  * this function handles the args to a function/subroutine call.  If the     *
@@ -1189,7 +1250,7 @@ args_optimize(AST *root, AST *rptr)
     AST *t2;
 
     if(optdebug)
-      printf("call_optimize(): found %s in global function table.\n",
+      printf("args_optimize(): found %s in global function table.\n",
         root->astnode.ident.name);
 
     if(hashtemp->variable->astnode.source.scalarOptStatus == NOT_VISITED)
@@ -1198,8 +1259,18 @@ args_optimize(AST *root, AST *rptr)
     temp = root->astnode.ident.arraylist;
     t2=hashtemp->variable->astnode.source.progtype->astnode.source.args;
 
+    if(optdebug)
+      dump_args_comparison(temp, t2);
+
     for( ; temp != NULL; temp = temp->nextstmt)
     {
+       if(!t2) {
+         fprintf(stderr, "Warning: possible mismatch in arguments ");
+         fprintf(stderr, "for function '%s', ", root->astnode.ident.name);
+         fprintf(stderr, "called from '%s'\n", cur_unit_name(rptr));
+         fprintf(stderr, "  ...call has more args than definition\n");
+       }
+
        expr_optimize(temp, rptr);
 
        if(temp->nodetype == Identifier)
@@ -1210,7 +1281,7 @@ args_optimize(AST *root, AST *rptr)
 
          if(t2->astnode.ident.passByRef) {
            if(optdebug)
-             printf("call_optimize(): '%s' is pass by ref.\n",
+             printf("args_optimize(): '%s' is pass by ref.\n",
                     temp->astnode.ident.name);
 
            if((!temp->astnode.ident.arraylist) &&
@@ -1219,7 +1290,7 @@ args_optimize(AST *root, AST *rptr)
          }
          else {
            if(optdebug)
-             printf("call_optimize(): '%s' is NOT pass by ref.\n",
+             printf("args_optimize(): '%s' is NOT pass by ref.\n",
                     temp->astnode.ident.name);
          }
        }
@@ -1237,17 +1308,24 @@ args_optimize(AST *root, AST *rptr)
        if(t2 != NULL)
          t2 = t2->nextstmt;
     }
+
+    if(t2) {
+      fprintf(stderr, "Warning: possible mismatch in arguments ");
+      fprintf(stderr, "for function '%s', ", root->astnode.ident.name);
+      fprintf(stderr, "called from '%s'\n", cur_unit_name(rptr));
+      fprintf(stderr, "  ...call has fewer args than definition\n");
+    }
   }
   else if((mref=find_method(root->astnode.ident.name,descriptor_table))!=NULL)
   {
     char *p;
 
     if(optdebug) {
-      printf("call_optimize(): found %s in descriptor table.\n",
+      printf("args_optimize(): found %s in descriptor table.\n",
         root->astnode.ident.name);
-      printf("call_optimize() - class: %s\n", mref->classname);
-      printf("call_optimize() - method: %s\n", mref->methodname);
-      printf("call_optimize() - desc: %s\n", mref->descriptor);
+      printf("args_optimize() - class: %s\n", mref->classname);
+      printf("args_optimize() - method: %s\n", mref->methodname);
+      printf("args_optimize() - desc: %s\n", mref->descriptor);
     }
 
     temp = root->astnode.ident.arraylist;
@@ -1260,7 +1338,7 @@ args_optimize(AST *root, AST *rptr)
        p = bc_next_desc_token(p);
 
        if(optdebug)
-         printf("call_optimize() - p = %s\n",p);
+         printf("args_optimize() - p = %s\n",p);
 
        if(temp->nodetype == Identifier)
        {
@@ -1288,7 +1366,7 @@ args_optimize(AST *root, AST *rptr)
   else
   {
     if(optdebug)
-      printf("call_optimize(): %s not found in global function table.\n",
+      printf("args_optimize(): %s not found in global function table.\n",
         root->astnode.ident.name);
 
     temp = root->astnode.ident.arraylist;

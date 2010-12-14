@@ -88,6 +88,7 @@ public class EasyIn {
         if(line == null)
           throw new EOFException("EOF");
 
+        line = line.trim();
         idx = 0;
         len = line.length();
       } while(!hasTokens(line));
@@ -143,28 +144,46 @@ public class EasyIn {
      * @return the token
      */
     private String getToken(int unit) throws IOException {
-       int begin,end;
+      int begin, end, in_quote;
 
-       if( (line == null) || !moreTokens() )
-         initTokenizer(unit);
+      if((line == null) || !moreTokens())
+        initTokenizer(unit);
 
-       while( (idx < len) && isDelim(line.charAt(idx)) )
-         idx++;
+      while((idx < len) && isDelim(line.charAt(idx)))
+        idx++;
 
-       if(idx == len) {
-         initTokenizer(unit);
-         while( (idx < len) && isDelim(line.charAt(idx)) )
-           idx++;
-       }
+      if(idx == len) {
+        initTokenizer(unit);
+        while((idx < len) && isDelim(line.charAt(idx)))
+          idx++;
+      }
 
-       begin = idx;
+      if(line.charAt(idx) == '\'') {
+        idx++;
+        begin = idx;
 
-       while( (idx < len) && !isDelim(line.charAt(idx)) )
-         idx++;
+        while(idx < len-1) {
+          if((line.charAt(idx) == '\'') && (line.charAt(idx+1) != '\''))
+            break;
+          if((line.charAt(idx) == '\'') && (line.charAt(idx+1) == '\''))
+            idx++;
+          idx++;
+        }
 
-       end = idx;
+        end = idx;
+      }
+      else {
+        begin = idx;
 
-       return line.substring(begin,end);
+        while((idx < len) && !isDelim(line.charAt(idx)))
+          idx++;
+
+        end = idx;
+      }
+
+      idx++;
+
+      return line.substring(begin,end).replace("''","'");
     }
 
     /**
@@ -178,23 +197,27 @@ public class EasyIn {
      * @return the String containing the characters read.
      */
     public String readchars(int unit, int num_chars) throws IOException {
-      int cp_idx;
+      int pad, cp_idx, i, si, ss_len;
+      char [] ss_copy;
+      String ss;
 
       if( (line == null) || !moreTokens() )
         initTokenizer(unit);
 
       cp_idx = idx;
 
-      if(cp_idx + num_chars < len)
-      {
-        idx += num_chars;
-        return( line.substring(cp_idx,cp_idx+num_chars) );
+      ss = getToken(unit);
+
+      if(ss.length() > num_chars)
+        ss = ss.substring(0, num_chars);
+      else {
+        pad = num_chars-ss.length();
+
+        if(pad > 0)
+          ss = ss + blank_string.substring(0,pad);
       }
-      else
-      {
-        idx = len;
-        return(line.substring(cp_idx,len) + blank_string.substring(0,num_chars-(len-cp_idx)));
-      }
+
+      return ss;
     }
 
     /**
@@ -230,11 +253,11 @@ public class EasyIn {
      * @throws IOException if an input or output exception occurred.
      */
     public boolean readboolean(int unit) throws IOException {
-          char ch = getToken(unit).charAt(0);
-          if((ch == 't') || (ch == 'T'))
-            return true;
-          else 
-            return false;
+      char ch = getToken(unit).charAt(0);
+      if((ch == 't') || (ch == 'T'))
+        return true;
+      else 
+        return false;
     }
 
     /**

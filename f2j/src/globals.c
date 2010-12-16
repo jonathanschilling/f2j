@@ -429,10 +429,15 @@ METHODTAB intrinsic_toks[]=
   /* Lexically Less than */
   {ifunc_LLT, "LLT", ".compareTo", NULL, "java/lang/String", NULL, "compareTo", "(Ljava/lang/String;)I", CS_ARGS, Logical},
 
-  /* fortran pseudo intrinsic */
+  /* fortran pseudo intrinsics */
   {ifunc_ETIME, "ETIME", ".etime", NULL, ETIME_CLASS, NULL, "etime", "([FI)F", IRDC_ARGS, Float}, 
-
   {ifunc_SECOND, "SECOND", ".second",  NULL,  SECOND_CLASS, NULL, "second", "()F", NO_ARG, Float}, 
+
+  /* some integer bitwise operations */
+  {ifunc_IEOR, "IEOR", NULL, NULL, "Unused", "Unused", "^", "Unused", INT_ARG, Integer},
+  {ifunc_IOR,  "IOR",  NULL, NULL, "Unused", "Unused", "|", "Unused", INT_ARG, Integer},
+  {ifunc_IAND, "IAND", NULL, NULL, "Unused", "Unused", "&", "Unused", INT_ARG, Integer},
+  {ifunc_NOT,  "NOT",  NULL, NULL, "Unused", "Unused", "~", "Unused", INT_ARG, Integer},
 
   /*  Ends a scanning loop.  See comment above. */
   {0, NULL , NULL, NULL, NULL, NULL, NULL, NULL, 0, 0}    

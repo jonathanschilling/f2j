@@ -691,7 +691,8 @@ enum _intrinsics {
   ifunc_TAN, ifunc_DTAN, ifunc_ASIN, ifunc_DASIN, ifunc_ACOS, ifunc_DACOS,
   ifunc_ATAN, ifunc_DATAN, ifunc_ATAN2, ifunc_DATAN2, ifunc_SINH, ifunc_DSINH,
   ifunc_COSH, ifunc_DCOSH, ifunc_TANH, ifunc_DTANH, ifunc_LGE, ifunc_LGT,
-  ifunc_LLE, ifunc_LLT, ifunc_ETIME, ifunc_SECOND
+  ifunc_LLE, ifunc_LLT, ifunc_ETIME, ifunc_SECOND, ifunc_IEOR, ifunc_IOR,
+  ifunc_IAND, ifunc_NOT
 };
 
 typedef struct method_tab

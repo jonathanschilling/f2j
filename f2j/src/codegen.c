@@ -6399,6 +6399,45 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
     case ifunc_ETIME:
       etime_func_emit(meth, entry, root->astnode.ident.arraylist);
       break;
+
+      /* some integer bitwise operations */
+    case ifunc_IEOR:
+      temp = root->astnode.ident.arraylist;
+      fprintf(curfp, "((");
+      expr_emit(meth, temp);
+      fprintf(curfp, ") %s (", entry->method_name);
+      expr_emit(meth, temp->nextstmt);
+      fprintf(curfp, "))");
+      bc_append(meth, jvm_ixor);
+      break;
+    case ifunc_IOR:
+      temp = root->astnode.ident.arraylist;
+      fprintf(curfp, "((");
+      expr_emit(meth, temp);
+      fprintf(curfp, ") %s (", entry->method_name);
+      expr_emit(meth, temp->nextstmt);
+      fprintf(curfp, "))");
+      bc_append(meth, jvm_ior);
+      break;
+    case ifunc_IAND:
+      temp = root->astnode.ident.arraylist;
+      fprintf(curfp, "((");
+      expr_emit(meth, temp);
+      fprintf(curfp, ") %s (", entry->method_name);
+      expr_emit(meth, temp->nextstmt);
+      fprintf(curfp, "))");
+      bc_append(meth, jvm_iand);
+      break;
+    case ifunc_NOT:
+      temp = root->astnode.ident.arraylist;
+      fprintf(curfp, "(%s(", entry->method_name);
+      expr_emit(meth, temp);
+      fprintf(curfp, ")-1)");
+      bc_append(meth, jvm_ineg);
+      bc_push_int_const(meth, 1);
+      bc_append(meth, jvm_isub);
+      break;
+
     default:
       fprintf(stderr,"WARNING: codegen() unimplemented intrinsic: '%s'\n",
          tempname);

@@ -40,6 +40,7 @@ public class FortranFile extends File {
   public static final int ERR_REWIND = 143;
   public static final int ERR_BACKSPACE = 144;
   public static final int ERR_ENDFILE = 145;
+  public static final int ERR_FLUSH = 146;
   public static final int ERR_KEEP_SCRATCH = 33;
   public static final int ERR_OLD_FILE_DOESNT_EXIST = 6;
   public static final int ERR_NEW_FILE_EXISTS = 107;
@@ -277,6 +278,24 @@ public class FortranFile extends File {
       System.err.println("Runtime error: " + errmsg);
       System.exit(1);
     }
+
+    return 0;
+  }
+
+  /**
+   * Flush this file.
+   *
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return positive integer.
+   *
+   * @returns 0 on success, positive integer on error.
+   */
+  public int flush(boolean terminate_on_error)
+  {
+
+    /* I don't think anything needs to be done here because Util flushes
+     * the stream after each write.
+     */
 
     return 0;
   }

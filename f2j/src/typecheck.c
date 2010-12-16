@@ -453,6 +453,16 @@ typecheck(AST * root)
       if(root->nextstmt != NULL)
         typecheck(root->nextstmt);
       break;
+    case Flush:
+      if(checkdebug)
+        printf("typecheck(): Flush statement.\n");
+
+      cur_check_unit->astnode.source.needs_files = TRUE;
+
+      reb_check(root);
+      if(root->nextstmt != NULL)
+        typecheck(root->nextstmt);
+      break;
     case Constant:
     default:
       fprintf(stderr,"typecheck(): Error, bad nodetype (%s)\n",
@@ -1212,6 +1222,7 @@ intrinsic_check(AST *root)
         root->vartype = Float;
         break;
       case ifunc_DBLE:
+      case ifunc_DFLOAT:
         root->vartype = Double;
         break;
       case ifunc_CMPLX:
@@ -1517,7 +1528,12 @@ check_implied_loop(AST *node)
   AST *temp;
   
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
-    expr_check(temp);
+  {
+    if(temp->nodetype == IoImpliedLoop)
+      check_implied_loop(temp);
+    else
+      expr_check(temp);
+  }
   expr_check(node->astnode.forloop.iter_expr);
   assign_check(node->astnode.forloop.incr_expr);
 }

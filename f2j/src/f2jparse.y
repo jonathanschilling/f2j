@@ -103,6 +103,8 @@ void
   print_sym_table_names(SYMTABLE *);
 
 AST 
+  * init_implied_loop(AST *),
+  * init_implied_loop_dim(AST *, int),
   * dl_astnode_examine(Dlist l),
   * init_common_spec(char *, AST *),
   * addnode(void),
@@ -146,7 +148,7 @@ ITAB_ENTRY implicit_table[26];
 
 %token IF THEN ELSE ELSEIF ENDIF DO GOTO ASSIGN TO CONTINUE STOP
 %token RDWR END ENDDO STRING CHAR  PAUSE
-%token OPEN CLOSE BACKSPACE REWIND ENDFILE FORMAT
+%token OPEN CLOSE BACKSPACE FLUSH REWIND ENDFILE FORMAT
 %token PROGRAM FUNCTION SUBROUTINE ENTRY CALL RETURN
 %token <type> ARITH_TYPE CHAR_TYPE 
 %token DIMENSION INCLUDE NO_PROGRAM DUMMY
@@ -180,7 +182,7 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Do_vals Double Float IfBlockStmts
 %type <ptnode> EquivalenceStmt EquivalenceList EquivalenceItem
 %type <ptnode> Else Elseif Elseifs EndIf End Exp Explist Exponential External
-%type <ptnode> Function Functionargs F2java
+%type <ptnode> Function Functionargs F2java NonemptyExplist
 %type <ptnode> Fprogram Ffunction Fsubroutine
 %type <ptnode> Goto Common CommonList CommonSpec ComputedGoto
 %type <ptnode> IfBlock Implicit Integer Intlist Intrinsic
@@ -191,8 +193,8 @@ ITAB_ENTRY implicit_table[26];
 %type <ptnode> Parameter  Pdec Pdecs Program PrintIoList
 %type <ptnode> Read IoExp IoExplist Return Rewind Backspace Endfile
 %type <ptnode> Save Specstmt Specstmts SpecStmtList Statements 
-%type <ptnode> Statement StmtLabelAssign Subroutinecall
-%type <ptnode> Sourcecodes  Sourcecode Star
+%type <ptnode> Statement StmtLabelAssign Subroutinecall Flush
+%type <ptnode> Sourcecodes  Sourcecode Star IoImpliedLoop
 %type <ptnode> String  Subroutine Stop SubstringOp Pause
 %type <ptnode> Typestmt ArithTypevar ArithTypevarlist
 %type <ptnode> CharTypevar CharTypevarlist
@@ -1418,6 +1420,11 @@ Statement:    Assignment  NL /* NL has to be here because of parameter dec. */
                 $$ = $1;
                 $$->nodetype = Backspace;
               }
+            | Flush
+              {
+                $$ = $1;
+                $$->nodetype = Flush;
+              }
             | DUMMY
               {
                 $$ = addnode();
@@ -1793,6 +1800,31 @@ Close: CLOSE OP Cllist CP NL
            exit(EXIT_FAILURE);
          }
        }
+;
+
+Flush: FLUSH UndeclaredName NL
+        {
+          $$ = addnode();
+          $$->nodetype = Flush;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | FLUSH Integer NL
+        {
+          $$ = addnode();
+          $$->nodetype = Flush;
+          $$->astnode.reb.unit_expr = $2;
+          $$->astnode.reb.unit_expr->parent = $$;
+        }
+      | FLUSH OP Alist CP NL
+        {
+          $$ = addnode();
+          $$->nodetype = Flush;
+
+          $3 = switchem($3);
+
+          get_info_from_alist($$, $3);
+        }
 ;
 
 Backspace: BACKSPACE UndeclaredName NL
@@ -2669,15 +2701,12 @@ RepeatSpec:  Integer
        {
          $$ = $2;
        }
-/*
-  this will stay commented out until I know the
-meaning of a negative repeat specification.
-
      | MINUS Integer
        {
-         $$ = $1;
+         $$ = $2;
+         $$->astnode.constant.number = 
+           unary_negate_string($$->astnode.constant.number);
        }
-*/
 ;
 
 Continue:  CONTINUE NL
@@ -2839,7 +2868,8 @@ FormatOrUnknownSpec:
 
 Read: READ OP Cilist CP IoExplist NL
       {
-         AST *temp;
+         AST *temp, *savenext, *prev;
+         HASHNODE *hash_entry;
 
          $$ = addnode();
          $$->nodetype = Read;
@@ -2853,8 +2883,25 @@ Read: READ OP Cilist CP IoExplist NL
          if($$->astnode.io_stmt.arg_list && $$->astnode.io_stmt.arg_list->parent)
            free_ast_node($$->astnode.io_stmt.arg_list->parent);
 
-         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt)
+         prev = NULL;
+         for(temp=$$->astnode.io_stmt.arg_list;temp!=NULL;temp=temp->nextstmt) {
            temp->parent = $$;
+
+           if(temp->nodetype == Identifier) {
+             hash_entry = type_lookup(array_table, temp->astnode.ident.name);
+             if(hash_entry) {
+               savenext = temp->nextstmt;
+               temp = init_implied_loop(hash_entry->variable);
+               temp->parent = $$;
+               temp->nextstmt = savenext;
+               if(prev)
+                 prev->nextstmt = temp;
+               else
+                 $$->astnode.io_stmt.arg_list = temp;
+             }
+           }
+           prev = temp;
+         }
       }
 ;
 
@@ -2881,7 +2928,13 @@ IoExp: Exp
        {
          $$ = $1;
        }
-     | OP Explist CM Name EQ Exp CM Exp CP /* implied do loop */
+     | IoImpliedLoop
+       {
+         $$ = $1;
+       }
+;
+
+IoImpliedLoop:  OP NonemptyExplist CM Name EQ Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2902,7 +2955,7 @@ IoExp: Exp
          $6->parent = $$;
          $8->parent = $$;
        }
-     | OP Explist CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
+     | OP NonemptyExplist CM Name EQ Exp CM Exp CM Exp CP /* implied do loop */
        {
          AST *temp;
 
@@ -2925,6 +2978,25 @@ IoExp: Exp
          $10->parent = $$;
        }
 ;
+
+NonemptyExplist:   IoExp
+           {
+             AST *temp;
+
+             temp = addnode();
+             temp->nodetype = Call;
+             $1->parent = temp;
+
+             $$ = $1;
+           }
+         | NonemptyExplist CM IoExp
+           {
+             $3->prevstmt = $1;
+             $3->parent = $1->parent;
+             $$ = $3;
+           }
+;
+
 
 /*  Got a problem when a Blockif opens with a Blockif.  The
  *  first statement of the second Blockif doesn't get into the
@@ -6597,6 +6669,170 @@ copy_tree(AST *root, SYMTABLE *trans_table)
         print_nodetype(root));
       exit(EXIT_FAILURE);
   }
+
+  return newnode;
+}
+
+/*****************************************************************************
+ * new_integer_node                                                          *
+ *                                                                           *
+ * just a quick way to create a new integer constant node initialized with   *
+ * the specified value.                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+new_integer_node(int val)
+{
+  AST *newnode;
+
+  newnode = addnode();
+  newnode->token = INTEGER;
+  newnode->nodetype = Constant;
+  newnode->astnode.constant.number = (char *)f2jalloc(100);
+  sprintf(newnode->astnode.constant.number, "%d", val);
+  newnode->vartype = Integer;
+
+  return newnode;
+}
+
+/*****************************************************************************
+ * io_implied_loop_sanity_check                                              *
+ *                                                                           *
+ * just some debug code for dumping our manually constructed IoImpliedLoop.  *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+io_implied_loop_sanity_check(AST *root)
+{
+  if(root->nodetype == Identifier) {
+    AST *temp;
+    printf("ident: %s\n", root->astnode.ident.name);
+    for(temp=root->astnode.ident.arraylist;temp!=NULL;temp=temp->nextstmt)
+      io_implied_loop_sanity_check(temp);
+  }
+  else if(root->nodetype == IoImpliedLoop) {
+    printf("IoImpliedLoop: \n");
+    printf("   start = %s\n", root->astnode.forloop.start->astnode.constant.number);
+    printf("   stop  = %s\n", root->astnode.forloop.stop->astnode.constant.number);
+    printf("   counter  = %s\n", root->astnode.forloop.counter->astnode.ident.name);
+    if(root->astnode.forloop.Label) {
+      printf("   label's nodetype = %s\n", print_nodetype(root->astnode.forloop.Label));
+      io_implied_loop_sanity_check(root->astnode.forloop.Label);
+    }
+  }
+  else {
+    printf("non-ident: %s\n", print_nodetype(root));
+  }
+}
+
+/*****************************************************************************
+ * init_implied_loop                                                         *
+ *                                                                           *
+ * This routine builds a 'fake' implied loop to handle statements like:      *
+ *    REAL X(4,5)                                                            *
+ *    READ (*,FMT=100) X                                                     *
+ * we want to pass this to codegen as if the statement had been:             *
+ *    READ (*,FMT=100) ((X(i,j),i=1,4),j=1,5)                                *
+ * so here we just loop through each dimension of the variable and make an   *
+ * IoImpliedLoop node for it, then make the contents point to the previous   *
+ * dimension's implied loop.                                                 *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+init_implied_loop(AST *arr)
+{
+  AST *newdim, *prev, *first;
+  int i, num_dim;
+
+  num_dim = arr->astnode.ident.dim;
+
+  first = newdim = prev = NULL;
+
+  for(i=0;i<num_dim;i++) {
+    newdim = init_implied_loop_dim(arr, i);
+    if(!first)
+      first = newdim;
+    newdim->parent = arr;
+    if(prev)
+      newdim->astnode.forloop.Label = prev;
+    if(newdim->astnode.forloop.Label)
+      newdim->astnode.forloop.Label->parent = newdim;
+    prev = newdim;
+  }
+
+  if(first) {
+    AST *dref, *curdim, *first_dref, *t;
+
+    first_dref = prev = NULL;
+
+    for(curdim=newdim;curdim!=NULL;curdim=curdim->astnode.forloop.Label) {
+      dref = initialize_name(curdim->astnode.forloop.counter->astnode.ident.name);
+      if(!first_dref)
+        first_dref = dref;
+      if(prev)
+        prev->prevstmt = dref;
+      prev=dref;
+    }
+
+    first->astnode.forloop.Label = addnode();
+    first->astnode.forloop.Label->nodetype = Identifier;
+    strcpy(first->astnode.forloop.Label->astnode.ident.name, arr->astnode.ident.name);
+    first->astnode.forloop.Label->astnode.ident.arraylist = switchem(first_dref);
+    for(t=first->astnode.forloop.Label;t!=NULL;t=t->nextstmt)
+      t->parent = first;
+    for(t=first->astnode.forloop.Label->astnode.ident.arraylist;t!=NULL;t=t->nextstmt)
+      t->parent = first->astnode.forloop.Label;
+  }
+
+  return newdim;
+}
+
+/*****************************************************************************
+ * init_implied_loop_dim                                                     *
+ *                                                                           *
+ * builds one dimension of the 'fake' implied loop (see comment above for    *
+ * init_implied_loop().                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+init_implied_loop_dim(AST *arr, int dim)
+{
+  char loopvar_name[50];
+  HASHNODE *hashtemp;
+  AST *newnode;
+
+  sprintf(loopvar_name, "__lv_d%d", dim);
+
+  newnode = addnode();
+  newnode->nodetype = IoImpliedLoop;
+  if(arr->astnode.ident.startDim[dim])
+    newnode->astnode.forloop.start = arr->astnode.ident.startDim[dim];
+  else
+    newnode->astnode.forloop.start = new_integer_node(1);
+  newnode->astnode.forloop.stop = arr->astnode.ident.endDim[dim];
+  newnode->astnode.forloop.incr = NULL;
+  newnode->astnode.forloop.counter = initialize_name(loopvar_name);
+
+  newnode->astnode.forloop.iter_expr = 
+     gen_iter_expr(newnode->astnode.forloop.start,
+     arr->astnode.ident.endDim[dim],NULL);
+  newnode->astnode.forloop.incr_expr = 
+     gen_incr_expr(newnode->astnode.forloop.counter, NULL);
+
+  newnode->astnode.forloop.counter->parent = newnode;
+  newnode->astnode.forloop.start->parent = newnode;
+  newnode->astnode.forloop.stop->parent = newnode;
+
+  /* reset the type of the loopvar (that we just inserted above) to int */
+  hashtemp = type_lookup(type_table, loopvar_name);
+  if(hashtemp)
+    hashtemp->variable->vartype = Integer;
+  else
+    fprintf(stderr, "Warning: could not find entry i just inserted\n");
 
   return newnode;
 }

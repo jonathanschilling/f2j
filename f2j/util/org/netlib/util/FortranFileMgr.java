@@ -151,6 +151,33 @@ public class FortranFileMgr {
   }
 
   /**
+   * Flush the specified unit.
+   *
+   * @param unit - the unit to flush
+   * @param terminate_on_error - if true, call System.exit() on error,
+   *   otherwise return -1.
+   *
+   * @returns 0 on success, -1 on error.
+   */
+  public int flush(int unit, boolean terminate_on_error)
+  {
+    FortranFile ff;
+    int rv;
+
+    ff = get(new Integer(unit));
+
+    if(ff == null)
+      return 0;
+
+    rv = ff.flush(terminate_on_error);
+
+    if((rv != 0) && !terminate_on_error)
+      return rv;
+
+    return 0;
+  }
+
+  /**
    * Backspace the specified unit.
    *
    * @param unit - the unit to backspace

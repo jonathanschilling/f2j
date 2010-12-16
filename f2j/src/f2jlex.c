@@ -657,7 +657,7 @@ yylex()
   if((firsttoken == READ) || (firsttoken == WRITE) ||
      (firsttoken == OPEN) || (firsttoken == CLOSE) ||
      (firsttoken == REWIND) || (firsttoken == ENDFILE) ||
-     (firsttoken == BACKSPACE))
+     (firsttoken == BACKSPACE) || (firsttoken == FLUSH))
   {
     if((token == OP) && !in_iolist)
       in_iolist = TRUE;
@@ -690,6 +690,9 @@ yylex()
       token = keyscan(reb_toks, &buffer);
 
     if(!token && (firsttoken == ENDFILE))
+      token = keyscan(reb_toks, &buffer);
+
+    if(!token && (firsttoken == FLUSH))
       token = keyscan(reb_toks, &buffer);
   }
 
@@ -2437,6 +2440,8 @@ tok2str(int tok)
       return("CLOSE");
     case BACKSPACE:
       return("BACKSPACE");
+    case FLUSH:
+      return("FLUSH");
     case REWIND:
       return("REWIND");
     case ENDFILE:

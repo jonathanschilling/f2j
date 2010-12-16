@@ -369,6 +369,15 @@ optimize (AST * root, AST * rptr)
       if(root->nextstmt != NULL)
         optimize(root->nextstmt, rptr);
       break;
+    case Flush:
+      if (optdebug)
+        printf("Flush statement.\n");
+
+      reb_optimize(root, rptr);
+
+      if(root->nextstmt != NULL)
+        optimize(root->nextstmt, rptr);
+      break;
     case Endfile:
       if(optdebug)
         printf("Endfile statement.\n");
@@ -926,7 +935,10 @@ read_implied_loop_optimize(AST *node, AST *rptr)
 
   for(temp = node->astnode.forloop.Label; temp != NULL; temp = temp->nextstmt)
   {
-    if(temp->nodetype != Identifier) {
+    if(temp->nodetype == IoImpliedLoop) {
+      read_implied_loop_optimize(temp, rptr);
+    }
+    else if(temp->nodetype != Identifier) {
       fprintf(stderr,"Cant handle this nodetype (%s) ",
         print_nodetype(temp));
       fprintf(stderr," in implied loop (read stmt)\n");
@@ -1213,6 +1225,7 @@ dump_args_comparison(AST *alist1, AST *alist2)
       else
         carg = "[constant/non-ident]";
     }
+
     if(t2) {
       if(t2->nodetype == Identifier)
         darg = t2->astnode.ident.name;

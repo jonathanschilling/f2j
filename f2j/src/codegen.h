@@ -64,6 +64,8 @@
 #define STREQV_DESC "(Ljava/lang/String;Ljava/lang/String;)Z"
 #define SUBSTR_DESC "(II)Ljava/lang/String;"
 #define STRLEN_DESC "()I"
+#define ITER_COUNT_DESC "(III)I"
+#define ARG_HINT_DESC "(I)V"
 #define F77_READ_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
 #define F77_WRITE_DESC "(ILjava/lang/String;Ljava/util/Vector;)I"
 #define F2J_UTIL "org/netlib/util"
@@ -97,6 +99,7 @@
 #define CLOSE_DESC "(ILjava/lang/String;Z)I"
 #define REWIND_DESC "(IZ)I"
 #define BACKSPACE_DESC "(IZ)I"
+#define FLUSH_DESC "(IZ)I"
 #define ENDFILE_DESC "(IZ)I"
 #define EASYIN_CLASS "org/netlib/util/EasyIn"
 #define EASYIN_DESC "()V"
@@ -200,6 +203,10 @@ void
   read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   formatted_read_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
   write_implied_loop_bytecode_emit(JVM_METHOD *, AST *),
+  implied_loop_sourcecode_emit(JVM_METHOD *, AST *,
+    void (*)(JVM_METHOD *, AST *)),
+  implied_loop_bytecode_emit(JVM_METHOD *, AST *,
+    void (*)(JVM_METHOD *, AST *)),
   fmt_tab_init(JVM_METHOD *),
   forloop_bytecode_emit(JVM_METHOD *, AST *),
   forloop_end_bytecode(JVM_METHOD *, AST *),

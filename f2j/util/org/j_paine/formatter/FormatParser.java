@@ -10,6 +10,26 @@ class FormatParser implements FormatParserConstants {
     throw new Error("Missing return statement in function");
   }
 
+  final public int SignedInteger() throws ParseException {
+  int w;
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case INTEGER:
+      w = Integer();
+                      {if (true) return w;}
+      break;
+    case 13:
+      jj_consume_token(13);
+      w = Integer();
+                      {if (true) return -w;}
+      break;
+    default:
+      jj_la1[0] = jj_gen;
+      jj_consume_token(-1);
+      throw new ParseException();
+    }
+    throw new Error("Missing return statement in function");
+  }
+
 /* I split FormatIOElement into FormatIOElementFloat and
  * FormatIOElementNonFloat because a floating point edit
  * descriptor (F, E, D, or G) may follow a P edit descriptor
@@ -23,33 +43,33 @@ class FormatParser implements FormatParserConstants {
     case F_DESC:
       jj_consume_token(F_DESC);
       w = Integer();
-      jj_consume_token(13);
+      jj_consume_token(14);
       d = Integer();
-                                              fe=new FormatF(w,d);
+                                              fe=new FormatF(w, d);
       break;
     case D_DESC:
       jj_consume_token(D_DESC);
       w = Integer();
-      jj_consume_token(13);
+      jj_consume_token(14);
       d = Integer();
-                                              fe=new FormatE(w,d);
+                                              fe=new FormatED(w, d, 'D');
       break;
     case E_DESC:
       jj_consume_token(E_DESC);
       w = Integer();
-      jj_consume_token(13);
+      jj_consume_token(14);
       d = Integer();
-                                              fe=new FormatE(w,d);
+                                              fe=new FormatED(w, d, 'E');
       break;
     case G_DESC:
       jj_consume_token(G_DESC);
       w = Integer();
-      jj_consume_token(13);
+      jj_consume_token(14);
       d = Integer();
-                                              fe=new FormatE(w,d);
+                                              fe=new FormatED(w, d, 'E');
       break;
     default:
-      jj_la1[0] = jj_gen;
+      jj_la1[1] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -69,7 +89,7 @@ class FormatParser implements FormatParserConstants {
         w = Integer();
         break;
       default:
-        jj_la1[1] = jj_gen;
+        jj_la1[2] = jj_gen;
         ;
       }
                                               fe=new FormatA(w);
@@ -78,12 +98,12 @@ class FormatParser implements FormatParserConstants {
       jj_consume_token(I_DESC);
       w = Integer();
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 13:
-        jj_consume_token(13);
+      case 14:
+        jj_consume_token(14);
         m = Integer();
         break;
       default:
-        jj_la1[2] = jj_gen;
+        jj_la1[3] = jj_gen;
         ;
       }
                                               fe=new FormatI(w);
@@ -94,7 +114,7 @@ class FormatParser implements FormatParserConstants {
                                               fe=new FormatL(w);
       break;
     default:
-      jj_la1[3] = jj_gen;
+      jj_la1[4] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -133,7 +153,7 @@ class FormatParser implements FormatParserConstants {
       fe = FormatScale();
       break;
     default:
-      jj_la1[4] = jj_gen;
+      jj_la1[5] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -156,13 +176,13 @@ class FormatParser implements FormatParserConstants {
         r = Integer();
         break;
       default:
-        jj_la1[5] = jj_gen;
+        jj_la1[6] = jj_gen;
         ;
       }
       fe = FormatIOElementFloat();
       break;
     default:
-      jj_la1[6] = jj_gen;
+      jj_la1[7] = jj_gen;
       ;
     }
     {if (true) return new FormatP(r, fe);}
@@ -170,7 +190,7 @@ class FormatParser implements FormatParserConstants {
   }
 
   final public FormatSlash FormatSlash() throws ParseException {
-    jj_consume_token(14);
+    jj_consume_token(15);
         {if (true) return new FormatSlash();}
     throw new Error("Missing return statement in function");
   }
@@ -197,22 +217,22 @@ class FormatParser implements FormatParserConstants {
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case STRING:
-      case 14:
+      case 15:
         ;
         break;
       default:
-        jj_la1[7] = jj_gen;
+        jj_la1[8] = jj_gen;
         break label_1;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 14:
+      case 15:
         fs = FormatSlash();
         break;
       case STRING:
         fs = FormatString();
         break;
       default:
-        jj_la1[8] = jj_gen;
+        jj_la1[9] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -225,17 +245,18 @@ class FormatParser implements FormatParserConstants {
   FormatUniv fu;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case INTEGER:
-      r = Integer();
+    case 13:
+      r = SignedInteger();
       break;
     default:
-      jj_la1[9] = jj_gen;
+      jj_la1[10] = jj_gen;
       ;
     }
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case 15:
-      jj_consume_token(15);
-      fu = Format();
+    case 16:
       jj_consume_token(16);
+      fu = Format();
+      jj_consume_token(17);
       break;
     case A_DESC:
     case P_DESC:
@@ -249,7 +270,7 @@ class FormatParser implements FormatParserConstants {
       fu = FormatElement();
       break;
     default:
-      jj_la1[10] = jj_gen;
+      jj_la1[11] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -259,16 +280,8 @@ class FormatParser implements FormatParserConstants {
      * so return that element here.  --kgs
      */
 
-    if(fu instanceof FormatP) {
-      FormatRepeatedItem ritem;
-
-      ritem = ((FormatP)fu).getRepeatedItem();
-
-      if(ritem != null)
-        {if (true) return ritem;}
-      else
-        {if (true) return new FormatRepeatedItem( r, fu );}
-    }
+    if(fu instanceof FormatP)
+      {if (true) return new FormatRepeatedItemWithScale(r, fu );}
     else
       {if (true) return new FormatRepeatedItem( r, fu );}
     throw new Error("Missing return statement in function");
@@ -288,13 +301,16 @@ class FormatParser implements FormatParserConstants {
     case E_DESC:
     case G_DESC:
     case L_DESC:
-    case 15:
+    case 13:
+    case 16:
       fri = FormatRepeatedItem();
-                                    if(fri != null) f.addElement(fri);
+        if(fri != null) {
+          f.addElement(fri);
+        }
       OptionalFormatSlashesOrStrings(f);
       break;
     default:
-      jj_la1[11] = jj_gen;
+      jj_la1[12] = jj_gen;
       ;
     }
   }
@@ -313,14 +329,14 @@ class FormatParser implements FormatParserConstants {
     label_2:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case 17:
+      case 18:
         ;
         break;
       default:
-        jj_la1[12] = jj_gen;
+        jj_la1[13] = jj_gen;
         break label_2;
       }
-      jj_consume_token(17);
+      jj_consume_token(18);
       FormatGroup(f);
     }
     {if (true) return f;}
@@ -332,13 +348,13 @@ class FormatParser implements FormatParserConstants {
   public Token token, jj_nt;
   private int jj_ntk;
   private int jj_gen;
-  final private int[] jj_la1 = new int[13];
+  final private int[] jj_la1 = new int[14];
   static private int[] jj_la1_0;
   static {
       jj_la1_0();
    }
    private static void jj_la1_0() {
-      jj_la1_0 = new int[] {0xf00,0x4,0x2000,0x1090,0x1ff0,0x4,0xf04,0x4008,0x4008,0x4,0x9ff0,0x9ff4,0x20000,};
+      jj_la1_0 = new int[] {0x2004,0xf00,0x4,0x4000,0x1090,0x1ff0,0x4,0xf04,0x8008,0x8008,0x2004,0x11ff0,0x13ff4,0x40000,};
    }
 
   public FormatParser(java.io.InputStream stream) {
@@ -347,7 +363,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   public void ReInit(java.io.InputStream stream) {
@@ -356,7 +372,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   public FormatParser(java.io.Reader stream) {
@@ -365,7 +381,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   public void ReInit(java.io.Reader stream) {
@@ -374,7 +390,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   public FormatParser(FormatParserTokenManager tm) {
@@ -382,7 +398,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   public void ReInit(FormatParserTokenManager tm) {
@@ -390,7 +406,7 @@ class FormatParser implements FormatParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 13; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 14; i++) jj_la1[i] = -1;
   }
 
   final private Token jj_consume_token(int kind) throws ParseException {
@@ -437,15 +453,15 @@ class FormatParser implements FormatParserConstants {
 
   public ParseException generateParseException() {
     jj_expentries.removeAllElements();
-    boolean[] la1tokens = new boolean[18];
-    for (int i = 0; i < 18; i++) {
+    boolean[] la1tokens = new boolean[19];
+    for (int i = 0; i < 19; i++) {
       la1tokens[i] = false;
     }
     if (jj_kind >= 0) {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 13; i++) {
+    for (int i = 0; i < 14; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {
@@ -454,7 +470,7 @@ class FormatParser implements FormatParserConstants {
         }
       }
     }
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 19; i++) {
       if (la1tokens[i]) {
         jj_expentry = new int[1];
         jj_expentry[0] = i;

@@ -62,6 +62,14 @@ int Integer():
   { return (Integer.valueOf(t.image)).intValue(); }
 }
 
+int SignedInteger():
+{ int w;
+}
+{
+        w=Integer() { return w; }
+  | "-" w=Integer() { return -w; }
+}
+
 /* I split FormatIOElement into FormatIOElementFloat and
  * FormatIOElementNonFloat because a floating point edit
  * descriptor (F, E, D, or G) may follow a P edit descriptor
@@ -77,10 +85,10 @@ FormatElement FormatIOElementFloat():
 // for Iw.m, ignore the .m value
 /* added D and G edit descriptors, but just use the E implementation. --kgs */
   (
-    <F_DESC> w=Integer() "." d=Integer()    { fe=new FormatF(w,d); }
-  | <D_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
-  | <E_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
-  | <G_DESC> w=Integer() "." d=Integer()    { fe=new FormatE(w,d); }
+    <F_DESC> w=Integer() "." d=Integer()    { fe=new FormatF(w, d); }
+  | <D_DESC> w=Integer() "." d=Integer()    { fe=new FormatED(w, d, 'D'); }
+  | <E_DESC> w=Integer() "." d=Integer()    { fe=new FormatED(w, d, 'E'); }
+  | <G_DESC> w=Integer() "." d=Integer()    { fe=new FormatED(w, d, 'E'); }
   )
   { return fe; }
 }
@@ -178,7 +186,7 @@ FormatRepeatedItem FormatRepeatedItem():
   FormatUniv fu;
 }
 {
-  [ r=Integer() ]
+  [ r=SignedInteger() ]
   ( "(" fu=Format() ")"
   | fu=FormatElement()
   )
@@ -189,16 +197,8 @@ FormatRepeatedItem FormatRepeatedItem():
      * so return that element here.  --kgs
      */
   
-    if(fu instanceof FormatP) {
-      FormatRepeatedItem ritem;
-      
-      ritem = ((FormatP)fu).getRepeatedItem();
-
-      if(ritem != null)
-        return ritem;
-      else
-        return new FormatRepeatedItem( r, fu );
-    }
+    if(fu instanceof FormatP)
+      return new FormatRepeatedItemWithScale(r, fu );
     else
       return new FormatRepeatedItem( r, fu );
   }
@@ -210,7 +210,11 @@ void FormatGroup( Format f ):
 }
 {
   ( OptionalFormatSlashesOrStrings( f )
-    [ fri = FormatRepeatedItem()  { if(fri != null) f.addElement(fri); }
+    [ fri = FormatRepeatedItem()  { 
+        if(fri != null) {
+          f.addElement(fri);
+        }
+      }
       OptionalFormatSlashesOrStrings( f )
     ]
   )

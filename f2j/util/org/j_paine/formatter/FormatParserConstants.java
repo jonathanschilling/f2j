@@ -32,6 +32,7 @@ public interface FormatParserConstants {
     "<E_DESC>",
     "<G_DESC>",
     "<L_DESC>",
+    "\"-\"",
     "\".\"",
     "\"/\"",
     "\"(\"",

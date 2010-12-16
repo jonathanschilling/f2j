@@ -295,6 +295,7 @@ enum _nodetype
   Close,
   Rewind,
   Backspace,
+  Flush,
   Endfile,
   CharExp
 };
@@ -677,20 +678,20 @@ KWDTAB;
 
 enum _intrinsics {
   ifunc_INT, ifunc_IFIX, ifunc_IDINT, ifunc_REAL, ifunc_FLOAT, ifunc_SNGL,
-  ifunc_DBLE, ifunc_CMPLX, ifunc_ICHAR, ifunc_CHAR, ifunc_AINT, ifunc_DINT,
-  ifunc_ANINT, ifunc_DNINT, ifunc_NINT, ifunc_IDNINT, ifunc_ABS, ifunc_IABS,
-  ifunc_DABS, ifunc_CABS, ifunc_MOD, ifunc_AMOD, ifunc_DMOD, ifunc_SIGN,
-  ifunc_ISIGN, ifunc_DSIGN, ifunc_DIM, ifunc_IDIM, ifunc_DDIM, ifunc_DPROD,
-  ifunc_MAX, ifunc_MAX0, ifunc_AMAX1, ifunc_DMAX1, ifunc_AMAX0, ifunc_MAX1,
-  ifunc_MIN, ifunc_MIN0, ifunc_AMIN1, ifunc_DMIN1, ifunc_AMIN0, ifunc_MIN1,
-  ifunc_LEN, ifunc_INDEX, ifunc_AIMAG, ifunc_CONJG, ifunc_SQRT, ifunc_DSQRT,
-  ifunc_CSQRT, ifunc_EXP, ifunc_DEXP, ifunc_CEXP, ifunc_LOG, ifunc_ALOG,
-  ifunc_DLOG, ifunc_CLOG, ifunc_LOG10, ifunc_ALOG10, ifunc_DLOG10, ifunc_SIN,
-  ifunc_DSIN, ifunc_CSIN, ifunc_COS, ifunc_DCOS, ifunc_CCOS, ifunc_TAN,
-  ifunc_DTAN, ifunc_ASIN, ifunc_DASIN, ifunc_ACOS, ifunc_DACOS, ifunc_ATAN,
-  ifunc_DATAN, ifunc_ATAN2, ifunc_DATAN2, ifunc_SINH, ifunc_DSINH, ifunc_COSH,
-  ifunc_DCOSH, ifunc_TANH, ifunc_DTANH, ifunc_LGE, ifunc_LGT, ifunc_LLE,
-  ifunc_LLT, ifunc_ETIME, ifunc_SECOND
+  ifunc_DBLE, ifunc_DFLOAT, ifunc_CMPLX, ifunc_ICHAR, ifunc_CHAR, ifunc_AINT,
+  ifunc_DINT, ifunc_ANINT, ifunc_DNINT, ifunc_NINT, ifunc_IDNINT, ifunc_ABS,
+  ifunc_IABS, ifunc_DABS, ifunc_CABS, ifunc_MOD, ifunc_AMOD, ifunc_DMOD,
+  ifunc_SIGN, ifunc_ISIGN, ifunc_DSIGN, ifunc_DIM, ifunc_IDIM, ifunc_DDIM,
+  ifunc_DPROD, ifunc_MAX, ifunc_MAX0, ifunc_AMAX1, ifunc_DMAX1, ifunc_AMAX0,
+  ifunc_MAX1, ifunc_MIN, ifunc_MIN0, ifunc_AMIN1, ifunc_DMIN1, ifunc_AMIN0,
+  ifunc_MIN1, ifunc_LEN, ifunc_INDEX, ifunc_AIMAG, ifunc_CONJG, ifunc_SQRT,
+  ifunc_DSQRT, ifunc_CSQRT, ifunc_EXP, ifunc_DEXP, ifunc_CEXP, ifunc_LOG,
+  ifunc_ALOG, ifunc_DLOG, ifunc_CLOG, ifunc_LOG10, ifunc_ALOG10, ifunc_DLOG10,
+  ifunc_SIN, ifunc_DSIN, ifunc_CSIN, ifunc_COS, ifunc_DCOS, ifunc_CCOS,
+  ifunc_TAN, ifunc_DTAN, ifunc_ASIN, ifunc_DASIN, ifunc_ACOS, ifunc_DACOS,
+  ifunc_ATAN, ifunc_DATAN, ifunc_ATAN2, ifunc_DATAN2, ifunc_SINH, ifunc_DSINH,
+  ifunc_COSH, ifunc_DCOSH, ifunc_TANH, ifunc_DTANH, ifunc_LGE, ifunc_LGT,
+  ifunc_LLE, ifunc_LLT, ifunc_ETIME, ifunc_SECOND
 };
 
 typedef struct method_tab

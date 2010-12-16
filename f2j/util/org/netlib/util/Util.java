@@ -19,6 +19,7 @@ import org.j_paine.formatter.*;
  */
 
 public class Util {
+  public static int io_arg_count_guess = -1;
 
   /**
    * Inserts a string into a substring of another string.
@@ -813,6 +814,23 @@ public class Util {
   }
 
   /**
+   * Tells the formatter how many args you think there will need to
+   * be read in.  This is mainly an issue when the format is shorter
+   * than the number of data elements, e.g.:
+   *   read(*,'I5') X
+   * where X is dimensioned as an array.
+   *
+   * NOTE: this value will be reset after each read so that subsequent
+   * reads will not be affected.
+   *
+   * @param x - the arg count estimate.
+   */
+  public static void setIoArgHint(int x)
+  {
+    io_arg_count_guess = x;
+  }
+
+  /**
    * Formatted read.
    *
    * @param fmt String containing the Fortran format specification.
@@ -837,6 +855,12 @@ public class Util {
   public static int f77read(int unit, String fmt, Vector v)
   {
     DataInputStream is = null;
+    int arg_hint;
+
+    if(io_arg_count_guess >= 0) {
+      arg_hint = io_arg_count_guess;
+      io_arg_count_guess = -1;
+    }
 
     try {
       is = getDataInputStream(unit);
@@ -890,5 +914,13 @@ public class Util {
     }
 
     return newvec;
+  }
+
+  public static int getIterationCount(int start, int stop, int incr)
+  {
+    if(incr == 0)
+      return 0;
+
+    return Math.max((int)(((((stop-start)+incr))/incr)), 0);
   }
 }

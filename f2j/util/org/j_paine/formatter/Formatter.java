@@ -151,6 +151,81 @@ public class Formatter
 */
 abstract class FormatUniv
 {
+  int p_scale = 0;
+
+  public void setScale(int s) {
+    p_scale = s;
+  }
+
+  public int getScale() {
+    return p_scale;
+  }
+
+  public Object scaleObject(Object o) {
+    double mult;
+
+    if(p_scale == 0)
+      return o;
+
+    mult = java.lang.Math.pow(10.0, (double)p_scale);
+
+    if(o instanceof Integer)
+      return new Integer((int)(((Integer)o).intValue() * mult));
+    else if(o instanceof Long)
+      return new Long((long)(((Long)o).longValue() * mult));
+    else if(o instanceof Float)
+      return new Float(((Float)o).floatValue() * mult);
+    else if(o instanceof Double)
+      return new Double(((Double)o).doubleValue() * mult);
+
+    return o;
+  }
+
+  public String scaleExponent(String s) {
+    int e_idx, d_idx, idx, exp, e_width;
+    String e_str, retval;
+
+    if(p_scale == 0)
+      return s;
+
+    e_idx = s.indexOf('E');
+    d_idx = s.indexOf('D');
+
+    if(e_idx >= 0) 
+      idx = e_idx;
+    else if(d_idx >= 0)
+      idx = d_idx;
+    else
+      return s;
+
+    if(s.charAt(idx+1) == '+')
+      exp = Integer.parseInt(s.substring(idx+2));
+    else
+      exp = Integer.parseInt(s.substring(idx+1));
+
+    e_width = s.length() - (idx+2);
+
+    exp = exp - p_scale;
+
+    /* PrintfFormat doesn't seem to zero pad negative numbers, so 
+     * if the exponent is negative, just format the number as positive 
+     * and then prepend the '-'.
+     */
+    if(exp < 0)
+      e_str = "-" + new PrintfFormat("%0" + Integer.toString(e_width) +
+                   "d").sprintf(new Integer(-exp));
+    else
+      e_str = new PrintfFormat("%0" + Integer.toString(e_width) +
+                   "d").sprintf(new Integer(exp));
+
+    if(s.charAt(idx+1) == '+')
+      retval = s.substring(0,idx+1) + "+" + e_str;
+    else
+      retval = s.substring(0,idx+1) + e_str;
+
+    return retval;
+  }
+
   abstract void write( FormatOutputList vp, PrintStream out )
                 throws OutputFormatException;
 
@@ -204,8 +279,15 @@ class Format extends FormatUniv
   public void write( FormatOutputList vp, PrintStream out )
               throws OutputFormatException
   {
+    int cur_scale = 0;
+
     for ( int i=0; i<this.elements.size(); i++ ) {
       FormatUniv fu = (FormatUniv)this.elements.elementAt(i);
+
+      if(fu instanceof FormatRepeatedItemWithScale)
+        cur_scale = ((FormatRepeatedItemWithScale) fu).getRepeat();
+
+      fu.setScale(cur_scale);
       fu.write( vp, out );
     }
   }
@@ -217,8 +299,13 @@ class Format extends FormatUniv
                   )
               throws InputFormatException
   {
+    int cur_scale = 0;
+
     for ( int i=0; i<this.elements.size(); i++ ) {
       FormatUniv fu = (FormatUniv)this.elements.elementAt(i);
+      if(fu instanceof FormatRepeatedItemWithScale)
+        cur_scale = ((FormatRepeatedItemWithScale) fu).getRepeat();
+      fu.setScale(cur_scale);
       fu.read( vp, in, format_map );
     }
   }
@@ -248,6 +335,10 @@ class FormatRepeatedItem extends FormatUniv
   private int r=1;
   private FormatUniv format_univ = null;
 
+  public void setScale(int s) {
+    p_scale = s;
+    format_univ.setScale(s);
+  }
 
   public FormatRepeatedItem( FormatUniv format_univ )
   {
@@ -289,6 +380,53 @@ class FormatRepeatedItem extends FormatUniv
   }
 }
 
+class FormatRepeatedItemWithScale extends FormatRepeatedItem
+{
+  private FormatP scale;
+  private int r = 1;
+
+  public void setScale(int s) {
+    p_scale = s;
+    scale.setScale(s);
+  }
+
+  public FormatRepeatedItemWithScale(int r, FormatUniv scale)
+  {
+    super(r,scale);
+    this.r = r;
+    this.scale = (FormatP)scale;
+  }
+
+  public void write( FormatOutputList vp, PrintStream out )
+              throws OutputFormatException
+  {
+    if((scale != null) && (scale.getRepeatedItem() != null))
+      scale.getRepeatedItem().write(vp, out);
+  }
+
+  public int getRepeat() {
+    return r;
+  }
+
+  public void read( FormatInputList vp,
+                    InputStreamAndBuffer in,
+                    FormatMap format_map
+                  )
+              throws InputFormatException
+  {
+    if((scale != null) && (scale.getRepeatedItem() != null))
+      scale.getRepeatedItem().read(vp, in, format_map);
+  }
+
+
+  public String toString()
+  {
+    if((scale != null) && (scale.getRepeatedItem() != null))
+      return scale.getRepeatedItem().toString();
+    else
+      return "";
+  }
+}
 
 /* This class represents a single format element such as
    F12.5, I2, or X.
@@ -389,6 +527,12 @@ abstract class FormatIOElement extends FormatElement
 class FormatP extends FormatElement
 {
   FormatRepeatedItem ritem = null;
+
+  public void setScale(int s) {
+    p_scale = s;
+    if(ritem != null)
+      ritem.setScale(s);
+  }
 
   public FormatRepeatedItem getRepeatedItem() {
     return ritem;
@@ -754,6 +898,8 @@ class FormatF extends FormatIOElement
          o instanceof Float || o instanceof Double ) {
       String fmtstr;
 
+      o = scaleObject(o);
+
       /* hack to match gfortran.  if the width after the decimal point is zero,
        * then append "." since the PrintfFormat doesn't do it.   --kgs
        */
@@ -787,6 +933,8 @@ class FormatF extends FormatIOElement
         //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
       }
 
+      s = scaleExponent(s);
+
       return s;
     }
     else
@@ -806,6 +954,11 @@ class FormatF extends FormatIOElement
          throws InvalidNumberOnReadException
   {
     String s = str.trim();
+    boolean has_exp = false;
+
+    if((s.indexOf('E') >= 0) || (s.indexOf('D') >= 0) ||
+       (s.indexOf('e') >= 0) || (s.indexOf('d') >= 0))
+      has_exp = true;
 
     /* Parse the string to check it's a valid number,
        and convert if so.
@@ -816,6 +969,8 @@ class FormatF extends FormatIOElement
     try {
       int start = np.Float();
       Double d = new Double( s.substring(start) );
+      if((getScale() != 0) && !has_exp)
+        d = new Double(d.doubleValue() / java.lang.Math.pow((double)10.0,(double)getScale()));
       return d;
     }
     catch ( ParseException e ) {
@@ -849,14 +1004,15 @@ class FormatF extends FormatIOElement
      s0.dd...ddEsdd
    where s is a sign.
 */
-class FormatE extends FormatIOElement
+class FormatED extends FormatIOElement
 { int d;
+  char fmt_letter;
 
-
-  public FormatE( int w, int d )
+  public FormatED( int w, int d, char c )
   {
     setWidth( w );
     this.d = d;
+    this.fmt_letter = c;
   }
 
 
@@ -865,6 +1021,9 @@ class FormatE extends FormatIOElement
                 NumberTooWideOnWriteException
   {
     String s;
+    int mult;
+
+    o = scaleObject(o);
 
     /* Convert the number to a string. */
     if ( o instanceof Integer || o instanceof Long ||
@@ -900,6 +1059,11 @@ class FormatE extends FormatIOElement
         //throw new NumberTooWideOnWriteException( (Number)o, vecptr, this.toString());
       }
 
+      s = scaleExponent(s);
+
+      if(fmt_letter != 'E')
+        s = s.replace('E', fmt_letter);
+
       return s;
     }
     else
@@ -919,6 +1083,11 @@ class FormatE extends FormatIOElement
          throws InvalidNumberOnReadException
   {
     String s = str.trim();
+    boolean has_exp = false;
+
+    if((s.indexOf('E') >= 0) || (s.indexOf('D') >= 0) ||
+       (s.indexOf('e') >= 0) || (s.indexOf('d') >= 0))
+      has_exp = true;
 
     /* Parse the string to check it's a valid number,
        and convert if so.
@@ -929,6 +1098,8 @@ class FormatE extends FormatIOElement
     try {
       int start = np.Float();
       Double d = new Double( s.substring(start) );
+      if((getScale() != 0) && !has_exp)
+        d = new Double(d.doubleValue() / java.lang.Math.pow((double)10.0,(double)getScale()));
       return d;
     }
     catch ( ParseException e ) {

@@ -125,6 +125,7 @@ KWDTAB tab_stmt[] =
     {"RETURN", RETURN, 0},
     {"REWIND", REWIND, 0},
     {"BACKSPACE", BACKSPACE, 0},
+    {"FLUSH", FLUSH, 0},
     {"SAVE", SAVE, 0},
     {"STOP", STOP, 0},
     {"PAUSE", PAUSE, 0},
@@ -286,6 +287,7 @@ METHODTAB intrinsic_toks[]=
   {ifunc_FLOAT, "FLOAT", "(float)",   NULL, "Unused", NULL, "Unused", "Unused", INT_ARG,    Float},
   {ifunc_SNGL,  "SNGL",  "(float)",   NULL, "Unused", NULL, "Unused", "Unused", DOUBLE_ARG, Float},
   {ifunc_DBLE,  "DBLE",  "(double)",  NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Double},
+  {ifunc_DFLOAT,"DFLOAT","(double)",  NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Double},
   {ifunc_CMPLX, "CMPLX", "(Complex)", NULL, "Unused", NULL, "Unused", "Unused", IRDC_ARGS,  Complex},
   {ifunc_ICHAR, "ICHAR", "(int)",     NULL, "Unused", NULL, "Unused", "Unused", CS_ARGS,    Integer},
   {ifunc_CHAR,  "CHAR",  "(char)",    NULL, "Unused", NULL, "Unused", "Unused", INT_ARG,    Character},
@@ -446,7 +448,8 @@ char *generic_intrinsics[] =
 {
    "INT", "REAL", "DBLE", "CMPLX", "AINT", "ANINT", "NINT", "ABS", "MOD",
    "SIGN", "DIM", "MAX", "MIN", "SQRT", "EXP", "LOG", "LOG10", "SIN",
-   "COS", "TAN", "ASIN", "ACOS", "ATAN", "ATAN2", "SINH", "COSH", "TANH", 0
+   "COS", "TAN", "ASIN", "ACOS", "ATAN", "ATAN2", "SINH", "COSH", "TANH",
+   "DFLOAT", 0
 };
 
 /*****************************************************************************

@@ -741,6 +741,15 @@ emit(AST * root)
         if(root->nextstmt != NULL)
           emit(root->nextstmt);
         break;
+      case Flush:
+        if(gendebug)
+          printf("Flush\n");
+
+        reb_emit(cur_method, root);
+
+        if(root->nextstmt != NULL)
+          emit(root->nextstmt);
+        break;
       case Endfile:
         if(gendebug)
           printf("Endfile\n");
@@ -971,7 +980,8 @@ set_bytecode_status(JVM_METHOD *meth, int mode)
   switch(mode) {
     case JVM_ONLY:
       bc_set_gen_status(meth, TRUE);
-      savefp = curfp;
+      if(curfp != devnull)
+        savefp = curfp;
       curfp = devnull;
       break;
     case JAVA_ONLY:
@@ -1360,6 +1370,10 @@ reb_emit(JVM_METHOD *meth, AST *root)
     case Backspace:
       func = "backspace";
       desc = BACKSPACE_DESC;
+      break;
+    case Flush:
+      func = "flush";
+      desc = FLUSH_DESC;
       break;
     default:
       fprintf(stderr, "Internal error: hit unexepected case in reb_emit()\n");
@@ -4628,6 +4642,7 @@ func_array_emit(JVM_METHOD *meth, AST *root, char *arrayname, int is_arg,
   }
   else
   {
+    enum _nodetype save_nodetype = 0;
     AST *tmp;
     int i,j;
 
@@ -4640,8 +4655,10 @@ func_array_emit(JVM_METHOD *meth, AST *root, char *arrayname, int is_arg,
      * dimension since they all share the same parent node.
      */
 
-    if(ht->variable->astnode.ident.endDim[0])
+    if(ht->variable->astnode.ident.endDim[0]) {
+      save_nodetype = ht->variable->astnode.ident.endDim[0]->parent->nodetype;
       ht->variable->astnode.ident.endDim[0]->parent->nodetype = Identifier;
+    }
 
     tmp = root;
     for(i=0;i<ht->variable->astnode.ident.dim;i++) {
@@ -4703,6 +4720,9 @@ func_array_emit(JVM_METHOD *meth, AST *root, char *arrayname, int is_arg,
         bc_append(meth, jvm_iadd);
       tmp = tmp->nextstmt;
     }
+
+    if(ht->variable->astnode.ident.endDim[0])
+      ht->variable->astnode.ident.endDim[0]->parent->nodetype = save_nodetype;
   }
 
   if(is_arg) {
@@ -4735,6 +4755,7 @@ func_array_emit(JVM_METHOD *meth, AST *root, char *arrayname, int is_arg,
   if(!is_ext) {
     fprintf(curfp, "]");
   }
+
 }
 
 /*****************************************************************************
@@ -5885,6 +5906,7 @@ intrinsic_emit(JVM_METHOD *meth, AST *root)
     case ifunc_FLOAT:
     case ifunc_SNGL:
     case ifunc_DBLE:
+    case ifunc_DFLOAT:
     case ifunc_CMPLX:
       temp = root->astnode.ident.arraylist;
 
@@ -9402,6 +9424,56 @@ formatted_read_assign_emit(JVM_METHOD *meth, AST *temp,
   }
 }
 
+void
+gen_io_arg_count_expr(JVM_METHOD *meth, AST *root)
+{
+  AST *temp;
+  int c;
+
+  for(temp=root;temp!=NULL;temp=temp->nextstmt) {
+    if(temp->nodetype == IoImpliedLoop) {
+      if(temp->astnode.forloop.Label) {
+        fprintf(curfp, "(");
+        fprintf(curfp, "Util.getIterationCount(");
+        expr_emit(meth, temp->astnode.forloop.start);
+        fprintf(curfp, ",");
+        expr_emit(meth, temp->astnode.forloop.stop);
+        fprintf(curfp, ",");
+        if(!temp->astnode.forloop.incr) {
+          fprintf(curfp, "1");
+          bc_push_int_const(meth, 1);
+        }
+        else
+          expr_emit(meth, temp->astnode.forloop.incr);
+        fprintf(curfp, ")");
+
+        c = bc_new_methodref(cur_class_file, UTIL_CLASS, "getIterationCount",
+              ITER_COUNT_DESC);
+        bc_append(meth, jvm_invokestatic, c);
+
+        if(temp->astnode.forloop.Label) {
+          fprintf(curfp, " * (");
+          gen_io_arg_count_expr(meth, temp->astnode.forloop.Label);
+          fprintf(curfp, ")");
+          bc_append(meth, jvm_imul);
+        }
+
+        fprintf(curfp, ")");
+      }
+    }
+    else {
+      fprintf(curfp, "1");
+      bc_push_int_const(meth, 1);
+    }
+
+    if(temp->nextstmt)
+      fprintf(curfp, " + ");
+
+    if(temp != root)
+      bc_append(meth, jvm_iadd);
+  }
+}
+
 /*****************************************************************************
  *                                                                           *
  * read_emit                                                                 *
@@ -9427,6 +9499,15 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
   }
 
   gen_clear_io_vec(meth);
+
+  if(root->astnode.io_stmt.arg_list) {
+    fprintf(curfp, "Util.setIoArgHint(");
+    gen_io_arg_count_expr(meth, root->astnode.io_stmt.arg_list);
+    fprintf(curfp, ");\n");
+    c = bc_new_methodref(cur_class_file, UTIL_CLASS, "setIoArgHint",
+           ARG_HINT_DESC);
+    bc_append(meth, jvm_invokestatic, c);
+  }
 
   if((root->astnode.io_stmt.end_num > 0) ||
      (root->astnode.io_stmt.err > 0))
@@ -9577,13 +9658,17 @@ formatted_read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
   
   for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
   { 
-    if(iot->nodetype != Identifier) {
+    if(iot->nodetype == IoImpliedLoop) {
+      implied_loop_bytecode_emit(meth, iot, formatted_read_implied_loop_bytecode_emit);
+    }
+    else if(iot->nodetype != Identifier) {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(iot));
       fprintf(stderr," in implied loop (read stmt)\n");
     }
-    else
+    else {
       formatted_read_assign_emit(meth, iot, FALSE, -1);
+    }
   }
 }
 
@@ -9604,7 +9689,10 @@ formatted_read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
   fprintf(curfp,"{\n");
   for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
   {
-    if(iot->nodetype != Identifier) {
+    if(iot->nodetype == IoImpliedLoop) {
+      implied_loop_sourcecode_emit(meth, iot, formatted_read_implied_loop_sourcecode_emit);
+    }
+    else if(iot->nodetype != Identifier) {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(iot));
       fprintf(stderr," in implied loop (read stmt)\n");
@@ -9643,7 +9731,10 @@ read_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
   
   for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
   {
-    if(iot->nodetype != Identifier) {
+    if(iot->nodetype == IoImpliedLoop) {
+      implied_loop_bytecode_emit(meth, iot, read_implied_loop_bytecode_emit);
+    }
+    else if(iot->nodetype != Identifier) {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(iot));
       fprintf(stderr," in implied loop (read stmt)\n");
@@ -9697,7 +9788,10 @@ read_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
   fprintf(curfp,"{\n");
   for(iot = node->astnode.forloop.Label; iot != NULL; iot = iot->nextstmt)
   {
-    if(iot->nodetype != Identifier) {
+    if(iot->nodetype == IoImpliedLoop) {
+      implied_loop_sourcecode_emit(meth, iot, read_implied_loop_sourcecode_emit);
+    }
+    else if(iot->nodetype != Identifier) {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
         unit_name,print_nodetype(iot));
       fprintf(stderr," in implied loop (read stmt)\n");
@@ -9834,6 +9928,14 @@ gen_clear_io_vec(JVM_METHOD *meth)
   c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "clear", "()V");
   bc_append(meth, jvm_invokevirtual, c);
 }
+
+/*****************************************************************************
+ *                                                                           *
+ * write_argument_emit                                                       *
+ *                                                                           *
+ * generates a single argument of a WRITE statement.                         *
+ *                                                                           *
+ *****************************************************************************/
 
 void
 write_argument_emit(JVM_METHOD *meth, AST *root)
@@ -10050,17 +10152,17 @@ write_emit(JVM_METHOD *meth, AST * root)
 
 /*****************************************************************************
  *                                                                           *
- * implied_loop_emit                                                         *
+ * implied_loop_bytecode_emit                                                *
  *                                                                           *
- * This function generates code for implied DO loops in I/O statements.      *
- * Dont worry about FORMAT statements.                                       *
+ * Emits the JVM bytecode for an implied loop.  The code gen order is        *
+ * a bit different so we split this into two functions: one for bytecode and *
+ * one for source code.                                                      *
  *                                                                           *
  *****************************************************************************/
 
 void
-implied_loop_emit(JVM_METHOD *meth, AST *node, 
-        void loop_body_bytecode_emit(JVM_METHOD *, AST *),
-        void loop_body_sourcecode_emit(JVM_METHOD *, AST *))
+implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node,
+    void loop_body_bytecode_emit(JVM_METHOD *, AST *))
 {
   JVM_CODE_GRAPH_NODE *if_node, *goto_node, *iload_node;
   AST *temp;
@@ -10073,41 +10175,12 @@ implied_loop_emit(JVM_METHOD *meth, AST *node,
   temp->astnode.assignment.rhs = node->astnode.forloop.start;
   temp->astnode.assignment.rhs->parent = temp;
 
-  set_bytecode_status(meth, JAVA_ONLY);
-
-  fprintf(curfp,"for("); 
-
-  assign_emit(meth, temp);
-
-  fprintf(curfp,"; ");
-
-  expr_emit(meth, node->astnode.forloop.counter);
-  fprintf(curfp," <= "); 
-  expr_emit(meth, node->astnode.forloop.stop);
-
-  if(node->astnode.forloop.incr == NULL) {
-    fprintf(curfp,"; "); 
-    expr_emit(meth, node->astnode.forloop.counter);
-    fprintf(curfp,"++)\n"); 
-  }
-  else
-  {
-    fprintf(curfp,"; "); 
-    expr_emit(meth, node->astnode.forloop.counter);
-    fprintf(curfp," += "); 
-    expr_emit(meth, node->astnode.forloop.incr);
-    fprintf(curfp,")\n"); 
-  }
-
-  loop_body_sourcecode_emit(meth, node);
-  set_bytecode_status(meth, JVM_ONLY);
-
   /* the rest of this code is only generated as bytecode.
    * first emit the initial assignment.
    */
   assign_emit(meth, temp);
 
-  /* now emit the expression to calculate the number of 
+  /* now emit the expression to calculate the number of
    * iterations that this loop should make and store the result
    * into the next available local variable.
    */
@@ -10134,6 +10207,80 @@ implied_loop_emit(JVM_METHOD *meth, AST *node,
   bc_set_branch_target(if_node, bc_get_next_instr(goto_node));
 
   bc_release_local(meth, jvm_Int);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * implied_loop_sourcecode_emit                                              *
+ *                                                                           *
+ * Emits the Java source code for an implied loop.  The code gen order is    *
+ * a bit different so we split this into two functions: one for bytecode and *
+ * one for source code.                                                      *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node,
+    void loop_body_sourcecode_emit(JVM_METHOD *, AST *))
+{
+  AST *temp;
+
+  temp = addnode();
+  temp->nodetype = Assignment;
+  temp->astnode.assignment.lhs = node->astnode.forloop.counter;
+  temp->astnode.assignment.lhs->parent = temp;
+  temp->astnode.assignment.rhs = node->astnode.forloop.start;
+  temp->astnode.assignment.rhs->parent = temp;
+
+  fprintf(curfp,"for(");
+
+  assign_emit(meth, temp);
+
+  fprintf(curfp,"; ");
+
+  expr_emit(meth, node->astnode.forloop.counter);
+  fprintf(curfp," <= ");
+  expr_emit(meth, node->astnode.forloop.stop);
+
+  if(node->astnode.forloop.incr == NULL) {
+    fprintf(curfp,"; ");
+    expr_emit(meth, node->astnode.forloop.counter);
+    fprintf(curfp,"++)\n");
+  }
+  else
+  {
+    fprintf(curfp,"; ");
+    expr_emit(meth, node->astnode.forloop.counter);
+    fprintf(curfp," += ");
+    expr_emit(meth, node->astnode.forloop.incr);
+    fprintf(curfp,")\n");
+  }
+
+  loop_body_sourcecode_emit(meth, node);
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * implied_loop_emit                                                         *
+ *                                                                           *
+ * This function generates code for implied DO loops in I/O statements.      *
+ * Dont worry about FORMAT statements.                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+implied_loop_emit(JVM_METHOD *meth, AST *node,
+        void loop_body_bytecode_emit(JVM_METHOD *, AST *),
+        void loop_body_sourcecode_emit(JVM_METHOD *, AST *))
+{
+  set_bytecode_status(meth, JAVA_ONLY);
+
+  implied_loop_sourcecode_emit(meth, node, loop_body_sourcecode_emit);
+
+  set_bytecode_status(meth, JVM_ONLY);
+
+  implied_loop_bytecode_emit(meth, node, loop_body_bytecode_emit);
+
   set_bytecode_status(meth, JAVA_AND_JVM);
 }
 
@@ -10162,6 +10309,9 @@ write_implied_loop_sourcecode_emit(JVM_METHOD *meth, AST *node)
           java_wrapper[temp->vartype]);
       expr_emit(meth, temp);
       fprintf(curfp,"));\n");
+    }
+    else if(temp->nodetype == IoImpliedLoop) {
+      implied_loop_sourcecode_emit(meth, temp, write_implied_loop_sourcecode_emit);
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",
@@ -10211,6 +10361,9 @@ write_implied_loop_bytecode_emit(JVM_METHOD *meth, AST *node)
       c = bc_new_methodref(cur_class_file, IOVECTOR_CLASS, "addElement", 
           VEC_ADD_DESC);
       bc_append(meth, jvm_invokevirtual, c);
+    }
+    else if(temp->nodetype == IoImpliedLoop) {
+      implied_loop_bytecode_emit(meth, temp, write_implied_loop_bytecode_emit);
     }
     else {
       fprintf(stderr,"unit %s:Cant handle this nodetype (%s) ",

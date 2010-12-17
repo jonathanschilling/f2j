@@ -88,6 +88,7 @@ void
   type_insert (SYMTABLE * , AST * , enum returntype , char *),
   type_hash(AST *),
   merge_common_blocks(AST *),
+  remove_sub_from_type_tab(char *),
   arg_table_load(AST *),
   exp_to_double (char *, char *),
   assign_function_return_type(AST *, AST *),
@@ -114,7 +115,9 @@ AST
   * get_implicit_declist(),
   * gen_incr_expr(AST *, AST *),
   * gen_iter_expr(AST *, AST *, AST *),
+  * create_undeclared_name(char *),
   * initialize_name(char *),
+  * process_flush_call(AST *, AST *, AST *),
   * process_typestmt(enum returntype, AST *),
   * process_array_declaration(AST *, AST *),
   * process_subroutine_call(AST *, AST *);
@@ -1804,26 +1807,15 @@ Close: CLOSE OP Cllist CP NL
 
 Flush: FLUSH UndeclaredName NL
         {
-          $$ = addnode();
-          $$->nodetype = Flush;
-          $$->astnode.reb.unit_expr = $2;
-          $$->astnode.reb.unit_expr->parent = $$;
+          $$ = process_flush_call($2, NULL, NULL);
         }
       | FLUSH Integer NL
         {
-          $$ = addnode();
-          $$->nodetype = Flush;
-          $$->astnode.reb.unit_expr = $2;
-          $$->astnode.reb.unit_expr->parent = $$;
+          $$ = process_flush_call(NULL, $2, NULL);
         }
       | FLUSH OP Alist CP NL
         {
-          $$ = addnode();
-          $$->nodetype = Flush;
-
-          $3 = switchem($3);
-
-          get_info_from_alist($$, $3);
+          $$ = process_flush_call(NULL, NULL, $3);
         }
 ;
 
@@ -2214,19 +2206,7 @@ UndeclaredName: NAME
                 {
                   lowercase(yylval.lexeme);
 
-                  $$=addnode();
-                  $$->token = NAME;
-                  $$->nodetype = Identifier;
-
-                  $$->astnode.ident.needs_declaration = FALSE;
-
-                  if(omitWrappers)
-                    $$->astnode.ident.passByRef = FALSE;
-
-                  if(type_lookup(java_keyword_table,yylval.lexeme))
-                    yylval.lexeme[0] = toupper(yylval.lexeme[0]);
-
-                  strcpy($$->astnode.ident.name, yylval.lexeme);
+                  $$ = create_undeclared_name(yylval.lexeme);
                 }
 ;
 
@@ -3253,28 +3233,23 @@ Explist:   Exp
  */
 Call:     CALL Subroutinecall  NL
           {
+            if(debug)
+              printf("Call: %s\n", $2->astnode.ident.name);
+
             /* we don't want subroutines in the type_table
              * make a dlist to stuff the names in and check
              * them in initialize_name.
              */
              
-             if(in_dlist(subroutine_names, $2->astnode.ident.name)==0){
-                if(debug){
-                   printf("inserting %s in dlist and del from type\n",
-                         $2->astnode.ident.name);
-                }
-                dl_insert_b(subroutine_names, strdup($2->astnode.ident.name));
-                hash_delete(type_table, $2->astnode.ident.name);
-             }
-             if(debug){
-               printf("call: %s\n", $2->astnode.ident.name);
-             }
-
-             $$ = $2;
-	     $$->nodetype = Call;
+            remove_sub_from_type_tab($2->astnode.ident.name);
+            $$ = $2;
+            $$->nodetype = Call;
           }
        |  CALL UndeclaredName NL
           {
+            /* don't need to call remove_sub_from_type_tab() here since
+             * the UndeclaredName doesn't get stuffed in the type table.
+             */
             $$ = addnode();
             $2->parent = $$;
             $$->nodetype = Identifier;
@@ -6833,6 +6808,90 @@ init_implied_loop_dim(AST *arr, int dim)
     hashtemp->variable->vartype = Integer;
   else
     fprintf(stderr, "Warning: could not find entry i just inserted\n");
+
+  return newnode;
+}
+
+/*****************************************************************************
+ * process_flush_call                                                        *
+ *                                                                           *
+ * this builds an AST node for the flush() intrinsic.  the first argument    *
+ * 'tok' is required and specifies whether this was a CALL or not (the value *
+ * should be CALL or 0).  one of the remaining three args should be non-NULL *
+ * depending on how the args were specified to the call.  name represents a  *
+ * single Identifier node, num is a single integer Constant node, and alist  *
+ * is an IO spec list.                                                       *
+ *                                                                           *
+ *****************************************************************************/
+
+AST *
+process_flush_call(AST *name, AST *num, AST *alist)
+{
+  AST *newnode;
+
+  if(!name && !num && !alist) {
+    fprintf(stderr, "process_flush_call() called with all null args\n");
+    exit(EXIT_FAILURE);
+  }
+
+  newnode = addnode();
+  newnode->nodetype = Flush;
+
+  if(name)
+    newnode->astnode.reb.unit_expr = name;
+  else if(num)
+    newnode->astnode.reb.unit_expr = num;
+  else
+    get_info_from_alist(newnode, switchem(alist));
+
+  newnode->astnode.reb.unit_expr->parent = newnode;
+
+  return newnode;
+}
+
+/*****************************************************************************
+ * remove_sub_from_type_tab                                                  *
+ *                                                                           *
+ * we don't want subroutines in the type_table, so make a dlist to stuff the *
+ * names in and check them in initialize_name.                               *
+ *                                                                           *
+ *****************************************************************************/
+void
+remove_sub_from_type_tab(char *name)
+{
+  if(in_dlist(subroutine_names, name)==0){
+    if(debug)
+      printf("inserting %s in dlist and del from type\n", name);
+
+    dl_insert_b(subroutine_names, strdup(name));
+    hash_delete(type_table, name);
+  }
+}
+
+/*****************************************************************************
+ * create_undeclared_name                                                    *
+ *                                                                           *
+ * creates a new Identifier node whose name is not inserted into any tables. *
+ *                                                                           *
+ *****************************************************************************/
+AST *
+create_undeclared_name(char *name)
+{
+  AST *newnode;
+
+  newnode=addnode();
+  newnode->token = NAME;
+  newnode->nodetype = Identifier;
+
+  newnode->astnode.ident.needs_declaration = FALSE;
+
+  if(omitWrappers)
+    newnode->astnode.ident.passByRef = FALSE;
+
+  if(type_lookup(java_keyword_table,name))
+    name[0] = toupper(name[0]);
+
+  strcpy(newnode->astnode.ident.name, name);
 
   return newnode;
 }

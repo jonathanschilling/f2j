@@ -38,6 +38,7 @@ int
   len = 1,                        /* keeps track of the size of a data type  */
   temptok,                        /* temporary token for an inline expr      */
   save_all,                       /* is there a SAVE stmt without a var list */
+  implicit_none = 0,              /* global flag for IMPLICIT NONE setting   */
   cur_do_label;                   /* current 'do..end do' loop label         */
   
 AST 
@@ -81,6 +82,7 @@ void
   emit(AST *),
   jas_emit(AST *),
   init_tables(void),
+  check_for_implicit_variables(AST *, char *),
   addEquiv(AST *),
   assign(AST *),
   typecheck(AST *),
@@ -383,6 +385,9 @@ Fprogram:   Program Specstmts Statements End
                 args_table = NULL;  
 
                 $1->astnode.source.descriptor = MAIN_DESCRIPTOR;
+
+                check_for_implicit_variables($$, 
+                  $1->astnode.source.name->astnode.ident.name);
               }
 ;
 
@@ -460,6 +465,9 @@ Fsubroutine: Subroutine Specstmts Statements End
                 
                 type_insert(function_table, $1, 0,
                    $1->astnode.source.name->astnode.ident.name);
+
+                check_for_implicit_variables($$, 
+                  $1->astnode.source.name->astnode.ident.name);
               }
 ;
 
@@ -538,6 +546,9 @@ Ffunction:   Function Specstmts Statements  End
                 }
                       
                 type_insert(function_table, $1, 0,
+                  $1->astnode.source.name->astnode.ident.name);
+
+                check_for_implicit_variables($$, 
                   $1->astnode.source.name->astnode.ident.name);
               }
 
@@ -956,17 +967,17 @@ Save: SAVE NL
 
 Implicit:   IMPLICIT ImplicitSpecList NL
             {
-	      $$=addnode();
-	      $$->nodetype = Specification;
-	      $$->token = IMPLICIT;
+              $$=addnode();
+              $$->nodetype = Specification;
+              $$->token = IMPLICIT;
 	    }
          |  IMPLICIT NONE NL
             {
-	      $$=addnode();
-	      $$->nodetype = Specification;
-	      $$->token = IMPLICIT;
-              fprintf(stderr,"Warning: IMPLICIT NONE ignored.\n");
-	    }
+              $$=addnode();
+              $$->nodetype = Specification;
+              $$->token = IMPLICIT;
+              implicit_none = TRUE;
+            }
 ;
 
 ImplicitSpecList: ImplicitSpecItem
@@ -4484,6 +4495,7 @@ init_tables()
   assign_labels   = make_dl();
   equivList       = NULL;
   save_all        = FALSE;
+  implicit_none   = FALSE;
 
   cur_do_label = 1000000;
 
@@ -6894,4 +6906,48 @@ create_undeclared_name(char *name)
   strcpy(newnode->astnode.ident.name, name);
 
   return newnode;
+}
+
+/*****************************************************************************
+ * check_for_implicit_variables                                              *
+ *                                                                           *
+ * if IMPLICIT NONE was specified, check whether there are any variables     *
+ * that were undeclared and issue error messages.                            *
+ *                                                                           *
+ *****************************************************************************/
+void
+check_for_implicit_variables(AST *root, char *unit)
+{
+  AST *temp, *dec;
+  HASHNODE *ht;
+  int err=0;
+
+  if(!implicit_none)
+    return;
+
+  for(temp = root->astnode.source.typedecs; temp; temp = temp->nextstmt) {
+    if(temp->nodetype == Typedec) {
+      for(dec = temp->astnode.typeunit.declist; dec; dec = dec->nextstmt) {
+        if((ht=type_lookup(type_table, dec->astnode.ident.name)) != NULL) {
+          if(!ht->variable->astnode.ident.explicit) {
+            if((strlen(dec->astnode.ident.name) > 2) &&
+               (dec->astnode.ident.name[0] == '_') &&
+               (dec->astnode.ident.name[1] == '_'))
+            {
+              /* ignore f2j-generated temp variables with __ prefx */
+            }
+            else {
+              fprintf(stderr, "Error: IMPLICIT NONE was specified, but ");
+              fprintf(stderr, "%s was not declared in unit %s\n", 
+                ht->variable->astnode.ident.name, unit);
+              err++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if(err > 0)
+    exit(EXIT_FAILURE);
 }

@@ -208,6 +208,7 @@ void
   implied_loop_bytecode_emit(JVM_METHOD *, AST *,
     void (*)(JVM_METHOD *, AST *)),
   fmt_tab_init(JVM_METHOD *),
+  emit_fmt_tab_lookup(JVM_METHOD *, AST *),
   forloop_bytecode_emit(JVM_METHOD *, AST *),
   forloop_end_bytecode(JVM_METHOD *, AST *),
   LHS_bytecode_emit(JVM_METHOD *, AST *),

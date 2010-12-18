@@ -31,15 +31,12 @@ TOKEN :
   >
 |
   < #DECIMAL_LITERAL:
-        "0"
-      | ["1"-"9"] (["0"-"9"])*
+      ["0"-"9"] (["0"-"9"])*
   >
 |
   < LOGICAL_LITERAL:
       (".")? ( "T" | "F" | "t" | "f" ) (~[])*
   >
-  // We don't allow leading zeroes in integers, as these
-  // might indicate typing errors in the data.
 |
   < FLOATING_POINT_LITERAL:
         (["0"-"9"])+ "." (["0"-"9"])* (<EXPONENT>)?

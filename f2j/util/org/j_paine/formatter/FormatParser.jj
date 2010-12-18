@@ -183,14 +183,20 @@ void OptionalFormatSlashesOrStrings( Format f ):
 
 FormatRepeatedItem FormatRepeatedItem():
 { int r=1;
+  Token p = null;
   FormatUniv fu;
 }
 {
   [ r=SignedInteger() ]
-  ( "(" fu=Format() ")"
+  ( p="(" fu=Format() ")"
   | fu=FormatElement()
   )
   {
+    boolean parens = false;
+
+    if(p != null)
+      parens = p.toString().equals("(");
+
     /* here we check whether the parsed format element is a P edit
      * descriptor.  in that case, it may have parsed a floating point
      * edit descriptor along with it (if it followed without a comma)
@@ -198,9 +204,9 @@ FormatRepeatedItem FormatRepeatedItem():
      */
   
     if(fu instanceof FormatP)
-      return new FormatRepeatedItemWithScale(r, fu );
+      return new FormatRepeatedItemWithScale(r, fu, parens);
     else
-      return new FormatRepeatedItem( r, fu );
+      return new FormatRepeatedItem( r, fu, parens);
   }
 }
 

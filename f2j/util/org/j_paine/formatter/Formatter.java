@@ -12,9 +12,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
-import java.util.Hashtable;
-import java.util.Vector;
-
+import java.util.*;
 
 /* This class holds a Format, and has methods for reading and
    writing data against it.
@@ -23,10 +21,12 @@ public class Formatter
 {
   private Format format = null;
   private FormatMap format_map = null;
+  private String orig_fmt = null;
 
   public Formatter( String format ) throws InvalidFormatException
   {
     this( new Format(format) );
+    orig_fmt = format;
   }
 
   public Formatter( Format format )
@@ -46,6 +46,9 @@ public class Formatter
   {
     FormatX dummy_el = new FormatX();
     FormatOutputList vp = new VectorAndPointer( v );
+    String last_fmt_str;
+
+    last_fmt_str = getLastFormat();
 
     /* Loop back around and reuse the format spec if
      * there are still elements in the vector.  Keep
@@ -57,6 +60,13 @@ public class Formatter
         this.format.write( vp, out );
         vp.checkCurrentElementForWrite(dummy_el);
         out.println();
+
+        try {
+          this.format = new Format(last_fmt_str);
+        }catch(InvalidFormatException e) {
+          System.err.println("unexpected invalid format here.");
+          return;
+        }
       }catch(EndOfVectorOnWriteException e) {
         break;
       }
@@ -96,12 +106,86 @@ public class Formatter
   }
 
 
-  public void read( Vector v, DataInputStream in )
+  public void read( Vector v, DataInputStream in)
+              throws InputFormatException
+  {
+    read(v, in, -1);
+  }
+
+  /**
+   * i think this is not really correct.  i think we want to
+   * get the current enclosing parenthesized format, not the
+   * last one.
+   */
+  public String getLastFormat()
+  {
+    Object last_el = this.format.elements.lastElement();
+    String last;
+
+    if((last_el instanceof FormatRepeatedItem) &&
+      ((FormatRepeatedItem) last_el).hasParens()) {
+        last = last_el.toString();
+    }
+    else
+      last = orig_fmt;
+
+    return last;
+  }
+
+  public void read( Vector v, DataInputStream in, int item_count )
               throws InputFormatException
   {
     FormatInputList vp = new VectorAndPointer( v );
     InputStreamAndBuffer inb = new InputStreamAndBuffer(in);
-    this.format.read( vp, inb, this.format_map );
+    this.readX(vp, inb, this.format_map, item_count);
+  }
+
+  public void readX( FormatInputList vp,
+                    InputStreamAndBuffer inb,
+                    FormatMap format_map,
+                    int item_count)
+              throws InputFormatException
+  {
+    int cur_scale = 0, items_remaining, items_read = 0, initial_size;
+    FormatInputList revert_point;
+    String last_fmt_str;
+    FormatInputList chunk;
+    Vector newv;
+
+    chunk = new VectorAndPointer(new Vector());
+
+    if(item_count > 0)
+      items_remaining = item_count;
+    else
+      items_remaining = this.format.elements.size();
+
+    last_fmt_str = getLastFormat();
+
+    /* this do/while loop and advanceToEnd() call allows reusing a format
+     * that is shorter than the number of elements to be read in.  if we
+     * reach the end of the format, then ignore the rest of the line and
+     * repeat the format on the following line.  "format control then
+     * reverts back to the beginning of the format item terminated by the
+     * last preceding right parenthesis... If there is no such preceding
+     * right parenthesis, format control reverts to the first left parenthesis
+     * of the format specification." (see the following link)
+     * http://software.intel.com/en-us/blogs/2009/07/01/doctor-fortran-in-revert-revert-the-end-of-the-format-is-nigh/
+     */
+    do {
+      this.format.read(chunk, inb, this.format_map, items_remaining );
+      vp.addAll(chunk.getVector());
+      items_read += chunk.size();
+      items_remaining = item_count - items_read;
+      if(last_fmt_str == orig_fmt)
+        inb.advanceToEnd();
+      chunk = new VectorAndPointer(new Vector());
+      try {
+        this.format = new Format(last_fmt_str);
+      }catch(InvalidFormatException e) {
+        System.err.println("unexpected invalid format here.");
+        return;
+      }
+    }while((item_count > 0) && (items_read < item_count));
   }
 
   public void read( Vector v, Hashtable ht, DataInputStream in )
@@ -109,7 +193,7 @@ public class Formatter
   {
     FormatInputList vp = new StringsHashtableAndPointer( v, ht );
     InputStreamAndBuffer inb = new InputStreamAndBuffer(in);
-    this.format.read( vp, inb, this.format_map );
+    this.format.read( vp, inb, this.format_map, -1 );
   }
 
   public void read( String[] s, Hashtable ht, DataInputStream in )
@@ -152,6 +236,7 @@ public class Formatter
 abstract class FormatUniv
 {
   int p_scale = 0;
+  int n_remain = -1;
 
   public void setScale(int s) {
     p_scale = s;
@@ -231,7 +316,8 @@ abstract class FormatUniv
 
   abstract void read( FormatInputList vp,
                       InputStreamAndBuffer in,
-                      FormatMap format_map
+                      FormatMap format_map,
+                      int items_upper_bound
                     )
                 throws InputFormatException;
 }
@@ -244,7 +330,7 @@ abstract class FormatUniv
 */
 class Format extends FormatUniv
 {
-  private Vector elements = new Vector();
+  public Vector elements = new Vector();
 
   public Format( String s ) throws InvalidFormatException
   {
@@ -279,13 +365,30 @@ class Format extends FormatUniv
   public void write( FormatOutputList vp, PrintStream out )
               throws OutputFormatException
   {
-    int cur_scale = 0;
+    int cur_scale = 0, numel;
 
-    for ( int i=0; i<this.elements.size(); i++ ) {
+    numel = this.elements.size();
+
+    for ( int i=0; i<numel; i++ ) {
       FormatUniv fu = (FormatUniv)this.elements.elementAt(i);
 
       if(fu instanceof FormatRepeatedItemWithScale)
         cur_scale = ((FormatRepeatedItemWithScale) fu).getRepeat();
+
+      /* this is probably an unnecessary hack, but gfortran seems to
+       * ignore trailing X format specs on write and i want to diff
+       * against gfortran's output for some regression testing, so
+       * i try to catch those here.  this won't catch all cases, but
+       * is good enough.
+       */
+      if(i==numel-1) {
+        if(fu instanceof FormatX)
+          continue;
+
+        if(fu instanceof FormatRepeatedItem)
+          if(((FormatRepeatedItem) fu).format_univ instanceof FormatX)
+            continue;
+      }
 
       fu.setScale(cur_scale);
       fu.write( vp, out );
@@ -295,21 +398,26 @@ class Format extends FormatUniv
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
     int cur_scale = 0;
+    int prev_size;
+
+    prev_size = vp.size();
 
     for ( int i=0; i<this.elements.size(); i++ ) {
       FormatUniv fu = (FormatUniv)this.elements.elementAt(i);
       if(fu instanceof FormatRepeatedItemWithScale)
         cur_scale = ((FormatRepeatedItemWithScale) fu).getRepeat();
       fu.setScale(cur_scale);
-      fu.read( vp, in, format_map );
+      prev_size = vp.size();
+      fu.read( vp, in, format_map, remaining);
+      remaining = remaining - (vp.size()-prev_size);
     }
   }
-
 
   public String toString()
   {
@@ -333,7 +441,8 @@ class Format extends FormatUniv
 class FormatRepeatedItem extends FormatUniv
 {
   private int r=1;
-  private FormatUniv format_univ = null;
+  boolean parens = false;
+  public FormatUniv format_univ = null;
 
   public void setScale(int s) {
     p_scale = s;
@@ -342,15 +451,20 @@ class FormatRepeatedItem extends FormatUniv
 
   public FormatRepeatedItem( FormatUniv format_univ )
   {
-    this( 1, format_univ );
+    this( 1, format_univ, false);
   }
 
-  public FormatRepeatedItem( int r, FormatUniv format_univ )
+  public FormatRepeatedItem( int r, FormatUniv format_univ, boolean p )
   {
     this.r = r;
+    this.parens = p;
     this.format_univ = format_univ;
   }
 
+  public boolean hasParens()
+  {
+    return parens;
+  }
 
   public void write( FormatOutputList vp, PrintStream out )
               throws OutputFormatException
@@ -362,12 +476,20 @@ class FormatRepeatedItem extends FormatUniv
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
-    for ( int i=1; i<=this.r; i++ )
-      this.format_univ.read( vp, in, format_map );
+    int ub, init_size;
+
+    init_size = vp.size();
+
+    for ( int i=1; i<=this.r; i++ ) {
+      this.format_univ.read( vp, in, format_map, remaining );
+      if(vp.size() - init_size > remaining)
+        break;
+    }
   }
 
 
@@ -384,16 +506,18 @@ class FormatRepeatedItemWithScale extends FormatRepeatedItem
 {
   private FormatP scale;
   private int r = 1;
+  private boolean parens = false;
 
   public void setScale(int s) {
     p_scale = s;
     scale.setScale(s);
   }
 
-  public FormatRepeatedItemWithScale(int r, FormatUniv scale)
+  public FormatRepeatedItemWithScale(int r, FormatUniv scale, boolean p)
   {
-    super(r,scale);
+    super(r,scale,p);
     this.r = r;
+    this.parens = p;
     this.scale = (FormatP)scale;
   }
 
@@ -410,12 +534,13 @@ class FormatRepeatedItemWithScale extends FormatRepeatedItem
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
     if((scale != null) && (scale.getRepeatedItem() != null))
-      scale.getRepeatedItem().read(vp, in, format_map);
+      scale.getRepeatedItem().read(vp, in, format_map, remaining);
   }
 
 
@@ -481,7 +606,8 @@ abstract class FormatIOElement extends FormatElement
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
@@ -540,20 +666,21 @@ class FormatP extends FormatElement
 
   public FormatP(int r, FormatUniv format_univ) {
     if(format_univ != null)
-      ritem = new FormatRepeatedItem(r, format_univ);
+      ritem = new FormatRepeatedItem(r, format_univ, false);
   }
 
   public void write( FormatOutputList vp, PrintStream out )
   {
     /* the P element itself produces no output.  it's a scale factor
-     * for other elements, but that isn't being handled yet.
+     * for other elements.
      */
   } 
 
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in, 
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
   { 
     /* the P element doesn't consume input.  --kgs */
@@ -579,7 +706,8 @@ class FormatX extends FormatElement
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
   {
     in.advance( 1 );
@@ -1140,10 +1268,16 @@ class FormatSlash extends FormatElement
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
+    /* if nothing has been read, get an extra line.  this is to fix
+     * the problem of having a slash as the first format spec.
+     */
+    if(in.nothingRead())
+      in.readLine( vp.getPtr(), this );
     in.readLine( vp.getPtr(), this );
   }
 
@@ -1177,7 +1311,8 @@ class FormatString extends FormatElement
 
   public void read( FormatInputList vp,
                     InputStreamAndBuffer in,
-                    FormatMap format_map
+                    FormatMap format_map,
+                    int remaining
                   )
               throws InputFormatException
   {
@@ -1256,6 +1391,12 @@ interface FormatInputList
      Used only in generating error messages.
   */
   int getPtr();
+
+  int size();
+
+  public Object lastElement();
+  public Vector getVector();
+  public boolean addAll(Collection c);
 }
 
 
@@ -1266,7 +1407,7 @@ interface FormatInputList
 */
 class VectorAndPointer implements FormatInputList, FormatOutputList
 {
-  private Vector v = null;
+  public Vector v = null;
   private int vecptr = 0;
   // On output, vecptr points at the next element to be used.
   // On input, it points at the next free slot to be filled.
@@ -1283,6 +1424,10 @@ class VectorAndPointer implements FormatInputList, FormatOutputList
     this.v = new Vector();
   }
 
+  public Object lastElement()
+  {
+    return v.lastElement();
+  }
 
   public boolean hasCurrentElement()
   {
@@ -1354,6 +1499,19 @@ class VectorAndPointer implements FormatInputList, FormatOutputList
   {
     return this.vecptr;
   }
+
+  public int size() {
+    return this.v.size();
+  }
+
+  public boolean addAll(Collection c) {
+    return this.v.addAll(c);
+  }
+
+  public Vector getVector()
+  {
+    return v;
+  }
 }
 
 
@@ -1372,6 +1530,10 @@ class StringsHashtableAndPointer implements FormatInputList
     this.ht = ht;
   }
 
+  public Vector getVector()
+  {
+    return vp.getVector();
+  }
 
   /* Checks that there is a current element in the key vector, and
      throws an exception if not.
@@ -1415,6 +1577,10 @@ class StringsHashtableAndPointer implements FormatInputList
                                            );
   }
 
+  public Object lastElement()
+  {
+    return vp.lastElement();
+  }
 
   /* Returns the current pointer.
      Used only in generating error messages.
@@ -1422,6 +1588,15 @@ class StringsHashtableAndPointer implements FormatInputList
   public int getPtr()
   {
     return this.vp.getPtr();
+  }
+
+  public int size()
+  {
+    return this.vp.size();
+  }
+
+  public boolean addAll(Collection c) {
+    return this.vp.v.addAll(c);
   }
 }
 
@@ -1457,6 +1632,11 @@ class InputStreamAndBuffer
     this.line = "";
     this.line_number = 0;
     this.nothing_read = true;
+  }
+
+  public boolean nothingRead()
+  {
+    return nothing_read;
   }
 
   /* Really crappy readline implementation to quiet deprecation warnings
@@ -1547,14 +1727,20 @@ class InputStreamAndBuffer
                        EndOfFileWhenStartingReadException,
                        IOExceptionOnReadException
   {
-    if ( this.nothing_read )
+    if(this.nothing_read || (this.ptr >= this.line.length()))
       readLine( vecptr, format );
 
     if ( this.ptr+width > this.line.length() ) {
-      /* if there aren't 'width' characters left, just return the
-       * remainder of the line.  --kgs
-       */
-      return this.line.substring( this.ptr );
+      StringBuffer line_copy;
+
+      line_copy = new StringBuffer(this.line.substring(this.ptr));
+
+      do {
+        readLine(vecptr, format);
+        line_copy.append(this.line.substring(this.ptr, Math.min(this.line.length(), width-line_copy.length())));
+      } while (line_copy.length() < width);
+
+      return line_copy.toString();
     }
     else {
       return this.line.substring( this.ptr, this.ptr+width );
@@ -1569,6 +1755,11 @@ class InputStreamAndBuffer
     this.ptr = this.ptr + width;
   }
 
+
+  public void advanceToEnd()
+  {
+    this.ptr = this.line.length();
+  }
 
   /* Generates an error report showing the line, character pointer
      ptr and line number.

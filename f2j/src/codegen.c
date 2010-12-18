@@ -4139,6 +4139,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
 
   if(Ctemp->token == STRING) 
   {
+    char justified_name[MAX_CONST_LEN];
     HASHNODE *ht;
     int len;
 
@@ -4154,6 +4155,10 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
       else
         len = Ntemp->astnode.ident.len;
     }
+
+    /* left justify and pad to the right to fill the total string length */
+    sprintf(justified_name, "%-*s", len, Ctemp->astnode.constant.number);
+    strcpy(Ctemp->astnode.constant.number, justified_name);
 
     /* now initialize the string to all blanks.  but we try to keep the length
      * of the string constant, otherwise some subscript operations get screwed
@@ -4173,7 +4178,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
        */
 
       if(omitWrappers && !cgPassByRef(Ntemp->astnode.ident.name)) {
-        fprintf(curfp,"%s = new String(\"%*s\");\n",
+        fprintf(curfp,"%s = new String(\"%-*s\");\n",
           Ntemp->astnode.ident.name, len,
           escape_double_quotes(Ctemp->astnode.constant.number));
 
@@ -4182,7 +4187,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
               field_descriptor[String][0]);
       }
       else {
-        fprintf(curfp,"%s = new StringW(\"%*s\");\n",
+        fprintf(curfp,"%s = new StringW(\"%-*s\");\n",
           Ntemp->astnode.ident.name, len,
           escape_double_quotes(Ctemp->astnode.constant.number));
 
@@ -4203,7 +4208,7 @@ data_scalar_emit(JVM_METHOD *meth, enum returntype type, AST *Ctemp, AST *Ntemp,
        */
 
       expr_emit(meth, Ntemp);
-      fprintf(curfp," = \"%*s\";\n", len, 
+      fprintf(curfp," = \"%-*s\";\n", len, 
          escape_double_quotes(Ctemp->astnode.constant.number));
 
       invoke_constructor(meth, JL_STRING, Ctemp, STR_CONST_DESC);
@@ -9088,7 +9093,8 @@ read_emit(JVM_METHOD *meth, AST * root)
 
   if(hnode)
     fmt_str = format2str(hnode->variable->astnode.label.stmt);
-  else if(root->astnode.io_stmt.fmt_list != NULL)
+  else if((root->astnode.io_stmt.fmt_list != NULL) &&
+          (root->astnode.io_stmt.fmt_list->nodetype == Constant))
     fmt_str = strdup(root->astnode.io_stmt.fmt_list->astnode.constant.number);
   else
     fmt_str = NULL;
@@ -9568,12 +9574,26 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     emit_unit_desc(meth, root);
     fprintf(curfp, ", ");
 
-    bc_push_string_const(meth, fmt_str);
+    if(fmt_str) {
+      fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+      bc_push_string_const(meth, fmt_str);
+    } 
+    else {
+      if((root->astnode.io_stmt.fmt_list != NULL) &&
+            (root->astnode.io_stmt.fmt_list->nodetype != Constant))
+      {
+        emit_fmt_tab_lookup(meth, root);
+      }
+      else {
+        fprintf(curfp, "null, %s);\n", F2J_IO_VEC);
+        bc_append(meth, jvm_aconst_null);
+      }
+    }
+
     bc_gen_load_op(meth, iovec_lvar, jvm_Object);
     c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
     bc_append(meth, jvm_invokestatic, c);
     
-    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
 
     if((root->astnode.io_stmt.end_num > 0) ||
        (root->astnode.io_stmt.err > 0))
@@ -9635,12 +9655,26 @@ formatted_read_emit(JVM_METHOD *meth, AST *root, char *fmt_str)
     emit_unit_desc(meth, root);
     fprintf(curfp, ", ");
 
-    bc_push_string_const(meth, fmt_str);
+    if(fmt_str) {
+      fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
+      bc_push_string_const(meth, fmt_str);
+    }
+    else {
+      if((root->astnode.io_stmt.fmt_list != NULL) &&
+            (root->astnode.io_stmt.fmt_list->nodetype != Constant))
+      {
+        emit_fmt_tab_lookup(meth, root);
+      }
+      else {
+        fprintf(curfp, "null, %s);\n", F2J_IO_VEC);
+        bc_append(meth, jvm_aconst_null);
+      }
+    }
+
     bc_gen_load_op(meth, iovec_lvar, jvm_Object);
     c = bc_new_methodref(cur_class_file, UTIL_CLASS, "f77read", F77_READ_DESC);
     bc_append(meth, jvm_invokestatic, c);
 
-    fprintf(curfp, "\"%s\", %s);\n", fmt_str, F2J_IO_VEC);
     /* return value is unused, so pop it off the stack */
     bc_append(meth, jvm_pop);
   }
@@ -10135,21 +10169,7 @@ write_emit(JVM_METHOD *meth, AST * root)
     if((root->astnode.io_stmt.fmt_list != NULL) &&
           (root->astnode.io_stmt.fmt_list->nodetype != Constant))
     {
-      bc_gen_load_op(meth, fmt_tab_lvar, jvm_Object);
-      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_INTEGER);
-      bc_append(meth, jvm_new, c);
-      bc_append(meth, jvm_dup);
-      fprintf(curfp, "(String)%s.get(new Integer(", F2J_FMT_TAB);
-      expr_emit(meth, root->astnode.io_stmt.fmt_list);
-      fprintf(curfp, ")), %s)", F2J_IO_VEC);
-      c = bc_new_methodref(cur_class_file, JL_INTEGER, "<init>",
-            NEW_INTEGER_DESC);
-      bc_append(meth, jvm_invokespecial, c);
-      c = bc_new_methodref(cur_class_file, HASHTAB_CLASS, "get",
-            HASHTAB_GET_DESC);
-      bc_append(meth, jvm_invokevirtual, c);
-      c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_STRING);
-      bc_append(meth, jvm_checkcast, c);
+      emit_fmt_tab_lookup(meth, root);
     }
     else {
       fprintf(curfp, "null, %s)", F2J_IO_VEC);
@@ -10187,6 +10207,37 @@ write_emit(JVM_METHOD *meth, AST * root)
     if(!root->astnode.io_stmt.iostat)
       bc_append(meth, jvm_pop);
   }
+}
+
+/*****************************************************************************
+ *                                                                           *
+ * emit_fmt_tab_lookup                                                       *
+ *                                                                           *
+ * This emits the code to lookup a format statement by a variable which      *
+ * contains the statement number as its value.                               *
+ *                                                                           *
+ *****************************************************************************/
+
+void
+emit_fmt_tab_lookup(JVM_METHOD *meth, AST *root)
+{
+  int c;
+
+  bc_gen_load_op(meth, fmt_tab_lvar, jvm_Object);
+  c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_INTEGER);
+  bc_append(meth, jvm_new, c);
+  bc_append(meth, jvm_dup);
+  fprintf(curfp, "(String)%s.get(new Integer(", F2J_FMT_TAB);
+  expr_emit(meth, root->astnode.io_stmt.fmt_list);
+  fprintf(curfp, ")), %s)", F2J_IO_VEC);
+  c = bc_new_methodref(cur_class_file, JL_INTEGER, "<init>",
+        NEW_INTEGER_DESC);
+  bc_append(meth, jvm_invokespecial, c);
+  c = bc_new_methodref(cur_class_file, HASHTAB_CLASS, "get",
+        HASHTAB_GET_DESC);
+  bc_append(meth, jvm_invokevirtual, c);
+  c = cp_find_or_insert(cur_class_file, CONSTANT_Class, JL_STRING);
+  bc_append(meth, jvm_checkcast, c);
 }
 
 /*****************************************************************************

@@ -242,6 +242,7 @@ class FormatParser implements FormatParserConstants {
 
   final public FormatRepeatedItem FormatRepeatedItem() throws ParseException {
   int r=1;
+  Token p = null;
   FormatUniv fu;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case INTEGER:
@@ -254,7 +255,7 @@ class FormatParser implements FormatParserConstants {
     }
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case 16:
-      jj_consume_token(16);
+      p = jj_consume_token(16);
       fu = Format();
       jj_consume_token(17);
       break;
@@ -274,6 +275,11 @@ class FormatParser implements FormatParserConstants {
       jj_consume_token(-1);
       throw new ParseException();
     }
+    boolean parens = false;
+
+    if(p != null)
+      parens = p.toString().equals("(");
+
     /* here we check whether the parsed format element is a P edit
      * descriptor.  in that case, it may have parsed a floating point
      * edit descriptor along with it (if it followed without a comma)
@@ -281,9 +287,9 @@ class FormatParser implements FormatParserConstants {
      */
 
     if(fu instanceof FormatP)
-      {if (true) return new FormatRepeatedItemWithScale(r, fu );}
+      {if (true) return new FormatRepeatedItemWithScale(r, fu, parens);}
     else
-      {if (true) return new FormatRepeatedItem( r, fu );}
+      {if (true) return new FormatRepeatedItem( r, fu, parens);}
     throw new Error("Missing return statement in function");
   }
 

@@ -855,7 +855,7 @@ public class Util {
   public static int f77read(int unit, String fmt, Vector v)
   {
     DataInputStream is = null;
-    int arg_hint;
+    int arg_hint = -1;
 
     if(io_arg_count_guess >= 0) {
       arg_hint = io_arg_count_guess;
@@ -865,7 +865,7 @@ public class Util {
     try {
       is = getDataInputStream(unit);
       Formatter f = new Formatter(fmt);
-      f.read( v, is );
+      f.read(v, is, arg_hint);
     }
     catch ( EndOfFileWhenStartingReadException eof_exc) {
       return -1;

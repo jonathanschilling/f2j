@@ -275,7 +275,6 @@ C                                                                       02720107
       IF (ICZERO) 31230, 1230, 31230                                    02730107
  1230 CONTINUE                                                          02740107
       READ ( I06,77751) ITEST                                           02750107
-      write(*,*) itest
       IVCOMP = ITEST(27)                                                02760107
       GO TO 41230                                                       02770107
 31230 IVDELE = IVDELE + 1                                               02780107

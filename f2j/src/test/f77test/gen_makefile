@@ -3,6 +3,7 @@
 echo "F2J=f2java"
 echo "JAVA=java"
 echo "JAVAC=javac"
+echo "TEMP_OUT=temp.out"
 echo ""
 
 for file in *.f; do
@@ -10,9 +11,9 @@ for file in *.f; do
   echo "test${testnum}: clean"
   echo "	\$(F2J) FM${testnum}.f"
   echo "	if \[ -e FM${testnum}.DAT \]; then \\"
-  echo "	\$(JAVA) Fm${testnum} < FM${testnum}.DAT ; \\"
+  echo "	\$(JAVA) Fm${testnum} < FM${testnum}.DAT > \$(TEMP_OUT); \\"
   echo "	else \\"
-  echo "	\$(JAVA) Fm${testnum} ; \\"
+  echo "	\$(JAVA) Fm${testnum} > \$(TEMP_OUT); \\"
   echo "	fi"
   echo ""
 done

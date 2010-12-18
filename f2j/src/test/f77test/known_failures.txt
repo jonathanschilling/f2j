@@ -10,8 +10,9 @@
 # 023 - mixes COMMON/EQUIVALENCE
 # 024 - mixes COMMON/EQUIVALENCE
 # 107 - uses nested implied do loops
+# 109 - slight formatting difference
 # 110 - uses P scaling
-# 111 - uses nested implied do loops
+# 111 - uses BN editing
 # 200 - uses numbered typedec stmts
 # 203 - error in character decl/handling
 # 204 - uses unsupported CHARACTER foo(6)*1 syntax

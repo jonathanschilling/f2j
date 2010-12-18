@@ -1,7 +1,8 @@
 #!/bin/sh
 
-TMPFILE="temp_out.txt"
+TMPFILE="temp.out"
 KNOWN_FAILURES="known_failures.txt"
+CORRECT_DIR="correct_output"
 
 TEST_NUMS="001 002 003 004 005 006 007 008 009 010 011 012 013 014 \
 016 017 018 019 020 021 022 023 024 025 026 028 030 031 032 033 034 \
@@ -33,8 +34,9 @@ for testcase in ${TEST_NUMS}; do
   FAIL=0
   echo -n "$testcase --"
   /bin/rm -f ${TMPFILE}
-  if make test${testcase} > ${TMPFILE} 2>&1; then
-    if grep " FAIL " ${TMPFILE} >/dev/null ; then
+  if make TEMP_OUT="${TMPFILE}" test${testcase} >& /dev/null; then
+    foo=`diff ${TMPFILE} ${CORRECT_DIR}/FM${testcase}.out.correct`
+    if [ "$foo" != "" ]; then
       FAIL=1
     else
       echo " passed"

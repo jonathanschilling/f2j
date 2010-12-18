@@ -1,0 +1,26 @@
+#!/bin/sh
+
+for file in FM*.f; do
+  testnum=`echo $file | sed s/FM// | cut -d . -f 1`
+  out=`echo $file | sed s/\.f/\.out.correct/`
+
+  if gfortran $file -o foobar.x; then
+    echo $file build ok
+  else
+    echo $file build FAILED
+  fi
+    
+  if [ -e FM${testnum}.DAT ]; then
+    if ./foobar.x < FM${testnum}.DAT > $out; then
+      echo $file run ok
+    else
+      echo $file run FAILED
+    fi
+  else
+    if ./foobar.x > $out; then
+      echo $file run ok
+    else
+      echo $file run FAILED
+    fi
+  fi
+done

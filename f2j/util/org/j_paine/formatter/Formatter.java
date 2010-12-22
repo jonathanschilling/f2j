@@ -481,13 +481,13 @@ class FormatRepeatedItem extends FormatUniv
                   )
               throws InputFormatException
   {
-    int ub, init_size;
-
-    init_size = vp.size();
+    int prev_size=0;
 
     for ( int i=1; i<=this.r; i++ ) {
+      prev_size = vp.size();
       this.format_univ.read( vp, in, format_map, remaining );
-      if(vp.size() - init_size > remaining)
+      remaining -= vp.size()-prev_size;
+      if(remaining <= 0)
         break;
     }
   }

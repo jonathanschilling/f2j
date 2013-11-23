@@ -1877,11 +1877,17 @@ emit_javadoc_comments(AST *root)
   fprintf(curfp," questions.\n");
   fprintf(curfp,"*<p>\n");
   fprintf(curfp,"*\n");
-  while( (temp != NULL) && (temp->nodetype == MainComment ||
-                            temp->nodetype == Comment))
-  {
-    fprintf(curfp,"* %s",temp->astnode.ident.name);
-    temp = temp->nextstmt;
+
+  if(temp->astnode.ident.buffered_comments) {
+    fprintf(curfp,"* %s",temp->astnode.ident.buffered_comments);
+  }
+  else {
+    while( (temp != NULL) && (temp->nodetype == MainComment ||
+                              temp->nodetype == Comment))
+    {
+      fprintf(curfp,"* %s",temp->astnode.ident.name);
+      temp = temp->nextstmt;
+    }
   }
   fprintf(curfp,"*</pre>\n");
   fprintf(curfp,"**/\n");

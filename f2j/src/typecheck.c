@@ -277,10 +277,24 @@ typecheck(AST * root)
   
           ctemp = root;
           root->astnode.ident.len = 0;
+
+          /* if this is a block of buffered comments, then all lines will be stored in one
+           * string, so just count the newlines.  otherwise, count the number of subsequent
+           * nodes with nodetype Comment (i.e. one comment line per Comment node).
+           */
+
+          if(root->astnode.ident.buffered_comments) {
+            char *cp;
   
-          while(ctemp != NULL && ctemp->nodetype == Comment) {
-            root->astnode.ident.len++;
-            ctemp = ctemp->nextstmt;
+            for(cp=root->astnode.ident.buffered_comments; *cp != '\0'; cp++)
+              if(*cp == '\n')
+                root->astnode.ident.len++;
+          }
+          else {  
+            while(ctemp != NULL && ctemp->nodetype == Comment) {
+              root->astnode.ident.len++;
+              ctemp = ctemp->nextstmt;
+            }
           }
 
           ctemp = cur_check_unit->astnode.source.javadocComments;

@@ -274,9 +274,18 @@ yylex()
       return lex_included_file(&buffer);
 
     if(token == BLOCK_COMMENT) {
-      if(lexdebug)
+      if(lexdebug) {
+         int bi;
+
          printf("0.1: lexer returns COMMENT [was buffered] (%s)\n",
             buffer.stmt);
+
+         bi=0;
+         while(comment_buffer[bi]) {
+           printf("comment_buffer[%d]: %s", bi, comment_buffer[bi]);
+           bi++;
+         }
+      }
 
       next_tok[0] = NL;
       memset(&next_yylval[0], 0, sizeof(next_yylval[0]));

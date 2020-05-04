@@ -1,0 +1,111 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>de.labathome</groupId>
+	<artifactId>f2j</artifactId>
+	<version>1.0.0</version>
+	<packaging>jar</packaging>
+
+	<name>f2j</name>
+	<description>Fortran to Java translator, especially suited for BLAS, LAPACK and ARPACK, using antlr4</description>
+
+	<properties>
+		<antlr.version>4.7.2</antlr.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<target.jvm>1.8</target.jvm>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>antlr4-runtime</artifactId>
+			<version>${antlr.version}</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<source>${target.jvm}</source>
+					<target>${target.jvm}</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>com.googlecode.maven-download-plugin</groupId>
+				<artifactId>download-maven-plugin</artifactId>
+				<version>1.5.1</version>
+				<executions>
+					<execution>
+						<id>Fortran77Lexer</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>https://raw.githubusercontent.com/antlr/grammars-v4/master/fortran77/Fortran77Lexer.g4</url>
+							<outputFileName>Fortran77Lexer.g4</outputFileName>
+							<outputDirectory>${project.basedir}/src/main/antlr4/com/khubla/antlr</outputDirectory>
+						</configuration>
+					</execution>
+					<execution>
+						<id>Fortran77Parser</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>https://raw.githubusercontent.com/antlr/grammars-v4/master/fortran77/Fortran77Parser.g4</url>
+							<outputFileName>Fortran77Parser.g4</outputFileName>
+							<outputDirectory>${project.basedir}/src/main/antlr4/com/khubla/antlr</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.antlr</groupId>
+				<artifactId>antlr4-maven-plugin</artifactId>
+				<version>${antlr.version}</version>
+				<configuration>
+					<visitor>true</visitor>
+					<listener>true</listener>
+					<outputDirectory>${project.basedir}/src/main/java-generated</outputDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>antlr4</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.0.0-M3</version>
+				<executions>
+					<execution>
+						<id>enforce-maven</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>3.0.5</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

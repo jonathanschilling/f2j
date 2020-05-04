@@ -31,8 +31,13 @@ parser grammar Fortran77Parser;
 options
    { tokenVocab = Fortran77Lexer; }
 
+
+commentStatement
+    : COMMENT
+    ;
+   
 program
-   : executableUnit + EOL*
+   : commentStatement* executableUnit+ EOL*
    ;
 
 executableUnit
@@ -78,7 +83,7 @@ entryStatement
    ;
 
 functionStatement
-   : (type)? FUNCTION NAME LPAREN (namelist)? RPAREN
+   : (type)? FUNCTION NAME LPAREN (namelist)? RPAREN EOL?
    ;
 
 blockdataStatement
@@ -105,17 +110,17 @@ statement
    | dataStatement
    | (statementFunctionStatement) statementFunctionStatement
    | executableStatement
-   | commentStatement
+   //| commentStatement
    ;
 
 subprogramBody
-   : wholeStatement + endStatement
+   : (commentStatement* wholeStatement+ commentStatement*)+ endStatement
    ;
 
 wholeStatement
    : LABEL? statement EOL
    ;
-
+   
 endStatement
    : LABEL? END
    ;
@@ -173,10 +178,6 @@ commonItems
 commonBlock
    : commonName commonItems
    ;
-
-commentStatement
-    : COMMENT
-    ;
 
 typeStatement
    : typename typeStatementNameList
@@ -378,7 +379,7 @@ blockIfStatement
    ;
 
 firstIfBlock
-   : THEN wholeStatement +
+   : THEN EOL? commentStatement* wholeStatement+ commentStatement*
    ;
 
 elseIfStatement
@@ -386,7 +387,7 @@ elseIfStatement
    ;
 
 elseStatement
-   : ELSE wholeStatement +
+   : ELSE EOL? commentStatement* wholeStatement+ commentStatement*
    ;
 
 endIfStatement
@@ -410,7 +411,7 @@ doBody
    ;
 
 doWithEndDo
-   : doVarArgs doBody enddoStatement
+   : doVarArgs EOL? doBody EOL? enddoStatement
    ;
 
 enddoStatement
@@ -747,7 +748,7 @@ aexpr3
    ;
 
 aexpr4
-   : (unsignedArithmeticConstant) unsignedArithmeticConstant
+   : unsignedArithmeticConstant
    | (HOLLERITH | SCON)
    | logicalConstant
    | varRef

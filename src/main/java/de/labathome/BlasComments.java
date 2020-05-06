@@ -16,7 +16,7 @@ public class BlasComments {
 	
 	/** link to online help for BLAS and LAPACK hosted by Netlib */
 	public static final String ONLINE_NETLIB_HELP_URL = "http://www.netlib.org/lapack/explore-html/";
-	
+		
 	/**
 	 * Transform a comment from BLAS into Javadoc
 	 *
@@ -59,7 +59,7 @@ public class BlasComments {
 		for (int i=linePurpose+2; i<lineArguments-1; ++i) {
 			String purposeLine = lines[i];
 			
-			// remove '>' from start of line
+			// remove '>' from start of line, if present
 			if (purposeLine.startsWith(">")) {
 				purposeLine = purposeLine.substring(1);
 			}
@@ -81,6 +81,41 @@ public class BlasComments {
 			javadoc += " * "+purposeLine+"\n";
 		}
 		
+		// empty line as separator in javadoc
+		javadoc += " * \n";
+		
+		// handle further details
+		for (int i=lineFurtherDetails+2; i<lines.length-1; ++i) {
+			String furtherDetailsLine = lines[i];
+			
+			// remove '>' from start of line, if present
+			if (furtherDetailsLine.startsWith(">")) {
+				furtherDetailsLine = furtherDetailsLine.substring(1);
+			}
+			
+			// remove whitespaces at start and end
+			furtherDetailsLine = furtherDetailsLine.trim();
+			
+			// skip empty lines
+			if (furtherDetailsLine.length() == 0) {
+				continue;
+			}
+						
+			// transform \verbatim ... \endverbatim into <pre> ... </pre> and indent properly
+			String furtherDetail = "";
+			if (furtherDetailsLine.equals("\\verbatim")) {
+				furtherDetail = " <pre>";
+			} else if (furtherDetailsLine.equals("\\endverbatim")) {
+				furtherDetail = " </pre>";
+			} else {
+				furtherDetail += furtherDetailsLine;
+			}
+			
+			// finally, append further detail to javadoc
+			javadoc += " *"+furtherDetail+"\n";
+		}
+		
+		// handle authors
 		
 		
 		

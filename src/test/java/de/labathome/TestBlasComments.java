@@ -15,8 +15,8 @@ public class TestBlasComments {
 				"	 * equal to one.\n" + 
 				"	 * \n" + 
 				"	 * <pre>\n" + 
-				"	 *   jack dongarra, linpack, 3/11/78.\n" + 
-				"	 *   modified 12/3/93, array(1) declarations changed to array(*)\n" + 
+				"	 *jack dongarra, linpack, 3/11/78.\n" + 
+				"	 *modified 12/3/93, array(1) declarations changed to array(*)\n" + 
 				"	 * </pre>\n" + 
 				"	 *\n" + 
 				"	 * @author Univ. of Tennessee\n" + 

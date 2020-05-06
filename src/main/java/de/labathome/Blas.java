@@ -15,8 +15,8 @@ public class Blas {
 	 * equal to one.
 	 * 
 	 * <pre>
-	 *   jack dongarra, linpack, 3/11/78.
-	 *   modified 12/3/93, array(1) declarations changed to array(*)
+	 *jack dongarra, linpack, 3/11/78.
+	 *modified 12/3/93, array(1) declarations changed to array(*)
 	 * </pre>
 	 *
 	 * @author Univ. of Tennessee

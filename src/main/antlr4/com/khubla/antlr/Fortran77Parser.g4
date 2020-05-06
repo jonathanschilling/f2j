@@ -37,7 +37,7 @@ commentStatement
     ;
    
 program
-   : commentStatement* executableUnit+ EOL*
+   : commentStatement* (executableUnit commentStatement*)+ EOL*
    ;
 
 executableUnit
@@ -110,11 +110,10 @@ statement
    | dataStatement
    | (statementFunctionStatement) statementFunctionStatement
    | executableStatement
-   //| commentStatement
    ;
 
 subprogramBody
-   : (commentStatement* wholeStatement+ commentStatement*)+ endStatement
+   : commentStatement* (wholeStatement commentStatement*)+ endStatement
    ;
 
 wholeStatement
@@ -379,7 +378,7 @@ blockIfStatement
    ;
 
 firstIfBlock
-   : THEN EOL? commentStatement* wholeStatement+ commentStatement*
+   : THEN EOL? commentStatement* (wholeStatement commentStatement*)+
    ;
 
 elseIfStatement
@@ -387,7 +386,7 @@ elseIfStatement
    ;
 
 elseStatement
-   : ELSE EOL? commentStatement* wholeStatement+ commentStatement*
+   : ELSE EOL? commentStatement* (wholeStatement commentStatement*)+
    ;
 
 endIfStatement

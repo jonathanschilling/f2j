@@ -16,19 +16,36 @@ public class BlasComments {
 	
 	/** link to online help for BLAS and LAPACK hosted by Netlib */
 	public static final String ONLINE_NETLIB_HELP_URL = "http://www.netlib.org/lapack/explore-html/";
-		
+	
+	public static final String AUTHOR = "> \\author";
+	public static final String DATE = "> \\date";
+	public static final String INGROUP = "> \\ingroup";
+	public static final String PARAM = "> \\param";
+	
+	public static final String DEFAULT_VERSION = "3.9.0";
+	
 	/**
-	 * Transform a comment from BLAS into Javadoc
-	 *
-	 * @param blasComment comment from BLAS Fortran source
+	 * Transform a comment from BLAS into Javadoc for version given by {@code DEFAULT_VERSION}.
+	 * @param blasComment blasComment comment from BLAS Fortran source
 	 * @return {@code blasComment} transformed into Javadoc
 	 */
 	public static final String toJavadoc(final String blasComment) {
+		return toJavadoc(blasComment, DEFAULT_VERSION);
+	}
+	
+	/**
+	 * Transform a comment from BLAS into Javadoc.
+	 * @param blasComment comment from BLAS Fortran source
+	 * @param version version number of BLAS or LAPACK to put into the {@code @version} tag; e.g. "3.9.0"
+	 * @return {@code blasComment} transformed into Javadoc
+	 */
+	public static final String toJavadoc(final String blasComment, String version) {
 		String[] lines = blasComment.split("\n");
 		
 		// trim away whitespace at end and comment char at beginning
+		// also trim whitespaces between char at beginning and actual comment 
 		for (int i=0; i<lines.length; ++i) {
-			lines[i] = lines[i].trim().substring(1);
+			lines[i] = lines[i].trim().substring(1).trim();
 		}
 		
 		// open comment
@@ -101,24 +118,157 @@ public class BlasComments {
 				continue;
 			}
 						
-			// transform \verbatim ... \endverbatim into <pre> ... </pre> and indent properly
-			String furtherDetail = "";
-			if (furtherDetailsLine.equals("\\verbatim")) {
-				furtherDetail = " <pre>";
-			} else if (furtherDetailsLine.equals("\\endverbatim")) {
-				furtherDetail = " </pre>";
-			} else {
-				furtherDetail += furtherDetailsLine;
-			}
+			// transform \verbatim ... \endverbatim into <pre> ... </pre>
+			furtherDetailsLine = furtherDetailsLine.replace("\\verbatim", "<pre>");
+			furtherDetailsLine = furtherDetailsLine.replace("\\endverbatim", "</pre>");
 			
 			// finally, append further detail to javadoc
-			javadoc += " *"+furtherDetail+"\n";
+			javadoc += " * "+furtherDetailsLine+"\n";
 		}
 		
-		// handle authors
+		// empty line as separator in javadoc
+		javadoc += " * \n";
+		
+		// handle parameters
+		for (int i=0; i<lines.length; ++i) {
+			if (lines[i].startsWith(PARAM)) {
+				
+				// get parameter name
+				String param = lines[i].substring(PARAM.length());
+				
+				// remove indication of direction
+				if (param.startsWith("[in]")) {
+					param = param.substring(4);
+				} else if (param.startsWith("[out]")) {
+					param = param.substring(5);
+				} else if (param.startsWith("[in,out]")) {
+					param = param.substring(8);
+				} 
+				
+				// remove any now-exposed whitespaces and transform to lower case, as usual for Java arguments
+				param = param.trim().toLowerCase();
+				
+				// target storage for description of current parameter
+				String paramDesc = "";
+				
+				// read further lines until next '\param' is found or Authors section begins
+				for (int j=i+1; j<lineAuthors; ++j) {
+					String paramDescLine = lines[j].trim();
+					
+					// stop collecting when next parameter is found
+					if (paramDescLine.startsWith(PARAM)) {
+						break;
+					}
+					
+					// skip '>'	at beginning of lines
+					if (paramDescLine.startsWith(">")) {
+						paramDescLine = paramDescLine.substring(1);
+					}
+					
+					// transform \verbatim ... \endverbatim into <pre> ... </pre>
+					paramDescLine = paramDescLine.replace("\\verbatim", "<pre>");
+					paramDescLine = paramDescLine.replace("\\endverbatim", "</pre>");
+					
+					// trim any now-exposed whitespaces
+					paramDescLine = paramDescLine.trim();
+					
+					// skip now-empty lines
+					if ("".equals(paramDescLine)) {
+						continue;
+					}
+					
+					// fix indentation for description lines after the first one
+					if (j>i+1) {
+						// indent past " * @param "
+						paramDesc += " *        ";
+						
+						// indent also past parameter name
+						for (int k=0; k<param.length(); ++k) {
+							paramDesc += " ";
+						}
+						
+						// one extra space for separation after parameter name
+						paramDesc += " ";
+					}
+					
+					// attach to indented parameter description
+					paramDesc += paramDescLine+"\n";
+				}
+				
+				// ensure that at least the newline character is present in the description
+				if (!paramDesc.endsWith("\n")) {
+					paramDesc += "\n";
+				}
+				
+				// finally, attach parameter description to javadoc
+				javadoc += " * @param " + param+" "+paramDesc;
+			}
+		}
+
+		// empty line as separator in javadoc
+		javadoc += " * \n";
+		
+		// return value description
+		javadoc += " * @return\n";
 		
 		
+		// empty line as separator in javadoc
+		javadoc += " * \n";
 		
+		// handle date from Fortran comments and combine with given version number
+		for (int i=0; i<lines.length; ++i) {
+			if (lines[i].startsWith(DATE)) {
+				
+				// get substring after '\date ' --> date of last update (?)
+				int dateStartIdx = DATE.length() + 1;
+				String date = lines[i].substring(dateStartIdx);
+				
+				// add javadoc tag for author
+				javadoc += " * @version "+version + ", "+date+"\n";
+			}
+		}
+				
+		// empty line as separator in javadoc
+		javadoc += " * \n";		
+		
+		// handle authors: simply collect all authors found in the documentation
+		for (int i=0; i<lines.length; ++i) {
+			if (lines[i].startsWith(AUTHOR)) {
+				
+				// get substring after '\author ' --> contributing author
+				int authorStartIdx = AUTHOR.length() + 1;
+				String author = lines[i].substring(authorStartIdx);
+				
+				// add javadoc tag for author
+				javadoc += " * @author "+author+"\n";
+			}
+		}
+		
+		// empty line as separator in javadoc
+		javadoc += " * \n";
+		
+		// see also online documentation
+		javadoc += " * @see <a href=\""+ONLINE_NETLIB_HELP_URL+"\">"+ONLINE_NETLIB_HELP_URL+"</a>\n";
+		
+		// empty line as separator in javadoc
+		javadoc += " * \n";
+		
+		// handle BLAS Level X grouping (where X \in {1,2,3})
+		for (int i=0; i<lines.length; ++i) {
+			if (lines[i].startsWith(INGROUP)) {
+				
+				// get substring after '\ingroup ' --> name of group
+				int inGroupStartIdx = INGROUP.length() + 1;
+				String group = lines[i].substring(inGroupStartIdx);
+								
+				// transform group id into tag name
+				// all tags occurring here have to be specified in the pom.xml !
+				String tag = group.replace("_", ".");
+				
+				// add transformed group id as tag to javadoc
+				javadoc += " * @"+tag+"\n";
+			}
+		}
 		
 		// close comment
 		javadoc += " */";

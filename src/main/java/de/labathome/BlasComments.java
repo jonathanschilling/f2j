@@ -226,7 +226,6 @@ public class BlasComments {
 							
 							// trimmed description leftovers after type
 							String furtherDescription = followingPart.substring(TYPES[idxInTypes].length()).trim();
-							System.out.println("stuff after type: '"+furtherDescription+"'");
 							
 							// skip lines which only read "N is INTEGER", since the types are documented in Java already
 							if (furtherDescription.equals("")) {

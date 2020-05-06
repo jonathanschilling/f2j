@@ -37,7 +37,7 @@
 				</configuration>
 			</plugin>
  
-			<plugin>
+			<!-- <plugin>
 				<groupId>com.googlecode.maven-download-plugin</groupId>
 				<artifactId>download-maven-plugin</artifactId>
 				<version>1.5.1</version>
@@ -67,7 +67,7 @@
 						</configuration>
 					</execution>
 				</executions>
-			</plugin>
+			</plugin> -->
 			<plugin>
 				<groupId>org.antlr</groupId>
 				<artifactId>antlr4-maven-plugin</artifactId>

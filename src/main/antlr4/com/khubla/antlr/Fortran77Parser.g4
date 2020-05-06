@@ -31,11 +31,11 @@ parser grammar Fortran77Parser;
 options
    { tokenVocab = Fortran77Lexer; }
 
-
+// multi-line comments?
 commentStatement
-    : COMMENT
+    : COMMENT+
     ;
-   
+    
 program
    : commentStatement* (executableUnit commentStatement*)+ EOL*
    ;

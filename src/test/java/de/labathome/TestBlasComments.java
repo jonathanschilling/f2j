@@ -3,6 +3,11 @@ package de.labathome;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 public class TestBlasComments {
@@ -12,23 +17,22 @@ public class TestBlasComments {
 		
 		final String expectedJavadoc = "/**\n" + 
 				" * DDOT forms the dot product of two vectors.\n" + 
-				" * Uses unrolled loops for increments equal to one.\n" + 
+				" * uses unrolled loops for increments equal to one.\n" + 
 				" * \n" + 
 				" * <pre>\n" + 
 				" * jack dongarra, linpack, 3/11/78.\n" + 
 				" * modified 12/3/93, array(1) declarations changed to array(*)\n" + 
 				" * </pre>\n" + 
 				" * \n" + 
-				" * @param n    number of elements in input vector(s)\n" + 
-				" * @param dx   dimension ( 1 + ( N - 1 )*abs( INCX ) )\n" + 
-				" * @param x0   starting index in dx\n" + 
+				" * @param n number of elements in input vector(s)\n" + 
+				" * @param dx dimension ( 1 + ( N - 1 )*abs( INCX ) )\n" + 
+				" * @param x0 starting index in dx\n" + 
 				" * @param incx storage spacing between elements of DX\n" + 
-				" * @param dy   dimension ( 1 + ( N - 1 )*abs( INCY ) )\n" + 
-				" * @param y0   starting index in dy\n" + 
+				" * @param dy dimension ( 1 + ( N - 1 )*abs( INCY ) )\n" + 
+				" * @param y0 starting index in dy\n" + 
 				" * @param incy storage spacing between elements of DY\n" + 
 				" * \n" + 
-				" * @return DDOT forms the dot product of two vectors.\n" + 
-				" *         uses unrolled loops for increments equal to one.\n" + 
+				" * @return result\n" + 
 				" * \n" + 
 				" * @version 3.9.0, November 2017\n" + 
 				" * \n" + 
@@ -127,7 +131,17 @@ public class TestBlasComments {
 				"*>\n" + 
 				"*  =====================================================================";
 		
-		final String blasJavadoc = BlasComments.toJavadoc(blasCommentDdot);
+		List<String> additionalParamsForDx = new LinkedList<>();
+		additionalParamsForDx.add(" * @param x0 starting index in dx");
+		
+		List<String> additionalParamsForDy = new LinkedList<>();
+		additionalParamsForDy.add(" * @param y0 starting index in dy");
+				
+		Map<String, List<String>> additionalParametersNotInFortranDocs = new HashMap<>();
+		additionalParametersNotInFortranDocs.put("dx", additionalParamsForDx);
+		additionalParametersNotInFortranDocs.put("dy", additionalParamsForDy);
+		
+		final String blasJavadoc = BlasComments.toJavadoc(blasCommentDdot, additionalParametersNotInFortranDocs);
 		final String[] blasJavadocLines = blasJavadoc.split("\n");
 		
 		assertNotNull(blasJavadoc);

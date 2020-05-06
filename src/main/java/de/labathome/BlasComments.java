@@ -1,7 +1,13 @@
 package de.labathome;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 /**
- * This is a helper class to transform comment (block)s from the BLAS format into valid Javadoc.
+ * This is a helper class to transform comment( block)s from the BLAS format into valid Javadoc.
  *
  * @author Jonathan Schilling (jonathan.schilling@mail.de)
  * @version $Id: $Id
@@ -22,7 +28,21 @@ public class BlasComments {
 	public static final String INGROUP = "> \\ingroup";
 	public static final String PARAM = "> \\param";
 	
+	/** version of BLAS/LAPACK at the time of writing this code */
 	public static final String DEFAULT_VERSION = "3.9.0";
+	
+	public static final String LOGICAL = "LOGICAL";
+	public static final String CHARACTER = "CHARACTER";
+	public static final String INTEGER = "INTEGER";
+	public static final String REAL = "REAL";
+	public static final String DOUBLE_PRECISION = "DOUBLE PRECISION";
+	public static final String[] TYPES = new String[] {
+			LOGICAL,
+			CHARACTER,
+			INTEGER,
+			REAL,
+			DOUBLE_PRECISION
+	};
 	
 	/**
 	 * Transform a comment from BLAS into Javadoc for version given by {@code DEFAULT_VERSION}.
@@ -30,7 +50,17 @@ public class BlasComments {
 	 * @return {@code blasComment} transformed into Javadoc
 	 */
 	public static final String toJavadoc(final String blasComment) {
-		return toJavadoc(blasComment, DEFAULT_VERSION);
+		return toJavadoc(blasComment, null, DEFAULT_VERSION);
+	}
+	
+	/**
+	 * Transform a comment from BLAS into Javadoc for version given by {@code DEFAULT_VERSION}.
+	 * @param blasComment blasComment comment from BLAS Fortran source
+	 * @param additionalParametersNotInFortranDocs additional javadoc parameter descriptions to include after each parameter found in the key set of the given Map
+	 * @return {@code blasComment} transformed into Javadoc
+	 */
+	public static final String toJavadoc(final String blasComment, Map<String, List<String>> additionalParametersNotInFortranDocs) {
+		return toJavadoc(blasComment, additionalParametersNotInFortranDocs, DEFAULT_VERSION);
 	}
 	
 	/**
@@ -39,7 +69,7 @@ public class BlasComments {
 	 * @param version version number of BLAS or LAPACK to put into the {@code @version} tag; e.g. "3.9.0"
 	 * @return {@code blasComment} transformed into Javadoc
 	 */
-	public static final String toJavadoc(final String blasComment, String version) {
+	public static final String toJavadoc(final String blasComment, Map<String, List<String>> additionalParametersNotInFortranDocs, String version) {
 		String[] lines = blasComment.split("\n");
 		
 		// trim away whitespace at end and comment char at beginning
@@ -145,13 +175,14 @@ public class BlasComments {
 					param = param.substring(8);
 				} 
 				
-				// remove any now-exposed whitespaces and transform to lower case, as usual for Java arguments
-				param = param.trim().toLowerCase();
+				// remove any now-exposed whitespaces, which were exposed just now
+				param = param.trim();
 				
 				// target storage for description of current parameter
 				String paramDesc = "";
 				
 				// read further lines until next '\param' is found or Authors section begins
+				int actualLines = 0;
 				for (int j=i+1; j<lineAuthors; ++j) {
 					String paramDescLine = lines[j].trim();
 					
@@ -165,20 +196,55 @@ public class BlasComments {
 						paramDescLine = paramDescLine.substring(1);
 					}
 					
-					// transform \verbatim ... \endverbatim into <pre> ... </pre>
-					paramDescLine = paramDescLine.replace("\\verbatim", "<pre>");
-					paramDescLine = paramDescLine.replace("\\endverbatim", "</pre>");
-					
 					// trim any now-exposed whitespaces
 					paramDescLine = paramDescLine.trim();
 					
-					// skip now-empty lines
-					if ("".equals(paramDescLine)) {
+					// skip now-empty lines and verbatim statements
+					if (paramDescLine.equals("") || 
+							paramDescLine.equals("\\verbatim") ||
+							paramDescLine.equals("\\endverbatim")) {
+						
 						continue;
 					}
 					
+					// skip comment line (parts) which only describes the data type, e.g. "N is INTEGER"
+					if (paramDescLine.startsWith(param+" is ")) {
+						
+						// get part of parameter description after "N is "
+						String followingPart = paramDescLine.substring(param.length()+4);
+						
+						// check if next (set of )word(s) is in the list of Fortran data types used in BLAS/LAPACK
+						int idxInTypes = -1;
+						for (int k=0; k<TYPES.length; ++k) {
+							if (followingPart.length() >= TYPES[k].length() && TYPES[k].equals(followingPart.substring(0, TYPES[k].length()))) {
+								idxInTypes = k;
+								break;
+							}
+						}
+						
+						if (idxInTypes > 0) {
+							
+							// trimmed description leftovers after type
+							String furtherDescription = followingPart.substring(TYPES[idxInTypes].length()).trim();
+							System.out.println("stuff after type: '"+furtherDescription+"'");
+							
+							// skip lines which only read "N is INTEGER", since the types are documented in Java already
+							if (furtherDescription.equals("")) {
+								continue;
+							}
+							
+							// if parameter is array, skip the 'array, ' part and directly list anything that describes the array further 
+							if (furtherDescription.startsWith("array, ")) {
+								paramDescLine = furtherDescription.substring(7);
+							}
+						}
+					}
+					
+					// count the current line as actually appearing in the comment if we reach this point
+					actualLines++;
+					
 					// fix indentation for description lines after the first one
-					if (j>i+1) {
+					if (actualLines>1) {
 						// indent past " * @param "
 						paramDesc += " *        ";
 						
@@ -201,7 +267,20 @@ public class BlasComments {
 				}
 				
 				// finally, attach parameter description to javadoc
-				javadoc += " * @param " + param+" "+paramDesc;
+				// use lower case parameter names as common in Java
+				javadoc += " * @param " + param.toLowerCase()+" "+paramDesc;
+				
+				// include additional parameter descriptions if available
+				if (additionalParametersNotInFortranDocs != null && additionalParametersNotInFortranDocs.containsKey(param.toLowerCase())) {
+					
+					// get list of additional parameters for current parameter
+					List<String> additionalDescriptions = additionalParametersNotInFortranDocs.get(param.toLowerCase());
+					
+					// attach their javadoc to final documentaion
+					for (String additionalDescription: additionalDescriptions) {
+						javadoc += additionalDescription+"\n";
+					}
+				}
 			}
 		}
 
@@ -209,7 +288,7 @@ public class BlasComments {
 		javadoc += " * \n";
 		
 		// return value description
-		javadoc += " * @return\n";
+		javadoc += " * @return result\n";
 		
 		
 		// empty line as separator in javadoc
@@ -276,6 +355,10 @@ public class BlasComments {
 		return javadoc;
 	}
 	
+	/**
+	 * demonstrate how to transform ddot documentation into javadoc
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		
 		final String blasCommentDdot = "*> \\brief \\b DDOT\n" + 
@@ -361,12 +444,22 @@ public class BlasComments {
 				"*>\n" + 
 				"*  =====================================================================";
 		
-		final String blasJavadoc = toJavadoc(blasCommentDdot);
+		List<String> additionalParamsForDx = new LinkedList<>();
+		additionalParamsForDx.add(" * @param x0 starting index in dx");
+		
+		List<String> additionalParamsForDy = new LinkedList<>();
+		additionalParamsForDy.add(" * @param y0 starting index in dy");
+				
+		Map<String, List<String>> additionalParametersNotInFortranDocs = new HashMap<>();
+		additionalParametersNotInFortranDocs.put("dx", additionalParamsForDx);
+		additionalParametersNotInFortranDocs.put("dy", additionalParamsForDy);
+		
+		final String blasJavadoc = toJavadoc(blasCommentDdot, additionalParametersNotInFortranDocs);
 		final String[] blasJavadocLines = blasJavadoc.split("\n");
 		
 		System.out.println("\nfinal javadoc:");
-		for (String line: blasJavadocLines) {
-			System.out.println(line);
+		for (int i=0; i<blasJavadocLines.length; ++i) {
+			System.out.println("["+i+"]: '"+blasJavadocLines[i]+"'");
 		}
 	}
 }

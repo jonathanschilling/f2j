@@ -107,10 +107,20 @@
 				</executions>
 			</plugin>
 
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<version>3.2.0</version>
+				<configuration>
+					<tags>
+						<tag>
+							<name>double.blas.level1</name>
+							<placement>a</placement>
+							<head>BLAS Level 1</head>
+						</tag>
+					</tags>
+				</configuration>
 				<executions>
 					<execution>
 						<configuration>
@@ -129,21 +139,12 @@
 							<!-- This disables errors in Javadoc comments. Comment out to see 
 								this errors and fix them. -->
 							<doclint>none</doclint>
-							<tags>
-								<tag>
-									<name>testtag</name>
-									<placement>a</placement>
-									<head>BLAS Level 1</head>
-								</tag>
-							</tags>
 						</configuration>
 						<goals>
 							<goal>jar</goal>
 						</goals>
 					</execution>
 				</executions>
-
-
 			</plugin>
 		</plugins>
 	</build>

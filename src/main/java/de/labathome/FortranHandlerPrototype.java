@@ -12,13 +12,27 @@ import org.antlr.v4.runtime.TokenStream;
 import com.khubla.antlr.Fortran77Lexer;
 import com.khubla.antlr.Fortran77Parser;
 
+/**
+ * <p>FortranHandlerPrototype class.</p>
+ *
+ * @author jonathan
+ * @version $Id: $Id
+ */
 public class FortranHandlerPrototype {
 
+	/**
+	 * <p>main.</p>
+	 *
+	 * @param args an array of {@link java.lang.String} objects.
+	 */
 	public static void main(String[] args) {
 
 		parseDdot();
 	}
 
+	/**
+	 * <p>parseDdot.</p>
+	 */
 	public static void parseDdot() {
 
 		try (InputStream ddotFile = FortranHandlerPrototype.class.getResourceAsStream("/ddot.f")) {

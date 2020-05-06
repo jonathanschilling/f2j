@@ -1,11 +1,46 @@
 package de.labathome;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.junit.jupiter.api.Test;
 
 public class TestBlasComments {
-
+	
 	@Test
-	public void testBlasCommentToJavadoc() {
+	public static void testBlasCommentToJavadoc() {
+		
+		final String expectedJavadoc = "/**\n" + 
+				"	 * DDOT forms the dot product of two vectors. Uses unrolled loops for increments\n" + 
+				"	 * equal to one.\n" + 
+				"	 * \n" + 
+				"	 * <pre>\n" + 
+				"	 *   jack dongarra, linpack, 3/11/78.\n" + 
+				"	 *   modified 12/3/93, array(1) declarations changed to array(*)\n" + 
+				"	 * </pre>\n" + 
+				"	 *\n" + 
+				"	 * @author Univ. of Tennessee\n" + 
+				"	 * @author Univ. of California Berkeley\n" + 
+				"	 * @author Univ. of Colorado Denver\n" + 
+				"	 * @author NAG Ltd.\n" + 
+				"	 * \n" + 
+				"	 * @version 3.9.0, 11/01/17\n" + 
+				"	 * \n" + 
+				"	 * @double.blas.level1\n" + 
+				"	 * \n" + 
+				"	 * @param n    number of elements in input vector(s)\n" + 
+				"	 * @param dx   dimension ( 1 + ( N - 1 )*abs( INCX ) )\n" + 
+				"	 * @param x0   starting index in dx\n" + 
+				"	 * @param incx storage spacing between elements of DX\n" + 
+				"	 * @param dy   dimension ( 1 + ( N - 1 )*abs( INCY ) )\n" + 
+				"	 * @param y0   starting index in dy\n" + 
+				"	 * @param incy storage spacing between elements of DY\n" + 
+				"	 * \n" + 
+				"	 * @return DDOT forms the dot product of two vectors. Uses unrolled loops for\n" + 
+				"	 *         increments equal to one.\n" + 
+				"	 */";
+		
+		final String[] expectedJavadocLines = expectedJavadoc.split("\n");
 		
 		final String blasCommentDdot = "*> \\brief \\b DDOT\n" + 
 				"*\n" + 
@@ -88,8 +123,16 @@ public class TestBlasComments {
 				"*>     modified 12/3/93, array(1) declarations changed to array(*)\n" + 
 				"*> \\endverbatim\n" + 
 				"*>\n" + 
-				"*  =====================================================================\n";
+				"*  =====================================================================";
 		
-		final String expectedJavadoc = "";
+		final String blasJavadoc = BlasComments.toJavadoc(blasCommentDdot);
+		final String[] blasJavadocLines = blasJavadoc.split("\n");
+		
+		assertNotNull(blasJavadoc);
+		assertEquals(expectedJavadocLines.length, blasJavadocLines.length);
+		
+		for (int i=0; i<expectedJavadocLines.length; ++i) {
+			assertEquals(expectedJavadocLines[i], blasJavadocLines[i]);
+		}
 	}
 }

@@ -8,6 +8,15 @@ package de.labathome;
  */
 public class BlasComments {
 	
+	public static final String DEFINITION = "Definition:";
+	public static final String PURPOSE = "Purpose:";
+	public static final String ARGUMENTS = "Arguments:";
+	public static final String AUTHORS = "Authors:";
+	public static final String FURTHER_DETAILS = "Further Details:";
+	
+	/** link to online help for BLAS and LAPACK hosted by Netlib */
+	public static final String ONLINE_NETLIB_HELP_URL = "http://www.netlib.org/lapack/explore-html/";
+	
 	/**
 	 * Transform a comment from BLAS into Javadoc
 	 *
@@ -15,16 +24,69 @@ public class BlasComments {
 	 * @return {@code blasComment} transformed into Javadoc
 	 */
 	public static final String toJavadoc(final String blasComment) {
-		String javadoc = "";
+		String[] lines = blasComment.split("\n");
+		
+		// trim away whitespace at end and comment char at beginning
+		for (int i=0; i<lines.length; ++i) {
+			lines[i] = lines[i].trim().substring(1);
+		}
+		
+		// open comment
+		String javadoc = "/**\n";
+		
+		// first pass: find paragraphs
+		int lineDefinition=-1, linePurpose=-1, lineArguments=-1, lineAuthors=-1, lineFurtherDetails=-1;
+		for (int i=0; i<lines.length; ++i) {
+			if (lines[i].contains(DEFINITION)) {
+				lineDefinition = i;
+			} else if (lines[i].contains(PURPOSE)) {
+				linePurpose = i;
+			} else if (lines[i].contains(ARGUMENTS)) {
+				lineArguments = i;
+			} else if (lines[i].contains(AUTHORS)) {
+				lineAuthors = i;
+			} else if (lines[i].contains(FURTHER_DETAILS)) {
+				lineFurtherDetails = i;
+			}
+		}
+		if (lineDefinition < 0) { System.out.println("Could not find '"+DEFINITION+"'"); }
+		if (linePurpose < 0) { System.out.println("Could not find '"+PURPOSE+"'"); }
+		if (lineArguments < 0) { System.out.println("Could not find '"+ARGUMENTS+"'"); }
+		if (lineAuthors < 0) { System.out.println("Could not find '"+AUTHORS+"'"); }
+		if (lineFurtherDetails < 0) { System.out.println("Could not find '"+FURTHER_DETAILS+"'"); }
+		
+		// handle purpose; skip '====...' line after Purpose: statement and keep away one empty line before start of Arguments: paragraph
+		for (int i=linePurpose+2; i<lineArguments-1; ++i) {
+			String purposeLine = lines[i];
+			
+			// remove '>' from start of line
+			if (purposeLine.startsWith(">")) {
+				purposeLine = purposeLine.substring(1);
+			}
+			
+			// remove whitespaces at start and end
+			purposeLine = purposeLine.trim();
+			
+			// skip empty lines
+			if (purposeLine.length() == 0) {
+				continue;
+			}
+			
+			// for purpose statement, ignore \verbatim statement
+			if (purposeLine.equals("\\verbatim") || purposeLine.equals("\\endverbatim")) {
+				continue;
+			}
+			
+			// finally, append purpose description to javadoc
+			javadoc += " * "+purposeLine+"\n";
+		}
 		
 		
 		
 		
 		
-		
-		
-		
-		
+		// close comment
+		javadoc += " */";
 		
 		return javadoc;
 	}
@@ -117,6 +179,7 @@ public class BlasComments {
 		final String blasJavadoc = toJavadoc(blasCommentDdot);
 		final String[] blasJavadocLines = blasJavadoc.split("\n");
 		
+		System.out.println("\nfinal javadoc:");
 		for (String line: blasJavadocLines) {
 			System.out.println(line);
 		}

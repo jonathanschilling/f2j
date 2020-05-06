@@ -119,6 +119,16 @@
 							<placement>a</placement>
 							<head>BLAS Level 1</head>
 						</tag>
+						<tag>
+							<name>double.blas.level2</name>
+							<placement>a</placement>
+							<head>BLAS Level 2</head>
+						</tag>
+						<tag>
+							<name>double.blas.level3</name>
+							<placement>a</placement>
+							<head>BLAS Level 3</head>
+						</tag>
 					</tags>
 				</configuration>
 				<executions>

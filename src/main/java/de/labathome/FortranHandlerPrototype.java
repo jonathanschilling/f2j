@@ -46,10 +46,11 @@ public class FortranHandlerPrototype {
 			/** make a Parser on the token stream */
 			Fortran77Parser parser = new Fortran77Parser(tokenStream);
 
+			/** add a consumer for the Parser results */
 			parser.addParseListener(new FortranListener());
 
+			/** start traversing the AST */
 			parser.program();
-			
 			
 		} catch (IOException e) {
 			e.printStackTrace();

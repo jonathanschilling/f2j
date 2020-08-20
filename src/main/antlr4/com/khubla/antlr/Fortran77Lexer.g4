@@ -620,7 +620,7 @@ fragment FDESC
 
 
 fragment EXPON
-   : ('e' | 'd') (SIGN)? (NUM) +
+   : ('e' | 'E' | 'd' | 'D') (SIGN)? (NUM) +
    ;
 
 
@@ -674,7 +674,7 @@ EOL
    ;
 
 LINECONT
-   : EOL '     $' -> skip
+   : ((EOL '     $') | (EOL '     +')) -> skip
    ;
    
 WS

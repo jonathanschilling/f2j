@@ -91,7 +91,7 @@ blockdataStatement
    ;
 
 subroutineStatement
-   : SUBROUTINE NAME (LPAREN (namelist)? RPAREN)?
+   : SUBROUTINE NAME (LPAREN (namelist)? RPAREN)? EOL?
    ;
 
 namelist
@@ -205,7 +205,7 @@ typeStatementLenSpec
    ;
 
 typename
-   : (REAL | COMPLEX (STAR ICON?)? | DOUBLE COMPLEX | DOUBLE PRECISION | INTEGER | LOGICAL)
+   : (REAL | COMPLEX (STAR ICON?)? | DOUBLE COMPLEX | DOUBLE PRECISION | INTEGER | LOGICAL | CHARACTER)
    ;
 
 type
@@ -374,7 +374,7 @@ logicalIfStatement
    ;
 
 blockIfStatement
-   : firstIfBlock (: elseIfStatement)* (elseStatement)? endIfStatement
+   : firstIfBlock (elseIfStatement)* (elseStatement)? endIfStatement
    ;
 
 firstIfBlock
@@ -382,7 +382,7 @@ firstIfBlock
    ;
 
 elseIfStatement
-   : (ELSEIF | (ELSE IF)) LPAREN logicalExpression RPAREN THEN wholeStatement +
+   : (ELSEIF | (ELSE IF)) LPAREN logicalExpression RPAREN THEN EOL? wholeStatement+
    ;
 
 elseStatement
@@ -402,7 +402,7 @@ doVarArgs
    ;
 
 doWithLabel
-   : lblRef (COMMA)? doVarArgs
+   : lblRef (COMMA)? doVarArgs EOL? doBody EOL? continueStatement
    ;
 
 doBody
@@ -418,7 +418,7 @@ enddoStatement
    ;
 
 continueStatement
-   : CONTINUE
+   : lblRef* CONTINUE
    ;
 
 stopStatement

@@ -1,6 +1,5 @@
 package de.labathome;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -460,5 +459,31 @@ public class BlasComments {
 		for (int i=0; i<blasJavadocLines.length; ++i) {
 			System.out.println("["+i+"]: '"+blasJavadocLines[i]+"'");
 		}
+	}
+	
+	public static final String toJavaComment(final String fortranComments) {
+		
+		String[] fortranCommentLines = fortranComments.split("\n");
+		String javaComment = "";
+		
+		for (int i=0; i<fortranCommentLines.length; ++i) {
+		
+			// remove first char (comment indicator in Fortran) and trim away any now-exposed whitespaces
+			String fortranComment = fortranCommentLines[i].substring(1).trim();
+			
+			// remove any decoration (?) symbols and trim again
+			if (fortranComment.startsWith("..") || fortranComment.startsWith("--")) {
+				fortranComment = fortranComment.substring(2).trim();
+			}
+			if (fortranComment.endsWith("..") || fortranComment.endsWith("--")) {
+				fortranComment = fortranComment.substring(0, fortranComment.length()-2).trim();
+			}
+			
+			if (!fortranComment.equals("")) {
+				javaComment += "// "+fortranComment+"\n";
+			}
+		}
+		
+		return javaComment.trim();
 	}
 }

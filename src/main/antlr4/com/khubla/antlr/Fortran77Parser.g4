@@ -119,7 +119,7 @@ subprogramBody
 wholeStatement
    : LABEL? statement EOL
    ;
-   
+
 endStatement
    : LABEL? END
    ;

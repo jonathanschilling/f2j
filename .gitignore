@@ -3,6 +3,8 @@
 /Makefile
 /goto_trans/javab
 /goto_trans/make.def
+/goto_trans_bcel/GotoTrans$1TrivialFormatter.class
+/goto_trans_bcel/GotoTrans.class
 /libbytecode/Makefile
 /libbytecode/bytecode.h
 /libbytecode/make.def

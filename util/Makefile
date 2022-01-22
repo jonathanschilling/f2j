@@ -5,12 +5,13 @@ JAR=jar
 
 UTIL_JAR=f2jutil.jar
 
-VER_TARGET=1.2
+JAVA_SOURCE=1.8
+JAVA_TARGET=1.8
 
 $(UTIL_JAR):
 	mkdir -p $(OUTDIR)
-	$(JAVAC) -source $(VER_TARGET) -target $(VER_TARGET) -d $(OUTDIR) org/j_paine/formatter/*.java
-	$(JAVAC) -source $(VER_TARGET) -target $(VER_TARGET) -d $(OUTDIR) org/netlib/util/*.java
+	$(JAVAC) -source $(JAVA_SOURCE) -target $(JAVA_TARGET) -d $(OUTDIR) org/j_paine/formatter/*.java
+	$(JAVAC) -source $(JAVA_SOURCE) -target $(JAVA_TARGET) -d $(OUTDIR) org/netlib/util/*.java
 	cd $(OUTDIR); $(JAR) cvf ../$(UTIL_JAR) .
 
 install: $(UTIL_JAR)

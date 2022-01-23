@@ -1,9 +1,12 @@
 VERSION=jlapack-0.8
 
+JAVA_SOURCE=1.8
+JAVA_TARGET=1.8
+
 F2J=f2java
 JAVA=java
 MORE_MEM_FLAG=-Xmx500M
-JAVAC=javac -source 1.2 -target 1.2
+JAVAC=javac -source $(JAVA_SOURCE) -target $(JAVA_TARGET)
 JAVAB=javab
 JAR=jar
 # JAR=/usr/bin/jar

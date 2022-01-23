@@ -1,11 +1,13 @@
 VERSION=jarpack-0.1
 
 F2J_UTIL_JAR=f2jutil.jar
+JAVA_SOURCE=1.8
+JAVA_TARGET=1.8
 
 F2J=f2java
 JAVA=java
 MORE_MEM_FLAG=-Xmx500M
-JAVAC=javac -source 1.4 -target 1.4
+JAVAC:=javac -source $(JAVA_SOURCE) -target $(JAVA_TARGET)
 JAVAB=javab
 JAR=jar
 # JAR=/usr/bin/jar

@@ -44,7 +44,7 @@ y.tab.o: y.tab.c f2j.h symtab.h dlist.h \
 f2jlex.o: f2jlex.c initialize.h f2j.h symtab.h dlist.h \
  opcodes.h y.tab.h f2jmem.h 
 
-f2jmain.o: f2jmain.c f2j.h symtab.h dlist.h opcodes.h \
+f2jmain.o: f2jmain.c f2j.h symtab.h dlist.h opcodes.h unit_name.h \
  y.tab.h  f2jmem.h 
 
 symtab.o: symtab.c f2j.h symtab.h dlist.h opcodes.h \
@@ -62,7 +62,7 @@ dlist.o: dlist.c dlist.h f2j.h symtab.h opcodes.h \
 typecheck.o: typecheck.c f2j.h symtab.h dlist.h \
  opcodes.h y.tab.h f2jmem.h 
 
-optimize.o: optimize.c f2j.h symtab.h dlist.h \
+optimize.o: optimize.c f2j.h symtab.h dlist.h unit_name.h \
  opcodes.h codegen.h y.tab.h  f2jmem.h
 
 globals.o: globals.c f2j.h symtab.h dlist.h opcodes.h \

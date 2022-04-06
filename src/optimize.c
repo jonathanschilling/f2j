@@ -38,13 +38,12 @@
 #include"codegen.h"
 #include"f2jmem.h"
 #include"f2j_externs.h"
+#include"unit_name.h"
 
 /*****************************************************************************
  * Set optdebug to TRUE to get debugging output from the optimization        *
  * routines.                                                                 *
  *****************************************************************************/
-
-char *unit_name;        /* name of this function/subroutine                  */
 
 /*****************************************************************************
  * Function prototypes:                                                      *

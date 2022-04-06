@@ -28,10 +28,10 @@
 #include"dlist.h"
 #include"f2jmem.h"
 #include"f2j_externs.h"
+#include"unit_name.h"
 
 extern char *java_reserved_words[];
 extern char *generic_intrinsics[];
-extern char *unit_name;
 extern char *optarg;
 extern Dlist file_stack;
 extern Dlist include_paths;

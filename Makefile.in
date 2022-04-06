@@ -21,7 +21,7 @@ libbytecode/libbytecode.a:
 util/f2jutil.jar:
 	cd util; $(MAKE)
 
-f2java: libbytecode/libbytecode.a util/f2jutil.jar
+f2java: libbytecode/libbytecode.a
 	cd src; $(MAKE)
 
 javab:
